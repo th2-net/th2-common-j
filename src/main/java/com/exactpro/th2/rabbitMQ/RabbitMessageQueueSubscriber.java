@@ -1,0 +1,144 @@
+/*
+ * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.exactpro.th2.rabbitMQ;
+
+import static java.util.Collections.emptyMap;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.exactpro.th2.common.message.IMessageListener;
+import com.exactpro.th2.common.message.IMessageQueueSubscriber;
+import com.exactpro.th2.infra.grpc.Message;
+import com.exactpro.th2.rabbitMQ.configuration.IRabbitMQConfiguration;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.rabbitmq.client.AMQP.Queue.DeclareOk;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Delivery;
+
+public class RabbitMessageQueueSubscriber implements IMessageQueueSubscriber {
+
+    private static final int CLOSE_TIMEOUT = 1_000;
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
+
+    private final List<IMessageListener> listeners = new ArrayList<>();
+    private final ConnectionFactory factory = new ConnectionFactory();
+
+    private String subscriberName = null;
+    private String exchangeName = null;
+    private String[] queueTags = null;
+
+    private Connection connection;
+    private Channel channel;
+
+    public void init(IRabbitMQConfiguration configuration, String... queueTags) throws IllegalArgumentException, NullPointerException{
+        if (queueTags.length > 0) {
+            throw new IllegalArgumentException("Queue tags must be more than 0");
+        }
+
+        this.exchangeName = Objects.requireNonNull(configuration.getExchangeName(), "Exchange name in RabbitMQ can not be null");
+        this.queueTags = queueTags;
+        this.subscriberName = configuration.getSubscriberName();
+
+        factory.setHost(configuration.getHost());
+
+        String virtualHost = configuration.getVirtualHost();
+        if (isNotEmpty(virtualHost)) {
+            factory.setVirtualHost(virtualHost);
+        }
+
+        factory.setPort(configuration.getPort());
+
+        String username = configuration.getUsername();
+        if (isNotEmpty(username)) {
+            factory.setUsername(username);
+        }
+
+        String password = configuration.getPassword();
+        if (isNotEmpty(password)) {
+            factory.setPassword(password);
+        }
+    }
+
+    @Override
+    public void open() throws Exception {
+        if (queueTags == null || exchangeName == null) {
+            throw new IllegalStateException("Subscriber did not init");
+        }
+
+        if (subscriberName == null) {
+            subscriberName = "rabbit_mq_subscriber_" + System.currentTimeMillis();
+            logger.info("Using default subscriber name: '{}'", subscriberName);
+        }
+
+        connection = factory.newConnection();
+        channel = connection.createChannel();
+        channel.exchangeDeclare(exchangeName, "direct");
+
+        for (String queueTag : queueTags) {
+            DeclareOk declareResult = channel.queueDeclare(subscriberName, false, true, true, emptyMap());
+
+            String queue = declareResult.getQueue();
+
+            channel.queueBind(queue, exchangeName, queueTag);
+            channel.basicConsume(queue, true, this::handle, this::canceled);
+
+            logger.info("Start listening '{}':'{}'", exchangeName, queue);
+        }
+    }
+
+    @Override
+    public void addListener(IMessageListener messageListener) {
+        if (messageListener == null) {
+            return;
+        }
+
+        synchronized (listeners) {
+            listeners.add(messageListener);
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (connection != null && connection.isOpen()) {
+            connection.close(CLOSE_TIMEOUT);
+        }
+    }
+
+    private void handle(String consumeTag, Delivery delivery) {
+        try {
+            Message message = Message.parseFrom(delivery.getBody());
+
+
+
+        } catch (InvalidProtocolBufferException e) {
+            logger.error("Can not parse message from delivery for: " + consumeTag, e);
+        }
+    }
+
+    private void canceled(String consumerTag) {
+        logger.warn("Consuming cancelled for: '{}'", consumerTag);
+    }
+}
