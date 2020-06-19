@@ -15,22 +15,15 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
-import java.util.Collections;
-import java.util.List;
-
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public interface IGrpcConfiguration {
+import io.grpc.BindableService;
+import io.grpc.Server;
 
-    @Nullable
-    String getHost();
+public interface IGrpcServerFactory {
 
-    int getPort();
+    void init(@NotNull IGrpcConfiguration configuration);
 
-    @NotNull
-    default List<String> getFilter() {
-        return Collections.emptyList();
-    }
+    Server startServer(BindableService... services);
 
 }

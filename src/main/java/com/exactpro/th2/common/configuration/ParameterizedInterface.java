@@ -13,24 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.common.configuration;
 
-import java.util.Collections;
-import java.util.List;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-public interface IGrpcConfiguration {
-
-    @Nullable
-    String getHost();
-
-    int getPort();
-
-    @NotNull
-    default List<String> getFilter() {
-        return Collections.emptyList();
-    }
-
+public interface ParameterizedInterface {
 }

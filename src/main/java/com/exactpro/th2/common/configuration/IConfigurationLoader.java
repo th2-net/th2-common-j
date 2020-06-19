@@ -20,7 +20,7 @@ import java.io.InputStream;
 
 public interface IConfigurationLoader {
 
-    <T> Class<? extends T> load(Class<T> _class) throws IllegalStateException;
-    <T> T load(Class<T> _class, InputStream inputStream) throws IllegalStateException, IOException;
+    <T> Class<? extends T> load(Class<T> _class, Class<?>... types) throws IllegalStateException;
+    <T> T load(Class<T> _class, InputStream inputStream, Class<?>... types) throws IllegalStateException, IOException;
 
 }

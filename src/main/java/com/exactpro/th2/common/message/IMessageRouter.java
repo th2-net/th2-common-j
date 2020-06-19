@@ -15,11 +15,22 @@
  */
 package com.exactpro.th2.common.message;
 
-import java.io.Closeable;
+import java.io.IOException;
+import java.util.function.Supplier;
 
-public interface IMessageQueueSubscriber extends Closeable {
+import com.exactpro.th2.infra.grpc.Message;
+import com.exactpro.th2.infra.grpc.MessageFilter;
 
-    void open() throws Exception;
-    void addListener(IMessageListener messageListener);
+public interface IMessageRouter {
+
+    ISubscriberMonitor subscribe(MessageFilter filter, Supplier<Message> callback);
+
+    //async method
+    void send(Message message) throws IOException;
+
+//    void send(RawMessage rawMessage);
+//
+//    void send(MessageBatch batch);
+//    void send(RawMessageBatch rawBatch);
 
 }

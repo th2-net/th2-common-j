@@ -15,22 +15,11 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
-import java.util.Collections;
-import java.util.List;
-
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public interface IGrpcConfiguration {
+public interface IGrpcRouter {
 
-    @Nullable
-    String getHost();
+    void init(@NotNull IGrpcRouterConfiguration configuration);
 
-    int getPort();
-
-    @NotNull
-    default List<String> getFilter() {
-        return Collections.emptyList();
-    }
-
+    <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException;
 }

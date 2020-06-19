@@ -20,6 +20,9 @@ import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
@@ -30,20 +33,36 @@ import com.exactpro.th2.common.configuration.IConfigurationLoader;
 
 public class DefaultConfigurationLoader implements IConfigurationLoader {
 
-    private DefaultConfigurationLoader() {
-    }
+    private DefaultConfigurationLoader() {}
 
     public static DefaultConfigurationLoader INSTANSE = new DefaultConfigurationLoader();
 
-    @Override
-    public <T> Class<? extends T> load(Class<T> _class) throws IllegalStateException {
-        List<Provider<T>> list = ServiceLoader.load(_class).stream().collect(Collectors.toList());
+    public <T> Class<? extends T> load(Class<T> _class, Class<?>... types) {
+        var stream = ServiceLoader.load(_class).stream();
+        if (types.length > 0) {
+            stream = stream.filter(provider -> {
+                for (Type genericInterface : provider.type().getGenericInterfaces()) {
+                    if (genericInterface instanceof ParameterizedType) {
+                        return Arrays.deepEquals(((ParameterizedType)genericInterface).getActualTypeArguments(), types);
+                    }
+                }
+                return false;
+            });
+        }
+
+        List<Provider<T>> list = stream.collect(Collectors.toList());
 
         switch (list.size()) {
         case 1:
             return list.get(0).type();
         case 2:
-            return (list.get(0).type().getSimpleName().startsWith("Default") ? list.get(1) : list.get(0)).type();
+            if (list.get(0).type().getSimpleName().startsWith("Default")) {
+                return list.get(1).type();
+            } else if (list.get(1).type().getSimpleName().startsWith("Default")) {
+                list.get(0).type();
+            } else {
+                throw new IllegalStateException();
+            }
         default:
             if (list.size() < 1) {
                 throw new IllegalStateException("Can not find realization for class: " + _class);
@@ -54,8 +73,8 @@ public class DefaultConfigurationLoader implements IConfigurationLoader {
     }
 
     @Override
-    public <T> T load(Class<T> _class, InputStream inputStream) throws IllegalStateException, IOException {
-        Class<? extends T> cls = load(_class);
+    public <T> T load(Class<T> _class, InputStream inputStream, Class<?>... types) throws IllegalStateException, IOException {
+        Class<? extends T> cls = load(_class, types);
 
         try {
             Constructor<? extends T> constructor = cls.getConstructor();
@@ -91,5 +110,4 @@ public class DefaultConfigurationLoader implements IConfigurationLoader {
             throw new IllegalStateException("Can not find default constructor for class: " + _class);
         }
     }
-
 }

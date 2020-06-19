@@ -28,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
@@ -39,6 +40,17 @@ public class ConfigurationUtils {
     @Nullable
     public static String getEnv(String key, @Nullable String defaultValue) {
         return ObjectUtils.defaultIfNull(System.getenv(key), defaultValue);
+    }
+
+    @Nullable
+    public static <T> T getJsonEnv(String key, TypeReference<T> cls) {
+        String env = getEnv(key, null);
+        try {
+            return env == null ? null : YAML_READER.readValue(env, cls);
+        } catch (IOException e) {
+            LOGGER.error("Can not parse json environment variable with key: " + key, e);
+            return null;
+        }
     }
 
     public static <T> T load(Class<T> _class, InputStream inputStream) throws IOException {

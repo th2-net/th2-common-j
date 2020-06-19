@@ -15,10 +15,12 @@
  */
 package com.exactpro.th2.common.message;
 
-import com.exactpro.th2.infra.grpc.Message;
+/**
+ * Listen message from {@link IMessageSubscriber}
+ * @param <T>
+ */
+public interface IMessageListener<T> {
 
-public interface IMessageListener {
-
-    void handler(String consumerTag, Message message) throws Exception;
+    void handler(String consumerTag, T message) throws Exception;
 
 }

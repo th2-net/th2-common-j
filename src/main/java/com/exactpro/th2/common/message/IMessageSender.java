@@ -13,24 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.common.message;
 
-import java.util.Collections;
-import java.util.List;
+import java.io.Closeable;
+import java.io.IOException;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+/**
+ * Send message to {@link IMessageQueue}
+ * @param <T>
+ */
+public interface IMessageSender<T> extends Closeable {
 
-public interface IGrpcConfiguration {
-
-    @Nullable
-    String getHost();
-
-    int getPort();
-
-    @NotNull
-    default List<String> getFilter() {
-        return Collections.emptyList();
-    }
+    void start() throws Exception;
+    void send(T message) throws IOException;
 
 }

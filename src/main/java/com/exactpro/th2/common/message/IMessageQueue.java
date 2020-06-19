@@ -15,10 +15,23 @@
  */
 package com.exactpro.th2.common.message;
 
-public interface IMessageQueueFactory {
+import org.jetbrains.annotations.NotNull;
 
-    IMessageQueueSubscriber createListener(String... tags);
+import com.exactpro.th2.common.configuration.ParameterizedInterface;
+import com.exactpro.th2.rabbitMQ.configuration.IRabbitMQConfiguration;
 
-    IMessageQueueSender createSender(String tag);
+/**
+ * Message queue
+ * @param <T>
+ * @see IMessageSubscriber
+ * @see IMessageSender
+ */
+public interface IMessageQueue<T> extends ParameterizedInterface {
+
+    void init(@NotNull IRabbitMQConfiguration configuration, @NotNull String subscriberTag, @NotNull String senderTag);
+
+    IMessageSubscriber<T> createSubscriber();
+
+    IMessageSender<T> createSender();
 
 }

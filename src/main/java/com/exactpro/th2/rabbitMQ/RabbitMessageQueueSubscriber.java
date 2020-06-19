@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.common.message.IMessageListener;
-import com.exactpro.th2.common.message.IMessageQueueSubscriber;
+import com.exactpro.th2.common.message.IMessageSubscriber;
 import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.rabbitMQ.configuration.IRabbitMQConfiguration;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -37,7 +37,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
 
-public class RabbitMessageQueueSubscriber implements IMessageQueueSubscriber {
+public class RabbitMessageQueueSubscriber implements IMessageSubscriber<Message> {
 
     private static final int CLOSE_TIMEOUT = 1_000;
 
@@ -83,7 +83,7 @@ public class RabbitMessageQueueSubscriber implements IMessageQueueSubscriber {
     }
 
     @Override
-    public void open() throws Exception {
+    public void start() throws Exception {
         if (queueTags == null || exchangeName == null) {
             throw new IllegalStateException("Subscriber did not init");
         }

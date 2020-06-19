@@ -17,30 +17,35 @@ package com.exactpro.th2.rabbitMQ;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.common.message.IMessageQueueFactory;
-import com.exactpro.th2.common.message.IMessageQueueSender;
-import com.exactpro.th2.common.message.IMessageQueueSubscriber;
+import com.exactpro.th2.common.message.IMessageQueue;
+import com.exactpro.th2.common.message.IMessageSender;
+import com.exactpro.th2.common.message.IMessageSubscriber;
+import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.rabbitMQ.configuration.IRabbitMQConfiguration;
 
-public class RabbitMessageQueueFactory implements IMessageQueueFactory {
+public class RabbitMessageQueue implements IMessageQueue<Message> {
 
     private IRabbitMQConfiguration configuration = null;
+    private String subscriberTag;
+    private String senderTag;
 
-    public void init(@NotNull IRabbitMQConfiguration configuration) {
+    public void init(@NotNull IRabbitMQConfiguration configuration, @NotNull String subscriberTag, @NotNull String senderTag) {
         this.configuration = configuration;
+        this.subscriberTag = subscriberTag;
+        this.senderTag = senderTag;
     }
 
     @Override
-    public IMessageQueueSubscriber createListener(String... tags) {
+    public IMessageSubscriber<Message> createSubscriber() {
         RabbitMessageQueueSubscriber subscriber = new RabbitMessageQueueSubscriber();
-        subscriber.init(configuration, tags);
+        subscriber.init(configuration, subscriberTag);
         return subscriber;
     }
 
     @Override
-    public IMessageQueueSender createSender(String tag) {
+    public IMessageSender<Message> createSender() {
         RabbitMessageQueueSender sender = new RabbitMessageQueueSender();
-        sender.init(configuration, tag);
+        sender.init(configuration, senderTag);
         return sender;
     }
 }

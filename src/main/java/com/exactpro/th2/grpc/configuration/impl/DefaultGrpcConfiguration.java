@@ -20,30 +20,36 @@ import static org.apache.commons.lang3.math.NumberUtils.toInt;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
+import java.util.List;
+
+import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.ConfigurationUtils;
 import com.exactpro.th2.grpc.configuration.IGrpcConfiguration;
-
-import io.grpc.BindableService;
-import io.grpc.Server;
-import io.grpc.netty.NettyServerBuilder;
 
 public class DefaultGrpcConfiguration implements IGrpcConfiguration {
 
     private int port = toInt(getEnv("GRPC_PORT", null), 8888);
     private String host = getEnv("GRPC_HOST", null);
 
-    @Override
-    public Server startServer(BindableService... services) {
-        NettyServerBuilder builder = host == null ? NettyServerBuilder.forPort(port) : NettyServerBuilder.forAddress(InetSocketAddress.createUnresolved(host, port));
-        for (BindableService service : services) {
-            builder.addService(service);
-        }
-        return builder.build();
-    }
-
     public static DefaultGrpcConfiguration load(InputStream inputStream) throws IOException {
         return ConfigurationUtils.load(DefaultGrpcConfiguration.class, inputStream);
+    }
+
+    @Override
+    @Nullable
+    public String getHost() {
+        return host;
+    }
+
+    @Override
+    public int getPort() {
+        return port;
+    }
+
+    @Nullable
+    @Override
+    public List<String> getFilter() {
+        return null;
     }
 }

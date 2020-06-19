@@ -15,22 +15,17 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public interface IGrpcConfiguration {
-
-    @Nullable
-    String getHost();
-
-    int getPort();
+public interface IGrpcRouterConfiguration {
 
     @NotNull
-    default List<String> getFilter() {
-        return Collections.emptyList();
-    }
+    Map<String, List<IGrpcConfiguration>> getGrpcConnections();
+
+    @NotNull
+    Map<String, Class<?>> getClassesAliases();
 
 }

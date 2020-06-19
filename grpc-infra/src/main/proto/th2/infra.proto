@@ -125,6 +125,7 @@ message ListValueFilter {
 message MessageFilter {
   string messageType = 1;
   string direction = 2;
+  ConnectionID connection_id = 4;
   map<string, ValueFilter> fields = 3;
 }
 

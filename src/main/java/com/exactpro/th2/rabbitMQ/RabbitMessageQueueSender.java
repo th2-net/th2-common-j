@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.common.message.IMessageQueueSender;
+import com.exactpro.th2.common.message.IMessageSender;
 import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.rabbitMQ.configuration.IRabbitMQConfiguration;
 import com.google.protobuf.TextFormat;
@@ -31,7 +31,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 
-public class RabbitMessageQueueSender implements IMessageQueueSender {
+public class RabbitMessageQueueSender implements IMessageSender<Message> {
 
     private static final int CLOSE_TIMEOUT = 1_000;
 
@@ -69,7 +69,7 @@ public class RabbitMessageQueueSender implements IMessageQueueSender {
     }
 
     @Override
-    public void open() throws Exception {
+    public void start() throws Exception {
         if (sendQueue == null || exchangeName == null) {
             throw new IllegalStateException("Sender did not init");
         }

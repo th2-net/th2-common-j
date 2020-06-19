@@ -15,14 +15,29 @@
  */
 package com.exactpro.th2.configuration.impl;
 
+import static com.exactpro.th2.ConfigurationUtils.getJsonEnv;
+import static java.util.Collections.emptyMap;
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
+
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 
+import com.exactpro.th2.ConfigurationUtils;
 import com.exactpro.th2.configuration.ITH2Configuration;
 import com.exactpro.th2.configuration.QueueNames;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 public class DefaultTH2Configuration implements ITH2Configuration {
+
+    private Map<String, QueueNames> connectivityQueues = defaultIfNull(getJsonEnv("TH2_CONNECTIVITY_QUEUE_NAMES", new TypeReference<>() {}), emptyMap());
+
     @Override
     public Map<String, QueueNames> getConnectivityQueues() {
-        return null;
+        return connectivityQueues;
+    }
+
+    public static DefaultTH2Configuration load(InputStream inputStream) throws IOException {
+        return ConfigurationUtils.load(DefaultTH2Configuration.class, inputStream);
     }
 }

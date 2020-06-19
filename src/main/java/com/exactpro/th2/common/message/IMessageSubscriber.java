@@ -16,13 +16,14 @@
 package com.exactpro.th2.common.message;
 
 import java.io.Closeable;
-import java.io.IOException;
 
-import com.exactpro.th2.infra.grpc.Message;
+/**
+ * Listen messages and transmit it to {@link IMessageListener}
+ * @param <T>
+ */
+public interface IMessageSubscriber<T> extends Closeable {
 
-public interface IMessageQueueSender extends Closeable {
-
-    void open() throws Exception;
-    void send(Message message) throws IOException;
+    void start() throws Exception;
+    void addListener(IMessageListener<T> messageListener);
 
 }
