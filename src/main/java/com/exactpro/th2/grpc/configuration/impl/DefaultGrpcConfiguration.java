@@ -25,9 +25,9 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.ConfigurationUtils;
-import com.exactpro.th2.grpc.configuration.IGrpcConfiguration;
+import com.exactpro.th2.grpc.configuration.GrpcConfiguration;
 
-public class DefaultGrpcConfiguration implements IGrpcConfiguration {
+public class DefaultGrpcConfiguration implements GrpcConfiguration {
 
     private int port = toInt(getEnv("GRPC_PORT", null), 8888);
     private String host = getEnv("GRPC_HOST", null);

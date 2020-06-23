@@ -46,7 +46,7 @@ public class MicroserviceConfiguration extends Configuration {
     public String toString() {
         return "MicroserviceConfiguration{" +
                 "th2=" + th2 +
-                ", rabbitMQ=" + rabbitMQ +
+                ", rabbitmq=" + rabbitMQ +
                 '}';
     }
 }
