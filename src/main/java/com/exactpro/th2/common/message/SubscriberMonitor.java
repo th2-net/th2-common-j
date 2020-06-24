@@ -15,8 +15,10 @@
  */
 package com.exactpro.th2.common.message;
 
+import java.io.IOException;
+
 public interface SubscriberMonitor {
 
-    void unsubcribe();
+    void unsubscribe() throws IOException;
 
 }

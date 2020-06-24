@@ -15,15 +15,98 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
+import static java.util.Collections.emptySet;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import org.apache.commons.collections4.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
-public interface MessageRouterConfiguration {
+import com.exactpro.th2.infra.grpc.MessageFilter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-    RabbitMQConfiguration getRabbitMQConfiguration();
+public class MessageRouterConfiguration {
 
-    Set<String> getQueuesByTypes(String... types);
-    Set<String> getQueuesByTypesAndFilters(String[] types, String[] filters);
+    @JsonProperty
+    private Map<String, QueueConfiguration> queues;
+
+    @JsonProperty
+    private Map<String, Set<String>> attributes;
+
+    @JsonProperty
+    private Map<String, RouterFilterConfiguration> filters;
+
+    @JsonProperty
+    private Map<String, Set<String>> queueFilters;
+
+    public Map<String, QueueConfiguration> getQueues() {
+        return queues;
+    }
+
+    public void setQueues(Map<String, QueueConfiguration> queues) {
+        this.queues = queues;
+    }
+
+    public Map<String, Set<String>> getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(Map<String, Set<String>> attributes) {
+        this.attributes = attributes;
+    }
+
+    public Map<String, RouterFilterConfiguration> getFilters() {
+        return filters;
+    }
+
+    public void setFilters(Map<String, RouterFilterConfiguration> filters) {
+        this.filters = filters;
+    }
+
+    public Map<String, Set<String>> getQueueFilters() {
+        return queueFilters;
+    }
+
+    public void setQueueFilters(Map<String, Set<String>> queueFilters) {
+        this.queueFilters = queueFilters;
+    }
+
+    @Nullable
+    public QueueConfiguration getQueueByAlias(String queueAlias) {
+        return queues.get(queueAlias);
+    }
+
+    public Set<String> getQueuesAliasByAttribute(String... types) {
+        var list = Arrays.stream(types).map(type -> this.attributes.get(type)).collect(Collectors.toList());
+
+        var iterator = list.iterator();
+
+        Set<String> start = iterator.next();
+
+        if (start == null) {
+            return emptySet();
+        }
+
+
+        while (iterator.hasNext()) {
+            Set<String> next = iterator.next();
+
+            if (next == null) {
+                return emptySet();
+            }
+
+            start = new HashSet<>(CollectionUtils.intersection(start, next));
+        }
+
+        return start;
+    }
+
+    public Set<String> getQueueAliasByMesageFilter(MessageFilter filter) {
+        return null;
+    }
 
 }

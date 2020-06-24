@@ -30,8 +30,8 @@ public interface MessageQueue<T> {
 
     void init(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration);
 
-    MessageSubscriber<T> createSubscriber();
+    MessageSubscriber<T> getSubscriber();
 
-    MessageSender<T> createSender();
+    MessageSender<T> getSender();
 
 }

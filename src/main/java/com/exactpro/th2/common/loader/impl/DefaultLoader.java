@@ -25,13 +25,13 @@ import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.stream.Collectors;
 
-import com.exactpro.th2.common.loader.ConfigurationLoader;
+import com.exactpro.th2.common.loader.Loader;
 
-public class DefaultConfigurationLoader implements ConfigurationLoader {
+public class DefaultLoader implements Loader {
 
-    private DefaultConfigurationLoader() {}
+    private DefaultLoader() {}
 
-    public static DefaultConfigurationLoader INSTANSE = new DefaultConfigurationLoader();
+    public static DefaultLoader INSTANCE = new DefaultLoader();
 
     public <T> Class<? extends T> load(Class<T> _class, Class<?>... types) {
         var stream = ServiceLoader.load(_class).stream();
@@ -85,6 +85,7 @@ public class DefaultConfigurationLoader implements ConfigurationLoader {
 
             return Arrays.deepEquals(((ParameterizedType)genericSuperclass).getActualTypeArguments(), types);
         }
+
 
         for (Type genericInterface : genericInterfaces) {
             if (genericInterface instanceof ParameterizedType) {

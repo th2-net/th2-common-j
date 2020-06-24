@@ -15,39 +15,28 @@
  */
 package com.exactpro.th2.common.message.impl.rabbitmq.raw;
 
-import java.util.Objects;
-
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.common.message.MessageQueue;
 import com.exactpro.th2.common.message.MessageSender;
 import com.exactpro.th2.common.message.MessageSubscriber;
 import com.exactpro.th2.common.message.configuration.QueueConfiguration;
+import com.exactpro.th2.common.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 
-public class RabbitRawBatchQueue implements MessageQueue<RawMessageBatch> {
-
-    private RabbitMQConfiguration configuration = null;
-    private QueueConfiguration queueConfiguration = null;
+public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     @Override
-    public void init(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
-        this.configuration = Objects.requireNonNull(configuration, "Rabbit MQ configuration can not be null");
-        this.queueConfiguration = Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
-    }
-
-    @Override
-    public MessageSubscriber<RawMessageBatch> createSubscriber() {
-        var result = new RabbitRawBatchSubscriber();
-        result.init(configuration, queueConfiguration.getExchangeName(), queueConfiguration.getName());
+    protected MessageSender<RawMessageBatch> createSender(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
+        var result = new RabbitRawBatchSender();
+        result.init(configuration, queueConfiguration.getExchange(), queueConfiguration.getName());
         return result;
     }
 
     @Override
-    public MessageSender<RawMessageBatch> createSender() {
-        var result = new RabbitRawBatchSender();
-        result.init(configuration, queueConfiguration.getExchangeName(), queueConfiguration.getName());
+    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
+        var result = new RabbitRawBatchSubscriber();
+        result.init(configuration, queueConfiguration.getExchange(), queueConfiguration.getName());
         return result;
     }
 }

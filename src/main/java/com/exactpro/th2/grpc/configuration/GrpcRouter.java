@@ -15,14 +15,34 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
+import java.net.InetSocketAddress;
+
 import org.jetbrains.annotations.NotNull;
 
 import io.grpc.BindableService;
 import io.grpc.Server;
+import io.grpc.netty.NettyServerBuilder;
 
 public interface GrpcRouter {
 
+    void init(ClientGrpcConfiguration configuration);
+
     <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException;
 
-    Server startServer(GrpcConfiguration configuration, BindableService... services);
+    default Server startServer(ServerGrpcConfiguration configuration, BindableService... services) {
+
+        NettyServerBuilder builder;
+
+        if (configuration.getHost() == null) {
+            builder = NettyServerBuilder.forPort(configuration.getPort());
+        } else {
+            builder = NettyServerBuilder.forAddress(InetSocketAddress.createUnresolved(configuration.getHost(), configuration.getPort()));
+        }
+
+        for (BindableService service : services) {
+            builder.addService(service);
+        }
+
+        return builder.build();
+    }
 }

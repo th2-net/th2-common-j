@@ -20,8 +20,6 @@ import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.common.message.MessageSender;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -32,8 +30,6 @@ import com.rabbitmq.client.ConnectionFactory;
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
     private static final int CLOSE_TIMEOUT = 1_000;
-
-    protected final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
 
     private ConnectionFactory factory = new ConnectionFactory();
     private Connection connection = null;
@@ -48,7 +44,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
         factory.setHost(configuration.getHost());
 
-        String virtualHost = configuration.getVirtualHost();
+        String virtualHost = configuration.getvHost();
         if (StringUtils.isNotEmpty(virtualHost)) {
             factory.setVirtualHost(virtualHost);
         }

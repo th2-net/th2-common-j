@@ -17,19 +17,27 @@ package com.exactpro.th2.common.message;
 
 import java.io.IOException;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.infra.grpc.MessageFilter;
 
 public interface MessageRouter<T> {
 
-    void init(MessageRouterConfiguration configuration);
+    void init(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull MessageRouterConfiguration configuration);
 
+    @Nullable
     SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback);
+
+    @Nullable
     SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback);
+
     SubscriberMonitor subscribeAll(MessageListener<T> callback);
 
     void send(T message) throws IOException;
 
-    void send(String queueAlias, T message) throws IOException;
+    void send(T message, String... arguments) throws IOException;
 
 }

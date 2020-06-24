@@ -17,13 +17,28 @@ package com.exactpro.th2.common.message.configuration;
 
 import java.util.Map;
 
-import com.exactpro.th2.infra.grpc.MessageFilter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public interface RouterFilterConfiguration {
+public class RouterFilterConfiguration {
 
-    Map<String, ? extends FilterConfiguration> getMetadata();
-    Map<String, ? extends FilterConfiguration> getMessage();
+    @JsonProperty
+    private Map<String, FilterConfiguration> metadata;
+    @JsonProperty
+    private Map<String, FilterConfiguration> message;
 
-    boolean inspect(MessageFilter messageFilter);
+    public Map<String, FilterConfiguration> getMetadata() {
+        return metadata;
+    }
 
+    public void setMetadata(Map<String, FilterConfiguration> metadata) {
+        this.metadata = metadata;
+    }
+
+    public Map<String, FilterConfiguration> getMessage() {
+        return message;
+    }
+
+    public void setMessage(Map<String, FilterConfiguration> message) {
+        this.message = message;
+    }
 }

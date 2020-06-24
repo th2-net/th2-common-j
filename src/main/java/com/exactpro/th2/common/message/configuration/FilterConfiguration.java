@@ -16,10 +16,28 @@
 package com.exactpro.th2.common.message.configuration;
 
 import com.exactpro.th2.infra.grpc.FilterOperation;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public interface FilterConfiguration {
+public class FilterConfiguration {
 
-    String getValue();
-    FilterOperation getFilterOperation();
+    @JsonProperty
+    private String value;
+    @JsonProperty
+    private FilterOperation operation;
 
+    public String getValue() {
+        return value;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+
+    public FilterOperation getOperation() {
+        return operation;
+    }
+
+    public void setOperation(FilterOperation operation) {
+        this.operation = operation;
+    }
 }

@@ -15,19 +15,60 @@
  */
 package com.exactpro.th2.common.message.impl.rabbitmq.configuration;
 
-import org.jetbrains.annotations.Nullable;
+public class RabbitMQConfiguration {
 
-import com.exactpro.th2.common.configuration.Configuration;
+    private String host;
+    private String vHost;
+    private int port;
+    private String username;
+    private String password;
+    private String subscriberName;
 
-public interface RabbitMQConfiguration extends Configuration {
+    public String getHost() {
+        return host;
+    }
 
-    String getHost();
-    String getVirtualHost();
-    int getPort();
-    String getUsername();
-    String getPassword();
+    public String getvHost() {
+        return vHost;
+    }
 
-    @Nullable
-    String getSubscriberName();
+    public int getPort() {
+        return port;
+    }
 
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getSubscriberName() {
+        return subscriberName;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    public void setvHost(String vHost) {
+        this.vHost = vHost;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public void setSubscriberName(String subscriberName) {
+        this.subscriberName = subscriberName;
+    }
 }

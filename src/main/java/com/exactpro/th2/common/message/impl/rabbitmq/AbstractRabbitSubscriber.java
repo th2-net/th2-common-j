@@ -19,9 +19,9 @@ import static java.util.Collections.emptyMap;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -42,7 +42,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
 
-    private final List<MessageListener<T>> listeners = new ArrayList<>();
+    private final Set<MessageListener<T>> listeners = new HashSet<>();
     private final ConnectionFactory factory = new ConnectionFactory();
 
     private String subscriberName = null;
@@ -63,7 +63,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         factory.setHost(configuration.getHost());
 
-        String virtualHost = configuration.getVirtualHost();
+        String virtualHost = configuration.getvHost();
         if (isNotEmpty(virtualHost)) {
             factory.setVirtualHost(virtualHost);
         }

@@ -18,23 +18,14 @@ package com.exactpro.th2.grpc.configuration.impl;
 import static com.exactpro.th2.ConfigurationUtils.getEnv;
 import static org.apache.commons.lang3.math.NumberUtils.toInt;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-
 import org.jetbrains.annotations.Nullable;
 
-import com.exactpro.th2.ConfigurationUtils;
-import com.exactpro.th2.grpc.configuration.GrpcConfiguration;
+import com.exactpro.th2.grpc.configuration.ServerGrpcConfiguration;
 
-public class DefaultGrpcConfiguration implements GrpcConfiguration {
+public class DefaultGrpcConfiguration implements ServerGrpcConfiguration {
 
     private int port = toInt(getEnv("GRPC_PORT", null), 8888);
     private String host = getEnv("GRPC_HOST", null);
-
-    public static DefaultGrpcConfiguration load(InputStream inputStream) throws IOException {
-        return ConfigurationUtils.load(DefaultGrpcConfiguration.class, inputStream);
-    }
 
     @Override
     @Nullable
@@ -45,11 +36,5 @@ public class DefaultGrpcConfiguration implements GrpcConfiguration {
     @Override
     public int getPort() {
         return port;
-    }
-
-    @Nullable
-    @Override
-    public List<String> getFilter() {
-        return null;
     }
 }

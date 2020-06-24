@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.configuration;
+package com.exactpro.th2.common.loader;
 
-public interface Configuration {}
+public interface Loader {
+
+    <T> Class<? extends T> load(Class<T> _class, Class<?>... types) throws IllegalStateException;
+    <T> T createInstance(Class<T> _class, Class<?>... types) throws IllegalStateException;
+
+}

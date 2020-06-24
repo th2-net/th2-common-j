@@ -15,15 +15,29 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
-import org.jetbrains.annotations.NotNull;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public interface QueueConfiguration {
+public class QueueConfiguration {
 
-    @NotNull
-    String getName();
+    @JsonProperty(required = true)
+    private String name;
 
-    @NotNull
-    String getExchangeName();
+    @JsonProperty(required = true)
+    private String exchange;
 
+    public String getName() {
+        return name;
+    }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getExchange() {
+        return exchange;
+    }
+
+    public void setExchange(String exchange) {
+        this.exchange = exchange;
+    }
 }
