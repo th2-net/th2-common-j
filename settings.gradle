@@ -1,1 +1,2 @@
 include "grpc-infra"
+include 'service-generator'

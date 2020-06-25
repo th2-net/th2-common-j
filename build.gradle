@@ -104,6 +104,7 @@ ext {
 
 dependencies {
     compile(project(':grpc-infra'))
+    compile(project(':service-generator'))
 
     compile "com.exactpro.sf:sailfish-core:${sailfishVersion}"
 
