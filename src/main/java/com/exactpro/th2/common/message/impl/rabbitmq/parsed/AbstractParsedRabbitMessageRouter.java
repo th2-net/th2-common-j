@@ -15,11 +15,16 @@
  */
 package com.exactpro.th2.common.message.impl.rabbitmq.parsed;
 
+import org.jetbrains.annotations.Nullable;
+
+import com.exactpro.th2.common.message.MessageListener;
 import com.exactpro.th2.common.message.MessageQueue;
+import com.exactpro.th2.common.message.SubscriberMonitor;
 import com.exactpro.th2.common.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.AbstractRabbitMessageRouter;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.infra.grpc.MessageBatch;
+import com.exactpro.th2.infra.grpc.MessageFilter;
 
 public abstract class AbstractParsedRabbitMessageRouter extends AbstractRabbitMessageRouter<MessageBatch> {
 
@@ -28,5 +33,14 @@ public abstract class AbstractParsedRabbitMessageRouter extends AbstractRabbitMe
         RabbitParsedBatchQueue queue = new RabbitParsedBatchQueue();
         queue.init(configuration, queueConfiguration);
         return queue;
+    }
+
+    @Nullable
+    @Override
+    public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<MessageBatch> callback) {
+        return super.subscribe(filter, (consumerTag, message) -> {
+//            callback.handler(consumerTag, MessageBatch.newBuilder().addAllMessages());
+            //TODO:
+        });
     }
 }

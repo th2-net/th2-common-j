@@ -1,3 +1,41 @@
 {
-
+  "servers": {
+    "simulator1": {
+      "host": "1",
+      "port": 1
+    },
+    "simulator2": {
+      "host": "2",
+      "port": 2
+    },
+    "notsimulator1":{
+      "host": "123",
+      "port": 123
+    }
+  },
+  "classes": {
+    "com.exactpro.th2.grpc.anlt.SimulatorService": ["simulator1", "simulator2"]
+  },
+  "stubs": {
+    "com.exactpro.th2.grpc.anlt.SimulatorService": {
+      "async": "com.exactpro.th2.simulator.grpc.SimulatorGrpc.SimulatorBlockingStub",
+      "sync": "com.exactpro.th2.simulator.grpc.SimulatorGrpc.SimulatorFutureStub"
+    }
+  },
+  "filters": {
+    "templatefilter": {
+      "message": {
+        "a": {
+          "value": "5",
+          "operation": "EQUAL"
+        }
+      }
+    }
+  },
+  "grpcFilters": {
+    "templatefilter": [
+      "simulator1",
+      "notsimulator1"
+    ]
+  }
 }

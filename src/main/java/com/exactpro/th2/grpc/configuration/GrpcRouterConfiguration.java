@@ -26,11 +26,13 @@ public class GrpcRouterConfiguration {
     @JsonProperty
     private Map<String, GrpcConfiguration> servers;
     @JsonProperty
-    private Map<Class<?>, Set<String>> classesServers;
+    private Map<Class<?>, Set<String>> classes;
+    @JsonProperty
+    private Map<Class<?>, ClassesConfiguration> stubs;
     @JsonProperty
     private Map<String, RouterFilterConfiguration> filters;
     @JsonProperty
-    private Map<String, Set<String>> queueFilters;
+    private Map<String, Set<String>> grpcFilters;
 
     @JsonProperty
     private GrpcConfiguration server;
@@ -43,14 +45,6 @@ public class GrpcRouterConfiguration {
         this.servers = servers;
     }
 
-    public Map<Class<?>, Set<String>> getClassesServers() {
-        return classesServers;
-    }
-
-    public void setClassesServers(Map<Class<?>, Set<String>> classesServers) {
-        this.classesServers = classesServers;
-    }
-
     public Map<String, RouterFilterConfiguration> getFilters() {
         return filters;
     }
@@ -59,12 +53,20 @@ public class GrpcRouterConfiguration {
         this.filters = filters;
     }
 
-    public Map<String, Set<String>> getQueueFilters() {
-        return queueFilters;
+    public Map<Class<?>, Set<String>> getClasses() {
+        return classes;
     }
 
-    public void setQueueFilters(Map<String, Set<String>> queueFilters) {
-        this.queueFilters = queueFilters;
+    public void setClasses(Map<Class<?>, Set<String>> classes) {
+        this.classes = classes;
+    }
+
+    public Map<String, Set<String>> getGrpcFilters() {
+        return grpcFilters;
+    }
+
+    public void setGrpcFilters(Map<String, Set<String>> grpcFilters) {
+        this.grpcFilters = grpcFilters;
     }
 
     public GrpcConfiguration getServerConfiguration() {

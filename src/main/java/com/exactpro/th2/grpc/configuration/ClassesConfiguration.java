@@ -13,32 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.configuration;
+package com.exactpro.th2.grpc.configuration;
 
-import com.exactpro.th2.infra.grpc.FilterOperation;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class FilterConfiguration {
+public class ClassesConfiguration {
 
     @JsonProperty
-    private String value;
+    private Class<?> async;
 
-    @JsonProperty(required = true)
-    private FilterOperation operation;
-
-    public String getValue() {
-        return value;
-    }
-
-    public void setValue(String value) {
-        this.value = value;
-    }
-
-    public FilterOperation getOperation() {
-        return operation;
-    }
-
-    public void setOperation(FilterOperation operation) {
-        this.operation = operation;
-    }
+    @JsonProperty
+    private Class<?> sync;
 }
