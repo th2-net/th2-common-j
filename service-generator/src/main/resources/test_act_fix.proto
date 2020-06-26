@@ -51,6 +51,13 @@ service Act {
     }
 }
 
+service Act2 {
+
+    rpc test (PlaceMessageRequest) returns (PlaceMessageResponse) {
+    }
+
+}
+
 message SendMessageResponse {
     RequestStatus status = 1;
     Checkpoint checkpoint_id = 2;

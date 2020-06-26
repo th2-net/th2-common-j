@@ -56,7 +56,7 @@ public class ServiceClassGenerator {
 
             var pathToClass = getPathToClass(genDir, desc.getPackageName()).toFile();
 
-            if(!pathToClass.mkdirs()){
+            if(!pathToClass.exists() && !pathToClass.mkdirs()){
                 throw new IOException("Failed to create directories for class generation");
             }
 
