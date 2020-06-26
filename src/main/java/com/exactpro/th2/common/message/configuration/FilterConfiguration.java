@@ -22,7 +22,7 @@ public class FilterConfiguration {
 
     @JsonProperty
     private String value;
-    @JsonProperty
+    @JsonProperty(required = true)
     private FilterOperation operation;
 
     public String getValue() {

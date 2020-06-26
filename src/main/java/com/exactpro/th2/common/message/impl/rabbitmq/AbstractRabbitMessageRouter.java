@@ -33,6 +33,7 @@ import com.exactpro.th2.common.message.SubscriberMonitor;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.infra.grpc.MessageFilter;
 
 public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
@@ -44,6 +45,12 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     public void init(RabbitMQConfiguration rabbitMQConfiguration, MessageRouterConfiguration configuration) {
         this.configuration = configuration;
         this.rabbitMQConfiguration = rabbitMQConfiguration;
+    }
+
+    @Nullable
+    @Override
+    public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback) {
+        return subscribe(callback, configuration.getQueueAliasByMesageFilter(filter).toArray(new String[0]));
     }
 
     @Override
