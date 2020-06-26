@@ -13,18 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.exception;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+public class NoConnectionToSendException extends GrpcRouterException {
 
-@Data
-public class GrpcConfiguration {
+    public NoConnectionToSendException() {
+        super();
+    }
 
-    @JsonProperty
-    private int port;
-
-    @JsonProperty
-    private String host;
+    public NoConnectionToSendException(String message) {
+        super(message);
+    }
 
 }

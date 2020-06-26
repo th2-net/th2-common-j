@@ -13,15 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.common.message.impl.rabbitmq.router.impl;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.exactpro.th2.common.message.impl.rabbitmq.router.AbstractRawRabbitMessageRouter;
+import com.exactpro.th2.infra.grpc.RawMessageBatch;
 
-public class StubConfiguration {
+import java.util.List;
 
-    @JsonProperty
-    private Class<?> blocking;
+public class DefaultRawRabbitMessageRouter extends AbstractRawRabbitMessageRouter {
 
-    @JsonProperty
-    private Class<?> future;
+    @Override
+    protected List<String> getTargetQueueAliasesForSend(RawMessageBatch message) {
+        throw new UnsupportedOperationException();
+    }
+
 }

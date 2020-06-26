@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.common.message.impl.rabbitmq.router.impl;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import com.exactpro.th2.common.message.impl.rabbitmq.router.AbstractParsedRabbitMessageRouter;
+import com.exactpro.th2.infra.grpc.MessageBatch;
 
-@Data
-public class GrpcConfiguration {
+import java.util.List;
 
-    @JsonProperty
-    private int port;
+public class DefaultParsedRabbitMessageRouter extends AbstractParsedRabbitMessageRouter {
 
-    @JsonProperty
-    private String host;
+    @Override
+    protected List<String> getTargetQueueAliasesForSend(MessageBatch message) {
+        throw new UnsupportedOperationException();
+    }
 
 }

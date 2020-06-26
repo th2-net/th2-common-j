@@ -15,73 +15,61 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
-import java.util.Map;
-import java.util.Set;
-
-import com.exactpro.th2.common.message.configuration.RouterFilterConfiguration;
+import com.exactpro.th2.common.message.configuration.FilterConfiguration;
+import com.exactpro.th2.exception.NoConnectionToSendException;
+import com.exactpro.th2.grpc.router.strategy.fieldExtraction.FieldExtractionStrategy;
+import com.exactpro.th2.grpc.router.strategy.fieldExtraction.impl.Th2MsgFieldExtraction;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.protobuf.Message;
+import io.grpc.stub.AbstractStub;
+import lombok.Data;
 
+import java.util.Map;
+
+@Data
 public class GrpcRouterConfiguration {
+
+    @JsonProperty
+    private Map<Class<?>, Class<? extends AbstractStub>> services;
 
     @JsonProperty
     private Map<String, GrpcConfiguration> servers;
 
     @JsonProperty
-    private Map<Class<?>, Set<String>> classes;
+    private Map<String, GrpcRouterFilterConfiguration> filters;
 
     @JsonProperty
-    private Map<Class<?>, StubConfiguration> stubs;
+    private Map<String, String> grpcFilters;
 
     @JsonProperty
-    private Map<String, RouterFilterConfiguration> filters;
+    private GrpcConfiguration serverConfiguration;
 
-    @JsonProperty
-    private Map<String, Set<String>> grpcFilters;
 
-    @JsonProperty
-    private GrpcConfiguration server;
-
-    public Map<String, GrpcConfiguration> getServers() {
-        return servers;
+    public GrpcConfiguration getGrpcConfigByFilter(Message message) {
+        return getGrpcConfigByFilter(message, new Th2MsgFieldExtraction());
     }
 
-    public void setServers(Map<String, GrpcConfiguration> servers) {
-        this.servers = servers;
+    public GrpcConfiguration getGrpcConfigByFilter(Message message, FieldExtractionStrategy fieldExtStrategy) {
+
+        var msgFields = fieldExtStrategy.getFields(message);
+
+        return filters.entrySet().stream()
+                .filter(entry -> applyFilter(msgFields, entry.getValue().getMessage()))
+                .map(entry -> servers.get(grpcFilters.get(entry.getKey())))
+                .findFirst()
+                .orElseThrow(() ->
+                        new NoConnectionToSendException("No grpc connections matching the specified filters")
+                );
     }
 
-    public Map<String, RouterFilterConfiguration> getFilters() {
-        return filters;
+
+    private boolean applyFilter(Map<String, String> messageFields, Map<String, FilterConfiguration> fieldFilters) {
+        return fieldFilters.entrySet().stream().allMatch(entry -> {
+            var fieldName = entry.getKey();
+            var fieldFilter = entry.getValue();
+            var msgFieldValue = messageFields.get(fieldName);
+            return fieldFilter.checkValue(msgFieldValue);
+        });
     }
 
-    public void setFilters(Map<String, RouterFilterConfiguration> filters) {
-        this.filters = filters;
-    }
-
-    public Map<Class<?>, Set<String>> getClasses() {
-        return classes;
-    }
-
-    public void setClasses(Map<Class<?>, Set<String>> classes) {
-        this.classes = classes;
-    }
-
-    public Map<String, Set<String>> getGrpcFilters() {
-        return grpcFilters;
-    }
-
-    public void setGrpcFilters(Map<String, Set<String>> grpcFilters) {
-        this.grpcFilters = grpcFilters;
-    }
-
-    public Map<Class<?>, StubConfiguration> getStubs() {
-        return stubs;
-    }
-
-    public void setStubs(Map<Class<?>, StubConfiguration> stubs) {
-        this.stubs = stubs;
-    }
-
-    public GrpcConfiguration getServerConfiguration() {
-        return server;
-    }
 }

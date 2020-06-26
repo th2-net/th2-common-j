@@ -15,23 +15,17 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
-import static java.util.Collections.emptySet;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
-
 import com.exactpro.th2.infra.grpc.MessageFilter;
 import com.exactpro.th2.infra.grpc.ValueFilter.KindCase;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.commons.collections4.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static java.util.Collections.emptySet;
 
 public class MessageRouterConfiguration {
 
@@ -130,40 +124,25 @@ public class MessageRouterConfiguration {
         var direction = metadata.get(DIRECTION_KEY);
         var messageType = metadata.get(MESSAGE_TYPE_KEY);
 
-        if (session_alias != null && !checkValues(messageFilter.getConnectionId().getSessionAlias(), session_alias)) {
+        if (session_alias != null && !session_alias.checkValue(messageFilter.getConnectionId().getSessionAlias())) {
             return false;
         }
 
-        if (direction != null && !checkValues(messageFilter.getDirection(), direction)) {
+        if (direction != null && !direction.checkValue((messageFilter.getDirection()))) {
             return false;
         }
 
-        if (messageType != null && !checkValues(messageFilter.getMessageType(), messageType)) {
+        if (messageType != null && !messageType.checkValue((messageFilter.getMessageType()))) {
             return false;
         }
 
         var filters = filterConfiguration.getMessage();
 
         return messageFilter.getFieldsMap().entrySet().stream().allMatch(entry -> {
-            FilterConfiguration tmp = filters.get(entry.getKey());
-            return tmp == null || entry.getValue().getKindCase() == KindCase.SIMPLE_FILTER && checkValues(entry.getValue().getSimpleFilter(), tmp);
+            FilterConfiguration fConfig = filters.get(entry.getKey());
+            return fConfig == null || entry.getValue().getKindCase() == KindCase.SIMPLE_FILTER && fConfig.checkValue(entry.getValue().getSimpleFilter());
         });
     }
 
-    private boolean checkValues(String value1, FilterConfiguration filterConfiguration) {
-        var value2 = filterConfiguration.getValue();
-        switch (filterConfiguration.getOperation()) {
-        case EQUAL:
-            return value1.equals(value2);
-        case NOT_EQUAL:
-            return !value1.equals(value2);
-        case EMPTY:
-            return StringUtils.isEmpty(value1);
-        case NOT_EMPTY:
-            return StringUtils.isNotEmpty(value1);
-        default:
-            return false;
-        }
-    }
 
 }

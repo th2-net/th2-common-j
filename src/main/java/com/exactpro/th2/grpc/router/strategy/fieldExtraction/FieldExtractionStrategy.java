@@ -13,18 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.grpc.router.strategy.fieldExtraction;
 
-import org.jetbrains.annotations.NotNull;
+import com.google.protobuf.Message;
 
-import io.grpc.BindableService;
-import io.grpc.Server;
+import java.util.Map;
 
-public interface GrpcRouter {
+/**
+ * An interface describing a method {@link #getFields(Message)}
+ * for extracting fields from a message
+ */
+public interface FieldExtractionStrategy {
 
-    void init(GrpcRouterConfiguration configuration);
+    /**
+     * Converts message fields to {@code Map<String,String>}
+     *
+     * @param message the message from which the fields will be extracted
+     * @return {@code Map<String,String>} containing {@code message} fields
+     */
+    Map<String, String> getFields(Message message);
 
-    <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException;
-
-    Server startServer(BindableService... services);
 }

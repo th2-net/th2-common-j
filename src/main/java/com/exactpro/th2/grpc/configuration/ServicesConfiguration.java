@@ -16,15 +16,16 @@
 package com.exactpro.th2.grpc.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.grpc.stub.AbstractStub;
 import lombok.Data;
 
 @Data
-public class GrpcConfiguration {
+public class ServicesConfiguration {
 
     @JsonProperty
-    private int port;
+    private Class<? extends AbstractStub> sync;
 
     @JsonProperty
-    private String host;
+    private Class<? extends AbstractStub> async;
 
 }

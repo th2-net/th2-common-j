@@ -13,18 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.grpc.router;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
+import io.grpc.BindableService;
+import io.grpc.Server;
+import org.jetbrains.annotations.NotNull;
 
-@Data
-public class GrpcConfiguration {
+public interface GrpcRouter {
 
-    @JsonProperty
-    private int port;
+    void init(GrpcRouterConfiguration configuration);
 
-    @JsonProperty
-    private String host;
+    <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException;
+
+    Server startServer(BindableService... services);
 
 }

@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.impl.rabbitmq.parsed;
+package com.exactpro.th2.common.message.impl.rabbitmq.router;
 
 import java.util.stream.Collectors;
 
+import com.exactpro.th2.common.message.impl.rabbitmq.parsed.RabbitParsedBatchQueue;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,7 +25,6 @@ import com.exactpro.th2.common.message.MessageListener;
 import com.exactpro.th2.common.message.MessageQueue;
 import com.exactpro.th2.common.message.SubscriberMonitor;
 import com.exactpro.th2.common.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.message.impl.rabbitmq.AbstractRabbitMessageRouter;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.MessageFilter;

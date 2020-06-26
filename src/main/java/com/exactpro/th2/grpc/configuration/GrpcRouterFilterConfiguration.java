@@ -15,16 +15,16 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
+import com.exactpro.th2.common.message.configuration.FilterConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
-public class GrpcConfiguration {
+public class GrpcRouterFilterConfiguration {
 
     @JsonProperty
-    private int port;
-
-    @JsonProperty
-    private String host;
+    private Map<String, FilterConfiguration> message;
 
 }

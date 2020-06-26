@@ -13,13 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.grpc.router;
 
-import java.net.InetSocketAddress;
-
+import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
+
+import java.net.InetSocketAddress;
+
 
 public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected GrpcRouterConfiguration configuration;

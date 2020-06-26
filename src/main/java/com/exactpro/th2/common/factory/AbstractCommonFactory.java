@@ -23,7 +23,7 @@ import com.exactpro.th2.common.loader.impl.DefaultLoader;
 import com.exactpro.th2.common.message.MessageRouter;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.grpc.configuration.GrpcRouter;
+import com.exactpro.th2.grpc.router.GrpcRouter;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;

@@ -13,18 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.exception;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+public class InitGrpcRouterException extends GrpcRouterException {
 
-@Data
-public class GrpcConfiguration {
+    public InitGrpcRouterException() {
+        super();
+    }
 
-    @JsonProperty
-    private int port;
+    public InitGrpcRouterException(String message) {
+        super(message);
+    }
 
-    @JsonProperty
-    private String host;
+    public InitGrpcRouterException(String message, Throwable e) {
+        super(message,e);
+    }
 
 }

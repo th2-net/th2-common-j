@@ -17,6 +17,9 @@ package com.exactpro.th2.common.message.configuration;
 
 import com.exactpro.th2.infra.grpc.FilterOperation;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.Objects;
 
 public class FilterConfiguration {
 
@@ -41,4 +44,26 @@ public class FilterConfiguration {
     public void setOperation(FilterOperation operation) {
         this.operation = operation;
     }
+
+
+    public boolean checkValue(String value1) {
+        if (Objects.isNull(value1)) {
+            return false;
+        }
+
+        var value2 = this.getValue();
+        switch (this.getOperation()) {
+            case EQUAL:
+                return value1.equals(value2);
+            case NOT_EQUAL:
+                return !value1.equals(value2);
+            case EMPTY:
+                return StringUtils.isEmpty(value1);
+            case NOT_EMPTY:
+                return StringUtils.isNotEmpty(value1);
+            default:
+                return false;
+        }
+    }
 }
+

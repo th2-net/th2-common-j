@@ -33,6 +33,11 @@ allprojects {
     sourceCompatibility = 11
     targetCompatibility = 11
 
+    dependencies {
+        compileOnly 'org.projectlombok:lombok:1.18.12'
+        annotationProcessor 'org.projectlombok:lombok:1.18.12'
+    }
+
     repositories {
         maven {
             name 'MavenLocal'
