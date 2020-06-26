@@ -50,7 +50,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     @Nullable
     @Override
     public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback) {
-        return subscribe(callback, configuration.getQueueAliasByMesageFilter(filter).toArray(new String[0]));
+        return new MultiplySubscribeMonitorImpl(configuration.getQueueAliasByMesageFilter(filter).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList()));
     }
 
     @Override
