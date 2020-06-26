@@ -33,11 +33,10 @@ import com.exactpro.th2.common.message.SubscriberMonitor;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.infra.grpc.MessageFilter;
 
 public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
-    private MessageRouterConfiguration configuration;
+    protected MessageRouterConfiguration configuration;
     private RabbitMQConfiguration rabbitMQConfiguration;
     private Map<String, MessageQueue<T>> queueConnections = new HashMap<>();
 
@@ -48,9 +47,6 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     }
 
     @Override
-    public abstract SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback);
-
-    @Override
     public SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback) {
         var queue = getMessageQueue(queueAlias);
         MessageSubscriber<T> subscriber = queue.getSubscriber();
@@ -58,34 +54,21 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         return new SubscriberMonitorImpl(subscriber, queue);
     }
 
+    @Nullable
+    @Override
+    public SubscriberMonitor subscribe(MessageListener<T> callback, String... queueTags) {
+        return new MultiplySubscribeMonitorImpl(configuration.getQueuesAliasByAttribute(queueTags).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList()));
+    }
+
     @Override
     public SubscriberMonitor subscribeAll(MessageListener<T> callback) {
-        List<SubscriberMonitor> subscriberMonitors = configuration.getQueues().keySet().stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
-        return new SubscriberMonitor() {
-            @Override
-            public synchronized void unsubscribe() throws IOException {
-                IOException exception = null;
-                for (SubscriberMonitor monitor : subscriberMonitors) {
-                    try {
-                        monitor.unsubscribe();
-                    } catch (IOException e) {
-                        if (exception == null) {
-                            exception = new IOException("Can not unsubscribe from some subscribe monitors");
-                        }
-                        exception.addSuppressed(e);
-                    }
-                }
-                if (exception != null) {
-                    throw exception;
-                }
-            }
-        };
+        return new MultiplySubscribeMonitorImpl(configuration.getQueues().keySet().stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList()));
     }
 
     @Override
     public void send(T message) throws IOException {
         IOException exception = null;
-        for (String targetQueueAlias : getTargetQueueAliases(message)) {
+        for (String targetQueueAlias : getTargetQueueAliasesForSend(message)) {
             try {
                 send(targetQueueAlias, message);
             } catch (IOException e) {
@@ -102,8 +85,8 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     }
 
     @Override
-    public void send(T message, String... arguments) throws IOException {
-        Set<String> queuesAliases = configuration.getQueuesAliasByAttribute(arguments);
+    public void send(T message, String... queueAttr) throws IOException {
+        Set<String> queuesAliases = configuration.getQueuesAliasByAttribute(queueAttr);
         if (queuesAliases.size() > 1) {
             throw new IllegalStateException("Wrong size of queues aliases for send. Not more then 1");
         }
@@ -115,13 +98,13 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     protected abstract MessageQueue<T> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration);
 
-    protected abstract List<String> getTargetQueueAliases(T message);
+    protected abstract List<String> getTargetQueueAliasesForSend(T message);
 
-    private void send(String queueAlias, T value) throws IOException {
+    protected void send(String queueAlias, T value) throws IOException {
         getMessageQueue(queueAlias).getSender().send(value);
     }
 
-    private MessageQueue<T> getMessageQueue(String queueAlias) {
+    protected MessageQueue<T> getMessageQueue(String queueAlias) {
         synchronized (queueConnections) {
             return queueConnections.computeIfAbsent(queueAlias, key -> createQueue(rabbitMQConfiguration, configuration.getQueueByAlias(key)));
         }
@@ -141,6 +124,33 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         public void unsubscribe() throws IOException {
             synchronized (lock) {
                 subscriber.close();
+            }
+        }
+    }
+
+    protected static class MultiplySubscribeMonitorImpl implements SubscriberMonitor {
+
+        private final List<SubscriberMonitor> subscriberMonitors;
+
+        public MultiplySubscribeMonitorImpl(List<SubscriberMonitor> subscriberMonitors) {
+            this.subscriberMonitors = subscriberMonitors;
+        }
+
+        @Override
+        public void unsubscribe() throws IOException {
+            IOException exception = null;
+            for (SubscriberMonitor monitor : subscriberMonitors) {
+                try {
+                    monitor.unsubscribe();
+                } catch (IOException e) {
+                    if (exception == null) {
+                        exception = new IOException("Can not unsubscribe from some subscribe monitors");
+                    }
+                    exception.addSuppressed(e);
+                }
+            }
+            if (exception != null) {
+                throw exception;
             }
         }
     }

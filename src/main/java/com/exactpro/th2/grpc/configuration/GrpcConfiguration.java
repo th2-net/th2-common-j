@@ -15,13 +15,28 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
-import org.jetbrains.annotations.Nullable;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public interface ServerGrpcConfiguration {
+public class GrpcConfiguration {
 
-    @Nullable
-    String getHost();
+    @JsonProperty
+    private int port;
+    @JsonProperty
+    private String host;
 
-    int getPort();
+    public int getPort() {
+        return port;
+    }
 
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
 }

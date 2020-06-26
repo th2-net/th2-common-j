@@ -18,18 +18,25 @@ package com.exactpro.th2.common.message.configuration;
 import static java.util.Collections.emptySet;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.infra.grpc.MessageFilter;
+import com.exactpro.th2.infra.grpc.ValueFilter.KindCase;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class MessageRouterConfiguration {
+
+    private static final String SESSION_ALIAS_KEY = "session_alias";
+    private static final String DIRECTION_KEY = "direction";
+    private static final String MESSAGE_TYPE_KEY = "message_type";
 
     @JsonProperty
     private Map<String, QueueConfiguration> queues;
@@ -106,7 +113,55 @@ public class MessageRouterConfiguration {
     }
 
     public Set<String> getQueueAliasByMesageFilter(MessageFilter filter) {
-        return null;
+        return filters
+                .entrySet()
+                .stream()
+                .filter(entity -> checkFilter(entity.getValue(), filter))
+                .map(entity -> queueFilters.get(entity.getKey()))
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+    }
+
+    private boolean checkFilter(RouterFilterConfiguration filterConfiguration, MessageFilter messageFilter) {
+        var metadata = filterConfiguration.getMetadata();
+        var session_alias = metadata.get(SESSION_ALIAS_KEY);
+        var direction = metadata.get(DIRECTION_KEY);
+        var messageType = metadata.get(MESSAGE_TYPE_KEY);
+
+        if (session_alias != null && !checkValues(messageFilter.getConnectionId().getSessionAlias(), session_alias)) {
+            return false;
+        }
+
+        if (direction != null && !checkValues(messageFilter.getDirection(), direction)) {
+            return false;
+        }
+
+        if (messageType != null && !checkValues(messageFilter.getMessageType(), messageType)) {
+            return false;
+        }
+
+        var filters = filterConfiguration.getMessage();
+
+        return messageFilter.getFieldsMap().entrySet().stream().allMatch(entry -> {
+            FilterConfiguration tmp = filters.get(entry.getKey());
+            return tmp == null || entry.getValue().getKindCase() == KindCase.SIMPLE_FILTER && checkValues(entry.getValue().getSimpleFilter(), tmp);
+        });
+    }
+
+    private boolean checkValues(String value1, FilterConfiguration filterConfiguration) {
+        var value2 = filterConfiguration.getValue();
+        switch (filterConfiguration.getOperation()) {
+        case EQUAL:
+            return value1.equals(value2);
+        case NOT_EQUAL:
+            return !value1.equals(value2);
+        case EMPTY:
+            return StringUtils.isEmpty(value1);
+        case NOT_EMPTY:
+            return StringUtils.isNotEmpty(value1);
+        default:
+            return false;
+        }
     }
 
 }

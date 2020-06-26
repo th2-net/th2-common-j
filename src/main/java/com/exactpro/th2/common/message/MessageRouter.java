@@ -34,6 +34,9 @@ public interface MessageRouter<T> {
     @Nullable
     SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback);
 
+    @Nullable
+    SubscriberMonitor subscribe(MessageListener<T> callback, String... queueTags);
+
     SubscriberMonitor subscribeAll(MessageListener<T> callback);
 
     void send(T message) throws IOException;

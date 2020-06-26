@@ -21,10 +21,10 @@ import java.util.Set;
 import com.exactpro.th2.common.message.configuration.RouterFilterConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class ClientGrpcConfiguration {
+public class GrpcRouterConfiguration {
 
     @JsonProperty
-    private Map<String, ServerGrpcConfiguration> servers;
+    private Map<String, GrpcConfiguration> servers;
     @JsonProperty
     private Map<Class<?>, Set<String>> classesServers;
     @JsonProperty
@@ -32,11 +32,14 @@ public class ClientGrpcConfiguration {
     @JsonProperty
     private Map<String, Set<String>> queueFilters;
 
-    public Map<String, ServerGrpcConfiguration> getServers() {
+    @JsonProperty
+    private GrpcConfiguration server;
+
+    public Map<String, GrpcConfiguration> getServers() {
         return servers;
     }
 
-    public void setServers(Map<String, ServerGrpcConfiguration> servers) {
+    public void setServers(Map<String, GrpcConfiguration> servers) {
         this.servers = servers;
     }
 
@@ -62,5 +65,9 @@ public class ClientGrpcConfiguration {
 
     public void setQueueFilters(Map<String, Set<String>> queueFilters) {
         this.queueFilters = queueFilters;
+    }
+
+    public GrpcConfiguration getServerConfiguration() {
+        return server;
     }
 }

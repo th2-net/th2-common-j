@@ -17,11 +17,14 @@ package com.exactpro.th2.common.factory;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 
 import com.exactpro.th2.common.loader.impl.DefaultLoader;
 import com.exactpro.th2.common.message.MessageRouter;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.grpc.configuration.GrpcRouter;
+import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +34,7 @@ public abstract class AbstractCommonFactory {
     private static ObjectMapper mapper = new ObjectMapper();
     private RabbitMQConfiguration rabbitMQConfiguration = null;
     private MessageRouterConfiguration messageRouterConfiguration = null;
+    private GrpcRouterConfiguration grpcRouterConfiguration = null;
 
     public MessageRouter<MessageBatch> getMessageBatchRouter() {
         MessageRouter<MessageBatch> router = DefaultLoader.INSTANCE.createInstance(MessageRouter.class, MessageBatch.class);
@@ -44,12 +48,28 @@ public abstract class AbstractCommonFactory {
         return router;
     }
 
-    protected abstract String getPathToRabbitMQConfiguration();
-    protected abstract String getPathToMessageRouterConfiguration();
+    public GrpcRouter getGrpcRouter() {
+        GrpcRouter router = DefaultLoader.INSTANCE.createInstance(GrpcRouter.class);
+        router.init(getGrpcRouterConfiguration());
+        return router;
+    }
+
+    public <T> T getCustomConfiguration(Class<T> confClass) {
+        try (var in = new FileInputStream(getPathToCustomConfiguration().toFile())) {
+            return mapper.readerFor(confClass).readValue(in);
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read custom configuration");
+        }
+    }
+
+    protected abstract Path getPathToRabbitMQConfiguration();
+    protected abstract Path getPathToMessageRouterConfiguration();
+    protected abstract Path getPathToGrpcRouterConfiguration();
+    protected abstract Path getPathToCustomConfiguration();
 
     private synchronized RabbitMQConfiguration getRabbitMqConfiguration() {
         if (rabbitMQConfiguration == null) {
-            try (var in = new FileInputStream(getPathToRabbitMQConfiguration())) {
+            try (var in = new FileInputStream(getPathToRabbitMQConfiguration().toFile())) {
                 rabbitMQConfiguration = mapper.readerFor(RabbitMQConfiguration.class).readValue(in);
             } catch (IOException e) {
                 throw new IllegalStateException("Can not read rabbit mq configuration", e);
@@ -61,7 +81,7 @@ public abstract class AbstractCommonFactory {
 
     private synchronized MessageRouterConfiguration getMessageRouterConfiguration() {
         if (messageRouterConfiguration == null) {
-            try (var in = new FileInputStream(getPathToMessageRouterConfiguration())) {
+            try (var in = new FileInputStream(getPathToMessageRouterConfiguration().toFile())) {
                 messageRouterConfiguration = mapper.readerFor(MessageRouterConfiguration.class).readValue(in);
             } catch (IOException e) {
                 throw new IllegalStateException("Can not read message router configuration", e);
@@ -69,6 +89,18 @@ public abstract class AbstractCommonFactory {
         }
 
         return messageRouterConfiguration;
+    }
+
+    private synchronized GrpcRouterConfiguration getGrpcRouterConfiguration() {
+        if (grpcRouterConfiguration != null) {
+            try (var in = new FileInputStream(getPathToGrpcRouterConfiguration().toFile())) {
+                grpcRouterConfiguration = mapper.readerFor(GrpcRouterConfiguration.class).readValue(in);
+            } catch (IOException e) {
+                throw new IllegalStateException("Can not read grpc router configuration", e);
+            }
+        }
+
+        return grpcRouterConfiguration;
     }
 
 }
