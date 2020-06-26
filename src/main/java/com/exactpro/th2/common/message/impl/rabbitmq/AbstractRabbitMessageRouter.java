@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -50,9 +51,18 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     @Nullable
     @Override
     public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback) {
-        return new MultiplySubscribeMonitorImpl(configuration.getQueueAliasByMesageFilter(filter).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList()));
+        List<SubscriberMonitor> queues = configuration.getQueueAliasByMessageFilter(filter).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
+        return queues.size() < 1 ? null : new MultiplySubscribeMonitorImpl(queues);
     }
 
+    @Nullable
+    @Override
+    public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback, String... queueAttr) {
+        var queues = CollectionUtils.intersection(configuration.getQueueAliasByMessageFilter(filter), configuration.getQueuesAliasByAttribute(queueAttr)).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
+        return queues.size() < 1 ? null : new MultiplySubscribeMonitorImpl(queues);
+    }
+
+    @Nullable
     @Override
     public SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback) {
         var queue = getMessageQueue(queueAlias);
@@ -63,8 +73,9 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     @Nullable
     @Override
-    public SubscriberMonitor subscribe(MessageListener<T> callback, String... queueTags) {
-        return new MultiplySubscribeMonitorImpl(configuration.getQueuesAliasByAttribute(queueTags).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList()));
+    public SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr) {
+        List<SubscriberMonitor> queues = configuration.getQueuesAliasByAttribute(queueAttr).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
+        return queues.size() < 1 ? null : new MultiplySubscribeMonitorImpl(queues);
     }
 
     @Override

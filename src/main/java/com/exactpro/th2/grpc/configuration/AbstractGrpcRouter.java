@@ -23,6 +23,7 @@ import io.grpc.netty.NettyServerBuilder;
 
 public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected GrpcRouterConfiguration configuration;
+
     @Override
     public void init(GrpcRouterConfiguration configuration) {
         this.configuration = configuration;

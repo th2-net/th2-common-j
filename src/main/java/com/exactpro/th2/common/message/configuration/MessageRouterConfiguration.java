@@ -30,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.infra.grpc.MessageFilter;
 import com.exactpro.th2.infra.grpc.ValueFilter.KindCase;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class MessageRouterConfiguration {
@@ -42,6 +43,7 @@ public class MessageRouterConfiguration {
     private Map<String, QueueConfiguration> queues;
 
     @JsonProperty
+    @JsonAlias({"tags", "labels"})
     private Map<String, Set<String>> attributes;
 
     @JsonProperty
@@ -112,7 +114,7 @@ public class MessageRouterConfiguration {
         return start;
     }
 
-    public Set<String> getQueueAliasByMesageFilter(MessageFilter filter) {
+    public Set<String> getQueueAliasByMessageFilter(MessageFilter filter) {
         return filters
                 .entrySet()
                 .stream()

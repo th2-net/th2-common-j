@@ -32,15 +32,18 @@ public interface MessageRouter<T> {
     SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback);
 
     @Nullable
+    SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback, String... queueAttr);
+
+    @Nullable
     SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback);
 
     @Nullable
-    SubscriberMonitor subscribe(MessageListener<T> callback, String... queueTags);
+    SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr);
 
     SubscriberMonitor subscribeAll(MessageListener<T> callback);
 
     void send(T message) throws IOException;
 
-    void send(T message, String... arguments) throws IOException;
+    void send(T message, String... queueAttr) throws IOException;
 
 }

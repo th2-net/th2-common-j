@@ -35,14 +35,28 @@ public abstract class AbstractCommonFactory {
     private RabbitMQConfiguration rabbitMQConfiguration = null;
     private MessageRouterConfiguration messageRouterConfiguration = null;
     private GrpcRouterConfiguration grpcRouterConfiguration = null;
+    private Class<? extends MessageRouter> messageRouterParsedBatchClass = null;
+    private Class<? extends MessageRouter> messageRouterRawBatchClass = null;
+    private Class<? extends GrpcRouter> grpcRouterClass = null;
 
-    public MessageRouter<MessageBatch> getMessageBatchRouter() {
+    public AbstractCommonFactory() {
+        //this();
+        //TODO: add default implementation
+    }
+
+    public AbstractCommonFactory(Class<? extends MessageRouter> messageRouterParsedBatchClass, Class<? extends MessageRouter> messageRouterRawBatchClass, Class<? extends GrpcRouter> grpcRouterClass) {
+        this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
+        this.messageRouterRawBatchClass = messageRouterRawBatchClass;
+        this.grpcRouterClass = grpcRouterClass;
+    }
+
+    public MessageRouter<MessageBatch> getMessageRouterParsedBatch() {
         MessageRouter<MessageBatch> router = DefaultLoader.INSTANCE.createInstance(MessageRouter.class, MessageBatch.class);
         router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
         return router;
     }
 
-    public MessageRouter<RawMessageBatch> getRawMessageBatchRouter() {
+    public MessageRouter<RawMessageBatch> getMessageRouterRawBatch() {
         MessageRouter<RawMessageBatch> router = DefaultLoader.INSTANCE.createInstance(MessageRouter.class, RawMessageBatch.class);
         router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
         return router;
