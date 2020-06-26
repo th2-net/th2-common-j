@@ -15,6 +15,9 @@
  */
 package com.exactpro.th2.common.message.impl.rabbitmq.parsed;
 
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.common.message.MessageListener;
@@ -38,9 +41,18 @@ public abstract class AbstractParsedRabbitMessageRouter extends AbstractRabbitMe
     @Nullable
     @Override
     public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<MessageBatch> callback) {
-        return super.subscribe(filter, (consumerTag, message) -> {
-//            callback.handler(consumerTag, MessageBatch.newBuilder().addAllMessages());
-            //TODO:
+        return super.subscribe(filter, filter == null || StringUtils.isEmpty(filter.getConnectionId().getSessionAlias()) ? callback : (consumerTag, message) -> {
+            callback.handler(consumerTag, MessageBatch
+                    .newBuilder()
+                    .addAllMessages(message
+                                    .getMessagesList()
+                                    .stream()
+                                    .filter(message1 -> message1
+                                            .getMetadata()
+                                            .getId()
+                                            .getConnectionId()
+                                            .getSessionAlias()
+                                            .equals(filter.getConnectionId().getSessionAlias())).collect(Collectors.toList())).build());
         });
     }
 }

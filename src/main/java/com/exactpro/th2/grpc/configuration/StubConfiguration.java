@@ -17,11 +17,11 @@ package com.exactpro.th2.grpc.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class ClassesConfiguration {
+public class StubConfiguration {
 
     @JsonProperty
-    private Class<?> async;
+    private Class<?> blocking;
 
     @JsonProperty
-    private Class<?> sync;
+    private Class<?> future;
 }

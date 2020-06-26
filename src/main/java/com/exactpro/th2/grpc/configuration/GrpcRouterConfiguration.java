@@ -25,12 +25,16 @@ public class GrpcRouterConfiguration {
 
     @JsonProperty
     private Map<String, GrpcConfiguration> servers;
+
     @JsonProperty
     private Map<Class<?>, Set<String>> classes;
+
     @JsonProperty
-    private Map<Class<?>, ClassesConfiguration> stubs;
+    private Map<Class<?>, StubConfiguration> stubs;
+
     @JsonProperty
     private Map<String, RouterFilterConfiguration> filters;
+
     @JsonProperty
     private Map<String, Set<String>> grpcFilters;
 
@@ -67,6 +71,14 @@ public class GrpcRouterConfiguration {
 
     public void setGrpcFilters(Map<String, Set<String>> grpcFilters) {
         this.grpcFilters = grpcFilters;
+    }
+
+    public Map<Class<?>, StubConfiguration> getStubs() {
+        return stubs;
+    }
+
+    public void setStubs(Map<Class<?>, StubConfiguration> stubs) {
+        this.stubs = stubs;
     }
 
     public GrpcConfiguration getServerConfiguration() {

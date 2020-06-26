@@ -18,8 +18,8 @@
   },
   "stubs": {
     "com.exactpro.th2.grpc.anlt.SimulatorService": {
-      "async": "com.exactpro.th2.simulator.grpc.SimulatorGrpc.SimulatorBlockingStub",
-      "sync": "com.exactpro.th2.simulator.grpc.SimulatorGrpc.SimulatorFutureStub"
+      "blocking": "com.exactpro.th2.simulator.grpc.SimulatorGrpc.SimulatorBlockingStub",
+      "future": "com.exactpro.th2.simulator.grpc.SimulatorGrpc.SimulatorFutureStub"
     }
   },
   "filters": {
