@@ -15,9 +15,13 @@
  */
 package com.exactpro.th2.grpc.router.impl;
 
+import com.exactpro.th2.common.message.configuration.FilterConfiguration;
 import com.exactpro.th2.exception.InitGrpcRouterException;
+import com.exactpro.th2.exception.NoConnectionToSendException;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.AbstractGrpcRouter;
+import com.exactpro.th2.grpc.router.strategy.fieldExtraction.FieldExtractionStrategy;
+import com.exactpro.th2.grpc.router.strategy.fieldExtraction.impl.Th2MsgFieldExtraction;
 import com.google.protobuf.Message;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -34,6 +38,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 
 public class DefaultGrpcRouter extends AbstractGrpcRouter {
@@ -45,8 +50,13 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     @Setter
     protected Map<Class<?>, Class<? extends AbstractStub>> serviceToStubAccordance;
 
+    protected FieldExtractionStrategy fieldExtStrategy = new Th2MsgFieldExtraction();
+
     public DefaultGrpcRouter() {
-        this.serviceToStubAccordance = configuration.getServices();
+        this.serviceToStubAccordance = configuration.getServices().entrySet().stream()
+                .flatMap(entry -> entry.getValue().entrySet().stream())
+                .map(entry -> Map.entry(entry.getKey(), configuration.getServiceToStubMatch().get(entry.getValue())))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
 
@@ -62,6 +72,16 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
         return getProxyService(cls);
     }
 
+    /**
+     * Sets a fields extraction strategy
+     *
+     * @param fieldExtStrategy strategy for extracting fields for filtering
+     * @throws NullPointerException if {@code fieldExtractionStrategy} is null
+     */
+    public void setFieldExtractionStrategy(FieldExtractionStrategy fieldExtStrategy) {
+        Objects.requireNonNull(fieldExtStrategy);
+        this.fieldExtStrategy = fieldExtStrategy;
+    }
 
     @SuppressWarnings("unchecked")
     protected <T> T getProxyService(Class<T> proxyService) {
@@ -107,12 +127,43 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     }
 
-    protected Channel applyFilter(Message message) {
+    protected Channel applyFilter(Class<?> proxyService, Message message) {
 
-        var grpcServer = configuration.getGrpcConfigByFilter(message);
+        var msgFields = fieldExtStrategy.getFields(message);
+
+        var servers = configuration.getServers();
+
+        var grpcFilters = configuration.getFilterToServerMatch();
+
+        var serviceAlias = configuration.getServices().entrySet().stream()
+                .filter(entry -> Objects.nonNull(entry.getValue().get(proxyService)))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No services matching the provided " +
+                        "class were found in the configuration: " + proxyService.getName()));
+
+        var serviceFilters = configuration.getServiceToFiltersMatch().get(serviceAlias);
+
+        var grpcServer = configuration.getFilters().entrySet().stream()
+                .filter(entry -> serviceFilters.contains(entry.getKey())
+                        && applyFilter(msgFields, entry.getValue().getMessage()))
+                .map(entry -> servers.get(grpcFilters.get(entry.getKey())))
+                .findFirst()
+                .orElseThrow(() ->
+                        new NoConnectionToSendException("No grpc connections matching the specified filters")
+                );
 
         return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort()).usePlaintext().build();
 
+    }
+
+    protected boolean applyFilter(Map<String, String> messageFields, Map<String, FilterConfiguration> fieldFilters) {
+        return fieldFilters.entrySet().stream().allMatch(entry -> {
+            var fieldName = entry.getKey();
+            var fieldFilter = entry.getValue();
+            var msgFieldValue = messageFields.get(fieldName);
+            return fieldFilter.checkValue(msgFieldValue);
+        });
     }
 
     protected AbstractStub<?> getGrpcStubToSend(Class<?> proxyService, Message message) throws ClassNotFoundException {
@@ -123,7 +174,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                     "for the provided service class: " + proxyService.getSimpleName());
         }
 
-        return getStubInstance(stubClass, applyFilter(message));
+        return getStubInstance(stubClass, applyFilter(proxyService, message));
     }
 
     protected <T extends AbstractStub<T>> AbstractStub<T> getStubInstance(Class<T> stubClass, Channel channel) {

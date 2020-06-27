@@ -15,22 +15,23 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
-import com.exactpro.th2.common.message.configuration.FilterConfiguration;
-import com.exactpro.th2.exception.NoConnectionToSendException;
-import com.exactpro.th2.grpc.router.strategy.fieldExtraction.FieldExtractionStrategy;
-import com.exactpro.th2.grpc.router.strategy.fieldExtraction.impl.Th2MsgFieldExtraction;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.protobuf.Message;
 import io.grpc.stub.AbstractStub;
 import lombok.Data;
 
 import java.util.Map;
+import java.util.Set;
 
 @Data
 public class GrpcRouterConfiguration {
 
     @JsonProperty
-    private Map<Class<?>, Class<? extends AbstractStub>> services;
+    private Map<String, Map<Class<?>, String>> services;
+
+    @JsonProperty
+    private Map<String, Class<? extends AbstractStub>> serviceToStubMatch;
+    @JsonProperty
+    private Map<String, Set<String>> serviceToFiltersMatch;
 
     @JsonProperty
     private Map<String, GrpcConfiguration> servers;
@@ -39,37 +40,9 @@ public class GrpcRouterConfiguration {
     private Map<String, GrpcRouterFilterConfiguration> filters;
 
     @JsonProperty
-    private Map<String, String> grpcFilters;
+    private Map<String, String> filterToServerMatch;
 
     @JsonProperty
     private GrpcConfiguration serverConfiguration;
-
-
-    public GrpcConfiguration getGrpcConfigByFilter(Message message) {
-        return getGrpcConfigByFilter(message, new Th2MsgFieldExtraction());
-    }
-
-    public GrpcConfiguration getGrpcConfigByFilter(Message message, FieldExtractionStrategy fieldExtStrategy) {
-
-        var msgFields = fieldExtStrategy.getFields(message);
-
-        return filters.entrySet().stream()
-                .filter(entry -> applyFilter(msgFields, entry.getValue().getMessage()))
-                .map(entry -> servers.get(grpcFilters.get(entry.getKey())))
-                .findFirst()
-                .orElseThrow(() ->
-                        new NoConnectionToSendException("No grpc connections matching the specified filters")
-                );
-    }
-
-
-    private boolean applyFilter(Map<String, String> messageFields, Map<String, FilterConfiguration> fieldFilters) {
-        return fieldFilters.entrySet().stream().allMatch(entry -> {
-            var fieldName = entry.getKey();
-            var fieldFilter = entry.getValue();
-            var msgFieldValue = messageFields.get(fieldName);
-            return fieldFilter.checkValue(msgFieldValue);
-        });
-    }
 
 }

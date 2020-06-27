@@ -1,14 +1,24 @@
 {
   "services": {
-    "com.exactpro.th2.grpc.anlt.SimulatorService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.SimulatorBlockingStub",
-    "com.exactpro.th2.grpc.anlt.AsyncSimulatorService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.SimulatorStub"
+    "SimService":{
+      "com.exactpro.th2.grpc.anlt.SimulatorService": "SimulatorService",
+      "com.exactpro.th2.grpc.anlt.AsyncSimulatorService": "AsyncSimulatorService"
+    },
+    "ActService":{
+      "com.exactpro.th2.grpc.anlt.ActService": "ActService",
+      "com.exactpro.th2.grpc.anlt.AsyncActService": "AsyncActService"
+    }
   },
-  // this section is not needed, because it doesn’t matter
-  // how many servers belong to this service,
-  // because we can connect to only one at a time
-  //"classes": {
-  //  "com.exactpro.th2.grpc.anlt.SimulatorService": ["simulator1", "simulator2"]
-  //},
+  "serviceToStubMatch": {
+    "SimulatorService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.SimulatorBlockingStub",
+    "AsyncSimulatorService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.SimulatorStub",
+    "ActService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.ActBlockingStub",
+    "AsyncActService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.ActStub"
+  },
+  "serviceToFiltersMatch": {
+    "SimService": ["templatefilter1"],
+    "ActService": ["templatefilter2"]
+  },
   "servers": {
     "simulator1": {
       "host": "127.0.0.1",
@@ -45,7 +55,7 @@
       }
     }
   },
-  "grpcFilters": {
+  "filterToServerMatch": {
     "templatefilter1": "simulator1",
     "templatefilter2": "simulator2",
     "notsimulator1": "notsimulator1"
