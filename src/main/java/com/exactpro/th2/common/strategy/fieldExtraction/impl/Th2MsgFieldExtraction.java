@@ -13,18 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.impl.rabbitmq.router.impl;
+package com.exactpro.th2.common.strategy.fieldExtraction.impl;
 
-import com.exactpro.th2.common.message.impl.rabbitmq.router.AbstractRawRabbitMessageRouter;
-import com.exactpro.th2.infra.grpc.RawMessageBatch;
+import com.exactpro.th2.common.strategy.fieldExtraction.AbstractTh2MsgFieldExtraction;
+import com.exactpro.th2.infra.grpc.Message;
 
-import java.util.List;
 
-public class DefaultRawRabbitMessageRouter extends AbstractRawRabbitMessageRouter {
+public class Th2MsgFieldExtraction extends AbstractTh2MsgFieldExtraction {
 
     @Override
-    protected List<String> getTargetQueueAliasesForSend(RawMessageBatch message) {
-        throw new UnsupportedOperationException();
+    public Message parseMessage(com.google.protobuf.Message message) {
+        return message.getAllFields().values().stream()
+                .filter(object -> object instanceof Message)
+                .map(object -> (Message) object)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Expected message to retrieve fields not found"));
     }
 
 }

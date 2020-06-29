@@ -13,24 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.router.strategy.fieldExtraction;
+package com.exactpro.th2.exception;
 
-import com.google.protobuf.Message;
+public class ConfigurationException extends RuntimeException {
 
-import java.util.Map;
+    public ConfigurationException() {
+        super();
+    }
 
-/**
- * An interface describing a method {@link #getFields(Message)}
- * for extracting fields from a message
- */
-public interface FieldExtractionStrategy {
+    public ConfigurationException(String message) {
+        super(message);
+    }
 
-    /**
-     * Converts message fields to {@code Map<String,String>}
-     *
-     * @param message the message from which the fields will be extracted
-     * @return {@code Map<String,String>} containing {@code message} fields
-     */
-    Map<String, String> getFields(Message message);
+    public ConfigurationException(String message, Throwable e) {
+        super(message, e);
+    }
 
 }

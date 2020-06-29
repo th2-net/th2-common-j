@@ -15,6 +15,7 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
+import com.exactpro.th2.configuration.FilterableConfiguration;
 import com.exactpro.th2.infra.grpc.MessageFilter;
 import com.exactpro.th2.infra.grpc.ValueFilter.KindCase;
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -27,11 +28,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Collections.emptySet;
 
-public class MessageRouterConfiguration {
-
-    private static final String SESSION_ALIAS_KEY = "session_alias";
-    private static final String DIRECTION_KEY = "direction";
-    private static final String MESSAGE_TYPE_KEY = "message_type";
+public class MessageRouterConfiguration extends FilterableConfiguration {
 
     @JsonProperty
     private Map<String, QueueConfiguration> queues;
@@ -39,9 +36,6 @@ public class MessageRouterConfiguration {
     @JsonProperty
     @JsonAlias({"tags", "labels"})
     private Map<String, Set<String>> attributes;
-
-    @JsonProperty
-    private Map<String, RouterFilterConfiguration> filters;
 
     @JsonProperty
     private Map<String, Set<String>> queueFilters;
@@ -60,14 +54,6 @@ public class MessageRouterConfiguration {
 
     public void setAttributes(Map<String, Set<String>> attributes) {
         this.attributes = attributes;
-    }
-
-    public Map<String, RouterFilterConfiguration> getFilters() {
-        return filters;
-    }
-
-    public void setFilters(Map<String, RouterFilterConfiguration> filters) {
-        this.filters = filters;
     }
 
     public Map<String, Set<String>> getQueueFilters() {

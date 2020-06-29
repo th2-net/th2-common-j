@@ -13,15 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.impl.rabbitmq.router;
+package com.exactpro.th2.common.message.impl.rabbitmq.router.impl;
 
 import com.exactpro.th2.common.message.MessageQueue;
 import com.exactpro.th2.common.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.message.impl.rabbitmq.raw.RabbitRawBatchQueue;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.message.impl.rabbitmq.raw.RabbitRawBatchQueue;
+import com.exactpro.th2.common.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
+import com.exactpro.th2.infra.grpc.RawMessage;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 
-public abstract class AbstractRawRabbitMessageRouter extends AbstractRabbitMessageRouter<RawMessageBatch> {
+import java.util.List;
+
+public class RawRabbitMessageRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch> {
 
     @Override
     protected MessageQueue<RawMessageBatch> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration) {
@@ -29,4 +33,15 @@ public abstract class AbstractRawRabbitMessageRouter extends AbstractRabbitMessa
         queue.init(configuration, queueConfiguration);
         return queue;
     }
+
+    @Override
+    protected List<RawMessage> crackBatch(RawMessageBatch batch) {
+        return batch.getMessagesList();
+    }
+
+    @Override
+    protected RawMessageBatch createBatch() {
+        return RawMessageBatch.newBuilder().build();
+    }
+
 }

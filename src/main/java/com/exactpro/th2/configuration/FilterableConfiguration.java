@@ -13,37 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.configuration;
 
-import com.exactpro.th2.configuration.FilterableConfiguration;
+import com.exactpro.th2.common.message.configuration.RouterFilterConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.grpc.stub.AbstractStub;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import java.util.Map;
-import java.util.Set;
-
 
 @Data
-@EqualsAndHashCode(callSuper = true)
-public class GrpcRouterConfiguration extends FilterableConfiguration {
+public class FilterableConfiguration {
+
+    public static final String SESSION_ALIAS_KEY = "session_alias";
+    public static final String DIRECTION_KEY = "direction";
+    public static final String MESSAGE_TYPE_KEY = "message_type";
+
 
     @JsonProperty
-    private Map<String, Map<Class<?>, String>> services;
-
-    @JsonProperty
-    private Map<String, Class<? extends AbstractStub>> serviceToStubMatch;
-    @JsonProperty
-    private Map<String, Set<String>> serviceToFiltersMatch;
-
-    @JsonProperty
-    private Map<String, GrpcConfiguration> servers;
-
-    @JsonProperty
-    private Map<String, String> filterToServerMatch;
-
-    @JsonProperty
-    private GrpcConfiguration serverConfiguration;
+    protected Map<String, RouterFilterConfiguration> filters;
 
 }

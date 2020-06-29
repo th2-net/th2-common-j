@@ -15,13 +15,11 @@
  */
 package com.exactpro.th2.grpc.router.impl;
 
-import com.exactpro.th2.common.message.configuration.FilterConfiguration;
+import com.exactpro.th2.common.filter.factory.FilterFactory;
+import com.exactpro.th2.common.filter.factory.impl.DefaultFilterFactory;
 import com.exactpro.th2.exception.InitGrpcRouterException;
-import com.exactpro.th2.exception.NoConnectionToSendException;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.AbstractGrpcRouter;
-import com.exactpro.th2.grpc.router.strategy.fieldExtraction.FieldExtractionStrategy;
-import com.exactpro.th2.grpc.router.strategy.fieldExtraction.impl.Th2MsgFieldExtraction;
 import com.google.protobuf.Message;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -50,7 +48,8 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     @Setter
     protected Map<Class<?>, Class<? extends AbstractStub>> serviceToStubAccordance;
 
-    protected FieldExtractionStrategy fieldExtStrategy = new Th2MsgFieldExtraction();
+    protected FilterFactory filterFactory = new DefaultFilterFactory();
+
 
     public DefaultGrpcRouter() {
         this.serviceToStubAccordance = configuration.getServices().entrySet().stream()
@@ -73,15 +72,16 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     }
 
     /**
-     * Sets a fields extraction strategy
+     * Sets a fields filter factory
      *
-     * @param fieldExtStrategy strategy for extracting fields for filtering
-     * @throws NullPointerException if {@code fieldExtractionStrategy} is null
+     * @param filterFactory filter factory for filtering message fields
+     * @throws NullPointerException if {@code filterFactory} is null
      */
-    public void setFieldExtractionStrategy(FieldExtractionStrategy fieldExtStrategy) {
-        Objects.requireNonNull(fieldExtStrategy);
-        this.fieldExtStrategy = fieldExtStrategy;
+    public void setFilterFactory(FilterFactory filterFactory) {
+        Objects.requireNonNull(filterFactory);
+        this.filterFactory = filterFactory;
     }
+
 
     @SuppressWarnings("unchecked")
     protected <T> T getProxyService(Class<T> proxyService) {
@@ -129,7 +129,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     protected Channel applyFilter(Class<?> proxyService, Message message) {
 
-        var msgFields = fieldExtStrategy.getFields(message);
+        var filter = filterFactory.createFilter(configuration);
 
         var servers = configuration.getServers();
 
@@ -144,26 +144,12 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
         var serviceFilters = configuration.getServiceToFiltersMatch().get(serviceAlias);
 
-        var grpcServer = configuration.getFilters().entrySet().stream()
-                .filter(entry -> serviceFilters.contains(entry.getKey())
-                        && applyFilter(msgFields, entry.getValue().getMessage()))
-                .map(entry -> servers.get(grpcFilters.get(entry.getKey())))
-                .findFirst()
-                .orElseThrow(() ->
-                        new NoConnectionToSendException("No grpc connections matching the specified filters")
-                );
+        var targetFilterAliases = filter.check(message, serviceFilters).iterator().next();
+
+        var grpcServer = servers.get(grpcFilters.get(targetFilterAliases));
 
         return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort()).usePlaintext().build();
 
-    }
-
-    protected boolean applyFilter(Map<String, String> messageFields, Map<String, FilterConfiguration> fieldFilters) {
-        return fieldFilters.entrySet().stream().allMatch(entry -> {
-            var fieldName = entry.getKey();
-            var fieldFilter = entry.getValue();
-            var msgFieldValue = messageFields.get(fieldName);
-            return fieldFilter.checkValue(msgFieldValue);
-        });
     }
 
     protected AbstractStub<?> getGrpcStubToSend(Class<?> proxyService, Message message) throws ClassNotFoundException {

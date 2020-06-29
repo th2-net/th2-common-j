@@ -13,18 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.impl.rabbitmq.router.impl;
+package com.exactpro.th2.common.strategy.fieldExtraction;
 
-import com.exactpro.th2.common.message.impl.rabbitmq.router.AbstractParsedRabbitMessageRouter;
-import com.exactpro.th2.infra.grpc.MessageBatch;
+import com.google.protobuf.Message;
 
-import java.util.List;
+import java.util.Map;
 
-public class DefaultParsedRabbitMessageRouter extends AbstractParsedRabbitMessageRouter {
+/**
+ * An interface describing a method {@link #getFields(Message)}
+ * for extracting fields from a message
+ */
+public interface FieldExtractionStrategy {
 
-    @Override
-    protected List<String> getTargetQueueAliasesForSend(MessageBatch message) {
-        throw new UnsupportedOperationException();
-    }
+    /**
+     * Converts message fields to {@code Map<String,String>}
+     *
+     * @param message the message from which the fields will be extracted
+     * @return {@code Map<String,String>} containing {@code message} fields
+     */
+    Map<String, String> getFields(Message message);
 
 }

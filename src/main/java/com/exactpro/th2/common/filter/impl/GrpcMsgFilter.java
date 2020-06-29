@@ -13,18 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.common.filter.impl;
 
-import com.exactpro.th2.common.message.configuration.FilterConfiguration;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import com.exactpro.th2.common.filter.AbstractTh2MsgFilter;
+import com.exactpro.th2.common.strategy.fieldExtraction.FieldExtractionStrategy;
+import com.exactpro.th2.common.strategy.fieldExtraction.impl.Th2MsgFieldExtraction;
+import com.exactpro.th2.configuration.FilterableConfiguration;
 
-import java.util.Map;
+public class GrpcMsgFilter extends AbstractTh2MsgFilter {
 
-@Data
-public class GrpcRouterFilterConfiguration {
+    public GrpcMsgFilter(FilterableConfiguration configuration) {
+        super(configuration);
+    }
 
-    @JsonProperty
-    private Map<String, FilterConfiguration> message;
+    @Override
+    public FieldExtractionStrategy getFieldExtStrategy() {
+        return new Th2MsgFieldExtraction();
+    }
 
 }

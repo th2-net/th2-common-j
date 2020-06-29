@@ -1,63 +1,64 @@
 {
   "services": {
-    "SimService":{
-      "com.exactpro.th2.grpc.anlt.SimulatorService": "SimulatorService",
-      "com.exactpro.th2.grpc.anlt.AsyncSimulatorService": "AsyncSimulatorService"
-    },
-    "ActService":{
-      "com.exactpro.th2.grpc.anlt.ActService": "ActService",
-      "com.exactpro.th2.grpc.anlt.AsyncActService": "AsyncActService"
-    }
-  },
-  "serviceToStubMatch": {
-    "SimulatorService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.SimulatorBlockingStub",
-    "AsyncSimulatorService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.SimulatorStub",
-    "ActService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.ActBlockingStub",
-    "AsyncActService": "com.exactpro.th2.infra.grpc.SimulatorGrpc.ActStub"
-  },
-  "serviceToFiltersMatch": {
-    "SimService": ["templatefilter1"],
-    "ActService": ["templatefilter2"]
-  },
-  "servers": {
-    "simulator1": {
-      "host": "127.0.0.1",
-      "port": 5001
-    },
-    "simulator2": {
-      "host": "127.0.0.2",
-      "port": 5002
-    },
-    "notsimulator1": {
-      "host": "127.0.0.3",
-      "port": 5003
-    }
-  },
-  "filters": {
-    "templatefilter1": {
-      "message": {
-        "fieldName1": {
-          "value": "someValue1",
-          "operation": "EQUAL"
+    "SimService": {
+      "strategy": {
+        "name": "filter",
+        "filters": {
+          "templatefilter1": {
+            "endpoints": [
+              "name1"
+            ],
+            "message": {
+              "fieldName1": {
+                "value": "someValue1",
+                "operation": "EQUAL"
+              },
+              "fieldName2": {
+                "value": "someValue2",
+                "operation": "EQUAL"
+              }
+            }
+          },
+          "templatefilter2": {
+            "endpoints": [
+              "name2"
+            ],
+            "message": {
+              "fieldName3": {
+                "value": "someValue3",
+                "operation": "EQUAL"
+              }
+            }
+          }
+        }
+      },
+      "service-class": "com.exactpro.th2.grpc.anlt.SimulatorService",
+      "endpoints": {
+        "name1": {
+          "host": "127.0.0.1",
+          "port": 5001
         },
-        "fieldName2": {
-          "value": "someValue2",
-          "operation": "EQUAL"
+        "name2": {
+          "host": "127.0.0.2",
+          "port": 5002
         }
       }
     },
-    "templatefilter2": {
-      "message": {
-        "fieldName3": {
-          "value": "someValue3",
-          "operation": "EQUAL"
+    "ActService": {
+      "strategy": {
+        "name": "robin"
+      },
+      "service-class": "com.exactpro.th2.grpc.anlt.ActService",
+      "endpoints": {
+        "name3": {
+          "host": "127.0.0.3",
+          "port": 5003
+        },
+        "name4": {
+          "host": "127.0.0.4",
+          "port": 5004
         }
       }
     }
-  },
-  "filterToServerMatch": {
-    "templatefilter1": "simulator1",
-    "templatefilter2": "simulator2",
-    "notsimulator1": "notsimulator1"
   }
 }

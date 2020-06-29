@@ -13,23 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.impl.rabbitmq.router;
-
-import java.util.stream.Collectors;
-
-import com.exactpro.th2.common.message.impl.rabbitmq.parsed.RabbitParsedBatchQueue;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
+package com.exactpro.th2.common.message.impl.rabbitmq.router.impl;
 
 import com.exactpro.th2.common.message.MessageListener;
 import com.exactpro.th2.common.message.MessageQueue;
 import com.exactpro.th2.common.message.SubscriberMonitor;
 import com.exactpro.th2.common.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.message.impl.rabbitmq.parsed.RabbitParsedBatchQueue;
+import com.exactpro.th2.common.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
+import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.MessageFilter;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
-public abstract class AbstractParsedRabbitMessageRouter extends AbstractRabbitMessageRouter<MessageBatch> {
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class ParsedRabbitMessageRouter extends AbstractRabbitBatchMessageRouter<Message,MessageBatch> {
 
     @Override
     protected MessageQueue<MessageBatch> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration) {
@@ -45,14 +47,25 @@ public abstract class AbstractParsedRabbitMessageRouter extends AbstractRabbitMe
             callback.handler(consumerTag, MessageBatch
                     .newBuilder()
                     .addAllMessages(message
-                                    .getMessagesList()
-                                    .stream()
-                                    .filter(message1 -> message1
-                                            .getMetadata()
-                                            .getId()
-                                            .getConnectionId()
-                                            .getSessionAlias()
-                                            .equals(filter.getConnectionId().getSessionAlias())).collect(Collectors.toList())).build());
+                            .getMessagesList()
+                            .stream()
+                            .filter(message1 -> message1
+                                    .getMetadata()
+                                    .getId()
+                                    .getConnectionId()
+                                    .getSessionAlias()
+                                    .equals(filter.getConnectionId().getSessionAlias())).collect(Collectors.toList())).build());
         });
     }
+
+    @Override
+    protected List<Message> crackBatch(MessageBatch batch) {
+        return batch.getMessagesList();
+    }
+
+    @Override
+    protected MessageBatch createBatch() {
+        return MessageBatch.newBuilder().build();
+    }
+
 }

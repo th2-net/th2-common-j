@@ -1,0 +1,36 @@
+{
+  "queues": {
+    "fix_in": {
+      "name": "fix_client_in",
+      "exchange": "demo_exchange",
+      "attributes": [
+        "in",
+        "fix"
+      ],
+      "filters": [
+        {
+          "metadata": {
+            "session_alias": {
+              "value": "fix_client",
+              "operation": "EQUAL"
+            }
+          },
+          "message": {
+            "ClOrdId": {
+              "value": "ord1",
+              "operation": "EQUAL"
+            }
+          }
+        }
+      ]
+    },
+    "fix_out": {
+      "name": "fix_client_out",
+      "exchange": "demo_exchange",
+      "attributes": [
+        "out",
+        "fix"
+      ]
+    }
+  }
+}
