@@ -23,10 +23,13 @@ import com.exactpro.th2.common.loader.impl.DefaultLoader;
 import com.exactpro.th2.common.message.MessageRouter;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.message.impl.rabbitmq.router.impl.ParsedRabbitMessageRouter;
+import com.exactpro.th2.common.message.impl.rabbitmq.router.impl.RawRabbitMessageRouter;
 import com.exactpro.th2.common.strategy.RoutingStrategy;
 import com.exactpro.th2.common.strategy.json.JsonDeserializerRoutingStategy;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.GrpcRouter;
+import com.exactpro.th2.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,7 +47,7 @@ public abstract class AbstractCommonFactory {
     private Class<? extends GrpcRouter> grpcRouterClass = null;
 
     public AbstractCommonFactory() {
-        //this(DefaultParsedRabbitMessageRouter.class, DefaultRawRabbitMessageRouter.class, DefaultGrpcRouter.class);
+        this(ParsedRabbitMessageRouter.class, RawRabbitMessageRouter.class, DefaultGrpcRouter.class);
     }
 
     public AbstractCommonFactory(Class<? extends MessageRouter> messageRouterParsedBatchClass, Class<? extends MessageRouter> messageRouterRawBatchClass, Class<? extends GrpcRouter> grpcRouterClass) {
