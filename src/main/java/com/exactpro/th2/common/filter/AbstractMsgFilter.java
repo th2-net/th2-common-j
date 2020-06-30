@@ -13,18 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.common.filter;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
+import com.exactpro.th2.common.message.configuration.FilterConfiguration;
 
-@Data
-public class GrpcConfiguration {
+import java.util.Map;
 
-    @JsonProperty
-    private int port;
+public abstract class AbstractMsgFilter implements Filter {
 
-    @JsonProperty
-    private String host;
+    public static boolean checkValues(Map<String, String> messageFields, Map<String, FilterConfiguration> fieldFilters) {
+        return fieldFilters.entrySet().stream().allMatch(entry -> {
+            var fieldName = entry.getKey();
+            var fieldFilter = entry.getValue();
+            var msgFieldValue = messageFields.get(fieldName);
+            return fieldFilter.checkValue(msgFieldValue);
+        });
+    }
 
 }

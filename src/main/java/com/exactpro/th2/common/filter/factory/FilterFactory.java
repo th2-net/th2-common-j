@@ -16,7 +16,7 @@
 package com.exactpro.th2.common.filter.factory;
 
 import com.exactpro.th2.common.filter.Filter;
-import com.exactpro.th2.configuration.FilterableConfiguration;
+import com.exactpro.th2.common.message.configuration.FilterableConfiguration;
 
 public interface FilterFactory {
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.strategy.json;
+package com.exactpro.th2.common.strategy.routeStrategy.json;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -22,12 +22,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 
+import com.exactpro.th2.common.strategy.routeStrategy.RoutingStrategy;
+import com.exactpro.th2.common.strategy.routeStrategy.StrategyName;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.common.strategy.RoutingStrategy;
-import com.exactpro.th2.common.strategy.StrategyName;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;

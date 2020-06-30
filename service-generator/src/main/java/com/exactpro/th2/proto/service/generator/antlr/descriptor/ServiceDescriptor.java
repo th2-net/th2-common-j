@@ -15,21 +15,57 @@
  */
 package com.exactpro.th2.proto.service.generator.antlr.descriptor;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.SuperBuilder;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class ServiceDescriptor {
+@SuperBuilder(toBuilder = true)
+@EqualsAndHashCode(callSuper = true)
+public class ServiceDescriptor extends CommentableDescriptor {
 
-    private String serviceName;
+    private String name;
 
+    @Builder.Default
     private String packageName = "";
 
     private List<MethodDescriptor> methods;
+
+
+    public ServiceDescriptor toAsync() {
+
+        var asd = copy();
+
+        asd.getMethods().forEach(method ->
+                method.getRequestTypes().add(TypeDescriptor.builder()
+                        .name("StreamObserver")
+                        .packageName("io.grpc.stub")
+                        .genericType(method.getResponseType())
+                        .build())
+        );
+
+        asd.setName("Async" + asd.getName());
+
+        return asd;
+    }
+
+    public ServiceDescriptor copy() {
+
+        var methods = this.methods.stream()
+                .map(MethodDescriptor::copy)
+                .collect(Collectors.toList());
+
+        return ServiceDescriptor.builder()
+                .comments(new ArrayList<>(this.comments))
+                .name(this.name)
+                .packageName(this.packageName)
+                .methods(methods)
+                .build();
+    }
 
 }

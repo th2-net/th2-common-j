@@ -15,20 +15,53 @@
  */
 package com.exactpro.th2.common.filter.impl;
 
-import com.exactpro.th2.common.filter.AbstractTh2MsgFilter;
+import com.exactpro.th2.common.filter.AbstractMsgFilter;
 import com.exactpro.th2.common.strategy.fieldExtraction.FieldExtractionStrategy;
 import com.exactpro.th2.common.strategy.fieldExtraction.impl.Th2MsgFieldExtraction;
-import com.exactpro.th2.configuration.FilterableConfiguration;
+import com.exactpro.th2.exception.FilterCheckException;
+import com.exactpro.th2.grpc.configuration.GrpcRawStrategy;
+import com.google.protobuf.Message;
 
-public class GrpcMsgFilter extends AbstractTh2MsgFilter {
+public class GrpcMsgFilter extends AbstractMsgFilter {
 
-    public GrpcMsgFilter(FilterableConfiguration configuration) {
-        super(configuration);
+    private GrpcRawStrategy configuration;
+
+
+    public GrpcMsgFilter(GrpcRawStrategy configuration) {
+        this.configuration = configuration;
+    }
+
+
+    @Override
+    public String check(Message message) {
+        return check(message, new Th2MsgFieldExtraction());
     }
 
     @Override
-    public FieldExtractionStrategy getFieldExtStrategy() {
-        return new Th2MsgFieldExtraction();
+    public String check(Message message, FieldExtractionStrategy strategy) {
+        var endpointAlias = "";
+
+        for (var fieldsFilter : configuration.getFilters()) {
+
+            var msgFieldsFilter = fieldsFilter.getMessage();
+            var msgMetadataFilter = fieldsFilter.getMetadata();
+
+            msgFieldsFilter.putAll(msgMetadataFilter);
+
+            if (checkValues(strategy.getFields(message), msgFieldsFilter)) {
+                if (!endpointAlias.isEmpty()) {
+                    throw new FilterCheckException("Two endpoints match one " +
+                            "message according to configuration filters");
+                }
+                endpointAlias = fieldsFilter.getEndpoint();
+            }
+        }
+
+        if (endpointAlias.isEmpty()) {
+            throw new FilterCheckException("No filters correspond to message: " + message);
+        }
+
+        return endpointAlias;
     }
 
 }

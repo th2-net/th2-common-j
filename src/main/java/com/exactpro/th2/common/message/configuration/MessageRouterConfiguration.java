@@ -15,29 +15,23 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
-import static java.util.Collections.emptySet;
-
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.apache.commons.collections4.CollectionUtils;
-import org.jetbrains.annotations.Nullable;
-
-import com.exactpro.th2.configuration.FilterableConfiguration;
 import com.exactpro.th2.infra.grpc.MessageFilter;
 import com.exactpro.th2.infra.grpc.ValueFilter.KindCase;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonCreator.Mode;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import lombok.Getter;
+import org.apache.commons.collections4.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
-public class MessageRouterConfiguration extends FilterableConfiguration {
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+
+import static java.util.Collections.emptySet;
+
+
+public class MessageRouterConfiguration implements FilterableConfiguration {
 
     @Getter
     private Map<String, QueueConfiguration> queues;
@@ -89,7 +83,7 @@ public class MessageRouterConfiguration extends FilterableConfiguration {
         return queues
                 .entrySet()
                 .stream()
-                .filter(entry -> Arrays.stream(entry.getValue().getFilters()).anyMatch(it -> checkFilter(it, filter)))
+                .filter(entry -> entry.getValue().getFilters().stream().anyMatch(it -> checkFilter(it, filter)))
                 .map(Entry::getKey).collect(Collectors.toSet());
     }
 

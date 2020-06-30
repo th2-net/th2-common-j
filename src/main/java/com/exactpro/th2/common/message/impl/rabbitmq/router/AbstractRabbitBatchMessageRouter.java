@@ -15,18 +15,16 @@
  */
 package com.exactpro.th2.common.message.impl.rabbitmq.router;
 
-import java.util.Collections;
+import com.google.protobuf.Message;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
-import com.google.protobuf.Message;
 
 public abstract class AbstractRabbitBatchMessageRouter<M extends Message, B extends Message> extends AbstractRabbitMessageRouter<B> {
 
     @Override
-    protected Map<Set<String>, B> getTargetQueueAliasesAndBatchesForSend(B batch) {
+    protected Map<String, B> getTargetQueueAliasesAndBatchesForSend(B batch) {
 
         var filter = filterFactory.createFilter(configuration);
 
@@ -34,19 +32,15 @@ public abstract class AbstractRabbitBatchMessageRouter<M extends Message, B exte
 
         for (var msg : crackBatch(batch)) {
 
-            var filterAlias = filter.check(msg).iterator().next();
+            var queueAlias = filter.check(msg);
 
-            result.putIfAbsent(filterAlias, createBatch());
+            result.putIfAbsent(queueAlias, createBatch());
 
-            crackBatch(result.get(filterAlias)).add(msg);
+            crackBatch(result.get(queueAlias)).add(msg);
 
         }
 
-        return Collections.emptyMap();
-        //FIXME: fix filters
-//        return result.entrySet().stream()
-//                .map(entry -> Map.entry(configuration.getQueueFilters().get(entry.getKey()), entry.getValue()))
-//                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return result;
     }
 
     protected abstract List<M> crackBatch(B batch);

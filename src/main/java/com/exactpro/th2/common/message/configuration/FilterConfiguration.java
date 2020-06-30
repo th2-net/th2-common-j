@@ -22,13 +22,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Getter;
 
-public class FilterConfiguration {
+@Getter
+public class FilterConfiguration implements Configuration {
 
-    @Getter
     @JsonProperty
     private String value;
 
-    @Getter
     @JsonProperty(required = true)
     private FilterOperation operation;
 

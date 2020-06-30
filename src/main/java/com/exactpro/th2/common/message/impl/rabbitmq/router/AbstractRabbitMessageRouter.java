@@ -84,19 +84,17 @@ public abstract class AbstractRabbitMessageRouter<T extends Message> implements 
     public void send(T message) throws IOException {
         IOException exception = null;
 
-        for (var targetAliasesAndBatch : getTargetQueueAliasesAndBatchesForSend(message).entrySet()) {
-           var targetAliases = targetAliasesAndBatch.getKey();
-           var batch = targetAliasesAndBatch.getValue();
+        for (var targetAliasesAndBatch: getTargetQueueAliasesAndBatchesForSend(message).entrySet()) {
+            var targetAlias = targetAliasesAndBatch.getKey();
+            var batch = targetAliasesAndBatch.getValue();
 
-            for (var targetAlias: targetAliases) {
-                try {
-                    send(targetAlias, batch);
-                } catch (IOException e) {
-                    if (exception == null) {
-                        exception = new IOException("Can not send to some queue");
-                    }
-                    exception.addSuppressed(e);
+            try {
+                send(targetAlias, batch);
+            } catch (IOException e) {
+                if (exception == null) {
+                    exception = new IOException("Can not send to some queue");
                 }
+                exception.addSuppressed(e);
             }
         }
 
@@ -131,7 +129,7 @@ public abstract class AbstractRabbitMessageRouter<T extends Message> implements 
 
     protected abstract MessageQueue<T> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration);
 
-    protected abstract Map<Set<String>, T> getTargetQueueAliasesAndBatchesForSend(T message);
+    protected abstract Map<String, T> getTargetQueueAliasesAndBatchesForSend(T message);
 
     protected void send(String queueAlias, T value) throws IOException {
         getMessageQueue(queueAlias).getSender().send(value);

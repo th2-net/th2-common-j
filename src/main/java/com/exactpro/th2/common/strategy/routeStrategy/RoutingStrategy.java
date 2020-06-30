@@ -13,21 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.configuration;
+package com.exactpro.th2.common.strategy.routeStrategy;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-
-import java.util.Map;
+import com.google.protobuf.Message;
 
 
-@Getter
-public class RouterFilterConfiguration implements Configuration {
+public interface RoutingStrategy<T> {
 
-    @JsonProperty
-    private Map<String, FilterConfiguration> metadata;
+    Class<? extends T> getConfigurationClass();
 
-    @JsonProperty
-    private Map<String, FilterConfiguration> message;
+    void init(T configuration);
+
+    String getEndpoint(Message message);
 
 }

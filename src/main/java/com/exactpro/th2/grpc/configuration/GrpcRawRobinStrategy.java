@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.strategy;
+package com.exactpro.th2.grpc.configuration;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import com.exactpro.th2.common.message.configuration.FilterableConfiguration;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface StrategyName {
+import java.util.List;
 
-    String value();
+@Data
+public class GrpcRawRobinStrategy implements FilterableConfiguration {
+
+    @JsonProperty
+    private String name;
+
+    @JsonProperty
+    protected List<String> endpoints;
 
 }

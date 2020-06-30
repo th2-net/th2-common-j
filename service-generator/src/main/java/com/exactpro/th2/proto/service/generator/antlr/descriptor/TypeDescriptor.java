@@ -15,22 +15,50 @@
  */
 package com.exactpro.th2.proto.service.generator.antlr.descriptor;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+
+import java.util.Objects;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Builder
 public class TypeDescriptor {
 
     private String name;
 
+    @Builder.Default
     private String packageName = "";
 
+    private TypeDescriptor genericType;
+
+
+    public String getNameAsParam() {
+        if (isParameterized()) {
+            return name + "<" + genericType.getName() + ">";
+        }
+        return name;
+    }
 
     public String getFullName() {
         return packageName + "." + name;
+    }
+
+    public boolean isParameterized() {
+        return Objects.nonNull(genericType);
+    }
+
+    public TypeDescriptor copy() {
+
+        TypeDescriptor genericType = null;
+        if (Objects.nonNull(this.genericType)) {
+            genericType = this.genericType.copy();
+        }
+
+        return TypeDescriptor.builder()
+                .name(this.name)
+                .packageName(this.packageName)
+                .genericType(genericType)
+                .build();
     }
 
 }

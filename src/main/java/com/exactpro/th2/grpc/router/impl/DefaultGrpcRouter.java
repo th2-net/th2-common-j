@@ -15,8 +15,6 @@
  */
 package com.exactpro.th2.grpc.router.impl;
 
-import com.exactpro.th2.common.filter.factory.FilterFactory;
-import com.exactpro.th2.common.filter.factory.impl.DefaultFilterFactory;
 import com.exactpro.th2.exception.InitGrpcRouterException;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.AbstractGrpcRouter;
@@ -36,7 +34,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 
 public class DefaultGrpcRouter extends AbstractGrpcRouter {
@@ -48,16 +45,6 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     @Setter
     protected Map<Class<?>, Class<? extends AbstractStub>> serviceToStubAccordance;
 
-    protected FilterFactory filterFactory = new DefaultFilterFactory();
-
-
-    public DefaultGrpcRouter() {
-        this.serviceToStubAccordance = configuration.getServices().entrySet().stream()
-                .flatMap(entry -> entry.getValue().entrySet().stream())
-                .map(entry -> Map.entry(entry.getKey(), configuration.getServiceToStubMatch().get(entry.getValue())))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
 
     /**
      * Creates a service instance according to the filters in {@link GrpcRouterConfiguration}
@@ -68,18 +55,15 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
     public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
-        return getProxyService(cls);
-    }
 
-    /**
-     * Sets a fields filter factory
-     *
-     * @param filterFactory filter factory for filtering message fields
-     * @throws NullPointerException if {@code filterFactory} is null
-     */
-    public void setFilterFactory(FilterFactory filterFactory) {
-        Objects.requireNonNull(filterFactory);
-        this.filterFactory = filterFactory;
+        //TODO read the class of the corresponding stub from the service annotation
+
+//        this.serviceToStubAccordance = configuration.getServices().entrySet().stream()
+//                .flatMap(entry -> entry.getValue().entrySet().stream())
+//                .map(entry -> Map.entry(entry.getKey(), configuration.getServiceToStubMatch().get(entry.getValue())))
+//                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        return getProxyService(cls);
     }
 
 
@@ -129,24 +113,22 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     protected Channel applyFilter(Class<?> proxyService, Message message) {
 
-        var filter = filterFactory.createFilter(configuration);
-
-        var servers = configuration.getServers();
-
-        var grpcFilters = configuration.getFilterToServerMatch();
-
-        var serviceAlias = configuration.getServices().entrySet().stream()
-                .filter(entry -> Objects.nonNull(entry.getValue().get(proxyService)))
-                .map(Map.Entry::getKey)
+        var serviceConfig = configuration.getServices().values().stream()
+                .filter(sConfig -> sConfig.getServiceClass().equals(proxyService))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No services matching the provided " +
                         "class were found in the configuration: " + proxyService.getName()));
 
-        var serviceFilters = configuration.getServiceToFiltersMatch().get(serviceAlias);
+        var endpoints = serviceConfig.getEndpoints();
 
-        var targetFilterAliases = filter.check(message, serviceFilters).iterator().next();
+        var endpointName = serviceConfig.getStrategy().getEndpoint(message);
 
-        var grpcServer = servers.get(grpcFilters.get(targetFilterAliases));
+        var grpcServer = endpoints.get(endpointName);
+
+        if (Objects.isNull(grpcServer)) {
+            throw new IllegalStateException("No endpoint in configuration " +
+                    "that matching the provided alias: " + endpointName);
+        }
 
         return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort()).usePlaintext().build();
 

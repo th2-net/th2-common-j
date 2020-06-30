@@ -17,9 +17,11 @@ package com.exactpro.th2.proto.service.generator;
 
 import com.exactpro.th2.proto.service.generator.antlr.ProtoServiceParser;
 import com.exactpro.th2.proto.service.generator.antlr.ServiceClassGenerator;
+import com.exactpro.th2.proto.service.generator.antlr.descriptor.ServiceDescriptor;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.stream.Collectors;
 
 
 public class Main {
@@ -31,6 +33,12 @@ public class Main {
         var genDir = Paths.get(".");
 
         var serviceDescriptors = ProtoServiceParser.getServiceDescriptors(protoDir);
+
+        var asyncServiceDescriptors = serviceDescriptors.stream()
+                .map(ServiceDescriptor::toAsync)
+                .collect(Collectors.toList());
+
+        serviceDescriptors.addAll(asyncServiceDescriptors);
 
         ServiceClassGenerator.generate(genDir, serviceDescriptors);
 

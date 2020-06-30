@@ -65,11 +65,15 @@ public class ProtoServiceParser {
             // StringBuilder for apply reference behavior
             var packageName = new StringBuilder();
 
+            List<String> comments = new ArrayList<>();
+
             for (var child : protoTree.children) {
 
                 extractPackage(child, packageName);
 
-                extractService(child, packageName.toString(), serviceDescriptors);
+                extractComment(child, comments);
+
+                extractService(child, packageName.toString(), comments, serviceDescriptors);
 
                 extractMessage(child, packageName.toString(), messageToPackage);
 
@@ -90,20 +94,19 @@ public class ProtoServiceParser {
     private static void setupMsgPackages(List<ServiceDescriptor> serviceDesc, Map<String, String> messageToPackage) {
         for (var sDesc : serviceDesc) {
             for (var method : sDesc.getMethods()) {
-                var reqType = method.getRequestType();
+
                 var respType = method.getResponseType();
-
-                var reqTypeName = reqType.getName();
                 var respTypeName = respType.getName();
-
-                var reqPackageName = messageToPackage.get(reqTypeName);
                 var respPackageName = messageToPackage.get(respTypeName);
-
-                checkExistence(reqTypeName, reqPackageName);
                 checkExistence(respTypeName, respPackageName);
-
-                reqType.setPackageName(reqPackageName);
                 respType.setPackageName(respPackageName);
+
+                for (var reqType : method.getRequestTypes()) {
+                    var reqTypeName = reqType.getName();
+                    var reqPackageName = messageToPackage.get(reqTypeName);
+                    checkExistence(reqTypeName, reqPackageName);
+                    reqType.setPackageName(reqPackageName);
+                }
             }
         }
     }
@@ -112,6 +115,13 @@ public class ProtoServiceParser {
         if (Objects.isNull(packageName)) {
             throw new IllegalStateException(String.format("Message<%s> definition " +
                     "not found in provided proto files", msgName));
+        }
+    }
+
+    private static void extractComment(ParseTree node, List<String> comments) {
+        //FIXME antlr not recognized comments properly
+        if (isChildless(node) && isComment(node)) {
+            comments.add(extractCommentText(node));
         }
     }
 
@@ -129,24 +139,40 @@ public class ProtoServiceParser {
         }
     }
 
-    private static void extractService(ParseTree node, String packageName, List<ServiceDescriptor> serviceDescs) {
+    private static void extractService(
+            ParseTree node,
+            String packageName,
+            List<String> comments,
+            List<ServiceDescriptor> serviceDescs
+    ) {
         extractEntity(node, PROTO_SERVICE_ALIAS, (serviceName, entityNode) -> {
 
-            var serviceDesc = new ServiceDescriptor();
+            var serviceDesc = ServiceDescriptor.builder()
+                    .name(serviceName)
+                    .packageName(packageName)
+                    .methods(getMethodDescriptors(entityNode))
+                    .comments(new ArrayList<>(comments))
+                    .build();
 
-            serviceDesc.setServiceName(serviceName);
-            serviceDesc.setPackageName(packageName);
-            serviceDesc.setMethods(getMethodDescriptors(entityNode));
+            comments.clear();
 
             serviceDescs.add(serviceDesc);
         });
     }
 
-    private static void extractMessage(ParseTree node, String packageName, Map<String, String> messageToPackage) {
+    private static void extractMessage(
+            ParseTree node,
+            String packageName,
+            Map<String, String> messageToPackage) {
         extractEntity(node, PROTO_MSG_ALIAS, (msgName, entityNode) -> messageToPackage.put(msgName, packageName));
     }
 
-    private static void extractEntity(ParseTree node, String targetEntity, BiConsumer<String, ParseTree> entityConsumer) {
+    private static void extractEntity(
+            ParseTree node,
+            String targetEntity,
+            BiConsumer<String,
+                    ParseTree> entityConsumer
+    ) {
         if (node.getChildCount() > 0) {
 
             var potentialEntity = node.getChild(0);
@@ -166,31 +192,40 @@ public class ProtoServiceParser {
     private static List<MethodDescriptor> getMethodDescriptors(ParseTree serviceNode) {
 
         var startRpcDeclarationIndex = 3;
-        var endRpcDeclarationIndex = serviceNode.getChildCount() - 1;
 
         var methodNameIndex = 1;
         var methodRequestTypeIndex = 3;
         var methodResponseTypeIndex = 7;
 
+        List<String> comments = new ArrayList<>();
         List<MethodDescriptor> methodDescriptors = new ArrayList<>();
 
-        for (int i = startRpcDeclarationIndex; i < endRpcDeclarationIndex; i++) {
+        for (int i = startRpcDeclarationIndex; i < serviceNode.getChildCount(); i++) {
             var methodNode = serviceNode.getChild(i);
+
+            if (isChildless(methodNode)) {
+                if (isComment(methodNode)) {
+                    comments.add(extractCommentText(methodNode));
+                }
+                continue;
+            }
+
 
             var methodName = methodNode.getChild(methodNameIndex).getText();
             var methodRequestType = methodNode.getChild(methodRequestTypeIndex).getText();
             var methodResponseType = methodNode.getChild(methodResponseTypeIndex).getText();
 
-            var rqTypeDesc = new TypeDescriptor();
-            rqTypeDesc.setName(methodRequestType);
+            var rqTypeDesc = TypeDescriptor.builder().name(methodRequestType).build();
+            var respTypeDesc = TypeDescriptor.builder().name(methodResponseType).build();
 
-            var respTypeDesc = new TypeDescriptor();
-            respTypeDesc.setName(methodResponseType);
+            var methodDesc = MethodDescriptor.builder()
+                    .comments(new ArrayList<>(comments))
+                    .name(methodName)
+                    .responseType(respTypeDesc)
+                    .requestTypes(new ArrayList<>(List.of(rqTypeDesc)))
+                    .build();
 
-            var methodDesc = new MethodDescriptor();
-            methodDesc.setName(methodName);
-            methodDesc.setRequestType(rqTypeDesc);
-            methodDesc.setResponseType(respTypeDesc);
+            comments.clear();
 
             methodDescriptors.add(methodDesc);
         }
@@ -198,4 +233,22 @@ public class ProtoServiceParser {
         return methodDescriptors;
     }
 
+    private static boolean isChildless(ParseTree node) {
+        return node.getChildCount() == 0;
+    }
+
+    private static boolean isComment(ParseTree node) {
+        var stringNode = node.toString().strip();
+        return stringNode.startsWith("/**") && stringNode.endsWith("*/")
+                || stringNode.startsWith("/*") && stringNode.endsWith("*/")
+                || stringNode.startsWith("//");
+    }
+
+    private static String extractCommentText(ParseTree commentNode) {
+        return commentNode.toString().replace("/**", "")
+                .replace("/*", "")
+                .replace("*/", "")
+                .replace("//", "")
+                .strip();
+    }
 }

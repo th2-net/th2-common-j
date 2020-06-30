@@ -3,11 +3,9 @@
     "SimService": {
       "strategy": {
         "name": "filter",
-        "filters": {
-          "templatefilter1": {
-            "endpoints": [
-              "name1"
-            ],
+        "filters": [
+          {
+            "endpoint": "name1",
             "message": {
               "fieldName1": {
                 "value": "someValue1",
@@ -19,10 +17,8 @@
               }
             }
           },
-          "templatefilter2": {
-            "endpoints": [
-              "name2"
-            ],
+          {
+            "endpoint": "name2",
             "message": {
               "fieldName3": {
                 "value": "someValue3",
@@ -30,7 +26,7 @@
               }
             }
           }
-        }
+        ]
       },
       "service-class": "com.exactpro.th2.grpc.anlt.SimulatorService",
       "endpoints": {
@@ -46,7 +42,11 @@
     },
     "ActService": {
       "strategy": {
-        "name": "robin"
+        "name": "robin",
+        "endpoints": [
+          "name3",
+          "name4"
+        ]
       },
       "service-class": "com.exactpro.th2.grpc.anlt.ActService",
       "endpoints": {

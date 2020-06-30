@@ -13,21 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.message.configuration;
+package com.exactpro.th2.grpc.configuration;
 
+import com.exactpro.th2.common.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
+import lombok.Data;
 
-import java.util.Map;
-
-
-@Getter
-public class RouterFilterConfiguration implements Configuration {
+@Data
+public class GrpcEndpointConfiguration implements Configuration {
 
     @JsonProperty
-    private Map<String, FilterConfiguration> metadata;
+    private String host;
 
     @JsonProperty
-    private Map<String, FilterConfiguration> message;
+    private int port;
 
 }

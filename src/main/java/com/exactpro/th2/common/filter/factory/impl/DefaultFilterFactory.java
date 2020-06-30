@@ -19,18 +19,18 @@ import com.exactpro.th2.common.filter.Filter;
 import com.exactpro.th2.common.filter.factory.FilterFactory;
 import com.exactpro.th2.common.filter.impl.GrpcMsgFilter;
 import com.exactpro.th2.common.filter.impl.MqMsgFilter;
+import com.exactpro.th2.common.message.configuration.FilterableConfiguration;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.configuration.FilterableConfiguration;
-import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.grpc.configuration.GrpcRawStrategy;
 
 public class DefaultFilterFactory implements FilterFactory {
 
     @Override
     public Filter createFilter(FilterableConfiguration configuration) {
         if (configuration instanceof MessageRouterConfiguration) {
-            return new MqMsgFilter(configuration);
-        } else if (configuration instanceof GrpcRouterConfiguration) {
-            return new GrpcMsgFilter(configuration);
+            return new MqMsgFilter((MessageRouterConfiguration) configuration);
+        } else if (configuration instanceof GrpcRawStrategy) {
+            return new GrpcMsgFilter((GrpcRawStrategy) configuration);
         }
 
         throw new IllegalStateException("Unknown configuration type");

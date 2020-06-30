@@ -13,23 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.configuration;
+package com.exactpro.th2.grpc.configuration;
 
-import com.exactpro.th2.common.message.configuration.RouterFilterConfiguration;
+import com.exactpro.th2.common.message.configuration.FilterableConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
-import java.util.Map;
+import java.util.List;
 
 @Data
-public class FilterableConfiguration {
-
-    public static final String SESSION_ALIAS_KEY = "session_alias";
-    public static final String DIRECTION_KEY = "direction";
-    public static final String MESSAGE_TYPE_KEY = "message_type";
-
+public class GrpcRawStrategy implements FilterableConfiguration {
 
     @JsonProperty
-    protected Map<String, RouterFilterConfiguration> filters;
+    private String name;
+
+    @JsonProperty
+    protected List<GrpcRouterFilterConfiguration> filters;
 
 }

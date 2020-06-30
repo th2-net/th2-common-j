@@ -15,15 +15,18 @@
  */
 package com.exactpro.th2.grpc.configuration.test;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collections;
-
+import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.strategy.routeStrategy.RoutingStrategy;
+import com.exactpro.th2.common.strategy.routeStrategy.json.JsonDeserializerRoutingStategy;
+import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.File;
+import java.io.IOException;
+import java.util.Collections;
 
 public class TestMqConfiguration {
 
@@ -41,8 +44,23 @@ public class TestMqConfiguration {
         }
     }
 
+    @Test
     public void testGrpcConfiguration() {
         //TODO: Add test
+
+//        try {
+//            var mapper = new ObjectMapper();
+//
+//            SimpleModule module = new SimpleModule();
+//            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+//            mapper.registerModule(module);
+//
+//            var conf = mapper.readerFor(GrpcRouterConfiguration.class).readValue(new File(pathToGRPCConfiguration));
+//
+//        } catch (IOException e) {
+//            Assert.fail();
+//        }
+
     }
 
 }

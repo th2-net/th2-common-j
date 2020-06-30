@@ -15,23 +15,24 @@
  */
 package com.exactpro.th2.common.filter;
 
+import com.exactpro.th2.common.strategy.fieldExtraction.FieldExtractionStrategy;
+import com.exactpro.th2.exception.FilterCheckException;
 import com.google.protobuf.Message;
-
-import java.util.Set;
 
 public interface Filter {
 
     /**
      * @param message message whose fields will be filtered
-     * @return aliases of matched filters
+     * @return only one filter alias of target entity (queue/endpoint), which correspond to provided message
+     * @throws FilterCheckException if two filters match the message or none
+     *                              of the filters match the provided message
      */
-    Set<String> check(Message message);
+    String check(Message message);
 
     /**
-     * @param message       message whose fields will be filtered
-     * @param exceptFilters filters aliases that should not be involved in filtering
-     * @return aliases of matched filters except those specified in the {@code exceptFilters} variable
+     * @param strategy strategy for extracting fields for filtering
+     * @see Filter#check(Message message)
      */
-    Set<String> check(Message message, Set<String> exceptFilters);
+    String check(Message message, FieldExtractionStrategy strategy);
 
 }

@@ -15,19 +15,10 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
+public interface FilterableConfiguration extends Configuration {
 
-import java.util.Map;
-
-
-@Getter
-public class RouterFilterConfiguration implements Configuration {
-
-    @JsonProperty
-    private Map<String, FilterConfiguration> metadata;
-
-    @JsonProperty
-    private Map<String, FilterConfiguration> message;
+    String SESSION_ALIAS_KEY = "session_alias";
+    String MESSAGE_TYPE_KEY = "message_type";
+    String DIRECTION_KEY = "direction";
 
 }

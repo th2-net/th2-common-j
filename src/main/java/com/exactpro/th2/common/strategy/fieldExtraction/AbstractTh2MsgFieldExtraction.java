@@ -20,8 +20,8 @@ import com.exactpro.th2.infra.grpc.Message;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.exactpro.th2.common.message.configuration.MessageRouterConfiguration.DIRECTION_KEY;
-import static com.exactpro.th2.common.message.configuration.MessageRouterConfiguration.SESSION_ALIAS_KEY;
+import static com.exactpro.th2.common.message.configuration.FilterableConfiguration.DIRECTION_KEY;
+import static com.exactpro.th2.common.message.configuration.FilterableConfiguration.SESSION_ALIAS_KEY;
 
 
 public abstract class AbstractTh2MsgFieldExtraction implements FieldExtractionStrategy {

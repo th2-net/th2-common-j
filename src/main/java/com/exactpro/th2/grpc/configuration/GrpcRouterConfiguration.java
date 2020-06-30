@@ -15,35 +15,20 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
-import com.exactpro.th2.configuration.FilterableConfiguration;
+import com.exactpro.th2.common.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.grpc.stub.AbstractStub;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import java.util.Map;
-import java.util.Set;
 
 
 @Data
-@EqualsAndHashCode(callSuper = true)
-public class GrpcRouterConfiguration extends FilterableConfiguration {
+public class GrpcRouterConfiguration implements Configuration {
 
     @JsonProperty
-    private Map<String, Map<Class<?>, String>> services;
+    private Map<String, GrpcServiceConfiguration> services;
 
     @JsonProperty
-    private Map<String, Class<? extends AbstractStub>> serviceToStubMatch;
-    @JsonProperty
-    private Map<String, Set<String>> serviceToFiltersMatch;
-
-    @JsonProperty
-    private Map<String, GrpcConfiguration> servers;
-
-    @JsonProperty
-    private Map<String, String> filterToServerMatch;
-
-    @JsonProperty
-    private GrpcConfiguration serverConfiguration;
+    private GrpcEndpointConfiguration serverConfiguration;
 
 }

@@ -21,7 +21,9 @@ import "infra.proto";
 option java_multiple_files = true;
 option java_package = "com.exactpro.th2.crApi.grpc.proto.infra";
 
+// Act service
 service Act {
+
     /* This action executes next steps:
         1) Registers checkpoint in Verifier microservice
         2) Sends passed message as is to Connectivity microservice
@@ -51,6 +53,7 @@ service Act {
     }
 }
 
+// Act service2
 service Act2 {
 
     rpc test (PlaceMessageRequest) returns (PlaceMessageResponse) {

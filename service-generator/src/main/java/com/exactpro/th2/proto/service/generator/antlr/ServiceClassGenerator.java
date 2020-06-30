@@ -16,6 +16,7 @@
 package com.exactpro.th2.proto.service.generator.antlr;
 
 import com.exactpro.th2.proto.service.generator.antlr.descriptor.ServiceDescriptor;
+import com.exactpro.th2.proto.service.generator.antlr.descriptor.TypeDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,11 +42,13 @@ public class ServiceClassGenerator {
 
     public static final String INTERFACE_ALIAS = "interface";
 
-    public static final String REQUEST_VAR_ALIAS = "request";
+    public static final String REQUEST_VAR_ALIAS = "arg";
 
     public static final String SERVICE_SUFFIX = "Service";
 
     public static final String SERVICE_EXTENSION = ".java";
+
+    public static final String SERVICE_INDENT = "    ";
 
     public static final String LINE_SEPARATOR = System.lineSeparator();
 
@@ -56,11 +59,11 @@ public class ServiceClassGenerator {
 
             var pathToClass = getPathToClass(genDir, desc.getPackageName()).toFile();
 
-            if(!pathToClass.exists() && !pathToClass.mkdirs()){
+            if (!pathToClass.exists() && !pathToClass.mkdirs()) {
                 throw new IOException("Failed to create directories for class generation");
             }
 
-            var serviceFileName = desc.getServiceName() + SERVICE_SUFFIX + SERVICE_EXTENSION;
+            var serviceFileName = desc.getName() + SERVICE_SUFFIX + SERVICE_EXTENSION;
 
             var serviceClassFile = Paths.get(pathToClass.toString(), serviceFileName);
 
@@ -93,27 +96,48 @@ public class ServiceClassGenerator {
 
     private static void imports(ServiceDescriptor serviceDescriptor, StringBuilder data) {
         for (var method : serviceDescriptor.getMethods()) {
-            addImportIfNotExist(method.getRequestType().getFullName(), data);
-            addImportIfNotExist(method.getResponseType().getFullName(), data);
+            for (var reqType : method.getRequestTypes()) {
+                importsRec(reqType, data);
+            }
+            importsRec(method.getResponseType(), data);
+        }
+    }
+
+    private static void importsRec(TypeDescriptor typeDescriptor, StringBuilder data) {
+        addImportIfNotExist(typeDescriptor.getFullName(), data);
+        if (typeDescriptor.isParameterized()) {
+            importsRec(typeDescriptor.getGenericType(), data);
         }
     }
 
     private static void service(ServiceDescriptor serviceDescriptor, StringBuilder data) {
-        data.append(LINE_SEPARATOR)
+        data.append(serviceDescriptor.getCommentsAsJavaDoc(""))
+                .append(LINE_SEPARATOR)
                 .append(PUBLIC_ALIAS).append(" ")
                 .append(INTERFACE_ALIAS).append(" ")
-                .append(serviceDescriptor.getServiceName())
+                .append(serviceDescriptor.getName())
                 .append(SERVICE_SUFFIX).append(" {")
-                .append(LINE_SEPARATOR)
                 .append(LINE_SEPARATOR);
 
+
         for (var method : serviceDescriptor.getMethods()) {
-            data.append("    ")
-                    .append(method.getResponseType().getName()).append(" ")
-                    .append(method.getName()).append("(")
-                    .append(method.getRequestType().getName()).append(" ")
-                    .append(REQUEST_VAR_ALIAS).append(");")
-                    .append(LINE_SEPARATOR);
+            data.append(method.getCommentsAsJavaDoc(SERVICE_INDENT))
+                    .append(LINE_SEPARATOR)
+                    .append(SERVICE_INDENT)
+                    .append(method.getResponseType().getNameAsParam()).append(" ")
+                    .append(method.getName()).append("(");
+
+            var reqTypes = method.getRequestTypes();
+
+            int argCounter = 1;
+            for (int i = 0; i < reqTypes.size(); i++) {
+                var reqType = reqTypes.get(i);
+                data.append(reqType.getNameAsParam()).append(" ")
+                        .append(REQUEST_VAR_ALIAS).append(argCounter++)
+                        .append(i < reqTypes.size() - 1 ? ", " : "");
+            }
+
+            data.append(");").append(LINE_SEPARATOR);
         }
 
         data.append(LINE_SEPARATOR).append("}");

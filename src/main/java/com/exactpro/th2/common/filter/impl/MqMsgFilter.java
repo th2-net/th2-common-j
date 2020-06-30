@@ -15,20 +15,79 @@
  */
 package com.exactpro.th2.common.filter.impl;
 
-import com.exactpro.th2.common.filter.AbstractTh2MsgFilter;
+import com.exactpro.th2.common.filter.AbstractMsgFilter;
+import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.message.configuration.RouterFilterConfiguration;
 import com.exactpro.th2.common.strategy.fieldExtraction.FieldExtractionStrategy;
 import com.exactpro.th2.common.strategy.fieldExtraction.impl.Th2BatchMsgFieldExtraction;
-import com.exactpro.th2.configuration.FilterableConfiguration;
+import com.exactpro.th2.exception.FilterCheckException;
+import com.google.protobuf.Message;
 
-public class MqMsgFilter extends AbstractTh2MsgFilter {
+import java.util.List;
 
-    public MqMsgFilter(FilterableConfiguration configuration) {
-        super(configuration);
+public class MqMsgFilter extends AbstractMsgFilter {
+
+    private MessageRouterConfiguration configuration;
+
+
+    public MqMsgFilter(MessageRouterConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+
+    @Override
+    public String check(Message message) {
+        return check(message, new Th2BatchMsgFieldExtraction());
     }
 
     @Override
-    public FieldExtractionStrategy getFieldExtStrategy() {
-        return new Th2BatchMsgFieldExtraction();
+    public String check(Message message, FieldExtractionStrategy strategy) {
+        var queueAliasResult = "";
+
+        for (var queueEntry : configuration.getQueues().entrySet()) {
+
+            var queueAlias = queueEntry.getKey();
+            var queueConfig = queueEntry.getValue();
+
+            var filterResult = filter(message, queueConfig.getFilters(), strategy);
+
+            if (filterResult) {
+                if (queueAliasResult.isEmpty()) {
+                    queueAliasResult = queueAlias;
+                } else {
+                    throw new FilterCheckException("Two queues match one message " +
+                            "according to configuration filters");
+                }
+            }
+
+        }
+
+        if (queueAliasResult.isEmpty()) {
+            throw new FilterCheckException("No filters correspond to message: " + message);
+        }
+
+        return queueAliasResult;
+    }
+
+
+    private boolean filter(
+            Message message,
+            List<RouterFilterConfiguration> filtersConfig,
+            FieldExtractionStrategy strategy
+    ) {
+        for (var fieldsFilter : filtersConfig) {
+
+            var msgFieldsFilter = fieldsFilter.getMessage();
+            var msgMetadataFilter = fieldsFilter.getMetadata();
+
+            msgFieldsFilter.putAll(msgMetadataFilter);
+
+            if (checkValues(strategy.getFields(message), msgFieldsFilter)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }

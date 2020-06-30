@@ -15,19 +15,6 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-
-import java.util.Map;
-
-
-@Getter
-public class RouterFilterConfiguration implements Configuration {
-
-    @JsonProperty
-    private Map<String, FilterConfiguration> metadata;
-
-    @JsonProperty
-    private Map<String, FilterConfiguration> message;
+public interface Configuration {
 
 }

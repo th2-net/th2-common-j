@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 
 
 public abstract class AbstractGrpcRouter implements GrpcRouter {
+
     protected GrpcRouterConfiguration configuration;
 
     @Override
