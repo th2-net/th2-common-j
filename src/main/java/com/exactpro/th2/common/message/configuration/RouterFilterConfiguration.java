@@ -19,26 +19,15 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import lombok.Getter;
+
 public class RouterFilterConfiguration {
 
+    @Getter
     @JsonProperty
     private Map<String, FilterConfiguration> metadata;
+
+    @Getter
     @JsonProperty
     private Map<String, FilterConfiguration> message;
-
-    public Map<String, FilterConfiguration> getMetadata() {
-        return metadata;
-    }
-
-    public void setMetadata(Map<String, FilterConfiguration> metadata) {
-        this.metadata = metadata;
-    }
-
-    public Map<String, FilterConfiguration> getMessage() {
-        return message;
-    }
-
-    public void setMessage(Map<String, FilterConfiguration> message) {
-        this.message = message;
-    }
 }

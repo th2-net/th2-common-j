@@ -15,29 +15,29 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import lombok.Getter;
 
 public class QueueConfiguration {
 
+    @Getter
     @JsonProperty(required = true)
     private String name;
 
+    @Getter
     @JsonProperty(required = true)
     private String exchange;
 
-    public String getName() {
-        return name;
-    }
+    @Getter
+    @JsonAlias({"labels", "tags"})
+    @JsonProperty(required = true)
+    private String[] attributes;
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    @Getter
+    @JsonProperty
+    private RouterFilterConfiguration[] filters;
 
-    public String getExchange() {
-        return exchange;
-    }
 
-    public void setExchange(String exchange) {
-        this.exchange = exchange;
-    }
 }

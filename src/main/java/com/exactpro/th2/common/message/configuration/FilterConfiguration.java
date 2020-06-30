@@ -15,48 +15,34 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
-import com.exactpro.th2.infra.grpc.FilterOperation;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.Objects;
+import com.exactpro.th2.infra.grpc.FilterOperation;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import lombok.Getter;
 
 public class FilterConfiguration {
 
+    @Getter
     @JsonProperty
     private String value;
 
+    @Getter
     @JsonProperty(required = true)
     private FilterOperation operation;
 
-    public String getValue() {
-        return value;
-    }
-
-    public void setValue(String value) {
-        this.value = value;
-    }
-
-    public FilterOperation getOperation() {
-        return operation;
-    }
-
-    public void setOperation(FilterOperation operation) {
-        this.operation = operation;
-    }
-
 
     public boolean checkValue(String value1) {
-        if (Objects.isNull(value1)) {
+        if (StringUtils.isEmpty(value1)) {
             return false;
         }
 
-        var value2 = this.getValue();
-        switch (this.getOperation()) {
+        switch (this.operation) {
             case EQUAL:
-                return value1.equals(value2);
+                return value1.equals(this.value);
             case NOT_EQUAL:
-                return !value1.equals(value2);
+                return !value1.equals(this.value);
             case EMPTY:
                 return StringUtils.isEmpty(value1);
             case NOT_EMPTY:

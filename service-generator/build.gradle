@@ -28,6 +28,10 @@ dependencies {
 
 compileJava.dependsOn.add('generateGrammarSource')
 
+sourceSets {
+    main.java.srcDirs += "build/generated-src/antlr/main"
+}
+
 generateGrammarSource {
     arguments += ["-package", "com.exactpro.th2.proto.service.generator.antlr"]
 }

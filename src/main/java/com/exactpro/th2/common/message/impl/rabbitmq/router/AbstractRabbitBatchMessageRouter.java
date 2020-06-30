@@ -15,13 +15,13 @@
  */
 package com.exactpro.th2.common.message.impl.rabbitmq.router;
 
-import com.google.protobuf.Message;
-
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+
+import com.google.protobuf.Message;
 
 public abstract class AbstractRabbitBatchMessageRouter<M extends Message, B extends Message> extends AbstractRabbitMessageRouter<B> {
 
@@ -42,9 +42,11 @@ public abstract class AbstractRabbitBatchMessageRouter<M extends Message, B exte
 
         }
 
-        return result.entrySet().stream()
-                .map(entry -> Map.entry(configuration.getQueueFilters().get(entry.getKey()), entry.getValue()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return Collections.emptyMap();
+        //FIXME: fix filters
+//        return result.entrySet().stream()
+//                .map(entry -> Map.entry(configuration.getQueueFilters().get(entry.getKey()), entry.getValue()))
+//                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     protected abstract List<M> crackBatch(B batch);

@@ -15,53 +15,44 @@
  */
 package com.exactpro.th2.common.message.configuration;
 
-import com.exactpro.th2.configuration.FilterableConfiguration;
-import com.exactpro.th2.infra.grpc.MessageFilter;
-import com.exactpro.th2.infra.grpc.ValueFilter.KindCase;
-import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import static java.util.Collections.emptySet;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.apache.commons.collections4.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import com.exactpro.th2.configuration.FilterableConfiguration;
+import com.exactpro.th2.infra.grpc.MessageFilter;
+import com.exactpro.th2.infra.grpc.ValueFilter.KindCase;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonCreator.Mode;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-import static java.util.Collections.emptySet;
+import lombok.Getter;
 
 public class MessageRouterConfiguration extends FilterableConfiguration {
 
-    @JsonProperty
+    @Getter
     private Map<String, QueueConfiguration> queues;
 
-    @JsonProperty
-    @JsonAlias({"tags", "labels"})
     private Map<String, Set<String>> attributes;
 
-    @JsonProperty
-    private Map<String, Set<String>> queueFilters;
-
-    public Map<String, QueueConfiguration> getQueues() {
-        return queues;
-    }
-
-    public void setQueues(Map<String, QueueConfiguration> queues) {
+    @JsonCreator(mode = Mode.PROPERTIES)
+    public MessageRouterConfiguration(@JsonProperty("queues") Map<String, QueueConfiguration> queues) {
         this.queues = queues;
-    }
-
-    public Map<String, Set<String>> getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(Map<String, Set<String>> attributes) {
-        this.attributes = attributes;
-    }
-
-    public Map<String, Set<String>> getQueueFilters() {
-        return queueFilters;
-    }
-
-    public void setQueueFilters(Map<String, Set<String>> queueFilters) {
-        this.queueFilters = queueFilters;
+        attributes = new HashMap<>();
+        queues.forEach((queueAlias, queueConfiguration) -> {
+            for (String attribute : queueConfiguration.getAttributes()) {
+                attributes.computeIfAbsent(attribute, key -> new HashSet<>()).add(queueAlias);
+            }
+        });
     }
 
     @Nullable
@@ -95,13 +86,11 @@ public class MessageRouterConfiguration extends FilterableConfiguration {
     }
 
     public Set<String> getQueueAliasByMessageFilter(MessageFilter filter) {
-        return filters
+        return queues
                 .entrySet()
                 .stream()
-                .filter(entity -> checkFilter(entity.getValue(), filter))
-                .map(entity -> queueFilters.get(entity.getKey()))
-                .flatMap(Collection::stream)
-                .collect(Collectors.toSet());
+                .filter(entry -> Arrays.stream(entry.getValue().getFilters()).anyMatch(it -> checkFilter(it, filter)))
+                .map(Entry::getKey).collect(Collectors.toSet());
     }
 
     private boolean checkFilter(RouterFilterConfiguration filterConfiguration, MessageFilter messageFilter) {
@@ -129,6 +118,5 @@ public class MessageRouterConfiguration extends FilterableConfiguration {
             return fConfig == null || entry.getValue().getKindCase() == KindCase.SIMPLE_FILTER && fConfig.checkValue(entry.getValue().getSimpleFilter());
         });
     }
-
 
 }
