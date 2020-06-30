@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class TestMqConfiguration {
 
     private static final String pathToMQConfiguration = "./src/test/resources/com.exactpro.th2/grpc/configuration/test/mq.json";
+    private static final String pathToGRPCConfiguration = "./src/test/resources/com.exactpro.th2/grpc/configuration/test/grpc.json";
 
     @Test
     public void testMqConfiguration() {
@@ -38,6 +39,10 @@ public class TestMqConfiguration {
         } catch (IOException e) {
             Assert.fail();
         }
+    }
+
+    public void testGrpcConfiguration() {
+        //TODO: Add test
     }
 
 }

@@ -23,15 +23,19 @@ import com.exactpro.th2.common.loader.impl.DefaultLoader;
 import com.exactpro.th2.common.message.MessageRouter;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.strategy.RoutingStrategy;
+import com.exactpro.th2.common.strategy.json.JsonDeserializerRoutingStategy;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.GrpcRouter;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 public abstract class AbstractCommonFactory {
 
     private static ObjectMapper mapper = new ObjectMapper();
+
     private RabbitMQConfiguration rabbitMQConfiguration = null;
     private MessageRouterConfiguration messageRouterConfiguration = null;
     private GrpcRouterConfiguration grpcRouterConfiguration = null;
@@ -106,6 +110,13 @@ public abstract class AbstractCommonFactory {
 
     private synchronized GrpcRouterConfiguration getGrpcRouterConfiguration() {
         if (grpcRouterConfiguration != null) {
+            var mapper = new ObjectMapper();
+
+            SimpleModule module = new SimpleModule();
+            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+
+            mapper.registerModule(module);
+
             try (var in = new FileInputStream(getPathToGrpcRouterConfiguration().toFile())) {
                 grpcRouterConfiguration = mapper.readerFor(GrpcRouterConfiguration.class).readValue(in);
             } catch (IOException e) {
