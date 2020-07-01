@@ -15,18 +15,20 @@
  */
 package com.exactpro.th2.common.strategy.routeStrategy.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.exactpro.th2.common.strategy.routeStrategy.RoutingStrategy;
 import com.exactpro.th2.common.strategy.routeStrategy.StrategyName;
 import com.exactpro.th2.grpc.configuration.GrpcRawRobinStrategy;
 import com.google.protobuf.Message;
 
-import java.util.ArrayDeque;
-import java.util.Queue;
-
 @StrategyName("robin")
 public class RobinStrategy implements RoutingStrategy<GrpcRawRobinStrategy> {
 
-    private Queue<String> endpoints;
+    private List<String> endpoints;
+    private AtomicInteger index = new AtomicInteger(0);
 
 
     @Override
@@ -36,16 +38,12 @@ public class RobinStrategy implements RoutingStrategy<GrpcRawRobinStrategy> {
 
     @Override
     public void init(GrpcRawRobinStrategy configuration) {
-        this.endpoints = new ArrayDeque<>(configuration.getEndpoints());
+        this.endpoints = new ArrayList<>(configuration.getEndpoints());
     }
 
     @Override
     public String getEndpoint(Message message) {
-        var endpoint = endpoints.poll();
-
-        endpoints.add(endpoint);
-
-        return endpoint;
+        return endpoints.get(index.getAndUpdate(i -> i + 1 >= endpoints.size() ? 0 : i + 1));
     }
 
 }

@@ -15,19 +15,17 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
+import java.util.List;
+
 import com.exactpro.th2.common.message.configuration.FilterableConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
 
-import java.util.List;
+import lombok.Data;
 
 @Data
 public class GrpcRawRobinStrategy implements FilterableConfiguration {
 
-    @JsonProperty
-    private String name;
-
-    @JsonProperty
+    @JsonProperty(required = true)
     protected List<String> endpoints;
 
 }

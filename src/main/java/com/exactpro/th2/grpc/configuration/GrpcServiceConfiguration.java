@@ -15,23 +15,24 @@
  */
 package com.exactpro.th2.grpc.configuration;
 
+import java.util.Map;
+
 import com.exactpro.th2.common.message.configuration.Configuration;
 import com.exactpro.th2.common.strategy.routeStrategy.RoutingStrategy;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
 
-import java.util.Map;
+import lombok.Data;
 
 @Data
 public class GrpcServiceConfiguration implements Configuration {
 
-    @JsonProperty
+    @JsonProperty(required = true)
     private RoutingStrategy<?> strategy;
 
-    @JsonProperty("service-class")
+    @JsonProperty(value = "service-class", required = true)
     private Class<?> serviceClass;
 
-    @JsonProperty
+    @JsonProperty(required = true)
     private Map<String, GrpcEndpointConfiguration> endpoints;
 
 }

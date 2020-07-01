@@ -13,18 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.grpc.configuration;
+package com.exactpro.th2.grpc.configuration.test;
 
-import java.util.List;
-
-import com.exactpro.th2.common.message.configuration.FilterableConfiguration;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import lombok.Data;
-
-@Data
-public class GrpcRawStrategy implements FilterableConfiguration {
-    @JsonProperty(required = true)
-    protected List<GrpcRouterFilterConfiguration> filters;
-
+public interface TestService {
 }

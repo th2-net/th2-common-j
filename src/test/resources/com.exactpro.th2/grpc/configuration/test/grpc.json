@@ -28,7 +28,7 @@
           }
         ]
       },
-      "service-class": "com.exactpro.th2.grpc.anlt.SimulatorService",
+      "service-class": "com.exactpro.th2.grpc.configuration.test.TestService",
       "endpoints": {
         "name1": {
           "host": "127.0.0.1",
@@ -48,7 +48,7 @@
           "name4"
         ]
       },
-      "service-class": "com.exactpro.th2.grpc.anlt.ActService",
+      "service-class": "com.exactpro.th2.grpc.configuration.test.TestService",
       "endpoints": {
         "name3": {
           "host": "127.0.0.3",

@@ -23,9 +23,9 @@ import com.exactpro.th2.common.loader.impl.DefaultLoader;
 import com.exactpro.th2.common.message.MessageRouter;
 import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.common.strategy.routeStrategy.RoutingStrategy;
 import com.exactpro.th2.common.message.impl.rabbitmq.router.impl.ParsedRabbitMessageRouter;
 import com.exactpro.th2.common.message.impl.rabbitmq.router.impl.RawRabbitMessageRouter;
+import com.exactpro.th2.common.strategy.routeStrategy.RoutingStrategy;
 import com.exactpro.th2.common.strategy.routeStrategy.json.JsonDeserializerRoutingStategy;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.GrpcRouter;
@@ -87,7 +87,7 @@ public abstract class AbstractCommonFactory {
     protected abstract Path getPathToGrpcRouterConfiguration();
     protected abstract Path getPathToCustomConfiguration();
 
-    private synchronized RabbitMQConfiguration getRabbitMqConfiguration() {
+    protected synchronized RabbitMQConfiguration getRabbitMqConfiguration() {
         if (rabbitMQConfiguration == null) {
             try (var in = new FileInputStream(getPathToRabbitMQConfiguration().toFile())) {
                 rabbitMQConfiguration = mapper.readerFor(RabbitMQConfiguration.class).readValue(in);
@@ -99,7 +99,7 @@ public abstract class AbstractCommonFactory {
         return rabbitMQConfiguration;
     }
 
-    private synchronized MessageRouterConfiguration getMessageRouterConfiguration() {
+    protected synchronized MessageRouterConfiguration getMessageRouterConfiguration() {
         if (messageRouterConfiguration == null) {
             try (var in = new FileInputStream(getPathToMessageRouterConfiguration().toFile())) {
                 messageRouterConfiguration = mapper.readerFor(MessageRouterConfiguration.class).readValue(in);
@@ -111,8 +111,8 @@ public abstract class AbstractCommonFactory {
         return messageRouterConfiguration;
     }
 
-    private synchronized GrpcRouterConfiguration getGrpcRouterConfiguration() {
-        if (grpcRouterConfiguration != null) {
+    protected synchronized GrpcRouterConfiguration getGrpcRouterConfiguration() {
+        if (grpcRouterConfiguration == null) {
             var mapper = new ObjectMapper();
 
             SimpleModule module = new SimpleModule();

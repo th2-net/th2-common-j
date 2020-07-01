@@ -17,15 +17,16 @@ package com.exactpro.th2.grpc.configuration;
 
 import com.exactpro.th2.common.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Data;
 
 @Data
 public class GrpcEndpointConfiguration implements Configuration {
 
-    @JsonProperty
+    @JsonProperty(required = true)
     private String host;
 
-    @JsonProperty
+    @JsonProperty(required = true)
     private int port;
 
 }
