@@ -13,41 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.proto.service.generator.antlr.descriptor;
+package com.exactpro.th2.proto.service.generator.core.antlr.descriptor;
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.experimental.SuperBuilder;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 
 @Data
 @SuperBuilder(toBuilder = true)
-@EqualsAndHashCode(callSuper = true)
-public class MethodDescriptor extends CommentableDescriptor {
+public abstract class CommentableDescriptor {
 
-    private String name;
-
-    private TypeDescriptor responseType;
-
-    private List<TypeDescriptor> requestTypes;
+    protected List<String> comments;
 
 
-    public MethodDescriptor copy() {
+    public String getCommentsAsJavaDoc(String indent) {
+        if (comments.isEmpty()) {
+            return "";
+        }
 
-        var requestTypes = this.requestTypes.stream()
-                .map(TypeDescriptor::copy)
-                .collect(Collectors.toList());
-
-        return MethodDescriptor.builder()
-                .comments(new ArrayList<>(this.comments))
-                .name(this.name)
-                .responseType(responseType.copy())
-                .requestTypes(requestTypes)
-                .build();
+        return "\n" + comments.stream()
+                .flatMap(c -> Arrays.stream(c.split("\n")))
+                .map(c -> indent + " * " + c)
+                .collect(Collectors.joining(
+                        System.lineSeparator(),
+                        indent + "/**\n",
+                        "\n" + indent + " */"
+                ));
     }
 
 }

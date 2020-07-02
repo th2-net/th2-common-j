@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.proto.service.generator.antlr.descriptor;
+package com.exactpro.th2.proto.service.generator.core.antlr.descriptor;
 
 import lombok.Builder;
 import lombok.Data;
@@ -36,35 +36,24 @@ public class ServiceDescriptor extends CommentableDescriptor {
 
     private List<MethodDescriptor> methods;
 
+    private List<AnnotationDescriptor> annotations;
 
-    public ServiceDescriptor toAsync() {
 
-        var asd = copy();
+    public static ServiceDescriptor newInstance(ServiceDescriptor sd) {
+        var methods = sd.getMethods().stream()
+                .map(MethodDescriptor::newInstance)
+                .collect(Collectors.toList());
 
-        asd.getMethods().forEach(method ->
-                method.getRequestTypes().add(TypeDescriptor.builder()
-                        .name("StreamObserver")
-                        .packageName("io.grpc.stub")
-                        .genericType(method.getResponseType())
-                        .build())
-        );
-
-        asd.setName("Async" + asd.getName());
-
-        return asd;
-    }
-
-    public ServiceDescriptor copy() {
-
-        var methods = this.methods.stream()
-                .map(MethodDescriptor::copy)
+        var annotations = sd.getAnnotations().stream()
+                .map(AnnotationDescriptor::newInstance)
                 .collect(Collectors.toList());
 
         return ServiceDescriptor.builder()
-                .comments(new ArrayList<>(this.comments))
-                .name(this.name)
-                .packageName(this.packageName)
+                .comments(new ArrayList<>(sd.getComments()))
+                .name(sd.getName())
+                .packageName(sd.getPackageName())
                 .methods(methods)
+                .annotations(annotations)
                 .build();
     }
 

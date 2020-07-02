@@ -13,51 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.proto.service.generator.antlr.descriptor;
+package com.exactpro.th2.proto.service.generator.core.antlr.descriptor;
 
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.Objects;
-
 @Data
 @Builder
-public class TypeDescriptor {
+public class AnnotationDescriptor {
 
     private String name;
+
+    private String value;
 
     @Builder.Default
     private String packageName = "";
 
-    private TypeDescriptor genericType;
-
-
-    public String getNameAsParam() {
-        if (isParameterized()) {
-            return name + "<" + genericType.getName() + ">";
-        }
-        return name;
-    }
 
     public String getFullName() {
         return packageName + "." + name;
     }
 
-    public boolean isParameterized() {
-        return Objects.nonNull(genericType);
-    }
 
-    public TypeDescriptor copy() {
-
-        TypeDescriptor genericType = null;
-        if (Objects.nonNull(this.genericType)) {
-            genericType = this.genericType.copy();
-        }
-
-        return TypeDescriptor.builder()
-                .name(this.name)
-                .packageName(this.packageName)
-                .genericType(genericType)
+    public static AnnotationDescriptor newInstance(AnnotationDescriptor ad) {
+        return AnnotationDescriptor.builder()
+                .name(ad.getName())
+                .value(ad.getValue())
+                .packageName(ad.getPackageName())
                 .build();
     }
 

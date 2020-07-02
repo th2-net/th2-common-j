@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.proto.service.generator.antlr;
+package com.exactpro.th2.proto.service.generator.core.antlr;
 
-import com.exactpro.th2.proto.service.generator.antlr.descriptor.ServiceDescriptor;
-import com.exactpro.th2.proto.service.generator.antlr.descriptor.TypeDescriptor;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.ServiceDescriptor;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.TypeDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,13 +25,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
 public class ServiceClassGenerator {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProtoServiceParser.class);
+    private static final Logger logger = LoggerFactory.getLogger(ServiceClassGenerator.class);
 
 
     public static final String PACKAGE_ALIAS = "package";
@@ -54,13 +55,16 @@ public class ServiceClassGenerator {
 
 
     public static void generate(Path genDir, List<ServiceDescriptor> serviceDescriptors) throws IOException {
+        Objects.requireNonNull(genDir, "Target directory path for generated source cannot be null!");
+        Objects.requireNonNull(serviceDescriptors, "Service descriptors collection cannot be null!");
 
         for (var desc : serviceDescriptors) {
+            logger.info("Creating java interface of '{}' services", desc.getName());
 
             var pathToClass = getPathToClass(genDir, desc.getPackageName()).toFile();
 
             if (!pathToClass.exists() && !pathToClass.mkdirs()) {
-                throw new IOException("Failed to create directories for class generation");
+                throw new IOException("Failed to create directories for interface generation");
             }
 
             var serviceFileName = desc.getName() + SERVICE_SUFFIX + SERVICE_EXTENSION;
@@ -70,6 +74,8 @@ public class ServiceClassGenerator {
             Files.write(serviceClassFile, descriptorToInterface(desc).getBytes(), CREATE, TRUNCATE_EXISTING);
 
         }
+
+        logger.info("{} interface(s) successfully created", serviceDescriptors.size());
 
     }
 
@@ -95,12 +101,18 @@ public class ServiceClassGenerator {
     }
 
     private static void imports(ServiceDescriptor serviceDescriptor, StringBuilder data) {
+
         for (var method : serviceDescriptor.getMethods()) {
             for (var reqType : method.getRequestTypes()) {
                 importsRec(reqType, data);
             }
             importsRec(method.getResponseType(), data);
         }
+
+        for (var ann : serviceDescriptor.getAnnotations()) {
+            addImportIfNotExist(ann.getFullName(), data);
+        }
+
     }
 
     private static void importsRec(TypeDescriptor typeDescriptor, StringBuilder data) {
@@ -110,17 +122,24 @@ public class ServiceClassGenerator {
         }
     }
 
-    private static void service(ServiceDescriptor serviceDescriptor, StringBuilder data) {
-        data.append(serviceDescriptor.getCommentsAsJavaDoc(""))
-                .append(LINE_SEPARATOR)
-                .append(PUBLIC_ALIAS).append(" ")
+    private static void service(ServiceDescriptor sd, StringBuilder data) {
+
+        data.append(sd.getCommentsAsJavaDoc("")).append(LINE_SEPARATOR);
+
+        for (var ann : sd.getAnnotations()) {
+            data.append("@").append(ann.getName()).append("(")
+                    .append(ann.getValue()).append(")")
+                    .append(LINE_SEPARATOR);
+        }
+
+        data.append(PUBLIC_ALIAS).append(" ")
                 .append(INTERFACE_ALIAS).append(" ")
-                .append(serviceDescriptor.getName())
+                .append(sd.getName())
                 .append(SERVICE_SUFFIX).append(" {")
                 .append(LINE_SEPARATOR);
 
 
-        for (var method : serviceDescriptor.getMethods()) {
+        for (var method : sd.getMethods()) {
             data.append(method.getCommentsAsJavaDoc(SERVICE_INDENT))
                     .append(LINE_SEPARATOR)
                     .append(SERVICE_INDENT)

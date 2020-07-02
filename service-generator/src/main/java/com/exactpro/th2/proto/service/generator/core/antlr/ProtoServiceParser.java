@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.proto.service.generator.antlr;
+package com.exactpro.th2.proto.service.generator.core.antlr;
 
-import com.exactpro.th2.proto.service.generator.antlr.descriptor.MethodDescriptor;
-import com.exactpro.th2.proto.service.generator.antlr.descriptor.ServiceDescriptor;
-import com.exactpro.th2.proto.service.generator.antlr.descriptor.TypeDescriptor;
-import org.antlr.v4.runtime.ANTLRFileStream;
-import org.antlr.v4.runtime.CommonTokenStream;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.MethodDescriptor;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.ServiceDescriptor;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.TypeDescriptor;
+import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,17 +48,17 @@ public class ProtoServiceParser {
 
     public static List<ServiceDescriptor> getServiceDescriptors(Path protoDir) throws IOException {
 
-        var protoFiles = Files.walk(protoDir)
-                .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().endsWith(PROTO_EXTENSION))
-                .collect(Collectors.toList());
+        var protoFiles = loadProtoFiles(protoDir);
 
         Map<String, String> messageToPackage = new HashMap<>();
         List<ServiceDescriptor> serviceDescriptors = new ArrayList<>();
 
         for (var protoFile : protoFiles) {
+            logger.info("Parsing '{}' file", protoFile.getFileName());
 
             Protobuf3Lexer lexer = new Protobuf3Lexer(new ANTLRFileStream(protoFile.toString()));
             Protobuf3Parser parser = new Protobuf3Parser(new CommonTokenStream(lexer));
+            parser.removeErrorListeners();
             Protobuf3Parser.ProtoContext protoTree = parser.proto();
 
             // StringBuilder for apply reference behavior
@@ -78,7 +77,6 @@ public class ProtoServiceParser {
                 extractMessage(child, packageName.toString(), messageToPackage);
 
             }
-
         }
 
         setupMsgPackages(serviceDescriptors, messageToPackage);
@@ -90,6 +88,26 @@ public class ProtoServiceParser {
         return serviceDescriptors;
     }
 
+
+    private static List<Path> loadProtoFiles(Path protoDir) throws IOException {
+        Objects.requireNonNull(protoDir, "Proto files directory path cannot be null!");
+
+        if (!protoDir.toFile().exists()) {
+            throw new IOException("Provided directory with proto files does not exist: " + protoDir);
+        }
+
+        var protoFiles = Files.walk(protoDir)
+                .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().endsWith(PROTO_EXTENSION))
+                .collect(Collectors.toList());
+
+        if (protoFiles.isEmpty()) {
+            throw new RuntimeException("No valid proto file was found in directory: " + protoDir);
+        }
+
+        logger.info("{} proto files were found in directory {}", protoFiles.size(), protoDir);
+
+        return protoFiles;
+    }
 
     private static void setupMsgPackages(List<ServiceDescriptor> serviceDesc, Map<String, String> messageToPackage) {
         for (var sDesc : serviceDesc) {
@@ -152,6 +170,7 @@ public class ProtoServiceParser {
                     .packageName(packageName)
                     .methods(getMethodDescriptors(entityNode))
                     .comments(new ArrayList<>(comments))
+                    .annotations(new ArrayList<>())
                     .build();
 
             comments.clear();
@@ -170,8 +189,7 @@ public class ProtoServiceParser {
     private static void extractEntity(
             ParseTree node,
             String targetEntity,
-            BiConsumer<String,
-                    ParseTree> entityConsumer
+            BiConsumer<String, ParseTree> entityConsumer
     ) {
         if (node.getChildCount() > 0) {
 

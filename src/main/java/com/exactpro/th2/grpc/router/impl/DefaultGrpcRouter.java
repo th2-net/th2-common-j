@@ -18,32 +18,25 @@ package com.exactpro.th2.grpc.router.impl;
 import com.exactpro.th2.exception.InitGrpcRouterException;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.AbstractGrpcRouter;
+import com.exactpro.th2.grpc.router.annotation.GrpcStub;
 import com.google.protobuf.Message;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
-import lombok.Getter;
-import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
-import java.util.Map;
 import java.util.Objects;
 
 
 public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultGrpcRouter.class);
-
-
-    @Getter
-    @Setter
-    protected Map<Class<?>, Class<? extends AbstractStub>> serviceToStubAccordance;
 
 
     /**
@@ -55,14 +48,6 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
     public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
-
-        //TODO read the class of the corresponding stub from the service annotation
-
-//        this.serviceToStubAccordance = configuration.getServices().entrySet().stream()
-//                .flatMap(entry -> entry.getValue().entrySet().stream())
-//                .map(entry -> Map.entry(entry.getKey(), configuration.getServiceToStubMatch().get(entry.getValue())))
-//                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
         return getProxyService(cls);
     }
 
@@ -135,24 +120,27 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     }
 
     protected AbstractStub<?> getGrpcStubToSend(Class<?> proxyService, Message message) throws ClassNotFoundException {
-        var stubClass = serviceToStubAccordance.get(proxyService);
+        var grpcStubAnn = proxyService.getAnnotation(GrpcStub.class);
 
-        if (Objects.isNull(stubClass)) {
-            throw new ClassNotFoundException("No matching protobuf stub was found " +
-                    "for the provided service class: " + proxyService.getSimpleName());
+        if (Objects.isNull(grpcStubAnn)) {
+            throw new ClassNotFoundException("Provided service class not annotated " +
+                    "by GrpcStub annotation: " + proxyService.getSimpleName());
         }
 
-        return getStubInstance(stubClass, applyFilter(proxyService, message));
+        return getStubInstance(grpcStubAnn.value(), applyFilter(proxyService, message));
     }
 
-    protected <T extends AbstractStub<T>> AbstractStub<T> getStubInstance(Class<T> stubClass, Channel channel) {
+    @SuppressWarnings("rawtypes")
+    protected <T extends AbstractStub> AbstractStub getStubInstance(Class<T> stubClass, Channel channel) {
         try {
             var constr = stubClass.getDeclaredConstructor(Channel.class, CallOptions.class);
             constr.setAccessible(true);
             return constr.newInstance(channel, CallOptions.DEFAULT);
-        } catch (Exception e) {
+        } catch (NoSuchMethodException e) {
             throw new InitGrpcRouterException("Could not find constructor " +
-                    "'(Channel,CallOptions)' in the provided stub class " + stubClass, e);
+                    "'(Channel,CallOptions)' in the provided stub class: " + stubClass, e);
+        } catch (Exception e) {
+            throw new InitGrpcRouterException("Something went wrong while creating stub instance: " + stubClass, e);
         }
     }
 
