@@ -18,7 +18,8 @@ package com.exactpro.th2.proto.service.generator.core.antlr;
 import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.MethodDescriptor;
 import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.ServiceDescriptor;
 import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.TypeDescriptor;
-import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.ANTLRFileStream;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +95,10 @@ public class ProtoServiceParser {
 
         if (!protoDir.toFile().exists()) {
             throw new IOException("Provided directory with proto files does not exist: " + protoDir);
+        }
+
+        if (Files.isRegularFile(protoDir)) {
+            throw new IOException("You must provide path to directory with proto files, not to a single file: " + protoDir);
         }
 
         var protoFiles = Files.walk(protoDir)
