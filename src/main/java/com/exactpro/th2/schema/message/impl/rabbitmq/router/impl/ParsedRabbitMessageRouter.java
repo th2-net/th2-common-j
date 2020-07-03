@@ -1,0 +1,72 @@
+/*
+ * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.exactpro.th2.schema.message.impl.rabbitmq.router.impl;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.Nullable;
+
+import com.exactpro.th2.infra.grpc.Message;
+import com.exactpro.th2.infra.grpc.MessageBatch;
+import com.exactpro.th2.infra.grpc.MessageFilter;
+import com.exactpro.th2.schema.message.MessageListener;
+import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.SubscriberMonitor;
+import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchQueue;
+import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
+
+public class ParsedRabbitMessageRouter extends AbstractRabbitBatchMessageRouter<Message,MessageBatch> {
+
+    @Override
+    protected MessageQueue<MessageBatch> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration) {
+        RabbitParsedBatchQueue queue = new RabbitParsedBatchQueue();
+        queue.init(configuration, queueConfiguration);
+        return queue;
+    }
+
+    @Nullable
+    @Override
+    public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<MessageBatch> callback) {
+        return super.subscribe(filter, filter == null || StringUtils.isEmpty(filter.getConnectionId().getSessionAlias()) ? callback : (consumerTag, message) -> {
+            callback.handler(consumerTag, MessageBatch
+                    .newBuilder()
+                    .addAllMessages(message
+                            .getMessagesList()
+                            .stream()
+                            .filter(message1 -> message1
+                                    .getMetadata()
+                                    .getId()
+                                    .getConnectionId()
+                                    .getSessionAlias()
+                                    .equals(filter.getConnectionId().getSessionAlias())).collect(Collectors.toList())).build());
+        });
+    }
+
+    @Override
+    protected List<Message> crackBatch(MessageBatch batch) {
+        return batch.getMessagesList();
+    }
+
+    @Override
+    protected MessageBatch createBatch() {
+        return MessageBatch.newBuilder().build();
+    }
+
+}

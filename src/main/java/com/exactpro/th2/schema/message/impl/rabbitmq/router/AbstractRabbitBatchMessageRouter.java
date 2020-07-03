@@ -1,0 +1,50 @@
+/*
+ * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.exactpro.th2.schema.message.impl.rabbitmq.router;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.google.protobuf.Message;
+
+public abstract class AbstractRabbitBatchMessageRouter<M extends Message, B extends Message> extends AbstractRabbitMessageRouter<B> {
+
+    @Override
+    protected Map<String, B> getTargetQueueAliasesAndBatchesForSend(B batch) {
+
+        var filter = filterFactory.createFilter(configuration);
+
+        Map<String, B> result = new HashMap<>();
+
+        for (var msg : crackBatch(batch)) {
+
+            var queueAlias = filter.check(msg);
+
+            result.putIfAbsent(queueAlias, createBatch());
+
+            crackBatch(result.get(queueAlias)).add(msg);
+
+        }
+
+        return result;
+    }
+
+    protected abstract List<M> crackBatch(B batch);
+
+    protected abstract B createBatch();
+
+}

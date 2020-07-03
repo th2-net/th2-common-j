@@ -21,9 +21,9 @@ import java.util.Collections;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.exactpro.th2.common.factory.AbstractCommonFactory;
-import com.exactpro.th2.common.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.schema.factory.AbstractCommonFactory;
+import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 
 public class TestConfiguration extends AbstractCommonFactory{
 
@@ -40,6 +40,11 @@ public class TestConfiguration extends AbstractCommonFactory{
     @Override
     protected Path getPathToGrpcRouterConfiguration() {
         return Path.of("./src/test/resources/com.exactpro.th2/grpc/configuration/test/grpc.json");
+    }
+
+    @Override
+    protected Path getPathToCradleConfiguration() {
+        return null;
     }
 
     @Override

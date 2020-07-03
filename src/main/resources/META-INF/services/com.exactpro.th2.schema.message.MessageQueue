@@ -1,0 +1,2 @@
+com.exactpro.th2.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchQueue
+com.exactpro.th2.schema.message.impl.rabbitmq.raw.RabbitRawBatchQueue
