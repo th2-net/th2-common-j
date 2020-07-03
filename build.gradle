@@ -28,7 +28,7 @@ plugins {
 
 // build plugin first then uncomment this
 //
-//apply plugin: 'com.exactpro.th2.serviceGenerator'
+//apply plugin: 'com.exactpro.th2.service-generator'
 //
 //compileJava.dependsOn("generateServices")
 //

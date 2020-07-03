@@ -43,7 +43,7 @@ jar {
 gradlePlugin {
     plugins {
         serviceGeneratorPlugin {
-            id = 'com.exactpro.th2.serviceGenerator'
+            id = 'com.exactpro.th2.service-generator'
             implementationClass = 'com.exactpro.th2.proto.service.generator.plugin.ServiceGeneratorPlugin'
         }
     }
