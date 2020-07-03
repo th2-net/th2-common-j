@@ -15,23 +15,25 @@
  */
 package com.exactpro.th2.grpc.router.impl;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.Objects;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.exception.InitGrpcRouterException;
 import com.exactpro.th2.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.grpc.router.AbstractGrpcRouter;
-import com.exactpro.th2.grpc.router.annotation.GrpcStub;
+import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
 import com.google.protobuf.Message;
+
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Proxy;
-import java.util.Objects;
 
 
 public class DefaultGrpcRouter extends AbstractGrpcRouter {

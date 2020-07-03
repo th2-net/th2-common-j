@@ -15,6 +15,14 @@
  */
 package com.exactpro.th2.proto.service.generator.plugin;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.gradle.api.Plugin;
+import org.gradle.api.Project;
+import org.gradle.api.Task;
+
 import com.exactpro.th2.proto.service.generator.core.antlr.ProtoServiceParser;
 import com.exactpro.th2.proto.service.generator.core.antlr.ServiceClassGenerator;
 import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.AnnotationDescriptor;
@@ -22,14 +30,8 @@ import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.ServiceDes
 import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.TypeDescriptor;
 import com.exactpro.th2.proto.service.generator.plugin.ext.GenServiceExt;
 import com.exactpro.th2.proto.service.generator.plugin.ext.GenServiceSettingsExt;
-import lombok.SneakyThrows;
-import org.gradle.api.Plugin;
-import org.gradle.api.Project;
-import org.gradle.api.Task;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
+import lombok.SneakyThrows;
 
 public class ServiceGeneratorPlugin implements Plugin<Project> {
 
@@ -103,7 +105,7 @@ public class ServiceGeneratorPlugin implements Plugin<Project> {
         sds.forEach(sd -> sd.getAnnotations().add(
                 AnnotationDescriptor.builder()
                         .name("GrpcStub")
-                        .packageName("com.exactpro.th2.grpc.router.annotation")
+                        .packageName("com.exactpro.th2.proto.service.generator.core.antlr.annotation")
                         .value(createStubClass(sd))
                         .build()
         ));
