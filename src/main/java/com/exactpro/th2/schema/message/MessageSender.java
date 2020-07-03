@@ -25,6 +25,7 @@ import java.io.IOException;
 public interface MessageSender<T> extends Closeable {
 
     void start() throws Exception;
+    boolean isClose();
     void send(T message) throws IOException;
 
 }

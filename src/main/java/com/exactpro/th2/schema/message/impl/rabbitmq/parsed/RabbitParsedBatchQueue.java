@@ -30,6 +30,11 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
     protected MessageSender<MessageBatch> createSender(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
         RabbitParsedBatchSender result = new RabbitParsedBatchSender();
         result.init(configuration, queueConfiguration.getExchange(), queueConfiguration.getName());
+        try {
+            result.start();
+        } catch (Exception e) {
+            throw new RuntimeException(String.format("Can not start sender on queue with exchange '%s' and name '%s'", queueConfiguration.getExchange(), queueConfiguration.getName()), e);
+        }
         return result;
     }
 
@@ -37,6 +42,11 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
     protected MessageSubscriber<MessageBatch> createSubscriber(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
         RabbitParsedBatchSubscriber result = new RabbitParsedBatchSubscriber();
         result.init(configuration, queueConfiguration.getExchange(), queueConfiguration.getName());
+        try {
+            result.start();
+        } catch (Exception e) {
+            throw new RuntimeException(String.format("Can not start subscriber on queue with exchange '%s' and name '%s'", queueConfiguration.getExchange(), queueConfiguration.getName()), e);
+        }
         return result;
     }
 }

@@ -42,6 +42,8 @@ public interface MessageRouter<T> {
 
     SubscriberMonitor subscribeAll(MessageListener<T> callback);
 
+    void unsubscribeAll() throws IOException;
+
     void send(T message) throws IOException;
 
     void send(T message, String... queueAttr) throws IOException;

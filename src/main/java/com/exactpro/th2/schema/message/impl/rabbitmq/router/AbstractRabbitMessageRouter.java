@@ -90,10 +90,32 @@ public abstract class AbstractRabbitMessageRouter<T extends Message> implements 
     }
 
     @Override
+    public void unsubscribeAll() throws IOException {
+
+        IOException exception = new IOException("Can not close message router");
+
+        synchronized (queueConnections) {
+            for (MessageQueue<T> queue : queueConnections.values()) {
+                try {
+                    queue.close();
+                } catch (IOException e) {
+                    exception.addSuppressed(e);
+                }
+            }
+
+            queueConnections.clear();
+        }
+
+        if (exception.getSuppressed().length > 0) {
+            throw exception;
+        }
+    }
+
+    @Override
     public void send(T message) throws IOException {
         IOException exception = null;
 
-        for (var targetAliasesAndBatch: getTargetQueueAliasesAndBatchesForSend(message).entrySet()) {
+        for (var targetAliasesAndBatch : getTargetQueueAliasesAndBatchesForSend(message).entrySet()) {
             var targetAlias = targetAliasesAndBatch.getKey();
             var batch = targetAliasesAndBatch.getValue();
 
@@ -134,7 +156,6 @@ public abstract class AbstractRabbitMessageRouter<T extends Message> implements 
         Objects.requireNonNull(filterFactory);
         this.filterFactory = filterFactory;
     }
-
 
     protected abstract MessageQueue<T> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration);
 

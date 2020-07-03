@@ -47,7 +47,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     private String subscriberName = null;
     private String exchangeName = null;
-    private String[] queueTags = null;
+    private String[] queueAliases = null;
 
     private Connection connection;
     private Channel channel;
@@ -58,7 +58,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
 
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
-        this.queueTags = queueTags;
+        this.queueAliases = queueTags;
         this.subscriberName = configuration.getSubscriberName();
 
         factory.setHost(configuration.getHost());
@@ -83,7 +83,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void start() throws Exception {
-        if (queueTags == null || exchangeName == null) {
+        if (queueAliases == null || exchangeName == null) {
             throw new IllegalStateException("Subscriber did not init");
         }
 
@@ -96,7 +96,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         channel = connection.createChannel();
         channel.exchangeDeclare(exchangeName, "direct");
 
-        for (String queueTag : queueTags) {
+        for (String queueTag : queueAliases) {
             DeclareOk declareResult = channel.queueDeclare(subscriberName, false, true, true, emptyMap());
 
             String queue = declareResult.getQueue();
@@ -106,6 +106,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
             logger.info("Start listening '{}':'{}'", exchangeName, queue);
         }
+    }
+
+    @Override
+    public boolean isClose() {
+        return connection == null || !connection.isOpen();
     }
 
     @Override
@@ -121,6 +126,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void close() throws IOException {
+
+        synchronized (listeners) {
+            listeners.forEach(MessageListener::onClose);
+            listeners.clear();
+        }
+
         if (connection != null && connection.isOpen()) {
             connection.close(CLOSE_TIMEOUT);
         }
@@ -149,6 +160,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     private void canceled(String consumerTag) {
         logger.warn("Consuming cancelled for: '{}'", consumerTag);
+        try {
+            close();
+        } catch (IOException e) {
+            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName, queueAliases);
+        }
     }
 
 }

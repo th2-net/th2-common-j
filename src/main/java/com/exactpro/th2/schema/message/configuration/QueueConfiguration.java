@@ -15,6 +15,7 @@
  */
 package com.exactpro.th2.schema.message.configuration;
 
+import java.util.Collections;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -33,9 +34,15 @@ public class QueueConfiguration implements Configuration {
 
     @JsonAlias({"labels", "tags"})
     @JsonProperty(required = true)
-    private List<String> attributes;
+    private List<String> attributes = Collections.emptyList();
 
     @JsonProperty
-    private List<RouterFilterConfiguration> filters;
+    private List<RouterFilterConfiguration> filters = Collections.emptyList();
+
+    @JsonProperty(value = "read", defaultValue = "true")
+    private boolean canRead = true;
+
+    @JsonProperty(value = "write", defaultValue = "true")
+    private boolean canWrite = true;
 
 }

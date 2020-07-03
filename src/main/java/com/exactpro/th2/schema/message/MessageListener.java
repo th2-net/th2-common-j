@@ -23,4 +23,6 @@ public interface MessageListener<T> {
 
     void handler(String consumerTag, T message) throws Exception;
 
+    default void onClose() {}
+
 }

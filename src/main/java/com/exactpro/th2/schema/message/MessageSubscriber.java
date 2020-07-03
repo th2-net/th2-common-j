@@ -24,6 +24,7 @@ import java.io.Closeable;
 public interface MessageSubscriber<T> extends Closeable {
 
     void start() throws Exception;
+    boolean isClose();
     void addListener(MessageListener<T> messageListener);
 
 }

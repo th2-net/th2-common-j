@@ -15,6 +15,8 @@
  */
 package com.exactpro.th2.schema.message;
 
+import java.io.Closeable;
+
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
@@ -26,7 +28,7 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfi
  * @see MessageSubscriber
  * @see MessageSender
  */
-public interface MessageQueue<T> {
+public interface MessageQueue<T> extends Closeable {
 
     void init(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration);
 

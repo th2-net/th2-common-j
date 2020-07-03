@@ -31,7 +31,7 @@ public class FilterConfiguration implements Configuration {
     @JsonProperty(required = true)
     private FilterOperation operation;
 
-
+    //TODO: create factory for operations and not use enum
     public boolean checkValue(String value1) {
         if (StringUtils.isEmpty(value1)) {
             return false;

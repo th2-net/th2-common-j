@@ -74,6 +74,11 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     }
 
     @Override
+    public boolean isClose() {
+        return connection == null || !connection.isOpen();
+    }
+
+    @Override
     public void send(T value) throws IOException {
         if (channel == null) {
             throw new IllegalStateException("Sender did not init");

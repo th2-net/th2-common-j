@@ -15,6 +15,8 @@
  */
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
+import java.io.IOException;
+
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.schema.message.MessageQueue;
@@ -27,6 +29,8 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
     private RabbitMQConfiguration configuration;
     private QueueConfiguration queueConfiguration;
+    private final Object subscriberLock = new Object();
+    private final Object senderLock = new Object();
     private MessageSubscriber<T> subscriber = null;
     private MessageSender<T> sender = null;
 
@@ -37,21 +41,60 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
     }
 
     @Override
-    public synchronized MessageSubscriber<T> getSubscriber() {
+    public MessageSubscriber<T> getSubscriber() {
         if (configuration == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue not yet init");
         }
 
-        return subscriber == null ? subscriber = createSubscriber(configuration, queueConfiguration) : subscriber;
+        if (!queueConfiguration.isCanRead()) {
+            throw new IllegalStateException("Queue can not read");
+        }
+        synchronized (subscriberLock) {
+            return subscriber == null || subscriber.isClose() ? subscriber = createSubscriber(configuration, queueConfiguration) : subscriber;
+        }
     }
 
     @Override
-    public synchronized MessageSender<T> getSender() {
+    public MessageSender<T> getSender() {
         if (configuration == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue not yet init");
         }
 
-        return sender == null ? sender = createSender(configuration, queueConfiguration) : sender;
+        if (!queueConfiguration.isCanWrite()) {
+            throw new IllegalStateException("Queue can not write");
+        }
+        synchronized (senderLock) {
+            return sender == null || sender.isClose() ? sender = createSender(configuration, queueConfiguration) : sender;
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        IOException exception = new IOException("Can not close message queue");
+
+        synchronized (subscriberLock) {
+            if (subscriber != null && !subscriber.isClose()) {
+                try {
+                    subscriber.close();
+                } catch (IOException e) {
+                    exception.addSuppressed(e);
+                }
+            }
+        }
+
+        synchronized (senderLock) {
+            if (sender != null && !sender.isClose()) {
+                try {
+                    sender.close();
+                } catch (IOException e) {
+                    exception.addSuppressed(e);
+                }
+            }
+        }
+
+        if (exception.getSuppressed().length > 0) {
+            throw exception;
+        }
     }
 
     protected abstract MessageSender<T> createSender(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration);
