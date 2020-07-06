@@ -1,19 +1,17 @@
-/*
+/*****************************************************************************
  * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
- *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-package com.exactpro.th2.schema.message.impl.rabbitmq.router;
+ *****************************************************************************/
+
+package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -38,9 +36,8 @@ import com.exactpro.th2.schema.message.SubscriberMonitor;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.google.protobuf.Message;
 
-public abstract class AbstractRabbitMessageRouter<T extends Message> implements MessageRouter<T> {
+public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
     protected FilterFactory filterFactory;
     protected MessageRouterConfiguration configuration;
@@ -116,11 +113,11 @@ public abstract class AbstractRabbitMessageRouter<T extends Message> implements 
         IOException exception = null;
 
         for (var targetAliasesAndBatch : getTargetQueueAliasesAndBatchesForSend(message).entrySet()) {
-            var targetAlias = targetAliasesAndBatch.getKey();
+            var queueAlias = targetAliasesAndBatch.getKey();
             var batch = targetAliasesAndBatch.getValue();
 
             try {
-                send(targetAlias, batch);
+                send(queueAlias, batch);
             } catch (IOException e) {
                 if (exception == null) {
                     exception = new IOException("Can not send to some queue");
