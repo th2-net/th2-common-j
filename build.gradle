@@ -1,0 +1,134 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    
+    ext {
+        kotlin_version = "1.3.72"
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
+    }
+}
+
+plugins {
+    id 'com.google.protobuf' version '0.8.8' apply false
+    id "com.jfrog.artifactory" version '4.15.1' apply false
+    id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+    apply plugin: 'com.jfrog.artifactory'
+
+    ext {
+        sharedDir           = file("${project.rootDir}/shared")
+    }
+
+    group = 'com.exactpro.th2'
+    version = "${version_major}.${version_minor}-SNAPSHOT"
+
+    sourceCompatibility = 11
+    targetCompatibility = 11
+
+    repositories {
+        maven {
+            name 'MavenLocal'
+            url sharedDir
+        }
+        mavenCentral()
+        maven {
+            name 'Artifactory snapshot'
+            url 'http://artifactory5.exp.exactpro.com/artifactory/libs-snapshot'
+        }
+        mavenLocal()
+
+        configurations.all {
+            resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+            resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
+        }
+    }
+
+    java {
+        withJavadocJar()
+        withSourcesJar()
+    }
+
+    javadoc {
+        (options as StandardJavadocDocletOptions).addBooleanOption("html5", true)
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+            }
+        }
+
+        repositories {
+            maven {
+                name = 'localRepo'
+                url = sharedDir
+            }
+        }
+    }
+
+    artifactory {
+        publish {
+            defaults {
+                // Reference to Gradle publications defined in the build script.
+                // This is how we tell the Artifactory Plugin which artifacts should be
+                // published to Artifactory.
+                publications('mavenJava')
+                publishArtifacts = true
+                publishBuildInfo = true
+                // Properties to be attached to the published artifacts.
+                publishPom = true
+            }
+        }
+    }
+}
+
+ext {
+    slf4jVersion        = '1.7.30'
+
+    grpcVersion         = '1.27.1'
+    protobufVersion     = '3.11.0'
+
+    sailfishVersion     = '3.2-SNAPSHOT'
+    cradleVersion       = '1.2-SNAPSHOT'
+}
+
+
+dependencies {
+    compile(project(':grpc-infra'))
+
+    compile "com.exactpro.sf:sailfish-core:${sailfishVersion}"
+
+    compile "com.rabbitmq:amqp-client:5.8.0"
+
+    compile 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
+
+    compile "org.slf4j:slf4j-log4j12:${slf4jVersion}"
+    compile "org.slf4j:slf4j-api:${slf4jVersion}"
+
+    testImplementation 'junit:junit:4.12'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId 'th2-common'
+        }
+    }
+}
+
+sourceSets {
+    main.kotlin.srcDirs += "src/main/kotlin"
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "11"
+}

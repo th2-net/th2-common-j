@@ -1,0 +1,152 @@
+syntax = 'proto3';
+package th2;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.exactpro.th2.infra.grpc";
+
+//--// Metadata structures //--//
+
+message ConnectionID {
+  string session_alias = 1; // Session identifier depends on protocol, target / sender
+}
+
+enum Direction {
+  FIRST = 0; // Incoming message for connectivity
+  SECOND = 1; // Outgoing message for connectivity
+}
+
+message MessageID {
+  ConnectionID connection_id = 1;
+  Direction direction = 2; // Transport direction.
+  int64 sequence = 3; // Unique sequence number in session
+}
+
+message MessageMetadata {
+  MessageID id = 1; // Message id should be unique in session
+  google.protobuf.Timestamp timestamp = 2; // Message creation timestamp
+  string message_type = 3; // Message type by dicitionary
+}
+
+message RawMessageMetadata {
+  MessageID id = 1; // Message id should be unique in session
+  google.protobuf.Timestamp timestamp = 2; // Message creation timestamp
+}
+
+//--// Message body structure //--//
+
+enum NullValue {
+  NULL_VALUE = 0;
+}
+
+message Value {
+  oneof kind {
+    NullValue null_value = 1;
+    string simple_value = 2;
+    Message message_value = 3;
+    ListValue list_value = 4;
+  }
+}
+
+message ListValue {
+  repeated Value values = 1;
+}
+
+//--// Message / Raw structures //--//
+
+message Message {
+  EventID parent_event_id = 3; // It maybe used to store event related to message life cycle
+  MessageMetadata metadata = 1;
+  map<string, Value> fields = 2;
+}
+
+message RawMessage {
+  RawMessageMetadata metadata = 1;
+  bytes body = 2;
+}
+
+//--// Message batch //--//
+
+message MessageBatch {
+  repeated Message messages = 1;
+}
+
+message RawMessageBatch {
+  repeated RawMessage messages = 1;
+}
+
+//--// RPC call response //--//
+
+message RequestStatus {
+  enum Status {
+    SUCCESS = 0;
+    ERROR = 1;
+  }
+  Status status = 1;
+  string message = 2;
+}
+
+//--// Message filter //--//
+
+enum FilterOperation {
+  EQUAL = 0;
+  NOT_EQUAL = 1;
+  EMPTY = 2;
+  NOT_EMPTY = 3;
+}
+message ValueFilter {
+  FilterOperation operation = 1;
+  bool key = 2;
+  oneof kind {
+    string simple_filter = 3;
+    MessageFilter message_filter = 4;
+    ListValueFilter list_filter = 5;
+  }
+}
+message ListValueFilter {
+  repeated ValueFilter values = 1;
+}
+message MessageFilter {
+  string messageType = 1;
+  string direction = 2;
+  map<string, ValueFilter> fields = 3;
+}
+
+//--// Checkpoint //--//
+
+message Checkpoint {
+  string id = 1;
+  map<string, DirectionCheckpoint> session_alias_to_direction_checkpoint = 2;
+
+  message DirectionCheckpoint {
+    map<int32, int64> direction_to_sequence = 1;
+  }
+}
+
+//--// Event //--//
+enum EventStatus {
+  SUCCESS = 0;
+  FAILED = 1;
+}
+
+message EventID {
+  string id = 1; // Unique event id in TH2 deploy
+}
+
+message Event {
+  EventID id = 1;
+  EventID parent_id = 2; // Event id of parent event. It is null for root event
+  google.protobuf.Timestamp start_timestamp = 3;
+  google.protobuf.Timestamp end_timestamp = 4;
+  EventStatus status = 5; // Aggregated status of current and children events which sync written.
+  string name = 6;
+  string type = 7;
+  bytes body = 8;
+  repeated MessageID attached_message_ids = 9;
+}
+
+message EventBatch {
+  EventID parent_event_id = 1;
+  repeated Event events = 2; // Events optional related to between themselves. No events outside this batch should refer to the events in this batch.
+}
