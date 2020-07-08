@@ -14,18 +14,11 @@
 package com.exactpro.th2.schema.message.impl.rabbitmq.parsed;
 
 import java.util.List;
-import java.util.stream.Collectors;
-
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.MessageBatch.Builder;
-import com.exactpro.th2.infra.grpc.MessageFilter;
-import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageQueue;
-import com.exactpro.th2.schema.message.SubscriberMonitor;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
@@ -37,24 +30,6 @@ public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Me
         RabbitParsedBatchQueue queue = new RabbitParsedBatchQueue();
         queue.init(configuration, queueConfiguration);
         return queue;
-    }
-
-    @Nullable
-    @Override
-    public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<MessageBatch> callback) {
-        return super.subscribe(filter, filter == null || StringUtils.isEmpty(filter.getConnectionId().getSessionAlias()) ? callback : (consumerTag, message) -> {
-            callback.handler(consumerTag, MessageBatch
-                    .newBuilder()
-                    .addAllMessages(message
-                            .getMessagesList()
-                            .stream()
-                            .filter(message1 -> message1
-                                    .getMetadata()
-                                    .getId()
-                                    .getConnectionId()
-                                    .getSessionAlias()
-                                    .equals(filter.getConnectionId().getSessionAlias())).collect(Collectors.toList())).build());
-        });
     }
 
     @Override

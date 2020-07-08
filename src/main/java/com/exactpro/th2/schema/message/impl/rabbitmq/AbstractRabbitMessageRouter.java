@@ -21,11 +21,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.exactpro.th2.infra.grpc.MessageFilter;
 import com.exactpro.th2.schema.filter.factory.FilterFactory;
 import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
 import com.exactpro.th2.schema.message.MessageListener;
@@ -49,20 +47,6 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         this.configuration = configuration;
         this.rabbitMQConfiguration = rabbitMQConfiguration;
         this.filterFactory = new DefaultFilterFactory();
-    }
-
-    @Nullable
-    @Override
-    public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback) {
-        List<SubscriberMonitor> queues = configuration.getQueueAliasByMessageFilter(filter).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
-        return queues.size() < 1 ? null : new MultiplySubscribeMonitorImpl(queues);
-    }
-
-    @Nullable
-    @Override
-    public SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback, String... queueAttr) {
-        var queues = CollectionUtils.intersection(configuration.getQueueAliasByMessageFilter(filter), configuration.getQueuesAliasByAttribute(queueAttr)).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
-        return queues.size() < 1 ? null : new MultiplySubscribeMonitorImpl(queues);
     }
 
     @Nullable

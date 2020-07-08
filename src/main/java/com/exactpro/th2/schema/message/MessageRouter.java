@@ -18,7 +18,6 @@ import java.io.IOException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.exactpro.th2.infra.grpc.MessageFilter;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 
@@ -26,11 +25,9 @@ public interface MessageRouter<T> {
 
     void init(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull MessageRouterConfiguration configuration);
 
-    @Nullable
-    SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback);
-
-    @Nullable
-    SubscriberMonitor subscribe(MessageFilter filter, MessageListener<T> callback, String... queueAttr);
+    //TODO: must be better architecture
+    //@Nullable
+    //SubscriberMonitor subscribe(Filter filter, MessageListener<T> callback);
 
     @Nullable
     SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback);
