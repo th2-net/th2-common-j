@@ -51,7 +51,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private Channel channel;
 
     public void init(@NotNull RabbitMQConfiguration configuration, @NotNull String exchangeName,  String... queueTags) throws IllegalArgumentException, NullPointerException{
-        if (queueTags.length > 0) {
+        if (queueTags.length < 1) {
             throw new IllegalArgumentException("Queue tags must be more than 0");
         }
 
