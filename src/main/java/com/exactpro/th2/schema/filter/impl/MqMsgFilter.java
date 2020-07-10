@@ -13,10 +13,12 @@
 
 package com.exactpro.th2.schema.filter.impl;
 
+import java.util.HashMap;
 import java.util.List;
 
 import com.exactpro.th2.schema.exception.FilterCheckException;
 import com.exactpro.th2.schema.filter.AbstractMsgFilter;
+import com.exactpro.th2.schema.message.configuration.FilterConfiguration;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.configuration.RouterFilterConfiguration;
 import com.exactpro.th2.schema.strategy.fieldExtraction.FieldExtractionStrategy;
@@ -75,10 +77,10 @@ public class MqMsgFilter extends AbstractMsgFilter {
     ) {
         for (var fieldsFilter : filtersConfig) {
 
-            var msgFieldsFilter = fieldsFilter.getMessage();
-            var msgMetadataFilter = fieldsFilter.getMetadata();
+            var msgFieldsFilter = new HashMap<String, FilterConfiguration>();
 
-            msgFieldsFilter.putAll(msgMetadataFilter);
+            msgFieldsFilter.putAll(fieldsFilter.getMessage());
+            msgFieldsFilter.putAll(fieldsFilter.getMetadata());
 
             if (checkValues(strategy.getFields(message), msgFieldsFilter)) {
                 return true;

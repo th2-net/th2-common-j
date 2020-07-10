@@ -19,13 +19,13 @@ pipeline {
                 rtGradleDeployer (
                     id: "GRADLE_DEPLOYER",
                     serverId: "artifatory5",
-                    repo: "libs-snapshot-local",
+                    repo: "th2-schema-snapshot-local",
                 )
 
                 rtGradleResolver (
                     id: "GRADLE_RESOLVER",
                     serverId: "artifatory5",
-                    repo: "libs-snapshot"
+                    repo: "th2-schema-snapshot-local"
                 )
             }
         }

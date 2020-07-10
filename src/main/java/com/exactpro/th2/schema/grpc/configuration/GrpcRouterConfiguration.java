@@ -27,7 +27,7 @@ public class GrpcRouterConfiguration implements Configuration {
     @JsonProperty
     private Map<String, GrpcServiceConfiguration> services;
 
-    @JsonProperty
+    @JsonProperty(value = "server")
     private GrpcEndpointConfiguration serverConfiguration;
 
 }

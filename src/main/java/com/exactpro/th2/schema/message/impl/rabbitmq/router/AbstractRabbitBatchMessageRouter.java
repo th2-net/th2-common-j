@@ -35,7 +35,8 @@ public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MB
 
             var queueAlias = filter.check(message);
 
-            addMessage(result.putIfAbsent(queueAlias, createBatchBuilder()), message);
+            result.putIfAbsent(queueAlias, createBatchBuilder());
+            addMessage(result.get(queueAlias), message);
         }
 
         return result

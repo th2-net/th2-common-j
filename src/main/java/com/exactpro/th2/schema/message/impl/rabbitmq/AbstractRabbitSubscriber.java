@@ -86,7 +86,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
 
         if (subscriberName == null) {
-            subscriberName = "rabbit_mq_subscriber_" + System.currentTimeMillis();
+            subscriberName = "rabbit_mq_subscriber";
             logger.info("Using default subscriber name: '{}'", subscriberName);
         }
 
@@ -95,7 +95,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         channel.exchangeDeclare(exchangeName, "direct");
 
         for (String queueTag : queueAliases) {
-            DeclareOk declareResult = channel.queueDeclare(subscriberName, false, true, true, emptyMap());
+            DeclareOk declareResult = channel.queueDeclare(subscriberName + "." + System.currentTimeMillis(), false, true, true, emptyMap());
 
             String queue = declareResult.getQueue();
 
