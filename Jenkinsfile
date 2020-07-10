@@ -23,8 +23,6 @@ pipeline {
                             script: 'git rev-list --count VERSION-1.1..HEAD'
                             ).trim()}""" //TODO: Calculate revision from a specific tag instead of a root commit
         GRADLE_SWITCHES = " -Pversion_build=${BUILD_NUMBER} -Pversion_maintenance=${VERSION_MAINTENANCE}"
-        GCHAT_WEB_HOOK = credentials('th2-dev-environment-web-hook')
-        GCHAT_THREAD_NAME = credentials('th2-schema-environment-release-docker-images-thread')
     }
     stages {
         stage ('Artifactory configuration') {
@@ -95,12 +93,6 @@ pipeline {
                         "*Lib version:* ${version}",
                         "*Changes:*${changeLogs}"
                     ]
-                    writeJSON file: 'result.json', json: [text: fields.join('\n'), thread: [name: GCHAT_THREAD_NAME]]
-                    try {
-                        sh "curl -s -H 'Content-Type: application/json' -d @result.json '${GCHAT_WEB_HOOK}'"
-                    } catch(e) {
-                        println "Exception occurred: ${e}"
-                    }
 
                     currentBuild.description = "lib-version = ${version}"
                 }
