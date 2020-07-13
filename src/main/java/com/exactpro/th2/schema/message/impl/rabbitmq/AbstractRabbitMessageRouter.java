@@ -61,18 +61,28 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     @Nullable
     @Override
     public SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr) {
-        List<SubscriberMonitor> queues = configuration.getQueuesAliasByAttribute(queueAttr).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
-        return queues.size() < 1 ? null : new MultiplySubscribeMonitorImpl(queues);
+        Set<String> queues = configuration.getQueuesAliasByAttribute(queueAttr);
+        if (queues.size() > 1) {
+            throw new IllegalStateException("Wrong size of queues aliases for send. Not more then 1");
+        }
+
+        return queues.size() < 1 ? null : subscribe(queues.iterator().next(), callback);
     }
 
     @Override
     public SubscriberMonitor subscribeAll(MessageListener<T> callback) {
-        return new MultiplySubscribeMonitorImpl(configuration.getQueues().keySet().stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList()));
+        List<SubscriberMonitor> subscribers = configuration.getQueues().keySet().stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
+        return subscribers.isEmpty() ? null : new MultiplySubscribeMonitorImpl(subscribers);
+    }
+
+    @Override
+    public SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr) {
+        List<SubscriberMonitor> subscribers = configuration.getQueuesAliasByAttribute(queueAttr).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
+        return subscribers.isEmpty() ? null : new MultiplySubscribeMonitorImpl(subscribers);
     }
 
     @Override
     public void unsubscribeAll() throws IOException {
-
         IOException exception = new IOException("Can not close message router");
 
         synchronized (queueConnections) {
@@ -124,6 +134,23 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
         for (String queuesAlias : queuesAliases) {
             send(queuesAlias, message);
+        }
+    }
+
+    @Override
+    public void sendAll(T message, String... queueAttr) throws IOException {
+        IOException exception = new IOException("Can not send message");
+
+        for (String alias : configuration.getQueuesAliasByAttribute(queueAttr)) {
+            try {
+                send(alias, message);
+            } catch (Exception e) {
+                exception.addSuppressed(e);
+            }
+        }
+
+        if (exception.getSuppressed().length > 0) {
+            throw exception;
         }
     }
 
