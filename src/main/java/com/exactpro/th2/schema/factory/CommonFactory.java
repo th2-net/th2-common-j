@@ -16,7 +16,6 @@ package com.exactpro.th2.schema.factory;
 import java.nio.file.Path;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
@@ -27,11 +26,13 @@ import com.exactpro.th2.schema.message.MessageRouter;
 
 public class CommonFactory extends AbstractCommonFactory {
 
-    private static final Path RABBIT_MQ_DEFAULT_PATH = Path.of("/var/th2/config/rabbitMq.json");
-    private static final Path ROUTER_MQ_DEFAULT_PATH = Path.of("/var/th2/config/mq.json");
-    private static final Path ROUTER_GRPC_DEFAULT_PATH = Path.of("/var/th2/config/grpc.json");
-    private static final Path CRADLE_DEFAULT_PATH = Path.of("/var/th2/config/cradle.json");
-    private static final Path CUSTOM_DEFAULT_PATH = Path.of("/var/th2/config/custom.json");
+    private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
+
+    private static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
+    private static final String ROUTER_MQ_FILE_NAME = "mq.json";
+    private static final String ROUTER_GRPC_FILE_NAME = "grpc.json";
+    private static final String CRADLE_FILE_NAME = "cradle.json";
+    private static final String CUSTOM_FILE_NAME = "custom.json";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -50,6 +51,7 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom) {
+        super();
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -59,19 +61,19 @@ public class CommonFactory extends AbstractCommonFactory {
 
     public CommonFactory(Class<? extends MessageRouter> messageRouterParsedBatchClass, Class<? extends MessageRouter> messageRouterRawBatchClass, Class<? extends GrpcRouter> grpcRouterClass) {
         this(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass,
-                RABBIT_MQ_DEFAULT_PATH,
-                ROUTER_MQ_DEFAULT_PATH,
-                ROUTER_GRPC_DEFAULT_PATH,
-                CRADLE_DEFAULT_PATH,
-                CUSTOM_DEFAULT_PATH);
+                CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(ROUTER_MQ_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME));
     }
 
     public CommonFactory() {
-        this (RABBIT_MQ_DEFAULT_PATH,
-                ROUTER_MQ_DEFAULT_PATH,
-                ROUTER_GRPC_DEFAULT_PATH,
-                CRADLE_DEFAULT_PATH,
-                CUSTOM_DEFAULT_PATH);
+        this (CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(ROUTER_MQ_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME));
     }
 
     @Override
@@ -110,23 +112,19 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "customConfiguration", true, null));
         options.addOption(new Option("c", "configs", true, null));
 
-        CommandLineParser parser = new DefaultParser();
-        CommandLine cmd;
-
-        cmd = parser.parse(options, args);
+        CommandLine cmd = new DefaultParser().parse(options, args);
 
         String configs = cmd.getOptionValue("configs");
 
         return new CommonFactory(
-                calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, "rabbitMQ.json", RABBIT_MQ_DEFAULT_PATH),
-                calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, "mq.json", ROUTER_MQ_DEFAULT_PATH),
-                calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, "grpc.json", ROUTER_GRPC_DEFAULT_PATH),
-                calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, "cradle.json", CRADLE_DEFAULT_PATH),
-                calculatePath(cmd.getOptionValue("customConfiguration"), configs, "custom.json", CUSTOM_DEFAULT_PATH));
-
+                calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, RABBIT_MQ_FILE_NAME),
+                calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
+                calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
+                calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
+                calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME));
     }
 
-    private static Path calculatePath(String path, String configsPath, String fileName, Path defaultPath) {
-        return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath, fileName) : defaultPath);
+    private static Path calculatePath(String path, String configsPath, String fileName) {
+        return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath, fileName) : CONFIG_DEFAULT_PATH.resolve(fileName));
     }
 }
