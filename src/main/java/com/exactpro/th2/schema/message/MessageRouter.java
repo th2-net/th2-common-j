@@ -21,32 +21,81 @@ import org.jetbrains.annotations.Nullable;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 
+/**
+ * Interface for send and receive RabbitMQ messages
+ * @param <T> messages for send and receive
+ */
 public interface MessageRouter<T> {
 
+    /**
+     * Initialization message router
+     * @param rabbitMQConfiguration
+     * @param configuration message router configuration
+     */
     void init(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull MessageRouterConfiguration configuration);
 
-    //TODO: must be better architecture
-    //@Nullable
-    //SubscriberMonitor subscribe(Filter filter, MessageListener<T> callback);
-
+    /**
+     * Listen RabbitMQ queue by schemas queues alias
+     * @param queueAlias queues alias
+     * @param callback listener
+     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     */
     @Nullable
     SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback);
 
+    /**
+     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @param queueAttr queues attributes
+     * @param callback listener
+     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     */
     @Nullable
     SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr);
 
+    /**
+     * Listen <b>ALL</b> RabbitMQ queues in configurations
+     * @param callback listener
+     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     */
     @Nullable
     SubscriberMonitor subscribeAll(MessageListener<T> callback);
 
+    /**
+     * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
+     * @param callback listener
+     * @param queueAttr queues attributes
+     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     */
     @Nullable
     SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr);
 
+    /**
+     * Unsubscribe from all queues
+     * @throws IOException if can not unsubscribe from one or more queues. See suppressed exception
+     */
     void unsubscribeAll() throws IOException;
 
+    /**
+     * Send message to <b>SOME</b> RabbitMQ queues which match the filter for this message
+     * @param message
+     * @throws IOException if can not send message
+     */
     void send(T message) throws IOException;
 
+    /**
+     * Send message to <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @param message
+     * @param queueAttr schemas queues attributes
+     * @throws IOException if can not send message
+     */
     void send(T message, String... queueAttr) throws IOException;
 
+    /**
+     * Send message to <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @param message
+     * @param queueAttr schemas queues attributes
+     * @throws IOException if can not send message
+     */
     void sendAll(T message, String... queueAttr) throws IOException;
 
 }

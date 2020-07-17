@@ -16,12 +16,21 @@ package com.exactpro.th2.schema.grpc.router;
 import java.net.InetSocketAddress;
 
 import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.schema.grpc.router.impl.DefaultGrpcRouter;
 
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
 
-
+/**
+ * Abstract implementation for {@link GrpcRouter}
+ * <p>
+ * Implement {@link GrpcRouter#init(GrpcRouterConfiguration)}
+ * <p>
+ * Implement {@link GrpcRouter#startServer(BindableService...)}
+ *
+ * @see DefaultGrpcRouter
+ */
 public abstract class AbstractGrpcRouter implements GrpcRouter {
 
     protected GrpcRouterConfiguration configuration;

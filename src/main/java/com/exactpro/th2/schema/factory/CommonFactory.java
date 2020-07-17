@@ -21,9 +21,15 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import com.exactpro.th2.infra.grpc.MessageBatch;
+import com.exactpro.th2.infra.grpc.RawMessageBatch;
+import com.exactpro.th2.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.schema.message.MessageRouter;
 
+/**
+ * Default implementation for {@link AbstractCommonFactory}
+ */
 public class CommonFactory extends AbstractCommonFactory {
 
     private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
@@ -40,8 +46,10 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path cradle;
     private final Path custom;
 
-    public CommonFactory(Class<? extends MessageRouter> messageRouterParsedBatchClass, Class<? extends MessageRouter> messageRouterRawBatchClass,
-            Class<? extends GrpcRouter> grpcRouterClass, Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom) {
+    public CommonFactory(Class<? extends MessageRouter<? extends MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<? extends RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends GrpcRouter> grpcRouterClass,
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
@@ -59,7 +67,9 @@ public class CommonFactory extends AbstractCommonFactory {
         this.custom = custom;
     }
 
-    public CommonFactory(Class<? extends MessageRouter> messageRouterParsedBatchClass, Class<? extends MessageRouter> messageRouterRawBatchClass, Class<? extends GrpcRouter> grpcRouterClass) {
+    public CommonFactory(Class<? extends MessageRouter<? extends MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<? extends RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends GrpcRouter> grpcRouterClass) {
         this(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass,
                 CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_MQ_FILE_NAME),
@@ -101,7 +111,30 @@ public class CommonFactory extends AbstractCommonFactory {
         return custom;
     }
 
-
+    /**
+     * Create {@link CommonFactory} from command line arguments
+     * @param args String array of command line arguments. Arguments:
+     *             <p>
+     *             --rabbitConfiguration - path to json file with RabbitMQ configuration
+     *             <p>
+     *             --messageRouterConfiguration - path to json file with configuration for {@link MessageRouter}
+     *             <p>
+     *             --grpcRouterConfiguration - path to json file with configuration for {@link GrpcRouter}
+     *             <p>
+     *             --cradleConfiguration - path to json file with configuration for cradle. ({@link CradleConfiguration})
+     *             <p>
+     *             --customConfiguration - path to json file with custom configuration
+     *             <p>
+     *             -c/--configs - folder with json files for schemas configurations with special names:
+     *             <p>
+     *             rabbitMq.json - configuration for RabbitMQ
+     *             mq.json - configuration for {@link MessageRouter}
+     *             grpc.json - configuration for {@link GrpcRouter}
+     *             cradle.json - configuration for cradle
+     *             custom.json - custom configuration
+     * @return CommonFactory with set path
+     * @throws ParseException - Can not parse command line arguments
+     */
     public static CommonFactory createFromArguments(String... args) throws ParseException {
         Options options = new Options();
 

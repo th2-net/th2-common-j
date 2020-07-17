@@ -25,6 +25,7 @@ import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
 import com.exactpro.th2.schema.exception.InitGrpcRouterException;
 import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.schema.grpc.router.AbstractGrpcRouter;
+import com.exactpro.th2.schema.grpc.router.GrpcRouter;
 import com.google.protobuf.Message;
 
 import io.grpc.CallOptions;
@@ -33,7 +34,11 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
 
-
+/**
+ * Default implementation for {@link GrpcRouter}
+ * <p>
+ * Extends from {@link AbstractGrpcRouter}
+ */
 public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultGrpcRouter.class);

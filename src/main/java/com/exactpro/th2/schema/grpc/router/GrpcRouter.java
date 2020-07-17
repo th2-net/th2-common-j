@@ -20,12 +20,30 @@ import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
 import io.grpc.BindableService;
 import io.grpc.Server;
 
+/**
+ * Interface for create service for manage connections
+ * @see AbstractGrpcRouter
+ */
 public interface GrpcRouter {
-
+    /**
+     * Initialization router
+     * @param configuration
+     */
     void init(GrpcRouterConfiguration configuration);
 
+    /**
+     * Create grpc service for send message to grpc servers
+     * @param cls service class
+     * @return service
+     * @throws ClassNotFoundException
+     */
     <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException;
 
+    /**
+     * Start server of service
+     * @param services server services
+     * @return Grpc server
+     */
     Server startServer(BindableService... services);
 
 }

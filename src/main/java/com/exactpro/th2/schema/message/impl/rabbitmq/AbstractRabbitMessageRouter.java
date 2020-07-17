@@ -43,7 +43,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     private Map<String, MessageQueue<T>> queueConnections = new HashMap<>();
 
     @Override
-    public void init(RabbitMQConfiguration rabbitMQConfiguration, MessageRouterConfiguration configuration) {
+    public void init(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull MessageRouterConfiguration configuration) {
         this.configuration = configuration;
         this.rabbitMQConfiguration = rabbitMQConfiguration;
         this.filterFactory = new DefaultFilterFactory();
