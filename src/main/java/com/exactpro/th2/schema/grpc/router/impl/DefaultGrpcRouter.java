@@ -99,7 +99,16 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     protected Channel applyFilter(Class<?> proxyService, Message message) {
 
         var serviceConfig = configuration.getServices().values().stream()
-                .filter(sConfig -> sConfig.getServiceClass().equals(proxyService))
+                .filter(sConfig -> {
+
+                    String proxyClassName = proxyService.getName();
+                    if (proxyService.getSimpleName().startsWith("Async")) {
+                        int index = proxyClassName.lastIndexOf("Async");
+                        proxyClassName = proxyClassName.substring(0, index) + proxyClassName.substring(index + 5);
+                    }
+
+                    return sConfig.getServiceClass().getName().equals(proxyClassName);
+                })
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No services matching the provided " +
                         "class were found in the configuration: " + proxyService.getName()));
