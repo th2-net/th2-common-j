@@ -116,5 +116,4 @@ public class MessageRouterConfiguration implements FilterableConfiguration {
             return fConfig == null || entry.getValue().getKindCase() == KindCase.SIMPLE_FILTER && fConfig.checkValue(entry.getValue().getSimpleFilter());
         });
     }
-
 }

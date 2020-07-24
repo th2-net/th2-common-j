@@ -24,8 +24,12 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfi
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
+
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
 
     private static final int CLOSE_TIMEOUT = 1_000;
 
@@ -85,7 +89,10 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         synchronized (channel) {
             channel.basicPublish(exchangeName, sendQueue, null, valueToBytes(value));
         }
-        //if(logger.isInfoEnabled()) { logger.info("Sent '{}':'"+ TextFormat.shortDebugString(message) + '\'', sendQueue); }
+        if (logger.isDebugEnabled()) {
+            logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
+                    exchangeName, sendQueue, toShortDebugString(value));
+        }
     }
 
     @Override
@@ -95,6 +102,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         }
     }
 
-    protected abstract byte[] valueToBytes(T value);
+    protected String toShortDebugString(T value) {
+        return value.toString();
+    }
 
+    protected abstract byte[] valueToBytes(T value);
 }

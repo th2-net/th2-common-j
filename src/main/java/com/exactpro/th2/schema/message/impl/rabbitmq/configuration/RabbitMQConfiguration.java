@@ -69,4 +69,16 @@ public class RabbitMQConfiguration {
     public void setSubscriberName(String subscriberName) {
         this.subscriberName = subscriberName;
     }
+
+    @Override
+    public String toString() {
+        return "RabbitMQConfiguration{" +
+                "host='" + host + '\'' +
+                ", vHost='" + vHost + '\'' +
+                ", port=" + port +
+                ", username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                ", subscriberName='" + subscriberName + '\'' +
+                '}';
+    }
 }

@@ -15,10 +15,16 @@ package com.exactpro.th2.schema.message.impl.rabbitmq.parsed;
 
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSender;
+import com.google.protobuf.TextFormat;
 
 public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> {
     @Override
     protected byte[] valueToBytes(MessageBatch value) {
         return value.toByteArray();
+    }
+
+    @Override
+    protected String toShortDebugString(MessageBatch value) {
+        return TextFormat.shortDebugString(value);
     }
 }

@@ -13,12 +13,19 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
 
+import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSender;
+import com.google.protobuf.TextFormat;
 
 public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> {
     @Override
     protected byte[] valueToBytes(RawMessageBatch value) {
         return value.toByteArray();
+    }
+
+    @Override
+    protected String toShortDebugString(RawMessageBatch value) {
+        return TextFormat.shortDebugString(value);
     }
 }

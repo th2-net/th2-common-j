@@ -102,7 +102,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             channel.queueBind(queue, exchangeName, queueTag);
             channel.basicConsume(queue, true, this::handle, this::canceled);
 
-            logger.info("Start listening '{}':'{}'", exchangeName, queue);
+            logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, queueTag, queue);
         }
     }
 
