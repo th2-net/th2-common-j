@@ -29,5 +29,8 @@ public class GrpcRouterConfiguration implements Configuration {
 
     @JsonProperty(value = "server")
     private GrpcEndpointConfiguration serverConfiguration;
+    
+    @JsonProperty
+    private int workers;
 
 }
