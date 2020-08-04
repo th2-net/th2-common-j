@@ -13,20 +13,17 @@
 
 package com.exactpro.th2.schema.grpc.configuration;
 
-import java.util.Map;
-
-import com.exactpro.th2.schema.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Data
-public class GrpcRouterConfiguration implements Configuration {
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+public class GrpcServerConfiguration extends GrpcEndpointConfiguration {
 
     @JsonProperty
-    private Map<String, GrpcServiceConfiguration> services;
-
-    @JsonProperty(value = "server")
-    private GrpcServerConfiguration serverConfiguration;
+    private int workers;
 
 }

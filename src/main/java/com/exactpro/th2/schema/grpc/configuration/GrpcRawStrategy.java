@@ -22,6 +22,7 @@ import lombok.Data;
 
 @Data
 public class GrpcRawStrategy implements FilterableConfiguration {
+
     @JsonProperty(required = true)
     protected List<GrpcRouterFilterConfiguration> filters;
 

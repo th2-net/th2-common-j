@@ -60,5 +60,10 @@
         }
       }
     }
+  },
+  "server": {
+    "host": "test_host",
+    "port": "1000",
+    "workers": 5
   }
 }

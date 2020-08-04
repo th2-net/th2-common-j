@@ -15,7 +15,6 @@ package com.exactpro.th2.schema.grpc.configuration;
 
 import com.exactpro.th2.schema.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import lombok.Data;
 
 @Data
