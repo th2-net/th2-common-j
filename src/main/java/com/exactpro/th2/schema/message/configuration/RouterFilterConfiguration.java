@@ -13,21 +13,12 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
-import java.util.Collections;
 import java.util.Map;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+public interface RouterFilterConfiguration extends Configuration {
 
-import lombok.Getter;
+    Map<String, FieldFilterConfiguration> getMetadata();
 
-
-@Getter
-public class RouterFilterConfiguration implements Configuration {
-
-    @JsonProperty
-    private Map<String, FilterConfiguration> metadata = Collections.emptyMap();
-
-    @JsonProperty
-    private Map<String, FilterConfiguration> message = Collections.emptyMap();
+    Map<String, FieldFilterConfiguration> getMessage();
 
 }

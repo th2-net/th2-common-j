@@ -11,14 +11,17 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
+package com.exactpro.th2.schema.filter.strategy;
 
-import com.exactpro.th2.infra.grpc.RawMessageBatch;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
+import com.exactpro.th2.schema.message.configuration.RouterFilterConfiguration;
+import com.google.protobuf.Message;
 
-public class RabbitRawBatchSubscriber extends AbstractRabbitSubscriber<RawMessageBatch> {
-    @Override
-    protected RawMessageBatch messageFromBytes(byte[] body) throws Exception {
-        return RawMessageBatch.parseFrom(body);
-    }
+import java.util.List;
+
+public interface FilterStrategy {
+
+    boolean verify(Message message, RouterFilterConfiguration fieldFilter);
+
+    boolean verify(Message message, List<? extends RouterFilterConfiguration> fieldFilters);
+
 }

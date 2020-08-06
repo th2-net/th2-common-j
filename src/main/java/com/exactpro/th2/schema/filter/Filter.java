@@ -14,7 +14,6 @@
 package com.exactpro.th2.schema.filter;
 
 import com.exactpro.th2.schema.exception.FilterCheckException;
-import com.exactpro.th2.schema.strategy.fieldExtraction.FieldExtractionStrategy;
 import com.google.protobuf.Message;
 
 public interface Filter {
@@ -26,11 +25,5 @@ public interface Filter {
      *                              of the filters match the provided message
      */
     String check(Message message);
-
-    /**
-     * @param strategy strategy for extracting fields for filtering
-     * @see Filter#check(Message message)
-     */
-    String check(Message message, FieldExtractionStrategy strategy);
 
 }

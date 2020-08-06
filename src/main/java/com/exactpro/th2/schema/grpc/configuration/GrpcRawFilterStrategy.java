@@ -11,21 +11,18 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.filter;
+package com.exactpro.th2.schema.grpc.configuration;
 
-import java.util.Map;
+import com.exactpro.th2.schema.message.configuration.FilterableConfiguration;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
-import com.exactpro.th2.schema.message.configuration.FilterConfiguration;
+import java.util.List;
 
-public abstract class AbstractMsgFilter implements Filter {
+@Data
+public class GrpcRawFilterStrategy implements FilterableConfiguration {
 
-    public static boolean checkValues(Map<String, String> messageFields, Map<String, FilterConfiguration> fieldFilters) {
-        return fieldFilters.entrySet().stream().allMatch(entry -> {
-            var fieldName = entry.getKey();
-            var fieldFilter = entry.getValue();
-            var msgFieldValue = messageFields.get(fieldName);
-            return fieldFilter.checkValue(msgFieldValue);
-        });
-    }
+    @JsonProperty(required = true)
+    protected List<GrpcRouterFilterConfiguration> filters;
 
 }

@@ -13,13 +13,12 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
-import java.util.Collections;
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import lombok.Getter;
+
+import java.util.Collections;
+import java.util.List;
 
 @Getter
 public class QueueConfiguration implements Configuration {
@@ -35,7 +34,7 @@ public class QueueConfiguration implements Configuration {
     private List<String> attributes = Collections.emptyList();
 
     @JsonProperty
-    private List<RouterFilterConfiguration> filters = Collections.emptyList();
+    private List<MqRouterFilterConfiguration> filters = Collections.emptyList();
 
     @JsonProperty(value = "read", defaultValue = "true")
     private boolean canRead = true;

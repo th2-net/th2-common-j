@@ -13,35 +13,32 @@
 
 package com.exactpro.th2.schema.filter.impl;
 
-import java.util.HashMap;
-import java.util.List;
-
 import com.exactpro.th2.schema.exception.FilterCheckException;
-import com.exactpro.th2.schema.filter.AbstractMsgFilter;
-import com.exactpro.th2.schema.message.configuration.FilterConfiguration;
+import com.exactpro.th2.schema.filter.Filter;
+import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.RouterFilterConfiguration;
-import com.exactpro.th2.schema.strategy.fieldExtraction.FieldExtractionStrategy;
-import com.exactpro.th2.schema.strategy.fieldExtraction.impl.Th2BatchMsgFieldExtraction;
 import com.google.protobuf.Message;
 
-public class MqMsgFilter extends AbstractMsgFilter {
+public class MqMsgFilter implements Filter {
 
-    private MessageRouterConfiguration configuration;
+    private final FilterStrategy filterStrategy;
+
+    private final MessageRouterConfiguration configuration;
 
 
     public MqMsgFilter(MessageRouterConfiguration configuration) {
+        this(configuration, new DefaultFilterStrategy());
+    }
+
+    public MqMsgFilter(MessageRouterConfiguration configuration, FilterStrategy filterStrategy) {
         this.configuration = configuration;
+        this.filterStrategy = filterStrategy;
     }
 
 
     @Override
     public String check(Message message) {
-        return check(message, new Th2BatchMsgFieldExtraction());
-    }
-
-    @Override
-    public String check(Message message, FieldExtractionStrategy strategy) {
         var queueAliasResult = "";
 
         for (var queueEntry : configuration.getQueues().entrySet()) {
@@ -49,7 +46,7 @@ public class MqMsgFilter extends AbstractMsgFilter {
             var queueAlias = queueEntry.getKey();
             var queueConfig = queueEntry.getValue();
 
-            var filterResult = filter(message, queueConfig.getFilters(), strategy);
+            var filterResult = filterStrategy.verify(message, queueConfig.getFilters());
 
             if (filterResult) {
                 if (queueAliasResult.isEmpty()) {
@@ -67,27 +64,6 @@ public class MqMsgFilter extends AbstractMsgFilter {
         }
 
         return queueAliasResult;
-    }
-
-
-    private boolean filter(
-            Message message,
-            List<RouterFilterConfiguration> filtersConfig,
-            FieldExtractionStrategy strategy
-    ) {
-        for (var fieldsFilter : filtersConfig) {
-
-            var msgFieldsFilter = new HashMap<String, FilterConfiguration>();
-
-            msgFieldsFilter.putAll(fieldsFilter.getMessage());
-            msgFieldsFilter.putAll(fieldsFilter.getMetadata());
-
-            if (checkValues(strategy.getFields(message), msgFieldsFilter)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
 }

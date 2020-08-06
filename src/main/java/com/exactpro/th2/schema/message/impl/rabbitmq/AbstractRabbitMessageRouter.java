@@ -13,29 +13,21 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import com.exactpro.th2.schema.filter.factory.FilterFactory;
 import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
-import com.exactpro.th2.schema.message.MessageListener;
-import com.exactpro.th2.schema.message.MessageQueue;
-import com.exactpro.th2.schema.message.MessageRouter;
-import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.SubscriberMonitor;
+import com.exactpro.th2.schema.message.*;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.google.protobuf.Message;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public abstract class AbstractRabbitMessageRouter<T extends Message> implements MessageRouter<T> {
 
     protected FilterFactory filterFactory;
     protected MessageRouterConfiguration configuration;
@@ -104,54 +96,22 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     @Override
     public void send(T message) throws IOException {
-        IOException exception = null;
-
-        for (var targetAliasesAndBatch : getTargetQueueAliasesAndBatchesForSend(message).entrySet()) {
-            var queueAlias = targetAliasesAndBatch.getKey();
-            var batch = targetAliasesAndBatch.getValue();
-
-            try {
-                send(queueAlias, batch);
-            } catch (IOException e) {
-                if (exception == null) {
-                    exception = new IOException("Can not send to some queue");
-                }
-                exception.addSuppressed(e);
-            }
-        }
-
-        if (exception != null) {
-            throw exception;
-        }
+        send(getTargetQueueAliasesAndMessagesToSend(message));
     }
 
     @Override
     public void send(T message, String... queueAttr) throws IOException {
-        Set<String> queuesAliases = configuration.getQueuesAliasByAttribute(queueAttr);
-        if (queuesAliases.size() > 1) {
-            throw new IllegalStateException("Wrong size of queues aliases for send. Not more then 1");
+        var queuesAliasesAndMessages = getTargetQueueAliasesAndMessagesToSend(message, queueAttr);
+        if (queuesAliasesAndMessages.size() > 1) {
+            throw new IllegalStateException("Wrong size of queues aliases for send. Not more than 1");
         }
 
-        for (String queuesAlias : queuesAliases) {
-            send(queuesAlias, message);
-        }
+        send(queuesAliasesAndMessages);
     }
 
     @Override
     public void sendAll(T message, String... queueAttr) throws IOException {
-        IOException exception = new IOException("Can not send message");
-
-        for (String alias : configuration.getQueuesAliasByAttribute(queueAttr)) {
-            try {
-                send(alias, message);
-            } catch (Exception e) {
-                exception.addSuppressed(e);
-            }
-        }
-
-        if (exception.getSuppressed().length > 0) {
-            throw exception;
-        }
+        send(getTargetQueueAliasesAndMessagesToSend(message, queueAttr));
     }
 
     /**
@@ -165,12 +125,34 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         this.filterFactory = filterFactory;
     }
 
+
     protected abstract MessageQueue<T> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration);
 
-    protected abstract Map<String, T> getTargetQueueAliasesAndBatchesForSend(T message);
+    protected abstract Map<String, T> getTargetQueueAliasesAndMessagesToSend(T message);
 
-    protected void send(String queueAlias, T value) throws IOException {
-        getMessageQueue(queueAlias).getSender().send(value);
+    protected Map<String, T> getTargetQueueAliasesAndMessagesToSend(T message, String... queueAttr) {
+        var filteredAliases = getTargetQueueAliasesAndMessagesToSend(message);
+        filteredAliases.keySet().retainAll(configuration.getQueuesAliasByAttribute(queueAttr));
+        return filteredAliases;
+    }
+
+    protected void send(Map<String, T> aliasesAndMessagesToSend) throws IOException {
+        IOException exception = new IOException("Can not send to some queue");
+
+        for (var targetAliasesAndBatch : aliasesAndMessagesToSend.entrySet()) {
+            var queueAlias = targetAliasesAndBatch.getKey();
+            var message = targetAliasesAndBatch.getValue();
+
+            try {
+                getMessageQueue(queueAlias).getSender().send(message);
+            } catch (IOException e) {
+                exception.addSuppressed(e);
+            }
+        }
+
+        if (exception.getSuppressed().length > 0) {
+            throw exception;
+        }
     }
 
     protected MessageQueue<T> getMessageQueue(String queueAlias) {

@@ -13,17 +13,17 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
-import java.io.IOException;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.google.protobuf.Message;
+import org.jetbrains.annotations.NotNull;
 
-public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
+import java.io.IOException;
+
+public abstract class AbstractRabbitQueue<T extends Message> implements MessageQueue<T> {
 
     private RabbitMQConfiguration configuration;
     private QueueConfiguration queueConfiguration;

@@ -13,19 +13,19 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.router;
 
+import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
+import com.google.protobuf.Message;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
-import com.google.protobuf.Message;
-
-public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitMessageRouter<MB> {
+public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB extends Message, MBB> extends AbstractRabbitMessageRouter<MB> {
 
     @Override
-    protected Map<String, MB> getTargetQueueAliasesAndBatchesForSend(MB batch) {
+    protected Map<String, MB> getTargetQueueAliasesAndMessagesToSend(MB batch) {
 
         var filter = filterFactory.createFilter(configuration);
 

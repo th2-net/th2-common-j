@@ -13,15 +13,12 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
-import org.apache.commons.lang3.StringUtils;
-
 import com.exactpro.th2.infra.grpc.FilterOperation;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import lombok.Getter;
 
 @Getter
-public class FilterConfiguration implements Configuration {
+public class FieldFilterConfiguration implements Configuration {
 
     @JsonProperty
     private String value;
@@ -29,24 +26,5 @@ public class FilterConfiguration implements Configuration {
     @JsonProperty(required = true)
     private FilterOperation operation;
 
-    //TODO: create factory for operations and not use enum
-    public boolean checkValue(String value1) {
-        if (StringUtils.isEmpty(value1)) {
-            return false;
-        }
-
-        switch (this.operation) {
-            case EQUAL:
-                return value1.equals(this.value);
-            case NOT_EQUAL:
-                return !value1.equals(this.value);
-            case EMPTY:
-                return StringUtils.isEmpty(value1);
-            case NOT_EMPTY:
-                return StringUtils.isNotEmpty(value1);
-            default:
-                return false;
-        }
-    }
 }
 

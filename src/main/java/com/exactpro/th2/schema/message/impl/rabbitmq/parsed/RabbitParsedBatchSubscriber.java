@@ -18,7 +18,7 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
 
 public class RabbitParsedBatchSubscriber extends AbstractRabbitSubscriber<MessageBatch> {
     @Override
-    protected MessageBatch valueFromBytes(byte[] body) throws Exception {
+    protected MessageBatch messageFromBytes(byte[] body) throws Exception {
         return MessageBatch.parseFrom(body);
     }
 }

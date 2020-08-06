@@ -14,39 +14,35 @@
 package com.exactpro.th2.schema.filter.impl;
 
 import com.exactpro.th2.schema.exception.FilterCheckException;
-import com.exactpro.th2.schema.filter.AbstractMsgFilter;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRawStrategy;
-import com.exactpro.th2.schema.strategy.fieldExtraction.FieldExtractionStrategy;
-import com.exactpro.th2.schema.strategy.fieldExtraction.impl.Th2MsgFieldExtraction;
+import com.exactpro.th2.schema.filter.Filter;
+import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.google.protobuf.Message;
 
-public class GrpcMsgFilter extends AbstractMsgFilter {
+public class GrpcMsgFilter implements Filter {
 
-    private GrpcRawStrategy configuration;
+    private final FilterStrategy filterStrategy;
+
+    private final GrpcRawFilterStrategy configuration;
 
 
-    public GrpcMsgFilter(GrpcRawStrategy configuration) {
+    public GrpcMsgFilter(GrpcRawFilterStrategy configuration) {
+        this(configuration, new DefaultFilterStrategy());
+    }
+
+    public GrpcMsgFilter(GrpcRawFilterStrategy configuration, FilterStrategy filterStrategy) {
         this.configuration = configuration;
+        this.filterStrategy = filterStrategy;
     }
 
 
     @Override
     public String check(Message message) {
-        return check(message, new Th2MsgFieldExtraction());
-    }
-
-    @Override
-    public String check(Message message, FieldExtractionStrategy strategy) {
         var endpointAlias = "";
 
         for (var fieldsFilter : configuration.getFilters()) {
-
-            var msgFieldsFilter = fieldsFilter.getMessage();
-            var msgMetadataFilter = fieldsFilter.getMetadata();
-
-            msgFieldsFilter.putAll(msgMetadataFilter);
-
-            if (checkValues(strategy.getFields(message), msgFieldsFilter)) {
+            if (filterStrategy.verify(message, fieldsFilter)) {
                 if (!endpointAlias.isEmpty()) {
                     throw new FilterCheckException("Two endpoints match one " +
                             "message according to configuration filters");

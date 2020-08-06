@@ -16,13 +16,13 @@ package com.exactpro.th2.schema.strategy.route.impl;
 import com.exactpro.th2.schema.filter.Filter;
 import com.exactpro.th2.schema.filter.factory.FilterFactory;
 import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRawStrategy;
+import com.exactpro.th2.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
 
 @StrategyName("filter")
-public class FilterStrategy implements RoutingStrategy<GrpcRawStrategy> {
+public class FilterStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
 
     private Filter filter;
 
@@ -30,12 +30,12 @@ public class FilterStrategy implements RoutingStrategy<GrpcRawStrategy> {
 
 
     @Override
-    public Class<? extends GrpcRawStrategy> getConfigurationClass() {
-        return GrpcRawStrategy.class;
+    public Class<? extends GrpcRawFilterStrategy> getConfigurationClass() {
+        return GrpcRawFilterStrategy.class;
     }
 
     @Override
-    public void init(GrpcRawStrategy configuration) {
+    public void init(GrpcRawFilterStrategy configuration) {
         this.filter = factory.createFilter(configuration);
     }
 

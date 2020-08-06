@@ -17,18 +17,32 @@ import com.exactpro.th2.schema.filter.Filter;
 import com.exactpro.th2.schema.filter.factory.FilterFactory;
 import com.exactpro.th2.schema.filter.impl.GrpcMsgFilter;
 import com.exactpro.th2.schema.filter.impl.MqMsgFilter;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRawStrategy;
+import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.exactpro.th2.schema.message.configuration.FilterableConfiguration;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 
 public class DefaultFilterFactory implements FilterFactory {
 
+    private final FilterStrategy filterStrategy;
+
+
+    public DefaultFilterFactory() {
+        this(new DefaultFilterStrategy());
+    }
+
+    public DefaultFilterFactory(FilterStrategy filterStrategy) {
+        this.filterStrategy = filterStrategy;
+    }
+
+
     @Override
     public Filter createFilter(FilterableConfiguration configuration) {
         if (configuration instanceof MessageRouterConfiguration) {
-            return new MqMsgFilter((MessageRouterConfiguration) configuration);
-        } else if (configuration instanceof GrpcRawStrategy) {
-            return new GrpcMsgFilter((GrpcRawStrategy) configuration);
+            return new MqMsgFilter((MessageRouterConfiguration) configuration, filterStrategy);
+        } else if (configuration instanceof GrpcRawFilterStrategy) {
+            return new GrpcMsgFilter((GrpcRawFilterStrategy) configuration, filterStrategy);
         }
 
         throw new IllegalStateException("Unknown configuration type");

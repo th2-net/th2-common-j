@@ -13,16 +13,21 @@
 
 package com.exactpro.th2.schema.message;
 
+import com.google.protobuf.Message;
+
 import java.io.Closeable;
 
 /**
  * Listen messages and transmit it to {@link MessageListener}
+ *
  * @param <T>
  */
-public interface MessageSubscriber<T> extends Closeable {
+public interface MessageSubscriber<T extends Message> extends Closeable {
 
     void start() throws Exception;
+
     boolean isClose();
+
     void addListener(MessageListener<T> messageListener);
 
 }

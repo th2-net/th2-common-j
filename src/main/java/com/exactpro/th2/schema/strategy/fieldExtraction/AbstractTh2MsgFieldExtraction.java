@@ -13,16 +13,19 @@
 
 package com.exactpro.th2.schema.strategy.fieldExtraction;
 
-import static com.exactpro.th2.schema.message.configuration.FilterableConfiguration.DIRECTION_KEY;
-import static com.exactpro.th2.schema.message.configuration.FilterableConfiguration.SESSION_ALIAS_KEY;
+
+import com.exactpro.th2.infra.grpc.Message;
 
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.exactpro.th2.infra.grpc.Message;
-
 
 public abstract class AbstractTh2MsgFieldExtraction implements FieldExtractionStrategy {
+
+    public static final String SESSION_ALIAS_KEY = "session_alias";
+    public static final String MESSAGE_TYPE_KEY = "message_type";
+    public static final String DIRECTION_KEY = "direction";
+
 
     public Map<String, String> getFields(com.google.protobuf.Message message) {
         var th2Msg = parseMessage(message);
@@ -35,6 +38,7 @@ public abstract class AbstractTh2MsgFieldExtraction implements FieldExtractionSt
 
         var metadataMsgFields = Map.of(
                 SESSION_ALIAS_KEY, messageID.getConnectionId().getSessionAlias(),
+                MESSAGE_TYPE_KEY, th2Msg.getDescriptorForType().getName(),
                 DIRECTION_KEY, messageID.getDirection().name()
         );
 

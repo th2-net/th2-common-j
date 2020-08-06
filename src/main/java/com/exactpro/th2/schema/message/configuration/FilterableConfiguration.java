@@ -13,10 +13,7 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
-public interface FilterableConfiguration extends Configuration {
 
-    String SESSION_ALIAS_KEY = "session_alias";
-    String MESSAGE_TYPE_KEY = "message_type";
-    String DIRECTION_KEY = "direction";
+public interface FilterableConfiguration extends Configuration {
 
 }

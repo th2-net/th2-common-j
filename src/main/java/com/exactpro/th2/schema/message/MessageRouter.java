@@ -13,19 +13,19 @@
 
 package com.exactpro.th2.schema.message;
 
-import java.io.IOException;
-
+import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.google.protobuf.Message;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import java.io.IOException;
 
 /**
  * Interface for send and receive RabbitMQ messages
  * @param <T> messages for send and receive
  */
-public interface MessageRouter<T> {
+public interface MessageRouter<T extends Message> {
 
     /**
      * Initialization message router
