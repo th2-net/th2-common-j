@@ -44,14 +44,14 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
  */
 public abstract class AbstractCommonFactory {
 
-    private static ObjectMapper mapper = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private RabbitMQConfiguration rabbitMQConfiguration = null;
     private MessageRouterConfiguration messageRouterConfiguration = null;
     private GrpcRouterConfiguration grpcRouterConfiguration = null;
-    private Class<? extends MessageRouter> messageRouterParsedBatchClass;
-    private Class<? extends MessageRouter> messageRouterRawBatchClass;
-    private Class<? extends GrpcRouter> grpcRouterClass;
+    private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
+    private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
+    private final Class<? extends GrpcRouter> grpcRouterClass;
 
     /**
      * Create factory with default implementation schema classes
@@ -66,7 +66,7 @@ public abstract class AbstractCommonFactory {
      * @param messageRouterRawBatchClass Class for {@link MessageRouter} which work with {@link RawMessageBatch}
      * @param grpcRouterClass Class for {@link GrpcRouter}
      */
-    public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<? extends MessageBatch>> messageRouterParsedBatchClass, @NotNull Class<? extends MessageRouter<? extends RawMessageBatch>> messageRouterRawBatchClass, @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+    public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass, @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass, @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.grpcRouterClass = grpcRouterClass;
@@ -77,8 +77,8 @@ public abstract class AbstractCommonFactory {
      * @throws CommonFactoryException if can not call default constructor from class
      * @throws IllegalStateException if can not read configuration
      */
-    public MessageRouter<? extends MessageBatch> getMessageRouterParsedBatch() {
-        MessageRouter<? extends MessageBatch> router;
+    public MessageRouter<MessageBatch> getMessageRouterParsedBatch() {
+        MessageRouter<MessageBatch> router;
         try {
             router = messageRouterParsedBatchClass.getConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
@@ -93,8 +93,8 @@ public abstract class AbstractCommonFactory {
      * @throws CommonFactoryException if can not call default constructor from class
      * @throws IllegalStateException if can not read configuration
      */
-    public MessageRouter<? extends RawMessageBatch> getMessageRouterRawBatch() {
-        MessageRouter<? extends RawMessageBatch> router;
+    public MessageRouter<RawMessageBatch> getMessageRouterRawBatch() {
+        MessageRouter<RawMessageBatch> router;
         try {
             router = messageRouterRawBatchClass.getConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
@@ -126,19 +126,20 @@ public abstract class AbstractCommonFactory {
      */
     public CradleConfiguration getCradleConfiguration() {
         try (var in = new FileInputStream(getPathToCradleConfiguration().toFile())) {
-            return mapper.readerFor(CradleConfiguration.class).readValue(in);
+            return MAPPER.readerFor(CradleConfiguration.class).readValue(in);
         } catch (IOException e) {
-            throw new IllegalStateException("Can not read cradle configuration");
+            throw new IllegalStateException("Can not read cradle configuration", e);
         }
     }
 
     /**
-     * Parse json file with custom configuration to java bean
-     * @param confClass - java bean class
+     * Parse json file with custom configuration to java bean using custom {@link ObjectMapper} to deserialize file's content.
+     * @param confClass java bean class
+     * @param customObjectMapper object mapper to deserialize configuration
      * @return Java bean with custom configuration, or <b>NULL</b> if configuration is not exists and can not call default constructor from java bean class
      * @throws IllegalStateException if can not read configuration
      */
-    public <T> T getCustomConfiguration(Class<T> confClass) {
+    public <T> T getCustomConfiguration(Class<T> confClass, ObjectMapper customObjectMapper) {
         File configFile = getPathToCustomConfiguration().toFile();
         if (!configFile.exists()) {
             try {
@@ -149,10 +150,21 @@ public abstract class AbstractCommonFactory {
         }
 
         try (var in = new FileInputStream(getPathToCustomConfiguration().toFile())) {
-            return mapper.readerFor(confClass).readValue(in);
+            return customObjectMapper.readerFor(confClass).readValue(in);
         } catch (IOException e) {
-            throw new IllegalStateException("Can not read custom configuration");
+            throw new IllegalStateException("Can not read custom configuration", e);
         }
+    }
+
+    /**
+     * Parse json file with custom configuration to java bean. This method uses default {@link ObjectMapper}.
+     * If you need custom setting for deserialization use {@link #getCustomConfiguration(Class, ObjectMapper)} method.
+     * @param confClass java bean class
+     * @return Java bean with custom configuration, or <b>NULL</b> if configuration is not exists and can not call default constructor from java bean class
+     * @throws IllegalStateException if can not read configuration
+     */
+    public <T> T getCustomConfiguration(Class<T> confClass) {
+        return getCustomConfiguration(confClass, MAPPER);
     }
 
     /**
@@ -187,7 +199,7 @@ public abstract class AbstractCommonFactory {
     protected synchronized RabbitMQConfiguration getRabbitMqConfiguration() {
         if (rabbitMQConfiguration == null) {
             try (var in = new FileInputStream(getPathToRabbitMQConfiguration().toFile())) {
-                rabbitMQConfiguration = mapper.readerFor(RabbitMQConfiguration.class).readValue(in);
+                rabbitMQConfiguration = MAPPER.readerFor(RabbitMQConfiguration.class).readValue(in);
             } catch (IOException e) {
                 throw new IllegalStateException("Can not read rabbit mq configuration", e);
             }
@@ -199,7 +211,7 @@ public abstract class AbstractCommonFactory {
     protected synchronized MessageRouterConfiguration getMessageRouterConfiguration() {
         if (messageRouterConfiguration == null) {
             try (var in = new FileInputStream(getPathToMessageRouterConfiguration().toFile())) {
-                messageRouterConfiguration = mapper.readerFor(MessageRouterConfiguration.class).readValue(in);
+                messageRouterConfiguration = MAPPER.readerFor(MessageRouterConfiguration.class).readValue(in);
             } catch (IOException e) {
                 throw new IllegalStateException("Can not read message router configuration", e);
             }

@@ -46,8 +46,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path cradle;
     private final Path custom;
 
-    public CommonFactory(Class<? extends MessageRouter<? extends MessageBatch>> messageRouterParsedBatchClass,
-            Class<? extends MessageRouter<? extends RawMessageBatch>> messageRouterRawBatchClass,
+    public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             Class<? extends GrpcRouter> grpcRouterClass,
             Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass);
@@ -67,8 +67,8 @@ public class CommonFactory extends AbstractCommonFactory {
         this.custom = custom;
     }
 
-    public CommonFactory(Class<? extends MessageRouter<? extends MessageBatch>> messageRouterParsedBatchClass,
-            Class<? extends MessageRouter<? extends RawMessageBatch>> messageRouterRawBatchClass,
+    public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             Class<? extends GrpcRouter> grpcRouterClass) {
         this(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass,
                 CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
