@@ -37,8 +37,8 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
 
     @Override
     protected MessageSubscriber<MessageBatch> createSubscriber(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
-        RabbitParsedBatchSubscriber result = new RabbitParsedBatchSubscriber();
-        result.init(configuration, queueConfiguration.getFilters(), queueConfiguration.getExchange(), queueConfiguration.getName());
+        RabbitParsedBatchSubscriber result = new RabbitParsedBatchSubscriber(queueConfiguration.getFilters());
+        result.init(configuration, queueConfiguration.getExchange(), queueConfiguration.getName());
         try {
             result.start();
         } catch (Exception e) {

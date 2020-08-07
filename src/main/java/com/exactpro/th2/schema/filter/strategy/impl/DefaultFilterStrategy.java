@@ -15,7 +15,7 @@ package com.exactpro.th2.schema.filter.strategy.impl;
 
 import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.schema.message.configuration.FieldFilterConfiguration;
-import com.exactpro.th2.schema.message.configuration.RouterFilterConfiguration;
+import com.exactpro.th2.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.schema.strategy.fieldExtraction.FieldExtractionStrategy;
 import com.exactpro.th2.schema.strategy.fieldExtraction.impl.Th2BatchMsgFieldExtraction;
 import com.google.protobuf.Message;
@@ -41,18 +41,18 @@ public class DefaultFilterStrategy implements FilterStrategy {
 
 
     @Override
-    public boolean verify(Message message, RouterFilterConfiguration fieldFilter) {
+    public boolean verify(Message message, RouterFilter routerFilter) {
 
-        var msgFieldFilters = new HashMap<>(fieldFilter.getMessage());
+        var msgFieldFilters = new HashMap<>(routerFilter.getMessage());
 
-        msgFieldFilters.putAll(fieldFilter.getMetadata());
+        msgFieldFilters.putAll(routerFilter.getMetadata());
 
         return checkValues(extractStrategy.getFields(message), msgFieldFilters);
     }
 
     @Override
-    public boolean verify(Message message, List<? extends RouterFilterConfiguration> fieldFilters) {
-        for (var fieldsFilter : fieldFilters) {
+    public boolean verify(Message message, List<? extends RouterFilter> routerFilters) {
+        for (var fieldsFilter : routerFilters) {
             if (verify(message, fieldsFilter)) {
                 return true;
             }

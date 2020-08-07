@@ -16,8 +16,20 @@ package com.exactpro.th2.schema.filter.factory;
 import com.exactpro.th2.schema.filter.Filter;
 import com.exactpro.th2.schema.message.configuration.FilterableConfiguration;
 
+/**
+ * A factory that creates a {@link Filter}
+ * based on the {@link FilterableConfiguration} implementation.
+ *
+ * @see Filter
+ */
 public interface FilterFactory {
 
+    /**
+     * Creates {@link Filter} based on the {@link FilterableConfiguration} implementation.
+     *
+     * @param configuration some {@link FilterableConfiguration} implementation
+     * @return corresponding filter
+     */
     Filter createFilter(FilterableConfiguration configuration);
 
 }

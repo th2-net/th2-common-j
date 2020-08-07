@@ -13,6 +13,9 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
+/**
+ * Marker for configuration beans
+ */
 public interface Configuration {
 
 }

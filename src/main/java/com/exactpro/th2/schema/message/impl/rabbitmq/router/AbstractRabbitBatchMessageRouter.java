@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB extends Message, MBB> extends AbstractRabbitMessageRouter<MB> {
+public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitMessageRouter<MB> {
 
     @Override
     protected Map<String, MB> getTargetQueueAliasesAndMessagesToSend(MB batch) {

@@ -15,10 +15,19 @@ package com.exactpro.th2.schema.message.configuration;
 
 import java.util.Map;
 
-public interface RouterFilterConfiguration extends Configuration {
+/**
+ * An interface representing a single message filter. Encapsulates many field filters.
+ */
+public interface RouterFilter extends Configuration {
 
+    /**
+     * @return field filters for message's metadata fields
+     */
     Map<String, FieldFilterConfiguration> getMetadata();
 
+    /**
+     * @return field filters for message fields
+     */
     Map<String, FieldFilterConfiguration> getMessage();
 
 }

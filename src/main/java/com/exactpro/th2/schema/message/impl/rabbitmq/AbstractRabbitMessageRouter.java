@@ -19,7 +19,6 @@ import com.exactpro.th2.schema.message.*;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.google.protobuf.Message;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,7 +26,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public abstract class AbstractRabbitMessageRouter<T extends Message> implements MessageRouter<T> {
+public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
     protected FilterFactory filterFactory;
     protected MessageRouterConfiguration configuration;

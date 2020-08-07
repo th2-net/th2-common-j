@@ -13,13 +13,9 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
-import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.configuration.RouterFilterConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.google.protobuf.Message;
 import com.rabbitmq.client.AMQP.Queue.DeclareOk;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -31,14 +27,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 import static java.util.Collections.emptyMap;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
-public abstract class AbstractRabbitSubscriber<T extends Message> implements MessageSubscriber<T> {
+public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
 
     private static final int CLOSE_TIMEOUT = 1_000;
 
@@ -46,23 +41,16 @@ public abstract class AbstractRabbitSubscriber<T extends Message> implements Mes
 
     private final Set<MessageListener<T>> listeners = new HashSet<>();
     private final ConnectionFactory factory = new ConnectionFactory();
-    private final FilterStrategy filterStrategy = new DefaultFilterStrategy();
 
     private String subscriberName = null;
     private String exchangeName = null;
     private String[] queueAliases = null;
-    private List<? extends RouterFilterConfiguration> filters = null;
 
     private Connection connection;
     private Channel channel;
 
 
-    public void init(
-            @NotNull RabbitMQConfiguration configuration,
-            @NotNull List<? extends RouterFilterConfiguration> filters,
-            @NotNull String exchangeName,
-            String... queueTags
-    ) throws IllegalArgumentException, NullPointerException {
+    public void init(@NotNull RabbitMQConfiguration configuration, @NotNull String exchangeName, String... queueTags) throws IllegalArgumentException, NullPointerException {
         if (queueTags.length < 1) {
             throw new IllegalArgumentException("Queue tags must be more than 0");
         }
@@ -70,7 +58,6 @@ public abstract class AbstractRabbitSubscriber<T extends Message> implements Mes
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
         this.subscriberName = configuration.getSubscriberName();
         this.queueAliases = queueTags;
-        this.filters = filters;
 
 
         factory.setHost(configuration.getHost());
@@ -149,20 +136,23 @@ public abstract class AbstractRabbitSubscriber<T extends Message> implements Mes
         }
     }
 
-    protected abstract T messageFromBytes(byte[] body) throws Exception;
+    protected abstract T valueFromBytes(byte[] body) throws Exception;
+
+    protected abstract boolean filter(T value) throws Exception;
+
 
     private void handle(String consumeTag, Delivery delivery) {
         try {
-            T message = messageFromBytes(delivery.getBody());
+            T value = valueFromBytes(delivery.getBody());
+
+            if(!filter(value)){
+                return;
+            }
 
             synchronized (listeners) {
                 for (MessageListener<T> listener : listeners) {
                     try {
-                        if (filterStrategy.verify(message, filters)) {
-                            listener.handler(consumeTag, message);
-                        } else {
-                            logger.debug("Message was rejected because it did not satisfy the filters");
-                        }
+                        listener.handler(consumeTag, value);
                     } catch (Exception listenerExc) {
                         logger.warn("Message listener from class '" + listener.getClass() + "' threw exception", listenerExc);
                     }

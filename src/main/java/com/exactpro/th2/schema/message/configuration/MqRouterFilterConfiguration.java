@@ -21,7 +21,7 @@ import java.util.Map;
 
 
 @Getter
-public class MqRouterFilterConfiguration implements RouterFilterConfiguration {
+public class MqRouterFilterConfiguration implements RouterFilter {
 
     @JsonProperty
     private Map<String, FieldFilterConfiguration> metadata = Collections.emptyMap();

@@ -14,22 +14,23 @@
 package com.exactpro.th2.schema.grpc.configuration;
 
 import com.exactpro.th2.schema.message.configuration.FieldFilterConfiguration;
-import com.exactpro.th2.schema.message.configuration.RouterFilterConfiguration;
+import com.exactpro.th2.schema.message.configuration.RouterFilter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.util.Collections;
 import java.util.Map;
 
 @Data
-public class GrpcRouterFilterConfiguration implements RouterFilterConfiguration {
+public class GrpcRouterFilterConfiguration implements RouterFilter {
 
     @JsonProperty(required = true)
     private String endpoint;
 
     @JsonProperty
-    private Map<String, FieldFilterConfiguration> metadata;
+    private Map<String, FieldFilterConfiguration> metadata = Collections.emptyMap();
 
     @JsonProperty
-    private Map<String, FieldFilterConfiguration> message;
+    private Map<String, FieldFilterConfiguration> message = Collections.emptyMap();
 
 }

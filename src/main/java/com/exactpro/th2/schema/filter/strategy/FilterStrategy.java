@@ -13,15 +13,36 @@
 
 package com.exactpro.th2.schema.filter.strategy;
 
-import com.exactpro.th2.schema.message.configuration.RouterFilterConfiguration;
+import com.exactpro.th2.schema.message.configuration.FieldFilterConfiguration;
+import com.exactpro.th2.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 
 import java.util.List;
 
 public interface FilterStrategy {
 
-    boolean verify(Message message, RouterFilterConfiguration fieldFilter);
+    /**
+     * Checks the provided message against the provided router filter.
+     * If all field filters match the message fields ('<b>and</b>' condition),
+     * then returns {@code true}, otherwise {@code false}.
+     *
+     * @param message      message whose fields will be filtered
+     * @param routerFilter router filter encapsulating many '{@link FieldFilterConfiguration}' filters
+     * @return if all field filters are passed successfully then {@code true}, otherwise {@code false}
+     * @see #verify(Message, List)
+     */
+    boolean verify(Message message, RouterFilter routerFilter);
 
-    boolean verify(Message message, List<? extends RouterFilterConfiguration> fieldFilters);
+    /**
+     * Checks the provided message against the provided router filters.
+     * If at least one {@link RouterFilter} was passed ('<b>or</b>' condition),
+     * then returns {@code true}, otherwise {@code false}.
+     *
+     * @param message       message whose fields will be filtered
+     * @param routerFilters router filters encapsulating many field filters
+     * @return if at least one router filter passed successfully then {@code true}, otherwise {@code false}
+     * @see #verify(Message, RouterFilter)
+     */
+    boolean verify(Message message, List<? extends RouterFilter> routerFilters);
 
 }

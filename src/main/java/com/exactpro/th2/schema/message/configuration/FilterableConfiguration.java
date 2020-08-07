@@ -13,7 +13,9 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
-
+/**
+ * Marker for configuration beans that can be filtered
+ */
 public interface FilterableConfiguration extends Configuration {
 
 }

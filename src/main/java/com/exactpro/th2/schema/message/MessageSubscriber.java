@@ -13,8 +13,6 @@
 
 package com.exactpro.th2.schema.message;
 
-import com.google.protobuf.Message;
-
 import java.io.Closeable;
 
 /**
@@ -22,7 +20,7 @@ import java.io.Closeable;
  *
  * @param <T>
  */
-public interface MessageSubscriber<T extends Message> extends Closeable {
+public interface MessageSubscriber<T> extends Closeable {
 
     void start() throws Exception;
 

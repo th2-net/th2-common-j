@@ -13,12 +13,45 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.parsed;
 
+import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.infra.grpc.MessageBatch;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
+import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
 
-public class RabbitParsedBatchSubscriber extends AbstractRabbitSubscriber<MessageBatch> {
+import java.util.List;
+
+public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<Message, MessageBatch> {
+
+    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters) {
+        super(filters);
+    }
+
+    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters, FilterStrategy filterStrategy) {
+        super(filters, filterStrategy);
+    }
+
+
     @Override
-    protected MessageBatch messageFromBytes(byte[] body) throws Exception {
+    protected MessageBatch valueFromBytes(byte[] body) throws Exception {
         return MessageBatch.parseFrom(body);
     }
+
+    @Override
+    protected List<Message> getMessages(MessageBatch batch) {
+        return batch.getMessagesList();
+    }
+
+    @Override
+    protected Metadata extractMetadata(Message message) {
+        var metadata = message.getMetadata();
+        var messageID = metadata.getId();
+        return Metadata.builder()
+                .messageType(metadata.getMessageType())
+                .direction(messageID.getDirection())
+                .sequence(messageID.getSequence())
+                .sessionAlias(messageID.getConnectionId().getSessionAlias())
+                .build();
+    }
+
 }
