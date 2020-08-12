@@ -13,6 +13,18 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
+import static java.util.Collections.emptyMap;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -21,17 +33,6 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-
-import static java.util.Collections.emptyMap;
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
 
@@ -96,12 +97,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         channel.exchangeDeclare(exchangeName, "direct");
 
         for (String queueTag : queueAliases) {
-            DeclareOk declareResult = channel.queueDeclare(subscriberName + "." + System.currentTimeMillis(), false, true, true, emptyMap());
+            DeclareOk declareResult = channel.queueDeclare(queueTag + "." + System.currentTimeMillis(), false, true, true, emptyMap());
 
             String queue = declareResult.getQueue();
 
             channel.queueBind(queue, exchangeName, queueTag);
-            channel.basicConsume(queue, true, this::handle, this::canceled);
+            channel.basicConsume(queue, true, subscriberName + "." + System.currentTimeMillis(), this::handle, this::canceled);
 
             logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, queueTag, queue);
         }
