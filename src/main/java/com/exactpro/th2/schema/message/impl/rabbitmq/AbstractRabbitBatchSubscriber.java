@@ -23,6 +23,7 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -49,7 +50,7 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
     @Override
     protected boolean filter(MB batch) {
 
-        var messages = getMessages(batch);
+        var messages = new ArrayList<>(getMessages(batch));
 
         var each = messages.iterator();
 
