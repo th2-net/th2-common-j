@@ -13,18 +13,6 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
-import static java.util.Collections.emptyMap;
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
-
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -33,6 +21,18 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+
+import static java.util.Collections.emptyMap;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
 
@@ -139,21 +139,24 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
 
-    protected abstract boolean filter(T value) throws Exception;
+    @Nullable
+    protected abstract T filter(T value) throws Exception;
 
 
     private void handle(String consumeTag, Delivery delivery) {
         try {
             T value = valueFromBytes(delivery.getBody());
 
-            if(!filter(value)){
+            var filteredValue = filter(value);
+
+            if(Objects.isNull(filteredValue)){
                 return;
             }
 
             synchronized (listeners) {
                 for (MessageListener<T> listener : listeners) {
                     try {
-                        listener.handler(consumeTag, value);
+                        listener.handler(consumeTag, filteredValue);
                     } catch (Exception listenerExc) {
                         logger.warn("Message listener from class '" + listener.getClass() + "' threw exception", listenerExc);
                     }

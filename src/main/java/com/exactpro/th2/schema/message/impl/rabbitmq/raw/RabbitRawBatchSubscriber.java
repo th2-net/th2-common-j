@@ -23,7 +23,7 @@ import java.util.List;
 
 public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawMessage, RawMessageBatch> {
 
-   private static final String MESSAGE_TYPE = "raw";
+    private static final String MESSAGE_TYPE = "raw";
 
 
     public RabbitRawBatchSubscriber(List<? extends RouterFilter> filters) {
@@ -43,6 +43,11 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     @Override
     protected List<RawMessage> getMessages(RawMessageBatch batch) {
         return batch.getMessagesList();
+    }
+
+    @Override
+    protected RawMessageBatch createBatch(List<RawMessage> messages) {
+        return RawMessageBatch.newBuilder().addAllMessages(messages).build();
     }
 
     @Override

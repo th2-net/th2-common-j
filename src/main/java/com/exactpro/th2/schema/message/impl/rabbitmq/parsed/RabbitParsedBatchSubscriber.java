@@ -43,6 +43,11 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
     }
 
     @Override
+    protected MessageBatch createBatch(List<Message> messages) {
+        return MessageBatch.newBuilder().addAllMessages(messages).build();
+    }
+
+    @Override
     protected Metadata extractMetadata(Message message) {
         var metadata = message.getMetadata();
         var messageID = metadata.getId();

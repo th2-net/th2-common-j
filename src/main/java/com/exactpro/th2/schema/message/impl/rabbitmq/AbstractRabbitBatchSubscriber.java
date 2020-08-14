@@ -48,7 +48,10 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
 
     @Override
-    protected boolean filter(MB batch) {
+    protected MB filter(MB batch) {
+        if (filters.isEmpty()) {
+            return batch;
+        }
 
         var messages = new ArrayList<>(getMessages(batch));
 
@@ -62,11 +65,13 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
             }
         }
 
-        return !messages.isEmpty();
+        return messages.isEmpty() ? null : createBatch(messages);
     }
 
 
     protected abstract List<M> getMessages(MB batch);
+
+    protected abstract MB createBatch(List<M> messages);
 
     protected abstract Metadata extractMetadata(M message);
 
