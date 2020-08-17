@@ -13,14 +13,6 @@
 
 package com.exactpro.th2.schema.factory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Path;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
@@ -37,9 +29,18 @@ import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.schema.strategy.route.json.JsonDeserializerRoutingStategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.*;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static com.exactpro.th2.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
+ *
  * @see CommonFactory
  */
 public abstract class AbstractCommonFactory {
@@ -62,9 +63,10 @@ public abstract class AbstractCommonFactory {
 
     /**
      * Create factory with not-default implementations schema classes
+     *
      * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
-     * @param messageRouterRawBatchClass Class for {@link MessageRouter} which work with {@link RawMessageBatch}
-     * @param grpcRouterClass Class for {@link GrpcRouter}
+     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
+     * @param grpcRouterClass               Class for {@link GrpcRouter}
      */
     public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass, @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass, @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
@@ -75,7 +77,7 @@ public abstract class AbstractCommonFactory {
     /**
      * @return Initialized {@link MessageRouter} which work with {@link MessageBatch}
      * @throws CommonFactoryException if can not call default constructor from class
-     * @throws IllegalStateException if can not read configuration
+     * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<MessageBatch> getMessageRouterParsedBatch() {
         MessageRouter<MessageBatch> router;
@@ -91,7 +93,7 @@ public abstract class AbstractCommonFactory {
     /**
      * @return Initialized {@link MessageRouter} which work with {@link RawMessageBatch}
      * @throws CommonFactoryException if can not call default constructor from class
-     * @throws IllegalStateException if can not read configuration
+     * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<RawMessageBatch> getMessageRouterRawBatch() {
         MessageRouter<RawMessageBatch> router;
@@ -107,7 +109,7 @@ public abstract class AbstractCommonFactory {
     /**
      * @return Initialized {@link GrpcRouter}
      * @throws CommonFactoryException if can not call default constructor from class
-     * @throws IllegalStateException if can not read configuration
+     * @throws IllegalStateException  if can not read configuration
      */
     public GrpcRouter getGrpcRouter() {
         GrpcRouter router;
@@ -134,7 +136,8 @@ public abstract class AbstractCommonFactory {
 
     /**
      * Parse json file with custom configuration to java bean using custom {@link ObjectMapper} to deserialize file's content.
-     * @param confClass java bean class
+     *
+     * @param confClass          java bean class
      * @param customObjectMapper object mapper to deserialize configuration
      * @return Java bean with custom configuration, or <b>NULL</b> if configuration is not exists and can not call default constructor from java bean class
      * @throws IllegalStateException if can not read configuration
@@ -159,12 +162,25 @@ public abstract class AbstractCommonFactory {
     /**
      * Parse json file with custom configuration to java bean. This method uses default {@link ObjectMapper}.
      * If you need custom setting for deserialization use {@link #getCustomConfiguration(Class, ObjectMapper)} method.
+     *
      * @param confClass java bean class
      * @return Java bean with custom configuration, or <b>NULL</b> if configuration is not exists and can not call default constructor from java bean class
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getCustomConfiguration(Class<T> confClass) {
         return getCustomConfiguration(confClass, MAPPER);
+    }
+
+    /**
+     * @return Dictionary as {@link InputStream}
+     * @throws IllegalStateException if can not read dictionary
+     */
+    public InputStream readDictionary() {
+        try {
+            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(getPathToDictionary())));
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary", e);
+        }
     }
 
     /**
@@ -195,6 +211,11 @@ public abstract class AbstractCommonFactory {
      * @return Path to custom configuration
      */
     protected abstract Path getPathToCustomConfiguration();
+
+    /**
+     * @return Path to dictionary
+     */
+    protected abstract Path getPathToDictionary();
 
     protected synchronized RabbitMQConfiguration getRabbitMqConfiguration() {
         if (rabbitMQConfiguration == null) {

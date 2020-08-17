@@ -13,19 +13,14 @@
 
 package com.exactpro.th2.schema.factory;
 
-import java.nio.file.Path;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.schema.message.MessageRouter;
+import org.apache.commons.cli.*;
+
+import java.nio.file.Path;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -39,6 +34,7 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String ROUTER_GRPC_FILE_NAME = "grpc.json";
     private static final String CRADLE_FILE_NAME = "cradle.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
+    private static final String DICTIONARY_FILE_NAME = "dictionary.encoded";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -109,6 +105,11 @@ public class CommonFactory extends AbstractCommonFactory {
     @Override
     protected Path getPathToCustomConfiguration() {
         return custom;
+    }
+
+    @Override
+    protected Path getPathToDictionary() {
+        return CONFIG_DEFAULT_PATH.resolve(DICTIONARY_FILE_NAME);
     }
 
     /**
