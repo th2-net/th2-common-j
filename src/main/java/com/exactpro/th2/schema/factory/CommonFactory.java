@@ -34,52 +34,57 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String ROUTER_GRPC_FILE_NAME = "grpc.json";
     private static final String CRADLE_FILE_NAME = "cradle.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
-    private static final String DICTIONARY_FILE_NAME = "dictionary.encoded";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
     private final Path routerGRPC;
     private final Path cradle;
     private final Path custom;
+    private final Path dictionariesDir;
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-            Class<? extends GrpcRouter> grpcRouterClass,
-            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom) {
+                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+                         Class<? extends GrpcRouter> grpcRouterClass,
+                         Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path dictionariesDir) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
         this.cradle = cradle;
         this.custom = custom;
+        this.dictionariesDir = dictionariesDir;
     }
 
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom) {
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path dictionariesDir) {
         super();
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
         this.cradle = cradle;
         this.custom = custom;
+        this.dictionariesDir = dictionariesDir;
     }
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-            Class<? extends GrpcRouter> grpcRouterClass) {
+                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+                         Class<? extends GrpcRouter> grpcRouterClass) {
         this(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass,
                 CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME));
+                CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
+                CONFIG_DEFAULT_PATH
+        );
     }
 
     public CommonFactory() {
-        this (CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
+        this(CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME));
+                CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
+                CONFIG_DEFAULT_PATH);
     }
 
     @Override
@@ -108,12 +113,13 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     @Override
-    protected Path getPathToDictionary() {
-        return CONFIG_DEFAULT_PATH.resolve(DICTIONARY_FILE_NAME);
+    protected Path getPathToDictionariesDir() {
+        return dictionariesDir;
     }
 
     /**
      * Create {@link CommonFactory} from command line arguments
+     *
      * @param args String array of command line arguments. Arguments:
      *             <p>
      *             --rabbitConfiguration - path to json file with RabbitMQ configuration
@@ -125,6 +131,8 @@ public class CommonFactory extends AbstractCommonFactory {
      *             --cradleConfiguration - path to json file with configuration for cradle. ({@link CradleConfiguration})
      *             <p>
      *             --customConfiguration - path to json file with custom configuration
+     *             <p>
+     *             --dictionariesDir - path to directory which contains files with encoded dictionaries
      *             <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
@@ -144,6 +152,7 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "grpcRouterConfiguration", true, null));
         options.addOption(new Option(null, "cradleConfiguration", true, null));
         options.addOption(new Option(null, "customConfiguration", true, null));
+        options.addOption(new Option(null, "dictionariesDir", true, null));
         options.addOption(new Option("c", "configs", true, null));
 
         CommandLine cmd = new DefaultParser().parse(options, args);
@@ -155,7 +164,14 @@ public class CommonFactory extends AbstractCommonFactory {
                 calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
                 calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
                 calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
-                calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME));
+                calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
+                calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
+        );
+    }
+
+
+    private static Path calculatePath(String path, String configsPath) {
+        return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath) : CONFIG_DEFAULT_PATH);
     }
 
     private static Path calculatePath(String path, String configsPath, String fileName) {

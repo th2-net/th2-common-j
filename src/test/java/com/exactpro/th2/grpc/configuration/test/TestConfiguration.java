@@ -53,8 +53,8 @@ public class TestConfiguration extends AbstractCommonFactory {
     }
 
     @Override
-    protected Path getPathToDictionary() {
-        return Path.of("./src/test/resources/com.exactpro.th2/grpc/configuration/test/dictionary.encoded");
+    protected Path getPathToDictionariesDir() {
+        return Path.of("./src/test/resources/com.exactpro.th2/grpc/configuration/test/");
     }
 
     @Test

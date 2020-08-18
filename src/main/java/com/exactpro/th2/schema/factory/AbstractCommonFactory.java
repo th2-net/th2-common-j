@@ -16,6 +16,7 @@ package com.exactpro.th2.schema.factory;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.schema.dictionary.DictionaryType;
 import com.exactpro.th2.schema.exception.CommonFactoryException;
 import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.schema.grpc.router.GrpcRouter;
@@ -35,6 +36,7 @@ import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Collectors;
 
 import static com.exactpro.th2.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 
@@ -176,8 +178,32 @@ public abstract class AbstractCommonFactory {
      * @throws IllegalStateException if can not read dictionary
      */
     public InputStream readDictionary() {
+        return readDictionary(DictionaryType.SINGLE);
+    }
+
+    /**
+     * @param dictionaryType desired type of dictionary
+     * @return Dictionary as {@link InputStream}
+     * @throws IllegalStateException if can not read dictionary
+     */
+    public InputStream readDictionary(DictionaryType dictionaryType) {
+
         try {
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(getPathToDictionary())));
+
+            var dictionaries = Files.list(getPathToDictionariesDir())
+                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+                    .collect(Collectors.toList());
+
+            if (dictionaries.isEmpty()) {
+                throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
+            } else if (dictionaries.size() > 1) {
+                throw new IllegalStateException("Found several dictionaries satisfying the '" + dictionaryType + "' type");
+            }
+
+            var targetDictionary = dictionaries.get(0);
+
+            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
+
         } catch (IOException e) {
             throw new IllegalStateException("Can not read dictionary", e);
         }
@@ -215,7 +241,7 @@ public abstract class AbstractCommonFactory {
     /**
      * @return Path to dictionary
      */
-    protected abstract Path getPathToDictionary();
+    protected abstract Path getPathToDictionariesDir();
 
     protected synchronized RabbitMQConfiguration getRabbitMqConfiguration() {
         if (rabbitMQConfiguration == null) {
