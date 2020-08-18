@@ -14,9 +14,24 @@
 package com.exactpro.th2.schema.dictionary;
 
 public enum DictionaryType {
+    /**
+     * Single dictionary is used to define only one dictionary for a service / codec work
+     */
     SINGLE,
+    /**
+     * First dictionary from pair: LEVEL1, LEVEL2. It is used to define dictionary to work with first layer protocol.
+     */
     LEVEL1,
+    /**
+     * Second dictionary from pair: LEVEL1, LEVEL2. It is used to define dictionary to work with second layer protocol.
+     */
     LEVEL2,
+    /**
+     * First dictionary of pair: INCOMING, OUTGOING. It is used to decode incoming message
+     */
     INCOMING,
+    /**
+     * Second dictionary of pair: INCOMING, OUTGOING. It is used to decode outgoing message
+     */
     OUTGOING
 }
