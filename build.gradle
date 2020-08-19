@@ -100,7 +100,7 @@ ext {
     sailfishVersion     = '3.2-SNAPSHOT'
     cradleVersion       = '1.2-SNAPSHOT'
 
-    jacksonVersion     = "2.11.2"
+    jacksonVersion      = "2.11.2"
 }
 
 
@@ -115,11 +115,15 @@ dependencies {
     compile "org.apache.commons:commons-collections4:4.4"
     compile "commons-cli:commons-cli:1.4"
 
-    compile "com.fasterxml.jackson.core:jackson-core:${jackson_version}"
-    compile "com.fasterxml.jackson.core:jackson-databind:${jackson_version}"
-    compile "com.fasterxml.jackson.core:jackson-annotations:${jackson_version}"
-    compile "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jackson_version}"
-    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jackson_version}"
+    compile "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+    compile "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    compile "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+    compile "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
+    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:${jacksonVersion}"
+
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlin_version}"
 
     compile 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
 
