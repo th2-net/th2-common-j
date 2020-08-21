@@ -13,12 +13,13 @@
 
 package com.exactpro.th2.schema.message;
 
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import java.io.IOException;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
+import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 
 /**
  * Interface for send and receive RabbitMQ messages
@@ -38,6 +39,8 @@ public interface MessageRouter<T> {
      * @param queueAlias queues alias
      * @param callback listener
      * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     *
+     * @deprecated please use {@link MessageRouter#subscribe(MessageListener, String...)}
      */
     @Nullable
     SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback);
@@ -46,6 +49,7 @@ public interface MessageRouter<T> {
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
      * @param queueAttr queues attributes
      * @param callback listener
+     * @throws IllegalStateException when more than 1 queue is found
      * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
      */
     @Nullable
@@ -86,11 +90,12 @@ public interface MessageRouter<T> {
      * @param message
      * @param queueAttr schemas queues attributes
      * @throws IOException if can not send message
+     * @throws IllegalStateException when more than 1 queue is found
      */
     void send(T message, String... queueAttr) throws IOException;
 
     /**
-     * Send message to <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * Send message to <b>SOME</b> RabbitMQ queue by intersection schemas queues attributes
      * @param message
      * @param queueAttr schemas queues attributes
      * @throws IOException if can not send message
