@@ -13,6 +13,20 @@
 
 package com.exactpro.th2.schema.factory;
 
+import static com.exactpro.th2.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Collectors;
+
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
@@ -30,15 +44,6 @@ import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.schema.strategy.route.json.JsonDeserializerRoutingStategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import org.jetbrains.annotations.NotNull;
-
-import java.io.*;
-import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.stream.Collectors;
-
-import static com.exactpro.th2.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -178,7 +183,7 @@ public abstract class AbstractCommonFactory {
      * @throws IllegalStateException if can not read dictionary
      */
     public InputStream readDictionary() {
-        return readDictionary(DictionaryType.SINGLE);
+        return readDictionary(DictionaryType.MAIN);
     }
 
     /**

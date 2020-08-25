@@ -15,23 +15,27 @@ package com.exactpro.th2.schema.dictionary;
 
 public enum DictionaryType {
     /**
-     * Single dictionary is used to define only one dictionary for a service / codec work
+     * Main dictionary of a codec/service. In case of a multi-level protocol it's a
+     * dictionary for the top level. This dictionary type is mandatory except some
+     * bizarre cases when incoming and outgoing protocols are different
      */
-    SINGLE,
+    MAIN,
     /**
-     * First dictionary from pair: LEVEL1, LEVEL2. It is used to define dictionary to work with first layer protocol.
+     * Dictionary for the lowest level (e.g. a wrapper) in a multi-level protocol
      */
     LEVEL1,
     /**
-     * Second dictionary from pair: LEVEL1, LEVEL2. It is used to define dictionary to work with second layer protocol.
+     * Dictionary for the second level (if there are more than 2 levels) in a multi-level protocol
      */
     LEVEL2,
     /**
-     * First dictionary of pair: INCOMING, OUTGOING. It is used to decode incoming message
+     * Dictionary for incoming protocol (used in some very rare cases when incoming and outgoing
+     * protocols are different)
      */
     INCOMING,
     /**
-     * Second dictionary of pair: INCOMING, OUTGOING. It is used to decode outgoing message
+     * Dictionary for outgoing protocol (used in some very rare cases when incoming and outgoing
+     * protocols are different
      */
     OUTGOING
 }
