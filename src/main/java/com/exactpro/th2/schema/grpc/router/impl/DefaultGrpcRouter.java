@@ -15,7 +15,9 @@ package com.exactpro.th2.schema.grpc.router.impl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
 import com.exactpro.th2.schema.exception.InitGrpcRouterException;
 import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.schema.grpc.configuration.GrpcServiceConfiguration;
 import com.exactpro.th2.schema.grpc.router.AbstractGrpcRouter;
 import com.exactpro.th2.schema.grpc.router.GrpcRouter;
 import com.google.protobuf.Message;
@@ -43,6 +46,8 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultGrpcRouter.class);
 
+    private Map<Class<?>, Map<String, AbstractStub<?>>> stubs = new ConcurrentHashMap<>();
+    private Map<String, Channel> channels = new ConcurrentHashMap<>();
 
     /**
      * Creates a service instance according to the filters in {@link GrpcRouterConfiguration}
@@ -101,9 +106,29 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     }
 
-    protected Channel applyFilter(Class<?> proxyService, Message message) {
+    protected AbstractStub<?> getGrpcStubToSend(Class<?> proxyService, Message message) throws ClassNotFoundException {
+        var grpcStubAnn = proxyService.getAnnotation(GrpcStub.class);
 
-        var serviceConfig = configuration.getServices().values().stream()
+        if (Objects.isNull(grpcStubAnn)) {
+            throw new ClassNotFoundException("Provided service class not annotated " +
+                    "by GrpcStub annotation: " + proxyService.getSimpleName());
+        }
+
+        return getStubInstanceOrCreate(grpcStubAnn.value(), message);
+    }
+
+    protected  <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<T> proxyService, Message message) {
+        var serviceConfig = getServiceConfig(proxyService);
+
+        String endpointName = serviceConfig.getStrategy().getEndpoint(message);
+
+        return stubs.computeIfAbsent(proxyService, key -> new ConcurrentHashMap<>())
+                .computeIfAbsent(endpointName, key ->
+                        createStubInstance(proxyService, getOrCreateChannel(key, serviceConfig)));
+    }
+
+    protected GrpcServiceConfiguration getServiceConfig(Class<?> proxyService) {
+        return configuration.getServices().values().stream()
                 .filter(sConfig -> {
 
                     String proxyClassName = proxyService.getName();
@@ -117,35 +142,23 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No services matching the provided " +
                         "class were found in the configuration: " + proxyService.getName()));
-
-        var endpoints = serviceConfig.getEndpoints();
-
-        var endpointName = serviceConfig.getStrategy().getEndpoint(message);
-
-        var grpcServer = endpoints.get(endpointName);
-
-        if (Objects.isNull(grpcServer)) {
-            throw new IllegalStateException("No endpoint in configuration " +
-                    "that matching the provided alias: " + endpointName);
-        }
-
-        return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort()).usePlaintext().build();
-
     }
 
-    protected AbstractStub<?> getGrpcStubToSend(Class<?> proxyService, Message message) throws ClassNotFoundException {
-        var grpcStubAnn = proxyService.getAnnotation(GrpcStub.class);
+    protected Channel getOrCreateChannel(String endpointName, GrpcServiceConfiguration serviceConfig) {
+        return channels.computeIfAbsent(endpointName, key -> {
+            var grpcServer = serviceConfig.getEndpoints().get(key);
 
-        if (Objects.isNull(grpcStubAnn)) {
-            throw new ClassNotFoundException("Provided service class not annotated " +
-                    "by GrpcStub annotation: " + proxyService.getSimpleName());
-        }
+            if (Objects.isNull(grpcServer)) {
+                throw new IllegalStateException("No endpoint in configuration " +
+                        "that matching the provided alias: " + key);
+            }
 
-        return getStubInstance(grpcStubAnn.value(), applyFilter(proxyService, message));
+            return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort()).usePlaintext().build();
+        });
     }
 
     @SuppressWarnings("rawtypes")
-    protected <T extends AbstractStub> AbstractStub getStubInstance(Class<T> stubClass, Channel channel) {
+    protected <T extends AbstractStub> AbstractStub createStubInstance(Class<T> stubClass, Channel channel) {
         try {
             var constr = stubClass.getDeclaredConstructor(Channel.class, CallOptions.class);
             constr.setAccessible(true);
