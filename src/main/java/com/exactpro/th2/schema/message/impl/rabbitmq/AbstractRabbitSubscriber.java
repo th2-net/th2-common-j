@@ -13,6 +13,19 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
+import static java.util.Collections.emptyMap;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -21,18 +34,6 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-
-import static java.util.Collections.emptyMap;
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
 
@@ -47,8 +48,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private String exchangeName = null;
     private String[] queueAliases = null;
 
-    private Connection connection;
-    private Channel channel;
+    private Connection connection = null;
+    private Channel channel = null;
 
 
     public void init(@NotNull RabbitMQConfiguration configuration, @NotNull String exchangeName, String... queueTags) throws IllegalArgumentException, NullPointerException {
@@ -92,19 +93,24 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             logger.info("Using default subscriber name: '{}'", subscriberName);
         }
 
-        connection = factory.newConnection();
-        channel = connection.createChannel();
-        channel.exchangeDeclare(exchangeName, "direct");
+        if (connection == null) {
+            connection = factory.newConnection();
+        }
 
-        for (String queueTag : queueAliases) {
-            DeclareOk declareResult = channel.queueDeclare(queueTag + "." + System.currentTimeMillis(), false, true, true, emptyMap());
+        if (channel == null) {
+            channel = connection.createChannel();
+            channel.exchangeDeclare(exchangeName, "direct");
 
-            String queue = declareResult.getQueue();
+            for (String queueTag : queueAliases) {
+                DeclareOk declareResult = channel.queueDeclare(queueTag + "." + System.currentTimeMillis(), false, true, true, emptyMap());
 
-            channel.queueBind(queue, exchangeName, queueTag);
-            channel.basicConsume(queue, true, subscriberName + "." + System.currentTimeMillis(), this::handle, this::canceled);
+                String queue = declareResult.getQueue();
 
-            logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, queueTag, queue);
+                channel.queueBind(queue, exchangeName, queueTag);
+                channel.basicConsume(queue, true, subscriberName + "." + System.currentTimeMillis(), this::handle, this::canceled);
+
+                logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, queueTag, queue);
+            }
         }
     }
 
@@ -149,7 +155,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
             var filteredValue = filter(value);
 
-            if(Objects.isNull(filteredValue)){
+            if(Objects.isNull(filteredValue)) {
                 return;
             }
 

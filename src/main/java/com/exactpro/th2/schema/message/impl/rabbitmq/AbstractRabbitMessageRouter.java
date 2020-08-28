@@ -13,18 +13,28 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
-import com.exactpro.th2.schema.filter.factory.FilterFactory;
-import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
-import com.exactpro.th2.schema.message.*;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
+import com.exactpro.th2.schema.exception.RouterException;
+import com.exactpro.th2.schema.filter.factory.FilterFactory;
+import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
+import com.exactpro.th2.schema.message.MessageListener;
+import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.MessageRouter;
+import com.exactpro.th2.schema.message.MessageSubscriber;
+import com.exactpro.th2.schema.message.SubscriberMonitor;
+import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 
 public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
@@ -46,6 +56,13 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         var queue = getMessageQueue(queueAlias);
         MessageSubscriber<T> subscriber = queue.getSubscriber();
         subscriber.addListener(callback);
+
+        try {
+            subscriber.start();
+        } catch (Exception e) {
+            throw new RouterException("Can not start subscriber", e);
+        }
+
         return new SubscriberMonitorImpl(subscriber, queue);
     }
 
