@@ -30,6 +30,7 @@ import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.MessageRouter;
+import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.SubscriberMonitor;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
@@ -160,9 +161,13 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
             var message = targetAliasesAndBatch.getValue();
 
             try {
-                getMessageQueue(queueAlias).getSender().send(message);
+                MessageSender<T> sender = getMessageQueue(queueAlias).getSender();
+                sender.start();
+                sender.send(message);
             } catch (IOException e) {
                 exception.addSuppressed(e);
+            } catch (Exception e) {
+                throw new RouterException("Can not start sender");
             }
         }
 

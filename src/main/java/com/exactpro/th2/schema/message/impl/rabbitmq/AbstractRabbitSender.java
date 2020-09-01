@@ -18,14 +18,14 @@ import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
@@ -67,12 +67,17 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     @Override
     public void start() throws Exception {
         if (sendQueue == null || exchangeName == null) {
-            throw new IllegalStateException("Sender did not init");
+            throw new IllegalStateException("Sender can not start. Sender did not init");
         }
 
-        connection = factory.newConnection();
-        channel = connection.createChannel();
-        channel.exchangeDeclare(exchangeName, "direct");
+        if (connection == null) {
+            connection = factory.newConnection();
+        }
+
+        if (channel == null) {
+            channel = connection.createChannel();
+            channel.exchangeDeclare(exchangeName, "direct");
+        }
     }
 
     @Override
@@ -83,7 +88,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     @Override
     public void send(T value) throws IOException {
         if (channel == null) {
-            throw new IllegalStateException("Sender did not init");
+            throw new IllegalStateException("Can not send. Sender did not started");
         }
 
         synchronized (channel) {
