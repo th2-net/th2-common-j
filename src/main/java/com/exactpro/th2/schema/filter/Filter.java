@@ -26,6 +26,7 @@ public interface Filter {
      * @throws FilterCheckException if two filters match the message;
      *                              if none of the filters match the provided message
      *                              and no target entities without filters present
+     * @see FilterResult
      */
     FilterResult check(Message message);
 

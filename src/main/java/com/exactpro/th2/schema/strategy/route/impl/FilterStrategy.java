@@ -20,6 +20,9 @@ import com.exactpro.th2.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
+import com.google.protobuf.TextFormat;
+
+import java.util.Objects;
 
 @StrategyName("filter")
 public class FilterStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
@@ -41,7 +44,14 @@ public class FilterStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
 
     @Override
     public String getEndpoint(Message message) {
-        return filter.check(message).getTargetEntity();
+        var endpoint = filter.check(message).getTargetEntity();
+
+        if (Objects.isNull(endpoint)) {
+            throw new IllegalStateException("If you choose the 'filter' strategy you must provide filters! " +
+                    "No filters correspond to message: " + TextFormat.shortDebugString(message));
+        }
+
+        return endpoint;
     }
 
 }

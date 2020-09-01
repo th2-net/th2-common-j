@@ -19,12 +19,24 @@ import lombok.Data;
 import java.util.Set;
 
 
+/**
+ * @see FilterResult#getTargetEntity()
+ * @see FilterResult#getUnfilteredEntities()
+ */
 @Data
 @Builder
 public class FilterResult {
 
+    /**
+     * An entity (mostly queueAlias​​/endpoint) whose
+     * filters were satisfied with the message,
+     * while none of the other entity's filters matched
+     */
     private String targetEntity;
 
+    /**
+     * Entities without filters
+     */
     private Set<String> unfilteredEntities;
 
 }
