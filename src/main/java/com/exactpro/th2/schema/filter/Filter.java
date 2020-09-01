@@ -14,16 +14,19 @@
 package com.exactpro.th2.schema.filter;
 
 import com.exactpro.th2.schema.exception.FilterCheckException;
+import com.exactpro.th2.schema.filter.model.FilterResult;
 import com.google.protobuf.Message;
 
 public interface Filter {
 
     /**
      * @param message message whose fields will be filtered
-     * @return only one filter alias of target entity (queue/endpoint), which correspond to provided message
-     * @throws FilterCheckException if two filters match the message or none
-     *                              of the filters match the provided message
+     * @return {@link FilterResult} that represents one filter alias of target entity (queue/endpoint),
+     * which correspond to provided message, and set of filter aliases that have no filters
+     * @throws FilterCheckException if two filters match the message;
+     *                              if none of the filters match the provided message
+     *                              and no target entities without filters present
      */
-    String check(Message message);
+    FilterResult check(Message message);
 
 }

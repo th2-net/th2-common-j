@@ -15,10 +15,14 @@ package com.exactpro.th2.schema.filter.impl;
 
 import com.exactpro.th2.schema.exception.FilterCheckException;
 import com.exactpro.th2.schema.filter.Filter;
+import com.exactpro.th2.schema.filter.model.FilterResult;
 import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.google.protobuf.Message;
+import com.google.protobuf.TextFormat;
+
+import java.util.HashSet;
 
 public class GrpcMsgFilter implements Filter {
 
@@ -38,10 +42,19 @@ public class GrpcMsgFilter implements Filter {
 
 
     @Override
-    public String check(Message message) {
+    public FilterResult check(Message message) {
+
         var endpointAlias = "";
 
+        var unfilteredEndpoints = new HashSet<String>();
+
         for (var fieldsFilter : configuration.getFilters()) {
+
+            if (fieldsFilter.getMessage().isEmpty() && fieldsFilter.getMetadata().isEmpty()) {
+                unfilteredEndpoints.add(fieldsFilter.getEndpoint());
+                continue;
+            }
+
             if (filterStrategy.verify(message, fieldsFilter)) {
                 if (!endpointAlias.isEmpty()) {
                     throw new FilterCheckException("Two endpoints match one " +
@@ -51,11 +64,15 @@ public class GrpcMsgFilter implements Filter {
             }
         }
 
-        if (endpointAlias.isEmpty()) {
-            throw new FilterCheckException("No filters correspond to message: " + message);
+        if (endpointAlias.isEmpty() && unfilteredEndpoints.isEmpty()) {
+            throw new FilterCheckException("No pins with unspecified filters found " +
+                    "and no existing filters correspond to message: " + TextFormat.shortDebugString(message));
         }
 
-        return endpointAlias;
+        return FilterResult.builder()
+                .targetEntity(endpointAlias.isEmpty() ? null : endpointAlias)
+                .unfilteredEntities(unfilteredEndpoints)
+                .build();
     }
 
 }

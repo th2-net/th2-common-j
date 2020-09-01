@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitMessageRouter<MB> {
@@ -33,10 +34,24 @@ public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MB
 
         for (var message : getMessages(batch)) {
 
-            var queueAlias = filter.check(message);
+            var filterResult = filter.check(message);
 
-            result.putIfAbsent(queueAlias, createBatchBuilder());
-            addMessage(result.get(queueAlias), message);
+            var allQueueAliases = filterResult.getUnfilteredEntities();
+
+            var targetAlias = filterResult.getTargetEntity();
+
+            if (Objects.nonNull(targetAlias)) {
+                allQueueAliases.add(targetAlias);
+            }
+
+            for (var queueAlias : allQueueAliases) {
+
+                result.putIfAbsent(queueAlias, createBatchBuilder());
+
+                addMessage(result.get(queueAlias), message);
+
+            }
+
         }
 
         return result

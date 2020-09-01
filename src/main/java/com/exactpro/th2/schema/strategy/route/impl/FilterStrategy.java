@@ -41,7 +41,7 @@ public class FilterStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
 
     @Override
     public String getEndpoint(Message message) {
-        return filter.check(message);
+        return filter.check(message).getTargetEntity();
     }
 
 }

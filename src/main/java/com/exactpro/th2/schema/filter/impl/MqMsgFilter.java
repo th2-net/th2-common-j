@@ -15,10 +15,14 @@ package com.exactpro.th2.schema.filter.impl;
 
 import com.exactpro.th2.schema.exception.FilterCheckException;
 import com.exactpro.th2.schema.filter.Filter;
+import com.exactpro.th2.schema.filter.model.FilterResult;
 import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.google.protobuf.Message;
+import com.google.protobuf.TextFormat;
+
+import java.util.HashSet;
 
 public class MqMsgFilter implements Filter {
 
@@ -38,32 +42,43 @@ public class MqMsgFilter implements Filter {
 
 
     @Override
-    public String check(Message message) {
+    public FilterResult check(Message message) {
+
         var queueAliasResult = "";
+
+        var unfilteredAliases = new HashSet<String>();
 
         for (var queueEntry : configuration.getQueues().entrySet()) {
 
             var queueAlias = queueEntry.getKey();
             var queueConfig = queueEntry.getValue();
 
-            var filterResult = filterStrategy.verify(message, queueConfig.getFilters());
+            var filters = queueConfig.getFilters();
 
-            if (filterResult) {
-                if (queueAliasResult.isEmpty()) {
-                    queueAliasResult = queueAlias;
-                } else {
+            if (filters.isEmpty()) {
+                unfilteredAliases.add(queueAlias);
+                continue;
+            }
+
+            if (filterStrategy.verify(message, queueConfig.getFilters())) {
+                if (!queueAliasResult.isEmpty()) {
                     throw new FilterCheckException("Two queues match one message " +
                             "according to configuration filters");
                 }
+                queueAliasResult = queueAlias;
             }
 
         }
 
-        if (queueAliasResult.isEmpty()) {
-            throw new FilterCheckException("No filters correspond to message: " + message);
+        if (queueAliasResult.isEmpty() && unfilteredAliases.isEmpty()) {
+            throw new FilterCheckException("No pins with unspecified filters found " +
+                    "and no existing filters correspond to message: " + TextFormat.shortDebugString(message));
         }
 
-        return queueAliasResult;
+        return FilterResult.builder()
+                .targetEntity(queueAliasResult.isEmpty() ? null : queueAliasResult)
+                .unfilteredEntities(unfilteredAliases)
+                .build();
     }
 
 }
