@@ -114,17 +114,17 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                     "by GrpcStub annotation: " + proxyService.getSimpleName());
         }
 
-        return getStubInstanceOrCreate(grpcStubAnn.value(), message);
+        return getStubInstanceOrCreate(proxyService, grpcStubAnn.value(), message);
     }
 
-    protected  <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<T> proxyService, Message message) {
+    protected  <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<?> proxyService, Class<T> stubClass, Message message) {
         var serviceConfig = getServiceConfig(proxyService);
 
         String endpointName = serviceConfig.getStrategy().getEndpoint(message);
 
-        return stubs.computeIfAbsent(proxyService, key -> new ConcurrentHashMap<>())
+        return stubs.computeIfAbsent(stubClass, key -> new ConcurrentHashMap<>())
                 .computeIfAbsent(endpointName, key ->
-                        createStubInstance(proxyService, getOrCreateChannel(key, serviceConfig)));
+                        createStubInstance(stubClass, getOrCreateChannel(key, serviceConfig)));
     }
 
     protected GrpcServiceConfiguration getServiceConfig(Class<?> proxyService) {
