@@ -15,16 +15,19 @@
  ******************************************************************************/
 package com.exactpro.th2.grpc.configuration.test;
 
-import com.exactpro.th2.schema.factory.AbstractCommonFactory;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collections;
 
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import com.exactpro.th2.schema.factory.AbstractCommonFactory;
+import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
+
+@RunWith(SingleInstanceRunner.class)
 public class TestConfiguration extends AbstractCommonFactory {
 
     @Override

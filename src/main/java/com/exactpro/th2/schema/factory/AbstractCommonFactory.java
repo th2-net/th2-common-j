@@ -30,6 +30,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.th2.configuration.Configuration;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
@@ -48,6 +49,8 @@ import com.exactpro.th2.schema.strategy.route.json.JsonDeserializerRoutingStateg
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
+import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.hotspot.DefaultExports;
 import lombok.Getter;
 
 /**
@@ -71,6 +74,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
+    private final HTTPServer prometheusExporter;
 
     /**
      * Create factory with default implementation schema classes
@@ -90,6 +94,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.grpcRouterClass = grpcRouterClass;
+
+        try {
+            DefaultExports.initialize();
+            this.prometheusExporter = new HTTPServer(Configuration.getEnvPrometheusHost(), Configuration.getEnvPrometheusPort());
+        } catch (IOException e) {
+            throw new CommonFactoryException("Failed to create Prometheus exporter", e);
+        }
     }
 
     /**
@@ -340,6 +351,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
             return router;
         });
+
+        try {
+            prometheusExporter.stop();
+        } catch (Exception e) {
+            logger.error("Failed to close Prometheus exporter", e);
+        }
 
         logger.info("Common factory has been closed");
     }
