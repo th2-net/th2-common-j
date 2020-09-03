@@ -23,9 +23,12 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
@@ -45,21 +48,29 @@ import com.exactpro.th2.schema.strategy.route.json.JsonDeserializerRoutingStateg
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
+import lombok.Getter;
+
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
  *
  * @see CommonFactory
  */
-public abstract class AbstractCommonFactory {
-
+public abstract class AbstractCommonFactory implements AutoCloseable {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private RabbitMQConfiguration rabbitMQConfiguration = null;
-    private MessageRouterConfiguration messageRouterConfiguration = null;
-    private GrpcRouterConfiguration grpcRouterConfiguration = null;
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Getter(lazy = true)
+    private final RabbitMQConfiguration rabbitMqConfiguration = loadRabbitMqConfiguration();
+    @Getter(lazy = true)
+    private final MessageRouterConfiguration messageRouterConfiguration = loadMessageRouterConfiguration();
+    @Getter(lazy = true)
+    private final GrpcRouterConfiguration grpcRouterConfiguration = loadGrpcRouterConfiguration();
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
+    private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
+    private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
+    private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
 
     /**
      * Create factory with default implementation schema classes
@@ -87,14 +98,18 @@ public abstract class AbstractCommonFactory {
      * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<MessageBatch> getMessageRouterParsedBatch() {
-        MessageRouter<MessageBatch> router;
-        try {
-            router = messageRouterParsedBatchClass.getConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new CommonFactoryException("Can not create parsed message router", e);
-        }
-        router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
-        return router;
+        return messageRouterParsedBatch.updateAndGet(router -> {
+            if (router == null) {
+                try {
+                    router = messageRouterParsedBatchClass.getConstructor().newInstance();
+                    router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    throw new CommonFactoryException("Can not create parsed message router", e);
+                }
+            }
+
+            return router;
+        });
     }
 
     /**
@@ -103,14 +118,18 @@ public abstract class AbstractCommonFactory {
      * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<RawMessageBatch> getMessageRouterRawBatch() {
-        MessageRouter<RawMessageBatch> router;
-        try {
-            router = messageRouterRawBatchClass.getConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new CommonFactoryException("Can not create raw message router", e);
-        }
-        router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
-        return router;
+        return messageRouterRawBatch.updateAndGet(router -> {
+            if (router == null) {
+                try {
+                    router = messageRouterRawBatchClass.getConstructor().newInstance();
+                    router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    throw new CommonFactoryException("Can not create raw message router", e);
+                }
+            }
+
+            return router;
+        });
     }
 
     /**
@@ -119,14 +138,18 @@ public abstract class AbstractCommonFactory {
      * @throws IllegalStateException  if can not read configuration
      */
     public GrpcRouter getGrpcRouter() {
-        GrpcRouter router;
-        try {
-            router = grpcRouterClass.getConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new CommonFactoryException("Can not create GRPC router", e);
-        }
-        router.init(getGrpcRouterConfiguration());
-        return router;
+        return grpcRouter.updateAndGet(router -> {
+            if (router == null) {
+                try {
+                    router = grpcRouterClass.getConstructor().newInstance();
+                    router.init(getGrpcRouterConfiguration());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    throw new CommonFactoryException("Can not create GRPC router", e);
+                }
+            }
+
+            return router;
+        });
     }
 
     /**
@@ -248,47 +271,76 @@ public abstract class AbstractCommonFactory {
      */
     protected abstract Path getPathToDictionariesDir();
 
-    protected synchronized RabbitMQConfiguration getRabbitMqConfiguration() {
-        if (rabbitMQConfiguration == null) {
-            try (var in = new FileInputStream(getPathToRabbitMQConfiguration().toFile())) {
-                rabbitMQConfiguration = MAPPER.readerFor(RabbitMQConfiguration.class).readValue(in);
-            } catch (IOException e) {
-                throw new IllegalStateException("Can not read rabbit mq configuration", e);
-            }
+    protected RabbitMQConfiguration loadRabbitMqConfiguration() {
+        try (var in = new FileInputStream(getPathToRabbitMQConfiguration().toFile())) {
+            return MAPPER.readerFor(RabbitMQConfiguration.class).readValue(in);
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read rabbit mq configuration", e);
         }
-
-        return rabbitMQConfiguration;
     }
 
-    protected synchronized MessageRouterConfiguration getMessageRouterConfiguration() {
-        if (messageRouterConfiguration == null) {
-            try (var in = new FileInputStream(getPathToMessageRouterConfiguration().toFile())) {
-                messageRouterConfiguration = MAPPER.readerFor(MessageRouterConfiguration.class).readValue(in);
-            } catch (IOException e) {
-                throw new IllegalStateException("Can not read message router configuration", e);
-            }
+    protected MessageRouterConfiguration loadMessageRouterConfiguration() {
+        try (var in = new FileInputStream(getPathToMessageRouterConfiguration().toFile())) {
+            return MAPPER.readerFor(MessageRouterConfiguration.class).readValue(in);
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read message router configuration", e);
         }
-
-        return messageRouterConfiguration;
     }
 
-    protected synchronized GrpcRouterConfiguration getGrpcRouterConfiguration() {
-        if (grpcRouterConfiguration == null) {
-            var mapper = new ObjectMapper();
+    protected GrpcRouterConfiguration loadGrpcRouterConfiguration() {
+        SimpleModule module = new SimpleModule();
+        module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
 
-            SimpleModule module = new SimpleModule();
-            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+        var mapper = new ObjectMapper();
+        mapper.registerModule(module);
 
-            mapper.registerModule(module);
-
-            try (var in = new FileInputStream(getPathToGrpcRouterConfiguration().toFile())) {
-                grpcRouterConfiguration = mapper.readerFor(GrpcRouterConfiguration.class).readValue(in);
-            } catch (IOException e) {
-                throw new IllegalStateException("Can not read grpc router configuration", e);
-            }
+        try (var in = new FileInputStream(getPathToGrpcRouterConfiguration().toFile())) {
+            return mapper.readerFor(GrpcRouterConfiguration.class).readValue(in);
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read grpc router configuration", e);
         }
-
-        return grpcRouterConfiguration;
     }
 
+    @Override
+    public void close() {
+        logger.info("Closing common factory");
+
+        messageRouterParsedBatch.getAndUpdate(router -> {
+            if (router != null) {
+                try {
+                    router.close();
+                } catch (Exception e) {
+                    logger.error("Failed to close message router for parsed message batches", e);
+                }
+            }
+
+            return router;
+        });
+
+        messageRouterRawBatch.getAndUpdate(router -> {
+            if (router != null) {
+                try {
+                    router.close();
+                } catch (Exception e) {
+                    logger.error("Failed to close message router for raw message batches", e);
+                }
+            }
+
+            return router;
+        });
+
+        grpcRouter.getAndUpdate(router -> {
+            if (router != null) {
+                try {
+                    router.close();
+                } catch (Exception e) {
+                    logger.error("Failed to close gRPC router", e);
+                }
+            }
+
+            return router;
+        });
+
+        logger.info("Common factory has been closed");
+    }
 }

@@ -25,7 +25,7 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfi
  * Interface for send and receive RabbitMQ messages
  * @param <T> messages for send and receive
  */
-public interface MessageRouter<T> {
+public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Initialization message router
@@ -76,6 +76,7 @@ public interface MessageRouter<T> {
      * Unsubscribe from all queues
      * @throws IOException if can not unsubscribe from one or more queues. See suppressed exception
      */
+    @Deprecated(forRemoval = true)
     void unsubscribeAll() throws IOException;
 
     /**

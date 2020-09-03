@@ -13,16 +13,6 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
-import com.exactpro.th2.schema.exception.RouterException;
-import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
-import com.exactpro.th2.schema.message.*;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -30,8 +20,26 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.exactpro.th2.schema.exception.RouterException;
+import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.schema.message.MessageListener;
+import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.MessageRouter;
+import com.exactpro.th2.schema.message.MessageSender;
+import com.exactpro.th2.schema.message.MessageSubscriber;
+import com.exactpro.th2.schema.message.SubscriberMonitor;
+import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+
+public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
+    protected Logger logger = LoggerFactory.getLogger(getClass());
     protected FilterStrategy filterStrategy;
 
     private MessageRouterConfiguration configuration;
@@ -149,6 +157,12 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         this.filterStrategy = filterStrategy;
     }
 
+    @Override
+    public void close() throws Exception {
+        logger.info("Closing message router");
+        unsubscribeAll();
+        logger.info("Message router has been successfully closed");
+    }
 
     protected abstract MessageQueue<T> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration);
 
