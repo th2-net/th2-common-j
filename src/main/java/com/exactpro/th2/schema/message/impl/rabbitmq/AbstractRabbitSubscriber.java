@@ -13,27 +13,26 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
-import static java.util.Collections.emptyMap;
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
+import com.exactpro.th2.schema.message.MessageListener;
+import com.exactpro.th2.schema.message.MessageSubscriber;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Delivery;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
-import com.exactpro.th2.schema.message.MessageListener;
-import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.rabbitmq.client.AMQP.Queue.DeclareOk;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Delivery;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
 
@@ -44,22 +43,22 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final Set<MessageListener<T>> listeners = new HashSet<>();
     private final ConnectionFactory factory = new ConnectionFactory();
 
-    private String subscriberName = null;
     private String exchangeName = null;
-    private String[] queueAliases = null;
+    private String subscriberName = null;
+    private SubscribeTarget[] subscribeTargets = null;
 
     private Connection connection = null;
     private Channel channel = null;
 
 
-    public void init(@NotNull RabbitMQConfiguration configuration, @NotNull String exchangeName, String... queueTags) throws IllegalArgumentException, NullPointerException {
-        if (queueTags.length < 1) {
-            throw new IllegalArgumentException("Queue tags must be more than 0");
+    public void init(@NotNull RabbitMQConfiguration configuration, @NotNull String exchangeName, @NotNull SubscribeTarget... subscribeTargets) throws IllegalArgumentException, NullPointerException {
+        if (subscribeTargets.length < 1) {
+            throw new IllegalArgumentException("Subscribe targets must be more than 0");
         }
 
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
         this.subscriberName = configuration.getSubscriberName();
-        this.queueAliases = queueTags;
+        this.subscribeTargets = subscribeTargets;
 
 
         factory.setHost(configuration.getHost());
@@ -84,7 +83,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void start() throws Exception {
-        if (queueAliases == null || exchangeName == null) {
+        if (subscribeTargets == null || exchangeName == null) {
             throw new IllegalStateException("Subscriber did not init");
         }
 
@@ -99,17 +98,16 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         if (channel == null) {
             channel = connection.createChannel();
-            channel.exchangeDeclare(exchangeName, "direct");
 
-            for (String queueTag : queueAliases) {
-                DeclareOk declareResult = channel.queueDeclare(queueTag + "." + System.currentTimeMillis(), false, true, true, emptyMap());
+            for (var subscribeTarget : subscribeTargets) {
 
-                String queue = declareResult.getQueue();
+                var queue = subscribeTarget.getQueue();
 
-                channel.queueBind(queue, exchangeName, queueTag);
+                var routingKey = subscribeTarget.getRoutingKey();
+
                 channel.basicConsume(queue, true, subscriberName + "." + System.currentTimeMillis(), this::handle, this::canceled);
 
-                logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, queueTag, queue);
+                logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
             }
         }
     }
@@ -155,7 +153,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
             var filteredValue = filter(value);
 
-            if(Objects.isNull(filteredValue)) {
+            if (Objects.isNull(filteredValue)) {
                 return;
             }
 
@@ -179,7 +177,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         try {
             close();
         } catch (IOException e) {
-            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName, queueAliases);
+            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName, subscribeTargets);
         }
     }
 

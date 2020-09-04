@@ -13,14 +13,14 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import org.jetbrains.annotations.NotNull;
 
 public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
@@ -34,7 +34,11 @@ public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
     @Override
     protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
         var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters());
-        result.init(configuration, queueConfiguration.getExchange(), queueConfiguration.getName());
+        var subscribeTarget = SubscribeTarget.builder()
+                .routingKey(queueConfiguration.getName())
+                .queue(queueConfiguration.getQueue())
+                .build();
+        result.init(configuration, queueConfiguration.getExchange(), subscribeTarget);
         return result;
     }
 }

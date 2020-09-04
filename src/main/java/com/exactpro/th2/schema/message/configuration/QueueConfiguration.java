@@ -27,6 +27,9 @@ public class QueueConfiguration implements Configuration {
     private String name;
 
     @JsonProperty(required = true)
+    private String queue;
+
+    @JsonProperty(required = true)
     private String exchange;
 
     @JsonAlias({"labels", "tags"})
