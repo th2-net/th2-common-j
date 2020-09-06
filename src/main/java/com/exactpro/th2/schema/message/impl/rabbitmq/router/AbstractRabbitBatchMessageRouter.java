@@ -13,38 +13,24 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.router;
 
+import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
 import com.google.protobuf.Message;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitMessageRouter<MB> {
 
     @Override
-    protected Map<String, MB> getTargetQueueAliasesAndMessagesToSend(MB batch) {
-
-        var filter = filterFactory.createFilter(configuration);
+    protected Map<String, MB> findByFilter(Map<String, QueueConfiguration> queues, MB batch) {
 
         Map<String, MBB> result = new HashMap<>();
 
         for (var message : getMessages(batch)) {
 
-            var filterResult = filter.check(message);
-
-            var allQueueAliases = filterResult.getUnfilteredEntities();
-
-            var targetAlias = filterResult.getTargetEntity();
-
-            if (Objects.nonNull(targetAlias)) {
-                allQueueAliases.add(targetAlias);
-            }
-
-            for (var queueAlias : allQueueAliases) {
+            for (var queueAlias : filter(queues, message)) {
 
                 result.putIfAbsent(queueAlias, createBatchBuilder());
 
@@ -54,11 +40,28 @@ public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MB
 
         }
 
-        return result
-                .entrySet()
-                .stream()
+        return result.entrySet().stream()
                 .collect(Collectors.toMap(Entry::getKey, value -> build(value.getValue())));
     }
+
+    protected Set<String> filter(Map<String, QueueConfiguration> queues, Message message) {
+
+        var aliases = new HashSet<String>();
+
+        for (var queueEntry : queues.entrySet()) {
+
+            var queueAlias = queueEntry.getKey();
+            var filters = queueEntry.getValue().getFilters();
+
+            if (filters.isEmpty() || filterStrategy.verify(message, filters)) {
+                aliases.add(queueAlias);
+            }
+
+        }
+
+        return aliases;
+    }
+
 
     protected abstract List<M> getMessages(MB batch);
 

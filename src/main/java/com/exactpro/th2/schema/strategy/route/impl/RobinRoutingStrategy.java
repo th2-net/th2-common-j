@@ -13,17 +13,17 @@
 
 package com.exactpro.th2.schema.strategy.route.impl;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import com.exactpro.th2.schema.grpc.configuration.GrpcRawRobinStrategy;
 import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
 @StrategyName("robin")
-public class RobinStrategy implements RoutingStrategy<GrpcRawRobinStrategy> {
+public class RobinRoutingStrategy implements RoutingStrategy<GrpcRawRobinStrategy> {
 
     private List<String> endpoints;
     private AtomicInteger index = new AtomicInteger(0);

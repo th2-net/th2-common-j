@@ -13,14 +13,13 @@
 
 package com.exactpro.th2.schema.grpc.configuration;
 
-import com.exactpro.th2.schema.message.configuration.FilterableConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
-public class GrpcRawFilterStrategy implements FilterableConfiguration {
+public class GrpcRawFilterStrategy {
 
     @JsonProperty(required = true)
     protected List<GrpcRouterFilterConfiguration> filters;

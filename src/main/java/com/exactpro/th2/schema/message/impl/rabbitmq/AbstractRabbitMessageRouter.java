@@ -13,34 +13,28 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
+import com.exactpro.th2.schema.exception.RouterException;
+import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.schema.message.*;
+import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import com.exactpro.th2.schema.exception.RouterException;
-import com.exactpro.th2.schema.filter.factory.FilterFactory;
-import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
-import com.exactpro.th2.schema.message.MessageListener;
-import com.exactpro.th2.schema.message.MessageQueue;
-import com.exactpro.th2.schema.message.MessageRouter;
-import com.exactpro.th2.schema.message.MessageSender;
-import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.SubscriberMonitor;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 
 public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
-    protected FilterFactory filterFactory;
-    protected MessageRouterConfiguration configuration;
+    protected FilterStrategy filterStrategy;
+
+    private MessageRouterConfiguration configuration;
     private RabbitMQConfiguration rabbitMQConfiguration;
     private Map<String, MessageQueue<T>> queueConnections = new HashMap<>();
 
@@ -48,7 +42,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     public void init(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull MessageRouterConfiguration configuration) {
         this.configuration = configuration;
         this.rabbitMQConfiguration = rabbitMQConfiguration;
-        this.filterFactory = new DefaultFilterFactory();
+        this.filterStrategy = new DefaultFilterStrategy();
     }
 
     @Nullable
@@ -70,12 +64,12 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     @Nullable
     @Override
     public SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr) {
-        Set<String> queues = configuration.getQueuesAliasByAttribute(queueAttr);
+        var queues = configuration.findQueuesByAttr(queueAttr);
         if (queues.size() > 1) {
             throw new IllegalStateException("Wrong size of queues aliases for send. Not more then 1");
         }
 
-        return queues.size() < 1 ? null : subscribe(queues.iterator().next(), callback);
+        return queues.size() < 1 ? null : subscribe(queues.keySet().iterator().next(), callback);
     }
 
     @Override
@@ -86,7 +80,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     @Override
     public SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr) {
-        List<SubscriberMonitor> subscribers = configuration.getQueuesAliasByAttribute(queueAttr).stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
+        List<SubscriberMonitor> subscribers = configuration.findQueuesByAttr(queueAttr).keySet().stream().map(queueConfiguration -> subscribe(queueConfiguration, callback)).collect(Collectors.toList());
         return subscribers.isEmpty() ? null : new MultiplySubscribeMonitorImpl(subscribers);
     }
 
@@ -113,45 +107,53 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     @Override
     public void send(T message) throws IOException {
-        send(getTargetQueueAliasesAndMessagesToSend(message));
+        send(findByFilter(configuration.getQueues(), message));
     }
 
     @Override
     public void send(T message, String... queueAttr) throws IOException {
-        var queuesAliasesAndMessages = getTargetQueueAliasesAndMessagesToSend(message, queueAttr);
-        if (queuesAliasesAndMessages.size() > 1) {
-            throw new IllegalStateException("Wrong size of queues aliases for send. Not more than 1");
+
+        var filteredByAttr = configuration.findQueuesByAttr(queueAttr);
+
+        var filteredByAttrAndFilter = findByFilter(filteredByAttr, message);
+
+        if (filteredByAttrAndFilter.size() != 1) {
+            throw new IllegalStateException("Wrong size of queues for send. Should be equal to 1");
         }
 
-        send(queuesAliasesAndMessages);
+        send(filteredByAttrAndFilter);
     }
 
     @Override
     public void sendAll(T message, String... queueAttr) throws IOException {
-        send(getTargetQueueAliasesAndMessagesToSend(message, queueAttr));
+
+        var filteredByAttr = configuration.findQueuesByAttr(queueAttr);
+
+        var filteredByAttrAndFilter = findByFilter(filteredByAttr, message);
+
+        if (filteredByAttrAndFilter.size() == 0) {
+            throw new IllegalStateException("Wrong size of queues for send. Can't be equal to 0");
+        }
+
+        send(filteredByAttrAndFilter);
     }
 
     /**
-     * Sets a fields filter factory
+     * Sets a fields filter strategy
      *
-     * @param filterFactory filter factory for filtering message fields
-     * @throws NullPointerException if {@code filterFactory} is null
+     * @param filterStrategy filter strategy for filtering message fields
+     * @throws NullPointerException if {@code filterStrategy} is null
      */
-    public void setFilterFactory(FilterFactory filterFactory) {
-        Objects.requireNonNull(filterFactory);
-        this.filterFactory = filterFactory;
+    public void setFilterStrategy(FilterStrategy filterStrategy) {
+        Objects.requireNonNull(filterStrategy);
+        this.filterStrategy = filterStrategy;
     }
 
 
     protected abstract MessageQueue<T> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration);
 
-    protected abstract Map<String, T> getTargetQueueAliasesAndMessagesToSend(T message);
+    protected abstract Map<String, T> findByFilter(Map<String, QueueConfiguration> queues, T msg);
 
-    protected Map<String, T> getTargetQueueAliasesAndMessagesToSend(T message, String... queueAttr) {
-        var filteredAliases = getTargetQueueAliasesAndMessagesToSend(message);
-        filteredAliases.keySet().retainAll(configuration.getQueuesAliasByAttribute(queueAttr));
-        return filteredAliases;
-    }
 
     protected void send(Map<String, T> aliasesAndMessagesToSend) throws IOException {
         IOException exception = new IOException("Can not send to some queue");

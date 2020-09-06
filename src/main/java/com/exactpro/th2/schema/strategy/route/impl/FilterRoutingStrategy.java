@@ -13,23 +13,22 @@
 
 package com.exactpro.th2.schema.strategy.route.impl;
 
-import com.exactpro.th2.schema.filter.Filter;
-import com.exactpro.th2.schema.filter.factory.FilterFactory;
-import com.exactpro.th2.schema.filter.factory.impl.DefaultFilterFactory;
+import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
-import com.google.protobuf.TextFormat;
 
-import java.util.Objects;
+import java.util.HashSet;
+import java.util.Set;
 
 @StrategyName("filter")
-public class FilterStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
+public class FilterRoutingStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
 
-    private Filter filter;
+    private GrpcRawFilterStrategy grpcConfiguration;
 
-    private FilterFactory factory = new DefaultFilterFactory();
+    private final FilterStrategy filterStrategy = new DefaultFilterStrategy();
 
 
     @Override
@@ -39,19 +38,34 @@ public class FilterStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
 
     @Override
     public void init(GrpcRawFilterStrategy configuration) {
-        this.filter = factory.createFilter(configuration);
+        this.grpcConfiguration = configuration;
     }
 
     @Override
     public String getEndpoint(Message message) {
-        var endpoint = filter.check(message).getTargetEntity();
+        var endpoint = filter(message);
 
-        if (Objects.isNull(endpoint)) {
-            throw new IllegalStateException("If you choose the 'filter' strategy you must provide filters! " +
-                    "No filters correspond to message: " + TextFormat.shortDebugString(message));
+        if (endpoint.size() != 1) {
+            throw new IllegalStateException("Wrong size of endpoints for send. Should be equal to 1");
         }
 
-        return endpoint;
+        return endpoint.iterator().next();
+    }
+
+
+    private Set<String> filter(Message message) {
+
+        var endpoints = new HashSet<String>();
+
+        for (var fieldsFilter : grpcConfiguration.getFilters()) {
+
+            if (fieldsFilter.getMessage().isEmpty() && fieldsFilter.getMetadata().isEmpty()
+                    || filterStrategy.verify(message, fieldsFilter)) {
+                endpoints.add(fieldsFilter.getEndpoint());
+            }
+        }
+
+        return endpoints;
     }
 
 }

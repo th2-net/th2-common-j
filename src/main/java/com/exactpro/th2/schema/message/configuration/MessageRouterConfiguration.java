@@ -17,61 +17,35 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonCreator.Mode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
-import org.apache.commons.collections4.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import static java.util.Collections.emptySet;
 
-
-public class MessageRouterConfiguration implements FilterableConfiguration {
+public class MessageRouterConfiguration {
 
     @Getter
     private Map<String, QueueConfiguration> queues;
 
-    private Map<String, Set<String>> attributes;
 
     @JsonCreator(mode = Mode.PROPERTIES)
     public MessageRouterConfiguration(@JsonProperty("queues") Map<String, QueueConfiguration> queues) {
         this.queues = queues;
-        attributes = new HashMap<>();
-        queues.forEach((queueAlias, queueConfiguration) -> {
-            for (String attribute : queueConfiguration.getAttributes()) {
-                attributes.computeIfAbsent(attribute, key -> new HashSet<>()).add(queueAlias);
-            }
-        });
     }
+
 
     @Nullable
     public QueueConfiguration getQueueByAlias(String queueAlias) {
         return queues.get(queueAlias);
     }
 
-    public Set<String> getQueuesAliasByAttribute(String... types) {
-        var list = Arrays.stream(types).map(type -> this.attributes.get(type)).collect(Collectors.toList());
-
-        var iterator = list.iterator();
-
-        Set<String> start = iterator.next();
-
-        if (start == null) {
-            return emptySet();
-        }
-
-
-        while (iterator.hasNext()) {
-            Set<String> next = iterator.next();
-
-            if (next == null) {
-                return emptySet();
-            }
-
-            start = new HashSet<>(CollectionUtils.intersection(start, next));
-        }
-
-        return start;
+    public Map<String, QueueConfiguration> findQueuesByAttr(String... attrs) {
+        var attributes = Arrays.asList(attrs);
+        return queues.entrySet().stream()
+                .filter(e -> e.getValue().getAttributes().containsAll(attributes))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
 
