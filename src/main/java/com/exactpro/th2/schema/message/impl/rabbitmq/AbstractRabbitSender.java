@@ -15,63 +15,36 @@ package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.TimeoutException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageSender;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
-
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private static final int CLOSE_TIMEOUT = 1_000;
-
-    private ConnectionFactory factory = new ConnectionFactory();
     private Connection connection = null;
     private Channel channel = null;
 
     private String sendQueue = null;
     private String exchangeName = null;
 
-    public void init(@NotNull RabbitMQConfiguration configuration, @NotNull String exchangeName, @NotNull String sendQueue) {
-        this.sendQueue = sendQueue;
+    @Override
+    public void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String sendQueue) {
+        this.connection = Objects.requireNonNull(connection, "connection cannot be null");
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name can not be null");
-
-        factory.setHost(configuration.getHost());
-
-        String virtualHost = configuration.getvHost();
-        if (StringUtils.isNotEmpty(virtualHost)) {
-            factory.setVirtualHost(virtualHost);
-        }
-
-        factory.setPort(configuration.getPort());
-
-        String username = configuration.getUsername();
-        if (StringUtils.isNotEmpty(username)) {
-            factory.setUsername(username);
-        }
-
-        String password = configuration.getPassword();
-        if (StringUtils.isNotEmpty(password)) {
-            factory.setPassword(password);
-        }
+        this.sendQueue = sendQueue;
     }
 
     @Override
     public void start() throws Exception {
-        if (sendQueue == null || exchangeName == null) {
-            throw new IllegalStateException("Sender can not start. Sender did not init");
-        }
-
-        if (connection == null) {
-            connection = factory.newConnection();
+        if (connection == null || sendQueue == null || exchangeName == null) {
+            throw new IllegalStateException("Sender is not initialized");
         }
 
         if (channel == null) {
@@ -81,19 +54,18 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     }
 
     @Override
-    public boolean isClose() {
-        return connection == null || !connection.isOpen();
+    public boolean isOpen() {
+        return channel != null && channel.isOpen();
     }
 
     @Override
     public void send(T value) throws IOException {
         if (channel == null) {
-            throw new IllegalStateException("Can not send. Sender did not started");
+            throw new IllegalStateException("Can not send. Sender was not started");
         }
 
-        synchronized (channel) {
-            channel.basicPublish(exchangeName, sendQueue, null, valueToBytes(value));
-        }
+        channel.basicPublish(exchangeName, sendQueue, null, valueToBytes(value));
+
         if (logger.isDebugEnabled()) {
             logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
                     exchangeName, sendQueue, toShortDebugString(value));
@@ -101,9 +73,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     }
 
     @Override
-    public void close() throws IOException {
-        if (connection != null && connection.isOpen()) {
-            connection.close(CLOSE_TIMEOUT);
+    public void close() throws IOException, TimeoutException {
+        if (channel != null && channel.isOpen()) {
+            channel.close();
         }
     }
 

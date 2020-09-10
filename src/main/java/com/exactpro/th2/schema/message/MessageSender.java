@@ -13,17 +13,25 @@
 
 package com.exactpro.th2.schema.message;
 
-import java.io.Closeable;
 import java.io.IOException;
+
+import javax.annotation.concurrent.NotThreadSafe;
+
+import org.jetbrains.annotations.NotNull;
+
+import com.rabbitmq.client.Connection;
 
 /**
  * Send message to {@link MessageQueue}
  * @param <T>
  */
-public interface MessageSender<T> extends Closeable {
+@NotThreadSafe
+public interface MessageSender<T> extends AutoCloseable {
+    void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String sendQueue);
 
     void start() throws Exception;
-    boolean isClose();
-    void send(T message) throws IOException;
 
+    boolean isOpen();
+
+    void send(T message) throws IOException;
 }

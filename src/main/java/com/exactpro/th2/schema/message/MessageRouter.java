@@ -73,13 +73,6 @@ public interface MessageRouter<T> extends AutoCloseable {
     SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr);
 
     /**
-     * Unsubscribe from all queues
-     * @throws IOException if can not unsubscribe from one or more queues. See suppressed exception
-     */
-    @Deprecated(forRemoval = true)
-    void unsubscribeAll() throws IOException;
-
-    /**
      * Send message to <b>SOME</b> RabbitMQ queues which match the filter for this message
      * @param message
      * @throws IOException if can not send message

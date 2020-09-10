@@ -13,32 +13,33 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
 
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitQueue;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import org.jetbrains.annotations.NotNull;
+import com.rabbitmq.client.Connection;
 
 public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     @Override
-    protected MessageSender<RawMessageBatch> createSender(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSender<RawMessageBatch> createSender(@NotNull Connection connection, @NotNull QueueConfiguration queueConfiguration) {
         var result = new RabbitRawBatchSender();
-        result.init(configuration, queueConfiguration.getExchange(), queueConfiguration.getName());
+        result.init(connection, queueConfiguration.getExchange(), queueConfiguration.getName());
         return result;
     }
 
     @Override
-    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration) {
         var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters());
         var subscribeTarget = SubscribeTarget.builder()
                 .routingKey(queueConfiguration.getName())
                 .queue(queueConfiguration.getQueue())
                 .build();
-        result.init(configuration, queueConfiguration.getExchange(), subscribeTarget);
+        result.init(connection, queueConfiguration.getExchange(), subscriberName, subscribeTarget);
         return result;
     }
 }

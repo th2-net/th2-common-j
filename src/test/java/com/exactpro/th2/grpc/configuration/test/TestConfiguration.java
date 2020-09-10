@@ -17,7 +17,6 @@ package com.exactpro.th2.grpc.configuration.test;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Collections;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -25,7 +24,6 @@ import org.junit.runner.RunWith;
 
 import com.exactpro.th2.schema.factory.AbstractCommonFactory;
 import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 
 @RunWith(SingleInstanceRunner.class)
 public class TestConfiguration extends AbstractCommonFactory {
@@ -58,12 +56,6 @@ public class TestConfiguration extends AbstractCommonFactory {
     @Override
     protected Path getPathToDictionariesDir() {
         return Path.of("./src/test/resources/com.exactpro.th2/grpc/configuration/test/");
-    }
-
-    @Test
-    public void testMqConfiguration() {
-        MessageRouterConfiguration conf = this.getMessageRouterConfiguration();
-        Assert.assertEquals(Collections.singleton("fix_in"), conf.getQueuesAliasByAttribute("fix", "in"));
     }
 
     @Test

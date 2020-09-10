@@ -13,12 +13,10 @@
 
 package com.exactpro.th2.schema.message;
 
-import java.io.Closeable;
-
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.rabbitmq.client.Connection;
 
 /**
  * Message queue
@@ -26,9 +24,8 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfi
  * @see MessageSubscriber
  * @see MessageSender
  */
-public interface MessageQueue<T> extends Closeable {
-    // TODO refactor to share connection instead of passing a config and creating a factory/connection for each subscriber/sender
-    void init(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration);
+public interface MessageQueue<T> extends AutoCloseable {
+    void init(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration);
 
     MessageSubscriber<T> getSubscriber();
 

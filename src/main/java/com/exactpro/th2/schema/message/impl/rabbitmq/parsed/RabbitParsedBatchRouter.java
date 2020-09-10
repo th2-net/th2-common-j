@@ -13,22 +13,24 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.parsed;
 
+import java.util.List;
+
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.MessageBatch.Builder;
 import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
-
-import java.util.List;
+import com.rabbitmq.client.Connection;
 
 public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Message, MessageBatch, MessageBatch.Builder> {
 
     @Override
-    protected MessageQueue<MessageBatch> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<MessageBatch> createQueue(@NotNull Connection connection, String subscriberName, QueueConfiguration queueConfiguration) {
         RabbitParsedBatchQueue queue = new RabbitParsedBatchQueue();
-        queue.init(configuration, queueConfiguration);
+        queue.init(connection, subscriberName, queueConfiguration);
         return queue;
     }
 

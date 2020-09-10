@@ -15,20 +15,22 @@ package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
 
 import java.util.List;
 
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.infra.grpc.RawMessage;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch.Builder;
 import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
+import com.rabbitmq.client.Connection;
 
 public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch, RawMessageBatch.Builder> {
 
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(RabbitMQConfiguration configuration, QueueConfiguration queueConfiguration) {
-        RabbitRawBatchQueue queue = new RabbitRawBatchQueue();
-        queue.init(configuration, queueConfiguration);
+    protected MessageQueue<RawMessageBatch> createQueue(@NotNull Connection connection, String subscriberName, QueueConfiguration queueConfiguration) {
+        MessageQueue<RawMessageBatch> queue = new RabbitRawBatchQueue();
+        queue.init(connection, subscriberName, queueConfiguration);
         return queue;
     }
 
