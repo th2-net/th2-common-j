@@ -1,5 +1,5 @@
 variables:
-  APP_NAME: "th2-verifier"
+  APP_NAME: "th2-common"
   MAJOR_VERSION: "1"
   MINOR_VERSION: "2"
   INSPECTION_ENABLED: 'true'
