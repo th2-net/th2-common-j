@@ -1,12 +1,13 @@
 variables:
   APP_NAME: "th2-common"
   MAJOR_VERSION: "1"
-  MINOR_VERSION: "2"
+  MINOR_VERSION: "3"
+  MAINTENANCE_VERSION: "0"
   INSPECTION_ENABLED: 'true'
   ARTIFACTORY_PUBLISH: 'true'
   TEST_ENABLED: 'false'
 
 include:
   - project: 'vivarium/th2/pipelines'
-    ref: master
+    ref: th2-642
     file: '/.gitlab-ci-java.yml'

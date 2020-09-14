@@ -28,7 +28,7 @@ allprojects {
     }
 
     group = 'com.exactpro.th2'
-    version = "${version_major}.${version_minor}-SNAPSHOT"
+    version = app_version
 
     sourceCompatibility = 11
     targetCompatibility = 11
