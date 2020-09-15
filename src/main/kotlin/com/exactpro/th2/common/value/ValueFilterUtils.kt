@@ -14,6 +14,22 @@
  * limitations under the License.
  *****************************************************************************/
 
+/*****************************************************************************
+ * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *****************************************************************************/
+
 /*******************************************************************************
  *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
  *
@@ -42,7 +58,6 @@ import com.exactpro.th2.infra.grpc.ValueFilter
 import com.exactpro.th2.infra.grpc.ValueFilter.KindCase.LIST_FILTER
 import com.exactpro.th2.infra.grpc.ValueFilter.KindCase.MESSAGE_FILTER
 import com.exactpro.th2.infra.grpc.ValueFilter.KindCase.SIMPLE_FILTER
-import com.sun.xml.fastinfoset.util.StringArray
 import java.math.BigDecimal
 import kotlin.DeprecationLevel.WARNING
 
@@ -93,7 +108,6 @@ fun Any.toValueFilter(): ValueFilter = when (this) {
     is LongArray -> toValueFilter()
     is FloatArray -> toValueFilter()
     is DoubleArray -> toValueFilter()
-    is StringArray -> toValueFilter()
     else -> toString().toValueFilter()
 }
 
@@ -118,4 +132,3 @@ fun IntArray.toValueFilter(): ValueFilter = toTypedArray().toValueFilter()
 fun LongArray.toValueFilter(): ValueFilter = toTypedArray().toValueFilter()
 fun FloatArray.toValueFilter(): ValueFilter = toTypedArray().toValueFilter()
 fun DoubleArray.toValueFilter(): ValueFilter = toTypedArray().toValueFilter()
-fun StringArray.toValueFilter(): ValueFilter = this.array.toValueFilter()

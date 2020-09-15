@@ -14,6 +14,22 @@
  * limitations under the License.
  *****************************************************************************/
 
+/*****************************************************************************
+ * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *****************************************************************************/
+
 /*******************************************************************************
  *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
  *
@@ -39,7 +55,6 @@ import com.exactpro.th2.infra.grpc.Value
 import com.exactpro.th2.infra.grpc.Value.KindCase.LIST_VALUE
 import com.exactpro.th2.infra.grpc.Value.KindCase.MESSAGE_VALUE
 import com.exactpro.th2.infra.grpc.Value.KindCase.SIMPLE_VALUE
-import com.sun.xml.fastinfoset.util.StringArray
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.DeprecationLevel.WARNING
@@ -89,7 +104,6 @@ fun Any.toValue(): Value = when (this) {
     is LongArray -> toValue()
     is FloatArray -> toValue()
     is DoubleArray -> toValue()
-    is StringArray -> toValue()
     else -> toString().toValue()
 }
 
@@ -114,4 +128,3 @@ fun IntArray.toValue(): Value = toTypedArray().toValue()
 fun LongArray.toValue(): Value = toTypedArray().toValue()
 fun FloatArray.toValue(): Value = toTypedArray().toValue()
 fun DoubleArray.toValue(): Value = toTypedArray().toValue()
-fun StringArray.toValue(): Value = this.array.toValue()
