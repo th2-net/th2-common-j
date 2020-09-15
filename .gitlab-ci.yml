@@ -3,12 +3,10 @@ variables:
   MAJOR_VERSION: "1"
   MINOR_VERSION: "3"
   MAINTENANCE_VERSION: "0"
-  INSPECTION_ENABLED: 'false'
   DOCKER_PUBLISH_ENABLED: 'false'
   ARTIFACTORY_PUBLISH_ENABLED: 'true'
-  TEST_ENABLED: 'false'
 
 include:
   - project: 'vivarium/th2/pipelines'
-    ref: th2-642
+    ref: master
     file: '/.gitlab-ci-java.yml'
