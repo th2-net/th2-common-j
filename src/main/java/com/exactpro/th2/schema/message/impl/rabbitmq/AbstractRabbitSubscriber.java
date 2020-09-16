@@ -1,9 +1,12 @@
 /*****************************************************************************
  * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,39 +16,36 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
+import java.io.IOException;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.TimeoutException;
+
+import org.apache.mina.util.ConcurrentHashSet;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
 
-    private static final int CLOSE_TIMEOUT = 1_000;
-
     protected final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
 
-    private final Set<MessageListener<T>> listeners = new HashSet<>();
-    private final ConnectionFactory factory = new ConnectionFactory();
+    private final Set<MessageListener<T>> listeners = new ConcurrentHashSet<>();
 
     private String exchangeName = null;
     private String subscriberName = null;
     private SubscribeTarget[] subscribeTargets = null;
+    private RabbitMQConfiguration configuration = null;
 
     private Connection connection = null;
     private Channel channel = null;
@@ -56,34 +56,15 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             throw new IllegalArgumentException("Subscribe targets must be more than 0");
         }
 
+        this.configuration = configuration;
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
         this.subscriberName = configuration.getSubscriberName();
         this.subscribeTargets = subscribeTargets;
-
-
-        factory.setHost(configuration.getHost());
-
-        String virtualHost = configuration.getvHost();
-        if (isNotEmpty(virtualHost)) {
-            factory.setVirtualHost(virtualHost);
-        }
-
-        factory.setPort(configuration.getPort());
-
-        String username = configuration.getUsername();
-        if (isNotEmpty(username)) {
-            factory.setUsername(username);
-        }
-
-        String password = configuration.getPassword();
-        if (isNotEmpty(password)) {
-            factory.setPassword(password);
-        }
     }
 
     @Override
     public void start() throws Exception {
-        if (subscribeTargets == null || exchangeName == null) {
+        if (subscribeTargets == null || exchangeName == null || configuration == null) {
             throw new IllegalStateException("Subscriber did not init");
         }
 
@@ -93,7 +74,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
 
         if (connection == null) {
-            connection = factory.newConnection();
+            connection = ConnectionHelper.getInstance(configuration).getConnection();
         }
 
         if (channel == null) {
@@ -136,8 +117,20 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             listeners.clear();
         }
 
-        if (connection != null && connection.isOpen()) {
-            connection.close(CLOSE_TIMEOUT);
+        if (channel != null) {
+            if (channel.isOpen()) {
+                try {
+                    channel.close();
+                } catch (TimeoutException e) {
+                    throw new IOException("Can not close channel", e);
+                }
+            }
+
+            try {
+                ConnectionHelper.getInstance(configuration).close();
+            } catch (TimeoutException e) {
+                throw new IOException("Can not close connection", e);
+            }
         }
     }
 
