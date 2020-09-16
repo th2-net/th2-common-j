@@ -1,4 +1,4 @@
-/******************************************************************************
+/*****************************************************************************
  * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,25 +12,8 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ *****************************************************************************/
 package com.exactpro.th2;
-
-import com.rabbitmq.client.AMQP.Queue.DeclareOk;
-import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.DeliverCallback;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.Objects;
-import java.util.concurrent.TimeoutException;
 
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQHost;
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQPass;
@@ -38,8 +21,31 @@ import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitM
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQUser;
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQVhost;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.rabbitmq.client.AMQP.Queue.DeclareOk;
+import com.rabbitmq.client.CancelCallback;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+
 public class RabbitMqSubscriber implements Closeable {
     private static final int CLOSE_TIMEOUT = 1_000;
+
+    private static final int COUNT_TRY_TO_CONNECT = 5;
+    private static final int SHUTDOWN_TIMEOUT = 60_000;
+
     private static final Logger logger = LoggerFactory.getLogger(RabbitMqSubscriber.class);
     private final String exchangeName;
     private final String[] routes;
@@ -79,6 +85,21 @@ public class RabbitMqSubscriber implements Closeable {
         if (StringUtils.isNotEmpty(password)) {
             factory.setPassword(password);
         }
+
+        final AtomicInteger count = new AtomicInteger(0);
+
+        factory.setAutomaticRecoveryEnabled(true);
+        factory.setShutdownTimeout(SHUTDOWN_TIMEOUT);
+        factory.setConnectionRecoveryTriggeringCondition(s -> {
+            if (count.incrementAndGet() < COUNT_TRY_TO_CONNECT) {
+                return true;
+            } else {
+                logger.error("Can not connect to RabbitMQ. Count tries = {}", count.get());
+                System.exit(1);
+                return false;
+            }
+        });
+
         connection = factory.newConnection();
         channel = connection.createChannel();
         channel.exchangeDeclare(exchangeName, "direct");
