@@ -93,11 +93,10 @@ public class RabbitMqSubscriber implements Closeable {
         factory.setConnectionRecoveryTriggeringCondition(s -> {
             if (count.incrementAndGet() < COUNT_TRY_TO_CONNECT) {
                 return true;
-            } else {
-                logger.error("Can not connect to RabbitMQ. Count tries = {}", count.get());
-                System.exit(1);
-                return false;
             }
+            logger.error("Can not connect to RabbitMQ. Count tries = {}", count.get());
+            // TODO: we should stop the execution of the application. Don't use System.exit!!!
+            return false;
         });
 
         connection = factory.newConnection();
