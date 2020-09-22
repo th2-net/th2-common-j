@@ -1,12 +1,12 @@
 /*
  * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,42 +15,44 @@
  */
 package com.exactpro.th2;
 
-import com.exactpro.th2.infra.grpc.Message;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.rabbitmq.client.AMQP.Queue.DeclareOk;
-import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.DeliverCallback;
-import com.rabbitmq.client.Delivery;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.Objects;
-import java.util.concurrent.TimeoutException;
-
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQHost;
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQPass;
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQPort;
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQUser;
 import static com.exactpro.th2.configuration.RabbitMQConfiguration.getEnvRabbitMQVhost;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.rabbitmq.client.AMQP.Queue.DeclareOk;
+import com.rabbitmq.client.CancelCallback;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+
 public class RabbitMqSubscriber implements Closeable {
     private static final int CLOSE_TIMEOUT = 1_000;
+
+    private static final int COUNT_TRY_TO_CONNECT = 5;
+    private static final int SHUTDOWN_TIMEOUT = 60_000;
+
+    private static final Logger logger = LoggerFactory.getLogger(RabbitMqSubscriber.class);
     private final String exchangeName;
     private final String[] routes;
     private final DeliverCallback deliverCallback;
     private final CancelCallback cancelCallback;
     private Connection connection;
     private Channel channel;
-
-    public RabbitMqSubscriber(String exchangeName, String... routes) {
-        this(exchangeName, RabbitMqSubscriber::handleReceivedMessage, null, routes);
-    }
 
     public RabbitMqSubscriber(String exchangeName,
                               DeliverCallback deliverCallback,
@@ -83,6 +85,20 @@ public class RabbitMqSubscriber implements Closeable {
         if (StringUtils.isNotEmpty(password)) {
             factory.setPassword(password);
         }
+
+        final AtomicInteger count = new AtomicInteger(0);
+
+        factory.setAutomaticRecoveryEnabled(true);
+        factory.setShutdownTimeout(SHUTDOWN_TIMEOUT);
+        factory.setConnectionRecoveryTriggeringCondition(s -> {
+            if (count.incrementAndGet() < COUNT_TRY_TO_CONNECT) {
+                return true;
+            }
+            logger.error("Can not connect to RabbitMQ. Count tries = {}", count.get());
+            // TODO: we should stop the execution of the application. Don't use System.exit!!!
+            return false;
+        });
+
         connection = factory.newConnection();
         channel = connection.createChannel();
         channel.exchangeDeclare(exchangeName, "direct");
@@ -96,34 +112,14 @@ public class RabbitMqSubscriber implements Closeable {
         }
     }
 
-    private static void handleReceivedMessage(String consumerTag, Delivery delivery) {
-        try {
-            Message message = Message.parseFrom(delivery.getBody());
-            if (message.getMetadata().getMessageType().equals("Heartbeat")) {
-                System.out.println("HB received " + delivery.getEnvelope().getRoutingKey());
-            } else {
-                System.out.println("Received '" +
-                        delivery.getEnvelope().getRoutingKey() + "' : '" + message.getMetadata().getMessageType() + "'");
-            }
-        } catch (InvalidProtocolBufferException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void subscribeToRoutes(String exchangeName, String subscriberName, String[] routes) throws IOException {
+    private void subscribeToRoutes(String exchangeName, String subscriberName, String[] routes)
+            throws IOException {
         for (String route : routes) {
             DeclareOk declareResult = subscriberName == null ? channel.queueDeclare() : channel.queueDeclare(subscriberName + "." + System.currentTimeMillis(), false, true, true, Collections.emptyMap());
             String queue = declareResult.getQueue();
             channel.queueBind(queue, exchangeName, route);
-            channel.basicConsume(queue, true, deliverCallback, consumerTag -> {
-                System.err.println("consuming cancelled for " + consumerTag);
-            });
-            System.out.println(String.format("Start listening '%s':'%s'", exchangeName, route));
+            channel.basicConsume(queue, true, deliverCallback, consumerTag -> logger.info("consuming cancelled for {}", consumerTag));
+            logger.info("Start listening exchangeName='{}', routingKey='{}', queue='{}'", exchangeName, route, queue);
         }
-    }
-
-    public static void main(String[] argv) throws Exception {
-        RabbitMqSubscriber subscriber = new RabbitMqSubscriber("demo_exchange", "fix_client_in", "fix_client_out");
-        subscriber.startListening(getEnvRabbitMQHost(), getEnvRabbitMQVhost(), getEnvRabbitMQPort(), getEnvRabbitMQUser(), getEnvRabbitMQPass(), "test_rabbit_mq_subscriber");
     }
 }

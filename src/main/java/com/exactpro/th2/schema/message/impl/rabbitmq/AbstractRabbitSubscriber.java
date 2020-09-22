@@ -19,9 +19,9 @@ package com.exactpro.th2.schema.message.impl.rabbitmq;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
-import org.apache.mina.util.ConcurrentHashSet;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -40,7 +40,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
 
-    private final Set<MessageListener<T>> listeners = new ConcurrentHashSet<>();
+    private final Set<MessageListener<T>> listeners = ConcurrentHashMap.newKeySet();
 
     private String exchangeName = null;
     private String subscriberName = null;
@@ -80,7 +80,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         if (channel == null) {
             channel = connection.createChannel();
 
-            for (var subscribeTarget : subscribeTargets) {
+            for (SubscribeTarget subscribeTarget : subscribeTargets) {
 
                 var queue = subscribeTarget.getQueue();
 
