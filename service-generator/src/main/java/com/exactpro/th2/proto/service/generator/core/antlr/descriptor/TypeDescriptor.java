@@ -17,12 +17,14 @@ package com.exactpro.th2.proto.service.generator.core.antlr.descriptor;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.Objects;
 
 @Data
 @Builder
-public class TypeDescriptor {
+@EqualsAndHashCode(callSuper = true)
+public class TypeDescriptor extends AbstractTypeableDescriptor {
 
     private String name;
 
@@ -39,14 +41,9 @@ public class TypeDescriptor {
         return name;
     }
 
-    public String getFullName() {
-        return packageName + "." + name;
-    }
-
     public boolean isParameterized() {
         return Objects.nonNull(genericType);
     }
-
 
 
     public static TypeDescriptor newInstance(TypeDescriptor td) {

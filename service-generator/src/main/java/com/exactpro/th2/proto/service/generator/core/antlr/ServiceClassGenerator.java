@@ -13,8 +13,11 @@
 
 package com.exactpro.th2.proto.service.generator.core.antlr;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.ServiceDescriptor;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.TypeDescriptor;
+import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.TypeableDescriptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,11 +26,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.ServiceDescriptor;
-import com.exactpro.th2.proto.service.generator.core.antlr.descriptor.TypeDescriptor;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
 public class ServiceClassGenerator {
 
@@ -109,13 +109,13 @@ public class ServiceClassGenerator {
         }
 
         for (var ann : serviceDescriptor.getAnnotations()) {
-            addImportIfNotExist(ann.getFullName(), data);
+            addImportIfNotExist(ann, data);
         }
 
     }
 
     private static void importsRec(TypeDescriptor typeDescriptor, StringBuilder data) {
-        addImportIfNotExist(typeDescriptor.getFullName(), data);
+        addImportIfNotExist(typeDescriptor, data);
         if (typeDescriptor.isParameterized()) {
             importsRec(typeDescriptor.getGenericType(), data);
         }
@@ -164,10 +164,12 @@ public class ServiceClassGenerator {
         data.append(LINE_SEPARATOR).append("}");
     }
 
-    private static void addImportIfNotExist(String packageName, StringBuilder data) {
-        if (!data.toString().contains(packageName)) {
+    private static void addImportIfNotExist(TypeableDescriptor typeableDescriptor, StringBuilder data) {
+        var fullName = typeableDescriptor.getFullName();
+        var packageName = typeableDescriptor.getPackageName();
+        if (Objects.nonNull(packageName) && !packageName.isEmpty() && !data.toString().contains(fullName) ) {
             data.append(IMPORT_ALIAS).append(" ")
-                    .append(packageName).append(";")
+                    .append(fullName).append(";")
                     .append(LINE_SEPARATOR);
         }
     }

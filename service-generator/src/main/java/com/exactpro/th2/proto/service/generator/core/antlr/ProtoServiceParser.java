@@ -46,6 +46,10 @@ public class ProtoServiceParser {
 
     private static final String PROTO_PACKAGE_ALIAS = "java_package";
 
+    private static final String GOOGLE_PROTO_PACKAGE = "google.protobuf";
+
+    private static final String GOOGLE_PROTO_JAVA_PACKAGE = "com." + GOOGLE_PROTO_PACKAGE;
+
 
     public static List<ServiceDescriptor> getServiceDescriptors(Path protoDir) throws IOException {
 
@@ -79,6 +83,8 @@ public class ProtoServiceParser {
 
             }
         }
+
+        processEmbeddedMessages(serviceDescriptors, messageToPackage);
 
         setupMsgPackages(serviceDescriptors, messageToPackage);
 
@@ -114,14 +120,45 @@ public class ProtoServiceParser {
         return protoFiles;
     }
 
+    private static void processEmbeddedMessages(List<ServiceDescriptor> serviceDesc, Map<String, String> messageToPackage) {
+        for (var sDesc : serviceDesc) {
+            for (var method : sDesc.getMethods()) {
+
+                var types = new ArrayList<>(method.getRequestTypes());
+
+                var respType = method.getResponseType();
+
+                types.add(respType);
+
+                for (var type : types) {
+
+                    var respTypeName = type.getName();
+
+                    if (respTypeName.contains(GOOGLE_PROTO_PACKAGE)) {
+                        var parts = respTypeName.split("\\.");
+                        respTypeName = parts[parts.length - 1];
+                        type.setName(respTypeName);
+                        messageToPackage.put(respTypeName, GOOGLE_PROTO_JAVA_PACKAGE);
+                    }
+
+                }
+
+            }
+        }
+    }
+
     private static void setupMsgPackages(List<ServiceDescriptor> serviceDesc, Map<String, String> messageToPackage) {
         for (var sDesc : serviceDesc) {
             for (var method : sDesc.getMethods()) {
 
                 var respType = method.getResponseType();
+
                 var respTypeName = respType.getName();
+
                 var respPackageName = messageToPackage.get(respTypeName);
+
                 checkExistence(respTypeName, respPackageName);
+
                 respType.setPackageName(respPackageName);
 
                 for (var reqType : method.getRequestTypes()) {
