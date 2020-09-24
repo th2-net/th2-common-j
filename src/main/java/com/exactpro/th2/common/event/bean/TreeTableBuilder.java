@@ -13,31 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event.bean.builder;
+package com.exactpro.th2.common.event.bean;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.exactpro.th2.common.event.bean.IRow;
-import com.exactpro.th2.common.event.bean.Table;
+public class TreeTableBuilder<T extends TreeTableEntry> {
+    public static final String TABLE_TYPE = "treeTable";
 
-public class TableBuilder<T extends IRow> {
-    public static final String TABLE_TYPE = "table";
+    private final Map<String, T> rows = new HashMap<>();
 
-    private final Collection<T> rows = new ArrayList<>();
-
-    public TableBuilder<T> row(T row) {
-        rows.add(row);
+    public TreeTableBuilder<T> row(String rowName, T row) {
+        rows.put(rowName, row);
         return this;
     }
 
-    public Table build() {
-        Table table = new Table();
-        table.setType(TABLE_TYPE);
-        table.setFields(rows.stream()
-                .map(item -> (IRow) item)
-                .collect(Collectors.toList()));
-        return table;
+    public TreeTable build() {
+        return new TreeTable(TABLE_TYPE, rows.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 }

@@ -13,28 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event.bean.builder;
+package com.exactpro.th2.common.event.bean;
 
-import static java.util.Objects.requireNonNull;
+import java.util.Map;
 
-import java.util.Objects;
+public class Collection extends TreeTableEntry {
+    private Map<String, Row> rows;
 
-import com.exactpro.th2.common.event.bean.Message;
-
-public class MessageBuilder {
-    public final static String MESSAGE_TYPE = "message";
-
-    private String text;
-
-    public MessageBuilder text(String text) {
-        this.text = requireNonNull(text, "Text can't be null");
-        return this;
+    public Collection(String type) {
+        super(type);
     }
 
-    public Message build() {
-        Message message = new Message();
-        message.setType(MESSAGE_TYPE);
-        message.setData(text);
-        return message;
+    public Map<String, Row> getRows() {
+        return rows;
+    }
+
+    public void setRows(Map<String, Row> rows) {
+        this.rows = rows;
     }
 }

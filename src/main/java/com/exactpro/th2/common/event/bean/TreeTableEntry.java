@@ -13,22 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event;
+package com.exactpro.th2.common.event.bean;
 
-import com.exactpro.th2.common.event.bean.Message;
-import com.exactpro.th2.common.event.bean.MessageBuilder;
-import com.fasterxml.uuid.Generators;
-import com.fasterxml.uuid.NoArgGenerator;
+public abstract class TreeTableEntry {
+    private final String type;
 
-@SuppressWarnings("ClassNamePrefixedWithPackageName")
-public class EventUtils {
-    public static final NoArgGenerator TIME_BASED_UUID_GENERATOR = Generators.timeBasedGenerator();
-
-    public static String generateUUID() {
-        return TIME_BASED_UUID_GENERATOR.generate().toString();
+    protected TreeTableEntry(String type) {
+        this.type = type;
     }
 
-    public static Message createMessageBean(String text) {
-        return new MessageBuilder().text(text).build();
+    public String getType() {
+        return type;
     }
 }

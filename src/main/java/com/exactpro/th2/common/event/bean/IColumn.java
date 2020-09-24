@@ -15,29 +15,12 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import java.util.ArrayList;
-import java.util.List;
+/**
+ * Every implementation should have flat structure
+ * As example:
+ *  fieldNameOne: "some text (1)",
+ *  fieldNameTwo: "some text (2)",
+ */
 
-import com.exactpro.th2.common.event.IBodyData;
-
-public class Table implements IBodyData {
-
-    private List<IRow> rows = new ArrayList<>();
-    private String type;
-
-    public List<IRow> getRows() {
-        return rows;
-    }
-
-    public void setRows(List<IRow> rows) {
-        this.rows = rows;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
+public interface IColumn {
 }

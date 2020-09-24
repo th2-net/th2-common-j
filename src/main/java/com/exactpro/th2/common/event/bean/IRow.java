@@ -17,6 +17,10 @@ package com.exactpro.th2.common.event.bean;
 
 /**
  * Every implementation should have flat structure
+ * As example:
+ *  fieldNameOne: "some text (1)",
+ *  fieldNameTwo: "some text (2)",
  */
+
 public interface IRow {
 }

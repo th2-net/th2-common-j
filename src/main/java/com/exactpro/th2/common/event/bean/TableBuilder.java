@@ -13,22 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event;
+package com.exactpro.th2.common.event.bean;
 
-import com.exactpro.th2.common.event.bean.Message;
-import com.exactpro.th2.common.event.bean.MessageBuilder;
-import com.fasterxml.uuid.Generators;
-import com.fasterxml.uuid.NoArgGenerator;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
-@SuppressWarnings("ClassNamePrefixedWithPackageName")
-public class EventUtils {
-    public static final NoArgGenerator TIME_BASED_UUID_GENERATOR = Generators.timeBasedGenerator();
+public class TableBuilder<T extends IRow> {
+    public static final String TABLE_TYPE = "table";
 
-    public static String generateUUID() {
-        return TIME_BASED_UUID_GENERATOR.generate().toString();
+    private final Collection<T> rows = new ArrayList<>();
+
+    public TableBuilder<T> row(T row) {
+        rows.add(row);
+        return this;
     }
 
-    public static Message createMessageBean(String text) {
-        return new MessageBuilder().text(text).build();
+    public Table build() {
+        Table table = new Table();
+        table.setType(TABLE_TYPE);
+        table.setRows(rows.stream()
+                .map(item -> (IRow) item)
+                .collect(Collectors.toList()));
+        return table;
     }
 }
