@@ -13,15 +13,17 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonCreator.Mode;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.jetbrains.annotations.Nullable;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonCreator.Mode;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import lombok.Getter;
 
 
 public class MessageRouterConfiguration {
@@ -47,43 +49,4 @@ public class MessageRouterConfiguration {
                 .filter(e -> e.getValue().getAttributes().containsAll(attributes))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
-
-
-// ----------------------------------------------------------------------------------
-//     Commented out because 'MessageFilter' is not used in the 'MessageRouter' API
-// ----------------------------------------------------------------------------------
-//
-//    public Set<String> getQueueAliasByMessageFilter(MessageFilter filter) {
-//        return queues
-//                .entrySet()
-//                .stream()
-//                .filter(entry -> entry.getValue().getFilters().stream().anyMatch(it -> checkFilter(it, filter)))
-//                .map(Entry::getKey).collect(Collectors.toSet());
-//    }
-
-//    private boolean checkFilter(RouterFilterConfiguration filterConfiguration, MessageFilter messageFilter) {
-//        var metadata = filterConfiguration.getMetadata();
-//        var session_alias = metadata.get(SESSION_ALIAS_KEY);
-//        var direction = metadata.get(DIRECTION_KEY);
-//        var messageType = metadata.get(MESSAGE_TYPE_KEY);
-//
-//        if (session_alias != null && !session_alias.checkValue(messageFilter.getConnectionId().getSessionAlias())) {
-//            return false;
-//        }
-//
-//        if (direction != null && !direction.checkValue((messageFilter.getDirection()))) {
-//            return false;
-//        }
-//
-//        if (messageType != null && !messageType.checkValue((messageFilter.getMessageType()))) {
-//            return false;
-//        }
-//
-//        var filters = filterConfiguration.getMessage();
-//
-//        return messageFilter.getFieldsMap().entrySet().stream().allMatch(entry -> {
-//            FilterConfiguration fConfig = filters.get(entry.getKey());
-//            return fConfig == null || entry.getValue().getKindCase() == KindCase.SIMPLE_FILTER && fConfig.checkValue(entry.getValue().getSimpleFilter());
-//        });
-//    }
 }

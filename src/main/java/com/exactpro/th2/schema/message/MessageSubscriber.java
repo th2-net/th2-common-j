@@ -13,19 +13,25 @@
 
 package com.exactpro.th2.schema.message;
 
-import java.io.Closeable;
+import javax.annotation.concurrent.NotThreadSafe;
+
+import org.jetbrains.annotations.NotNull;
+
+import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.rabbitmq.client.Connection;
 
 /**
  * Listen messages and transmit it to {@link MessageListener}
  *
  * @param <T>
  */
-public interface MessageSubscriber<T> extends Closeable {
+@NotThreadSafe
+public interface MessageSubscriber<T> extends AutoCloseable {
+    void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String subscriberName, @NotNull SubscribeTarget... subscribeTargets);
 
     void start() throws Exception;
 
-    boolean isClose();
+    boolean isOpen();
 
     void addListener(MessageListener<T> messageListener);
-
 }

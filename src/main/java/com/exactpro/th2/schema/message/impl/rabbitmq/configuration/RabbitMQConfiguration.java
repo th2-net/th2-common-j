@@ -24,7 +24,6 @@ public class RabbitMQConfiguration {
     private String username;
     private String password;
     private String subscriberName;
-    private int countThread = Runtime.getRuntime().availableProcessors() * 4;
 
     public String getHost() {
         return host;
@@ -48,10 +47,6 @@ public class RabbitMQConfiguration {
 
     public String getSubscriberName() {
         return subscriberName;
-    }
-
-    public int getCountThread() {
-        return countThread;
     }
 
     public void setHost(String host) {
@@ -78,10 +73,6 @@ public class RabbitMQConfiguration {
         this.subscriberName = subscriberName;
     }
 
-    public void setCountThread(int countThread) {
-        this.countThread = countThread;
-    }
-
     @Override
     public String toString() {
         return "RabbitMQConfiguration{" +
@@ -91,7 +82,6 @@ public class RabbitMQConfiguration {
                 ", username='" + username + '\'' +
                 ", password='" + password + '\'' +
                 ", subscriberName='" + subscriberName + '\'' +
-                ", countThread='" + countThread + '\'' +
                 '}';
     }
 }
