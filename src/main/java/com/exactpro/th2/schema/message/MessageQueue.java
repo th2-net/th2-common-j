@@ -13,11 +13,10 @@
 
 package com.exactpro.th2.schema.message;
 
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.Closeable;
+import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.rabbitmq.client.Connection;
 
 /**
  * Message queue
@@ -25,9 +24,8 @@ import java.io.Closeable;
  * @see MessageSubscriber
  * @see MessageSender
  */
-public interface MessageQueue<T> extends Closeable {
-
-    void init(@NotNull RabbitMQConfiguration configuration, @NotNull QueueConfiguration queueConfiguration);
+public interface MessageQueue<T> extends AutoCloseable {
+    void init(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration);
 
     MessageSubscriber<T> getSubscriber();
 

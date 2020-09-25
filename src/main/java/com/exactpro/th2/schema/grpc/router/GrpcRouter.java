@@ -24,7 +24,7 @@ import io.grpc.Server;
  * Interface for create service for manage connections
  * @see AbstractGrpcRouter
  */
-public interface GrpcRouter {
+public interface GrpcRouter extends AutoCloseable {
     /**
      * Initialization router
      * @param configuration

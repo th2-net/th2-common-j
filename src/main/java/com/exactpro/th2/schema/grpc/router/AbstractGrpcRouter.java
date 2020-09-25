@@ -14,6 +14,12 @@
 package com.exactpro.th2.schema.grpc.router;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.schema.grpc.router.impl.DefaultGrpcRouter;
@@ -32,7 +38,10 @@ import io.grpc.netty.NettyServerBuilder;
  * @see DefaultGrpcRouter
  */
 public abstract class AbstractGrpcRouter implements GrpcRouter {
+    protected static final long SERVER_SHUTDOWN_TIMEOUT_MS = 5000L;
 
+    protected Logger logger = LoggerFactory.getLogger(getClass());
+    protected List<Server> servers = new ArrayList<>();
     protected GrpcRouterConfiguration configuration;
 
     @Override
@@ -59,7 +68,29 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             builder.addService(service);
         }
 
-        return builder.build();
+        var server = builder.build();
+
+        servers.add(server);
+
+        return server;
     }
 
+    @Override
+    public void close() {
+        for (Server server : servers) {
+            try {
+                logger.info("Shutting down server: {}");
+                server.shutdown();
+
+                if (!server.awaitTermination(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                    logger.warn("Failed to shutdown server '{}' in {} ms. Forcing shutdown...", server, SERVER_SHUTDOWN_TIMEOUT_MS);
+                    server.shutdownNow();
+                }
+
+                logger.info("Server has been successfully shutdown: {}", server);
+            } catch (Exception e) {
+                logger.error("Failed to shutdown server: {}", server, e);
+            }
+        }
+    }
 }

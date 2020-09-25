@@ -15,16 +15,16 @@
  ******************************************************************************/
 package com.exactpro.th2.configuration;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import static java.lang.System.getenv;
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
+import static org.apache.commons.lang3.math.NumberUtils.toInt;
 
 import java.io.IOException;
 import java.io.InputStream;
 
-import static java.lang.System.getenv;
-import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
-import static org.apache.commons.lang3.math.NumberUtils.toInt;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 public class Configuration {
 
@@ -40,6 +40,20 @@ public class Configuration {
 
     public static int getEnvGRPCPort() {
         return toInt(getenv(ENV_GRPC_PORT), DEFAULT_GRPC_PORT);
+    }
+
+    public static final String ENV_PROMETHEUS_HOST = "PROMETHEUS_HOST";
+    public static final String DEFAULT_PROMETHEUS_HOST = "0.0.0.0";
+
+    public static String getEnvPrometheusHost() {
+        return defaultIfNull(getenv(ENV_PROMETHEUS_HOST), DEFAULT_PROMETHEUS_HOST);
+    }
+
+    public static final String ENV_PROMETHEUS_PORT = "PROMETHEUS_PORT";
+    public static final int DEFAULT_PROMETHEUS_PORT = 9752;
+
+    public static int getEnvPrometheusPort() {
+        return toInt(getenv(ENV_PROMETHEUS_HOST), DEFAULT_PROMETHEUS_PORT);
     }
 
     public static final ObjectMapper YAML_READER = new ObjectMapper(new YAMLFactory());
