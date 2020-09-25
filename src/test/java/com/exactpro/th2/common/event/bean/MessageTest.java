@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +39,7 @@ public class MessageTest extends BaseTest {
                 "  }\n" +
                 "]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
     }
 
     @Test

@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event.bean;
+package com.exactpro.th2.common.event.bean.builder;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
+
+import com.exactpro.th2.common.event.bean.IRow;
+import com.exactpro.th2.common.event.bean.Table;
 
 public class TableBuilder<T extends IRow> {
     public static final String TABLE_TYPE = "table";
@@ -32,7 +35,7 @@ public class TableBuilder<T extends IRow> {
     public Table build() {
         Table table = new Table();
         table.setType(TABLE_TYPE);
-        table.setRows(rows.stream()
+        table.setFields(rows.stream()
                 .map(item -> (IRow) item)
                 .collect(Collectors.toList()));
         return table;

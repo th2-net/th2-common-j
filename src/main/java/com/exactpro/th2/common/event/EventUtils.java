@@ -16,7 +16,7 @@
 package com.exactpro.th2.common.event;
 
 import com.exactpro.th2.common.event.bean.Message;
-import com.exactpro.th2.common.event.bean.MessageBuilder;
+import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
 import com.fasterxml.uuid.Generators;
 import com.fasterxml.uuid.NoArgGenerator;
 

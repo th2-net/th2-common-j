@@ -13,19 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event.bean;
+package com.exactpro.th2.common.event.bean.builder;
 
+import com.exactpro.th2.common.event.bean.*;
+
+import java.util.HashMap;
 import java.util.Map;
 
-public class Collection extends TreeTableEntry {
-    private final Map<String, TreeTableEntry> rows;
+public class CollectionBuilder {
+    private static final String COLLECTION_TYPE = "collection";
+    private Map<String, TreeTableEntry> rows = new HashMap<>();
 
-    public Collection(String type, Map<String, TreeTableEntry> rows) {
-        super(type);
-        this.rows = rows;
+    public CollectionBuilder row(String rowName, TreeTableEntry rowValue) {
+        this.rows.put(rowName, rowValue);
+        return this;
     }
 
-    public Map<String, TreeTableEntry> getRows() {
-        return rows;
+    public Collection build() {
+        return new Collection(COLLECTION_TYPE, rows);
     }
 }

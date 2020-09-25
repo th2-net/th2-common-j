@@ -59,7 +59,7 @@ public class TestVerification extends BaseTest {
                 "}" +
                 "]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
     }
 
     @Test
@@ -118,6 +118,6 @@ public class TestVerification extends BaseTest {
                 "  }\n" +
                 "]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
     }
 }

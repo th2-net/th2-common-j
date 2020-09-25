@@ -16,10 +16,13 @@
 package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.event.bean.builder.CollectionBuilder;
+import com.exactpro.th2.common.event.bean.builder.RowBuilder;
+import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.HashMap;
 
 
 public class TreeTableTest extends BaseTest {
@@ -31,9 +34,9 @@ public class TreeTableTest extends BaseTest {
             public final String firstColumn = "some text (1)";
             public final String secondColumn = "some text (2)";
         };
-        Row row = new Row("row", column);
+        Row row = new RowBuilder().column(column).build();
 
-        TreeTableBuilder<TreeTableEntry> treeTableBuilder = new TreeTableBuilder<>();
+        TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("FirstRow", row).build();
         com.exactpro.th2.infra.grpc.Event event =
                 Event.start().bodyData(treeTable).toProtoEvent("id");
@@ -51,32 +54,30 @@ public class TreeTableTest extends BaseTest {
                 "    }\n" +
                 "  }]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
     }
 
 
     @Test
     public void testSerializationCollection() throws IOException {
-        Collection collection = new Collection("collection");
         IColumn column = new IColumn() {
             public final String firstColumn = "some text (BA1)";
             public final String secondColumn = "some text (BA2)";
         };
-        Row rowBA = new Row("row", column);
+        Row rowBA = new RowBuilder().column(column).build();
 
         IColumn columnBB = new IColumn() {
             public final String firstColumn = "some text (BB1)";
             public final String secondColumn = "some text (BB2)";
         };
-        Row rowBB = new Row("row", columnBB);
+        Row rowBB = new RowBuilder().column(columnBB).build();
 
-        collection.setRows(new HashMap<>() {{
-            put("Row BA", rowBA);
-            put("Row BB", rowBB);
-        }});
+        Collection collection = new CollectionBuilder()
+                .row("Row BA", rowBA)
+                .row("Row BB", rowBB)
+                .build();
 
-
-        TreeTableBuilder<TreeTableEntry> treeTableBuilder = new TreeTableBuilder<>();
+        TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
         com.exactpro.th2.infra.grpc.Event event =
@@ -104,39 +105,37 @@ public class TreeTableTest extends BaseTest {
                 "        }\n" +
                 "      }}}]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
     }
 
 
     @Test
     public void testSerializationHybrid() throws IOException {
-        Collection collection = new Collection("collection");
         IColumn column = new IColumn() {
             public final String firstColumn = "some text (BA1)";
             public final String secondColumn = "some text (BA2)";
         };
 
-        Row rowBA = new Row("row", column);
+        Row rowBA = new RowBuilder().column(column).build();
 
         IColumn columnBB = new IColumn() {
             public final String firstColumn = "some text (BB1)";
             public final String secondColumn = "some text (BB2)";
         };
-        Row rowBB = new Row("row", columnBB);
+        Row rowBB = new RowBuilder().column(columnBB).build();
 
-        collection.setRows(new HashMap<>() {{
-            put("Row BA", rowBA);
-            put("Row BB", rowBB);
-        }});
-
+        Collection collection = new CollectionBuilder()
+                .row("Row BA", rowBA)
+                .row("Row BB", rowBB)
+                .build();
 
         IColumn columnSimple = new IColumn() {
             public final String firstColumn = "some text (1)";
             public final String secondColumn = "some text (2)";
         };
-        Row row = new Row("row", columnSimple);
+        Row row = new RowBuilder().column(columnSimple).build();
 
-        TreeTableBuilder<TreeTableEntry> treeTableBuilder = new TreeTableBuilder<>();
+        TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
 
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection)
                 .row("FirstRow", row)
@@ -174,26 +173,23 @@ public class TreeTableTest extends BaseTest {
                 "        }\n" +
                 "      }}}]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
     }
 
 
     @Test
     public void testSerializationRecursive() throws IOException {
-        Collection collection = new Collection("collection");
 
         IColumn column = new IColumn() {
             public final String firstColumn = "some text (BA1)";
             public final String secondColumn = "some text (BA2)";
         };
-        Row rowBA = new Row("row", column);
+        Row rowBA = new RowBuilder().column(column).build();
+        Collection collection = new CollectionBuilder()
+                .row("Row BA", rowBA)
+                .build();
 
-        collection.setRows(new HashMap<>() {{
-            put("Row BA", rowBA);
-        }});
-
-
-        TreeTableBuilder<TreeTableEntry> treeTableBuilder = new TreeTableBuilder<>();
+        TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
         com.exactpro.th2.infra.grpc.Event event =
@@ -213,6 +209,14 @@ public class TreeTableTest extends BaseTest {
                 "          }\n" +
                 "      }}}}]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+    }
+
+
+    @Test
+    public void testCreateRowNullBody() {
+        Assertions.assertThrows(NullPointerException.class, () -> {
+            new RowBuilder().column(null).build();
+        });
     }
 }

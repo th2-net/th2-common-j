@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.event.bean.builder.TableBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -36,10 +37,10 @@ public class TableTest extends BaseTest {
         };
 
         TableBuilder<IRow> tableBuilder = new TableBuilder<>();
-        Table treeTable = tableBuilder.row(row1)
+        Table table = tableBuilder.row(row1)
                 .row(row2).build();
         com.exactpro.th2.infra.grpc.Event event =
-                Event.start().bodyData(treeTable).toProtoEvent("id");
+                Event.start().bodyData(table).toProtoEvent("id");
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -57,7 +58,7 @@ public class TableTest extends BaseTest {
                 "  }\n" +
                 "]";
 
-        compareBytesAndJson(event.getBody().toByteArray(), expectedJson);
+        assertCompareBytesAndJson(event.getBody().toByteArray(), expectedJson);
     }
 
 }

@@ -19,18 +19,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.exactpro.th2.common.event.IBodyData;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Table implements IBodyData {
-
-    private List<IRow> rows = new ArrayList<>();
+    @JsonProperty("rows")
+    private List<IRow> fields = new ArrayList<>();
     private String type;
 
-    public List<IRow> getRows() {
-        return rows;
+    public List<IRow> getFields() {
+        return fields;
     }
 
-    public void setRows(List<IRow> rows) {
-        this.rows = rows;
+    public void setFields(List<IRow> fields) {
+        this.fields = fields;
     }
 
     public String getType() {

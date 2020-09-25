@@ -15,7 +15,6 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assertions;
@@ -26,14 +25,11 @@ import static com.fasterxml.jackson.module.kotlin.ExtensionsKt.jacksonObjectMapp
 
 public class BaseTest {
 
-    ObjectMapper jacksonMapper = jacksonObjectMapper()
-            .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+    private static final ObjectMapper jacksonMapper = jacksonObjectMapper();
 
-    void compareBytesAndJson(byte[] bytes, String jsonString) throws IOException {
+    protected void assertCompareBytesAndJson(byte[] bytes, String jsonString) throws IOException {
         JsonNode deserialize = jacksonMapper.readTree(bytes);
         JsonNode expectedResult = jacksonMapper.readTree(jsonString);
         Assertions.assertEquals(expectedResult, deserialize);
     }
-
 }

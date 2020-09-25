@@ -13,24 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event.bean;
+package com.exactpro.th2.common.event.bean.builder;
+
+import com.exactpro.th2.common.event.bean.IColumn;
+import com.exactpro.th2.common.event.bean.Row;
 
 import static java.util.Objects.requireNonNull;
 
-public class MessageBuilder {
-    public final static String MESSAGE_TYPE = "message";
+public class RowBuilder {
+    public static final String ROW_TYPE = "row";
 
-    private String text;
+    private IColumn columns;
 
-    public MessageBuilder text(String text) {
-        this.text = requireNonNull(text, "Text can't be null");
+    public RowBuilder column(IColumn columns) {
+        this.columns = requireNonNull(columns, "Column can't be null");
         return this;
     }
 
-    public Message build() {
-        Message message = new Message();
-        message.setType(MESSAGE_TYPE);
-        message.setData(text);
-        return message;
+    public Row build() {
+       return new Row(ROW_TYPE, columns);
     }
 }
