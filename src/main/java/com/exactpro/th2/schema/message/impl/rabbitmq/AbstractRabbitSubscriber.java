@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
 import org.jetbrains.annotations.NotNull;
@@ -70,7 +71,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         if (channel == null) {
             channel = connection.createChannel();
 
-            for (var subscribeTarget : subscribeTargets) {
+            for (SubscribeTarget subscribeTarget : subscribeTargets) {
 
                 var queue = subscribeTarget.getQueue();
 
