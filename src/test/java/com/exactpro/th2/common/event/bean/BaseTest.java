@@ -15,30 +15,21 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Assertions;
 
-import com.exactpro.th2.common.event.IBodyData;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.IOException;
 
-public class Table implements IBodyData {
-    @JsonProperty("rows")
-    private List<IRow> fields = new ArrayList<>();
-    private String type;
+import static com.fasterxml.jackson.module.kotlin.ExtensionsKt.jacksonObjectMapper;
 
-    public List<IRow> getFields() {
-        return fields;
-    }
+public class BaseTest {
 
-    public void setFields(List<IRow> fields) {
-        this.fields = fields;
-    }
+    private static final ObjectMapper jacksonMapper = jacksonObjectMapper();
 
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
+    protected void assertCompareBytesAndJson(byte[] bytes, String jsonString) throws IOException {
+        JsonNode deserialize = jacksonMapper.readTree(bytes);
+        JsonNode expectedResult = jacksonMapper.readTree(jsonString);
+        Assertions.assertEquals(expectedResult, deserialize);
     }
 }

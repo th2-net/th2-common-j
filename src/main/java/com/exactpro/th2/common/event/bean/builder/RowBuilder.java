@@ -13,32 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event.bean;
+package com.exactpro.th2.common.event.bean.builder;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.exactpro.th2.common.event.bean.IColumn;
+import com.exactpro.th2.common.event.bean.Row;
 
-import com.exactpro.th2.common.event.IBodyData;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import static java.util.Objects.requireNonNull;
 
-public class Table implements IBodyData {
-    @JsonProperty("rows")
-    private List<IRow> fields = new ArrayList<>();
-    private String type;
+public class RowBuilder {
+    public static final String ROW_TYPE = "row";
 
-    public List<IRow> getFields() {
-        return fields;
+    private IColumn columns;
+
+    public RowBuilder column(IColumn columns) {
+        this.columns = requireNonNull(columns, "Column can't be null");
+        return this;
     }
 
-    public void setFields(List<IRow> fields) {
-        this.fields = fields;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
+    public Row build() {
+       return new Row(ROW_TYPE, columns);
     }
 }

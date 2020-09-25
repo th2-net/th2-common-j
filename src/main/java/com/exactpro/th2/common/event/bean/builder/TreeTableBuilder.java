@@ -15,24 +15,25 @@
  */
 package com.exactpro.th2.common.event.bean.builder;
 
-import com.exactpro.th2.common.event.bean.Message;
+import com.exactpro.th2.common.event.bean.TreeTable;
+import com.exactpro.th2.common.event.bean.TreeTableEntry;
 
-import static java.util.Objects.requireNonNull;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-public class MessageBuilder {
-    public final static String MESSAGE_TYPE = "message";
+public class TreeTableBuilder {
+    public static final String TABLE_TYPE = "treeTable";
 
-    private String text;
+    private final Map<String, TreeTableEntry> rows = new HashMap<>();
 
-    public MessageBuilder text(String text) {
-        this.text = requireNonNull(text, "Text can't be null");
+    public TreeTableBuilder row(String rowName, TreeTableEntry row) {
+        rows.put(rowName, row);
         return this;
     }
 
-    public Message build() {
-        Message message = new Message();
-        message.setType(MESSAGE_TYPE);
-        message.setData(text);
-        return message;
+    public TreeTable build() {
+        return new TreeTable(TABLE_TYPE, rows.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 }

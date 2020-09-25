@@ -15,30 +15,12 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import java.util.ArrayList;
-import java.util.List;
+/**
+ * Every implementation should have flat structure
+ * As example:
+ *  fieldNameOne: "some text (1)",
+ *  fieldNameTwo: "some text (2)",
+ */
 
-import com.exactpro.th2.common.event.IBodyData;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-public class Table implements IBodyData {
-    @JsonProperty("rows")
-    private List<IRow> fields = new ArrayList<>();
-    private String type;
-
-    public List<IRow> getFields() {
-        return fields;
-    }
-
-    public void setFields(List<IRow> fields) {
-        this.fields = fields;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
+public interface IColumn {
 }

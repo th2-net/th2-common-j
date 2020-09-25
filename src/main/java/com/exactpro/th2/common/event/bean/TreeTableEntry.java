@@ -15,30 +15,14 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import java.util.ArrayList;
-import java.util.List;
+public abstract class TreeTableEntry {
+    private final String type;
 
-import com.exactpro.th2.common.event.IBodyData;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-public class Table implements IBodyData {
-    @JsonProperty("rows")
-    private List<IRow> fields = new ArrayList<>();
-    private String type;
-
-    public List<IRow> getFields() {
-        return fields;
-    }
-
-    public void setFields(List<IRow> fields) {
-        this.fields = fields;
+    protected TreeTableEntry(String type) {
+        this.type = type;
     }
 
     public String getType() {
         return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
     }
 }

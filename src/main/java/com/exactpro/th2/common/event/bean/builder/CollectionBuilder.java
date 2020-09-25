@@ -13,32 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.event.bean;
+package com.exactpro.th2.common.event.bean.builder;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.exactpro.th2.common.event.bean.*;
 
-import com.exactpro.th2.common.event.IBodyData;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.HashMap;
+import java.util.Map;
 
-public class Table implements IBodyData {
-    @JsonProperty("rows")
-    private List<IRow> fields = new ArrayList<>();
-    private String type;
+public class CollectionBuilder {
+    private static final String COLLECTION_TYPE = "collection";
+    private Map<String, TreeTableEntry> rows = new HashMap<>();
 
-    public List<IRow> getFields() {
-        return fields;
+    public CollectionBuilder row(String rowName, TreeTableEntry rowValue) {
+        this.rows.put(rowName, rowValue);
+        return this;
     }
 
-    public void setFields(List<IRow> fields) {
-        this.fields = fields;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
+    public Collection build() {
+        return new Collection(COLLECTION_TYPE, rows);
     }
 }
