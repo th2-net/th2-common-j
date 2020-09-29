@@ -16,6 +16,10 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.configuration;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RabbitMQConfiguration {
 
     private String host;
@@ -24,6 +28,9 @@ public class RabbitMQConfiguration {
     private String username;
     private String password;
     private String subscriberName;
+
+    @JsonProperty(value = "exchange-name")
+    private String exchangeName;
 
     public String getHost() {
         return host;
@@ -71,6 +78,14 @@ public class RabbitMQConfiguration {
 
     public void setSubscriberName(String subscriberName) {
         this.subscriberName = subscriberName;
+    }
+
+    public String getExchangeName() {
+        return exchangeName;
+    }
+
+    public void setExchangeName(String exchangeName) {
+        this.exchangeName = exchangeName;
     }
 
     @Override
