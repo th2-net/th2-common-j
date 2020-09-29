@@ -26,6 +26,8 @@ import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import org.apache.commons.text.StringSubstitutor;
+import org.apache.commons.text.lookup.StringLookupFactory;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,7 +115,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
+                    router.init(rabbitMqConfiguration, messageRouterConfiguration);
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
@@ -133,7 +135,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
+                    router.init(rabbitMqConfiguration, messageRouterConfiguration);
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
@@ -153,7 +155,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = grpcRouterClass.getConstructor().newInstance();
-                    router.init(getGrpcRouterConfiguration());
+                    router.init(grpcRouterConfiguration);
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create GRPC router", e);
                 }
@@ -164,15 +166,25 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * @return Configuration by specified path
+     * @throws IllegalStateException if can not read configuration
+     */
+    public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
+        try {
+            StringSubstitutor stringSubstitutor = new StringSubstitutor(StringLookupFactory.INSTANCE.environmentVariableStringLookup());
+            String contents = stringSubstitutor.replace(new String(Files.readAllBytes(configPath)));
+            return customObjectMapper.readerFor(configClass).readValue(contents);
+        } catch (IOException e) {
+            throw new IllegalStateException(String.format("Can not read %s configuration", configClass.getName()), e);
+        }
+    }
+
+    /**
      * @return Schema cradle configuration
      * @throws IllegalStateException if can not read configuration
      */
     public CradleConfiguration getCradleConfiguration() {
-        try (var in = new FileInputStream(getPathToCradleConfiguration().toFile())) {
-            return MAPPER.readerFor(CradleConfiguration.class).readValue(in);
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read cradle configuration", e);
-        }
+        return getConfiguration(getPathToCradleConfiguration(), CradleConfiguration.class, MAPPER);
     }
 
     /**
@@ -193,11 +205,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
         }
 
-        try (var in = new FileInputStream(getPathToCustomConfiguration().toFile())) {
-            return customObjectMapper.readerFor(confClass).readValue(in);
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read custom configuration", e);
-        }
+        return getConfiguration(getPathToCustomConfiguration(), confClass, customObjectMapper);
     }
 
     /**
@@ -283,19 +291,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected abstract Path getPathToDictionariesDir();
 
     protected RabbitMQConfiguration loadRabbitMqConfiguration() {
-        try (var in = new FileInputStream(getPathToRabbitMQConfiguration().toFile())) {
-            return MAPPER.readerFor(RabbitMQConfiguration.class).readValue(in);
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read rabbit mq configuration", e);
-        }
+        return getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER);
     }
 
     protected MessageRouterConfiguration loadMessageRouterConfiguration() {
-        try (var in = new FileInputStream(getPathToMessageRouterConfiguration().toFile())) {
-            return MAPPER.readerFor(MessageRouterConfiguration.class).readValue(in);
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read message router configuration", e);
-        }
+        return getConfiguration(getPathToMessageRouterConfiguration(), MessageRouterConfiguration.class, MAPPER);
     }
 
     protected GrpcRouterConfiguration loadGrpcRouterConfiguration() {
@@ -305,11 +305,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         var mapper = new ObjectMapper();
         mapper.registerModule(module);
 
-        try (var in = new FileInputStream(getPathToGrpcRouterConfiguration().toFile())) {
-            return mapper.readerFor(GrpcRouterConfiguration.class).readValue(in);
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read grpc router configuration", e);
-        }
+        return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
     }
 
     @Override
