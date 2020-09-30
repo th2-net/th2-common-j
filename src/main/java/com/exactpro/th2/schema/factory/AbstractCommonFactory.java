@@ -17,7 +17,6 @@ import static com.exactpro.th2.schema.util.ArchiveUtils.getGzipBase64StringDecod
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -35,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.configuration.Configuration;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
+import com.exactpro.th2.metrics.CommonMetrics;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.schema.dictionary.DictionaryType;
 import com.exactpro.th2.schema.exception.CommonFactoryException;
@@ -96,6 +96,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.grpcRouterClass = grpcRouterClass;
+
+        CommonMetrics.setLiveness(true);
 
         try {
             DefaultExports.initialize();
