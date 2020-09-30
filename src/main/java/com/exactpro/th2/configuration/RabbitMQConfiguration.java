@@ -1,4 +1,4 @@
-/******************************************************************************
+/*****************************************************************************
  * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ *****************************************************************************/
 package com.exactpro.th2.configuration;
 
 import static com.rabbitmq.client.ConnectionFactory.DEFAULT_AMQP_PORT;
@@ -26,9 +26,17 @@ import static org.apache.commons.lang3.math.NumberUtils.toInt;
 import java.io.IOException;
 import java.io.InputStream;
 
+import com.exactpro.th2.schema.factory.AbstractCommonFactory;
+import com.exactpro.th2.schema.factory.CommonFactory;
 import com.rabbitmq.client.ConnectionFactory;
-import org.apache.commons.lang3.StringUtils;
 
+/**
+ * @deprecated Configuration will be close for user.
+ * Please use factories for create interfaces for work with other services
+ * @see AbstractCommonFactory
+ * @see CommonFactory
+ */
+@Deprecated(since = "1.4.2", forRemoval = true)
 public class RabbitMQConfiguration {
     public static final String ENV_RABBITMQ_HOST = "RABBITMQ_HOST";
 
