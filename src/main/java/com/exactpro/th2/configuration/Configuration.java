@@ -53,7 +53,7 @@ public class Configuration {
     public static final int DEFAULT_PROMETHEUS_PORT = 9752;
 
     public static int getEnvPrometheusPort() {
-        return toInt(getenv(ENV_PROMETHEUS_HOST), DEFAULT_PROMETHEUS_PORT);
+        return toInt(getenv(ENV_PROMETHEUS_PORT), DEFAULT_PROMETHEUS_PORT);
     }
 
     public static final ObjectMapper YAML_READER = new ObjectMapper(new YAMLFactory());
