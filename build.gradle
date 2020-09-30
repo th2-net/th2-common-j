@@ -146,7 +146,7 @@ dependencies {
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            artifactId 'th2-common'
+            artifactId 'common'
         }
     }
 }
