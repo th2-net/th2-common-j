@@ -143,14 +143,6 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.4.2'
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifactId 'common'
-        }
-    }
-}
-
 sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
 }

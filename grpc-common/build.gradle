@@ -60,7 +60,6 @@ task zipProtobuf (type: Zip) {
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            artifactId 'grpc-common'
             artifact source: zipProtobuf, extension: 'zip'
         }
     }
