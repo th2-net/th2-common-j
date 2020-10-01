@@ -1,1 +1,4 @@
-include "grpc-infra"
+rootProject.name = 'common'
+
+include "grpc-common"
+project(':grpc-common').name = 'grpc-common'

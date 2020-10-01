@@ -114,7 +114,7 @@ test {
 }
 
 dependencies {
-    compile(project(':grpc-infra'))
+    compile(project(':grpc-common'))
 
     compile "com.rabbitmq:amqp-client:5.8.0"
 
@@ -141,14 +141,6 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.4.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.4.2'
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifactId 'th2-common'
-        }
-    }
 }
 
 sourceSets {
