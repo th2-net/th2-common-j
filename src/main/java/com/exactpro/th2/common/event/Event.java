@@ -31,9 +31,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.exactpro.th2.infra.grpc.EventID;
-import com.exactpro.th2.infra.grpc.EventStatus;
-import com.exactpro.th2.infra.grpc.MessageID;
+import com.exactpro.th2.common.grpc.EventID;
+import com.exactpro.th2.common.grpc.EventStatus;
+import com.exactpro.th2.common.grpc.MessageID;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
@@ -222,15 +222,15 @@ public class Event {
      * @deprecated Please use {@link #toProtoEvent(String)}
      */
     @Deprecated(since = "TH2 1.1", forRemoval = true)
-    public List<com.exactpro.th2.infra.grpc.Event> toProtoEventBuilders(String parentID) throws JsonProcessingException {
+    public List<com.exactpro.th2.common.grpc.Event> toProtoEventBuilders(String parentID) throws JsonProcessingException {
         return toProtoEvents(parentID);
     }
 
-    public List<com.exactpro.th2.infra.grpc.Event> toProtoEvents(String parentID) throws JsonProcessingException {
+    public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(String parentID) throws JsonProcessingException {
         return collectSubEvents(new ArrayList<>(), parentID);
     }
 
-    public com.exactpro.th2.infra.grpc.Event toProtoEvent(@Nullable String parentID) throws JsonProcessingException {
+    public com.exactpro.th2.common.grpc.Event toProtoEvent(@Nullable String parentID) throws JsonProcessingException {
         if (endTimestamp == null) {
             endTimestamp();
         }
@@ -239,7 +239,7 @@ public class Event {
             nameBuilder.append(" - ")
                     .append(description);
         }
-        var eventBuilder = com.exactpro.th2.infra.grpc.Event.newBuilder()
+        var eventBuilder = com.exactpro.th2.common.grpc.Event.newBuilder()
                 .setId(toEventID(id))
                 .setName(nameBuilder.toString())
                 .setType(defaultIfBlank(type, UNKNOWN_EVENT_TYPE))
@@ -268,7 +268,7 @@ public class Event {
         return endTimestamp;
     }
 
-    protected List<com.exactpro.th2.infra.grpc.Event> collectSubEvents(List<com.exactpro.th2.infra.grpc.Event> protoEvents, @Nullable String parentID) throws JsonProcessingException {
+    protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable String parentID) throws JsonProcessingException {
         protoEvents.add(toProtoEvent(parentID)); // collect current level
         for (Event subEvent : subEvents) {
             subEvent.collectSubEvents(protoEvents, id); // collect sub level

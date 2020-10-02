@@ -38,7 +38,7 @@ public class TreeTableTest extends BaseTest {
 
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("FirstRow", row).build();
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[{\n" +
@@ -80,7 +80,7 @@ public class TreeTableTest extends BaseTest {
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
@@ -141,7 +141,7 @@ public class TreeTableTest extends BaseTest {
                 .row("FirstRow", row)
                 .build();
 
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
@@ -192,7 +192,7 @@ public class TreeTableTest extends BaseTest {
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +

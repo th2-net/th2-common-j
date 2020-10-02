@@ -40,7 +40,7 @@ public class TestVerification extends BaseTest {
             put("Field A", verificationEntry);
         }});
 
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(verification).toProtoEvent("id");
 
         String expectedJson = "[\n" +
@@ -90,7 +90,7 @@ public class TestVerification extends BaseTest {
             put("Sub message A", verificationEntry);
         }});
 
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(verification).toProtoEvent("id");
 
         String expectedJson = "[\n" +

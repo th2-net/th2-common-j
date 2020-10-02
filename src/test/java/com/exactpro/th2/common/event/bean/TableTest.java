@@ -39,7 +39,7 @@ public class TableTest extends BaseTest {
         TableBuilder<IRow> tableBuilder = new TableBuilder<>();
         Table table = tableBuilder.row(row1)
                 .row(row2).build();
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(table).toProtoEvent("id");
 
         String expectedJson = "[\n" +

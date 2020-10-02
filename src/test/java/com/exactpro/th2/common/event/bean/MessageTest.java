@@ -29,7 +29,7 @@ public class MessageTest extends BaseTest {
         Message message = new MessageBuilder().text("My message for report")
                 .build();
 
-        com.exactpro.th2.infra.grpc.Event event =
+        com.exactpro.th2.common.grpc.Event event =
                 Event.start().bodyData(message).toProtoEvent("id");
 
         String expectedJson = "[\n" +

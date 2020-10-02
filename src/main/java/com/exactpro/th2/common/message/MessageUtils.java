@@ -20,16 +20,16 @@ import static java.util.Objects.requireNonNull;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.event.bean.MessageID;
-import com.exactpro.th2.infra.grpc.ConnectionID;
-import com.exactpro.th2.infra.grpc.Direction;
+import com.exactpro.th2.common.grpc.ConnectionID;
+import com.exactpro.th2.common.grpc.Direction;
 
 @SuppressWarnings("ClassNamePrefixedWithPackageName")
 public class MessageUtils {
 
     @NotNull
-    public static com.exactpro.th2.infra.grpc.MessageID toProtoMessageID(@NotNull MessageID beanMessageID) {
+    public static com.exactpro.th2.common.grpc.MessageID toProtoMessageID(@NotNull MessageID beanMessageID) {
         requireNonNull(beanMessageID, "Bean message id can't be bull");
-        return com.exactpro.th2.infra.grpc.MessageID.newBuilder()
+        return com.exactpro.th2.common.grpc.MessageID.newBuilder()
                 .setConnectionId(ConnectionID.newBuilder()
                         .setSessionAlias(requireNonNull(beanMessageID.getSessionAlias(), "Session alias can't be null"))
                         .build())
@@ -43,7 +43,7 @@ public class MessageUtils {
      */
     @NotNull
     @Deprecated(since = "TH2 1.1", forRemoval = true)
-    public static MessageID toBeanMessageID(@NotNull com.exactpro.th2.infra.grpc.MessageID protoMessageID) {
+    public static MessageID toBeanMessageID(@NotNull com.exactpro.th2.common.grpc.MessageID protoMessageID) {
         requireNonNull(protoMessageID, "Probuf message id can't be bull");
         MessageID messageID = new MessageID();
         messageID.setSessionAlias(requireNonNull(protoMessageID.getConnectionId().getSessionAlias(), "Session alias can't be null"));

@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.infra.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageBatch;
 import com.google.protobuf.TextFormat;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;

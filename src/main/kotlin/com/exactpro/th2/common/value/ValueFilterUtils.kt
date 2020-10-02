@@ -48,16 +48,16 @@
 
 package com.exactpro.th2.common.value
 
-import com.exactpro.th2.infra.grpc.FilterOperation.EMPTY
-import com.exactpro.th2.infra.grpc.FilterOperation.EQUAL
-import com.exactpro.th2.infra.grpc.FilterOperation.NOT_EMPTY
-import com.exactpro.th2.infra.grpc.FilterOperation.NOT_EQUAL
-import com.exactpro.th2.infra.grpc.ListValueFilter
-import com.exactpro.th2.infra.grpc.MessageFilter
-import com.exactpro.th2.infra.grpc.ValueFilter
-import com.exactpro.th2.infra.grpc.ValueFilter.KindCase.LIST_FILTER
-import com.exactpro.th2.infra.grpc.ValueFilter.KindCase.MESSAGE_FILTER
-import com.exactpro.th2.infra.grpc.ValueFilter.KindCase.SIMPLE_FILTER
+import com.exactpro.th2.common.grpc.FilterOperation.EMPTY
+import com.exactpro.th2.common.grpc.FilterOperation.EQUAL
+import com.exactpro.th2.common.grpc.FilterOperation.NOT_EMPTY
+import com.exactpro.th2.common.grpc.FilterOperation.NOT_EQUAL
+import com.exactpro.th2.common.grpc.ListValueFilter
+import com.exactpro.th2.common.grpc.MessageFilter
+import com.exactpro.th2.common.grpc.ValueFilter
+import com.exactpro.th2.common.grpc.ValueFilter.KindCase.LIST_FILTER
+import com.exactpro.th2.common.grpc.ValueFilter.KindCase.MESSAGE_FILTER
+import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import java.math.BigDecimal
 import kotlin.DeprecationLevel.WARNING
 

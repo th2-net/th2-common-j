@@ -18,8 +18,8 @@ package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
-import com.exactpro.th2.infra.grpc.MessageFilter
-import com.exactpro.th2.infra.grpc.ValueFilter
+import com.exactpro.th2.common.grpc.MessageFilter
+import com.exactpro.th2.common.grpc.ValueFilter
 
 fun messageFilter(messageType: String): MessageFilter.Builder = MessageFilter.newBuilder().setMessageType(messageType)
 fun messageFilter(): MessageFilter.Builder = MessageFilter.newBuilder()

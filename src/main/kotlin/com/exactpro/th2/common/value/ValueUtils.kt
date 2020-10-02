@@ -48,13 +48,13 @@
 
 package com.exactpro.th2.common.value
 
-import com.exactpro.th2.infra.grpc.ListValue
-import com.exactpro.th2.infra.grpc.Message
-import com.exactpro.th2.infra.grpc.NullValue.NULL_VALUE
-import com.exactpro.th2.infra.grpc.Value
-import com.exactpro.th2.infra.grpc.Value.KindCase.LIST_VALUE
-import com.exactpro.th2.infra.grpc.Value.KindCase.MESSAGE_VALUE
-import com.exactpro.th2.infra.grpc.Value.KindCase.SIMPLE_VALUE
+import com.exactpro.th2.common.grpc.ListValue
+import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.grpc.NullValue.NULL_VALUE
+import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.grpc.Value.KindCase.LIST_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.MESSAGE_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.DeprecationLevel.WARNING
