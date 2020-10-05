@@ -6,7 +6,7 @@ ARG artifactory_deploy_repo_key
 ARG artifactory_url
 
 COPY ./ .
-RUN gradle RUN gradle --no-daemon clean build artifactoryPublish \
+RUN gradle --no-daemon clean build artifactoryPublish \
     -Prelease_version=${release_version} \
     -Partifactory_user=${artifactory_user} \
     -Partifactory_password=${artifactory_password} \
