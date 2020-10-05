@@ -119,6 +119,7 @@ test {
 dependencies {
     api platform('com.exactpro.th2:bom:2.0.+')
     implementation 'com.exactpro.th2:grpc-common'
+    implementation 'com.google.protobuf:protobuf-java-util'
 
     implementation "com.rabbitmq:amqp-client:5.8.0"
 
