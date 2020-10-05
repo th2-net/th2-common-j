@@ -1,9 +1,8 @@
 variables:
   MAJOR_VERSION: "2"
   MINOR_VERSION: "0"
-  MAINTENANCE_VERSION: "1"
+  MAINTENANCE_VERSION: "2"
   DOCKER_PUBLISH_ENABLED: 'false'
-  ARTIFACTORY_PUBLISH_ENABLED: 'true'
 
 include:
   - project: 'vivarium/th2/pipelines'
