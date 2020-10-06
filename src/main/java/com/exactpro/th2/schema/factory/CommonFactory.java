@@ -41,21 +41,21 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String ROUTER_MQ_FILE_NAME = "mq.json";
     private static final String ROUTER_GRPC_FILE_NAME = "grpc.json";
     private static final String CRADLE_FILE_NAME = "cradle.json";
-    private static final String CUSTOM_FILE_NAME = "custom.json";
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
+    private static final String CUSTOM_FILE_NAME = "custom.json";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
     private final Path routerGRPC;
+    private final Path prometheus;
     private final Path cradle;
     private final Path custom;
     private final Path dictionariesDir;
-    private final Path prometheus;
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
                          Class<? extends GrpcRouter> grpcRouterClass,
-                         Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path dictionariesDir, Path prometheus) {
+                         Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
@@ -66,7 +66,7 @@ public class CommonFactory extends AbstractCommonFactory {
         this.prometheus = prometheus;
     }
 
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path dictionariesDir, Path prometheus) {
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
         super();
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
@@ -88,8 +88,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
-                CONFIG_DEFAULT_PATH,
-                CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME)
+                CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
+                CONFIG_DEFAULT_PATH
         );
     }
 
@@ -99,8 +99,9 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
-                CONFIG_DEFAULT_PATH,
-                CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME));
+                CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
+                CONFIG_DEFAULT_PATH
+        );
     }
 
     @Override
@@ -189,8 +190,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
                 calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
                 calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
-                calculatePath(cmd.getOptionValue("dictionariesDir"), configs),
-                calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME)
+                calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
+                calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
         );
     }
 
