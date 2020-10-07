@@ -13,12 +13,14 @@
 
 package com.exactpro.th2.schema.factory;
 
+import com.exactpro.th2.infra.grpc.EventBatch;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.schema.message.MessageRouter;
 import org.apache.commons.cli.*;
+import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
 
@@ -44,9 +46,10 @@ public class CommonFactory extends AbstractCommonFactory {
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
                          Class<? extends GrpcRouter> grpcRouterClass,
                          Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path dictionariesDir) {
-        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass);
+        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, eventBatchRouterClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -67,8 +70,9 @@ public class CommonFactory extends AbstractCommonFactory {
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
                          Class<? extends GrpcRouter> grpcRouterClass) {
-        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, grpcRouterClass,
+        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, eventBatchRouterClass, grpcRouterClass,
                 CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
