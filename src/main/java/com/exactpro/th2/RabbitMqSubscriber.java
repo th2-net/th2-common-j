@@ -44,7 +44,8 @@ public class RabbitMqSubscriber implements Closeable {
     private static final int CLOSE_TIMEOUT = 1_000;
 
     private static final int COUNT_TRY_TO_CONNECT = 5;
-    private static final int SHUTDOWN_TIMEOUT = 60_000;
+    private static final int MIN_SHUTDOWN_TIMEOUT = 10_000;
+    private static final int MAX_SHUTDOWN_TIMEOUT = 60_000;
 
     private static final Logger logger = LoggerFactory.getLogger(RabbitMqSubscriber.class);
     private final String exchangeName;
@@ -65,14 +66,22 @@ public class RabbitMqSubscriber implements Closeable {
     }
 
     public void startListening() throws IOException, TimeoutException {
-        startListening(getEnvRabbitMQHost(), getEnvRabbitMQVhost(), getEnvRabbitMQPort(), getEnvRabbitMQUser(), getEnvRabbitMQPass(), null);
+        startListening(getEnvRabbitMQHost(), getEnvRabbitMQVhost(), getEnvRabbitMQPort(), getEnvRabbitMQUser(), getEnvRabbitMQPass(), null, null);
     }
 
     public void startListening(String host, String vHost, int port, String username, String password) throws IOException, TimeoutException {
-        this.startListening(host, vHost, port, username, password, null);
+        this.startListening(host, vHost, port, username, password, null, null);
+    }
+
+    public void startListening(String host, String vHost, int port, String username, String password, Runnable onFailedRecoveryConnection) throws IOException, TimeoutException {
+        this.startListening(host, vHost, port, username, password, null, onFailedRecoveryConnection);
     }
 
     public void startListening(String host, String vHost, int port, String username, String password, @Nullable String subscriberName) throws IOException, TimeoutException {
+        this.startListening(host, vHost, port, username, password, subscriberName, null);
+    }
+
+    public void startListening(String host, String vHost, int port, String username, String password, @Nullable String subscriberName, Runnable onFailedRecoveryConnection) throws IOException, TimeoutException {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(host);
         if (StringUtils.isNotEmpty(vHost)) {
@@ -86,18 +95,34 @@ public class RabbitMqSubscriber implements Closeable {
             factory.setPassword(password);
         }
 
-        final AtomicInteger count = new AtomicInteger(0);
+        final AtomicInteger countTriesToRecoveryConnection = new AtomicInteger(0);
 
         factory.setAutomaticRecoveryEnabled(true);
-        factory.setShutdownTimeout(SHUTDOWN_TIMEOUT);
         factory.setConnectionRecoveryTriggeringCondition(s -> {
-            if (count.incrementAndGet() < COUNT_TRY_TO_CONNECT) {
+            if (countTriesToRecoveryConnection.get() < COUNT_TRY_TO_CONNECT) {
+                logger.info("Try to recovery connection to RabbitMQ. Count tries = {}", countTriesToRecoveryConnection.get() + 1);
                 return true;
             }
-            logger.error("Can not connect to RabbitMQ. Count tries = {}", count.get());
-            // TODO: we should stop the execution of the application. Don't use System.exit!!!
+            logger.error("Can not connect to RabbitMQ. Count tries = {}", countTriesToRecoveryConnection.get());
+            if (onFailedRecoveryConnection != null) {
+                onFailedRecoveryConnection.run();
+            } else {
+                // TODO: we should stop the execution of the application. Don't use System.exit!!!
+                throw new IllegalStateException("Can not recovery connection to RabbitMQ");
+            }
             return false;
         });
+
+        factory.setRecoveryDelayHandler(recoveryAttempts -> {
+                    int recoveryDelay = MIN_SHUTDOWN_TIMEOUT
+                            + (MAX_SHUTDOWN_TIMEOUT - MIN_SHUTDOWN_TIMEOUT)
+                            / COUNT_TRY_TO_CONNECT
+                            * countTriesToRecoveryConnection.get();
+
+                    logger.info("Recovery delay for '{}' try = {}", countTriesToRecoveryConnection.incrementAndGet(), recoveryDelay);
+                    return recoveryDelay;
+                }
+        );
 
         connection = factory.newConnection();
         channel = connection.createChannel();
