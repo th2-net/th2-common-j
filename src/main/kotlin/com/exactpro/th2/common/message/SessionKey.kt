@@ -15,6 +15,6 @@
  */
 package com.exactpro.th2.common.message
 
-import com.exactpro.th2.infra.grpc.Direction
+import com.exactpro.th2.common.grpc.Direction
 
 class SessionKey(val sessionAlias: String, val direction: Direction)
