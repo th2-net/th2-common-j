@@ -42,12 +42,14 @@ message MessageID {
 message MessageMetadata {
   MessageID id = 1; // Message id should be unique in session
   google.protobuf.Timestamp timestamp = 2; // Message creation timestamp
-  string message_type = 3; // Message type by dicitionary
+  string message_type = 3; // Message type by dictionary
+  map<string, string> properties = 4; // Additional properties for the message
 }
 
 message RawMessageMetadata {
   MessageID id = 1; // Message id should be unique in session
   google.protobuf.Timestamp timestamp = 2; // Message creation timestamp
+  map<string, string> properties = 3; // Additional properties for the raw message
 }
 
 //--// Message body structure //--//
