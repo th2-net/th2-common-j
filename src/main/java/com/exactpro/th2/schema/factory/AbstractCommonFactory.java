@@ -1,9 +1,12 @@
 /*****************************************************************************
  * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,11 +34,11 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.configuration.Configuration;
 import com.exactpro.th2.infra.grpc.EventBatch;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.metrics.CommonMetrics;
+import com.exactpro.th2.metrics.PrometheusConfiguration;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.schema.dictionary.DictionaryType;
 import com.exactpro.th2.schema.event.EventBatchRouter;
@@ -80,7 +83,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
-    private final HTTPServer prometheusExporter;
+    private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
 
     /**
      * Create factory with default implementation schema classes
@@ -105,15 +108,23 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
+    }
+    public void start() {
+        DefaultExports.initialize();
+        PrometheusConfiguration prometheusConfiguration = loadPrometheusConfiguration();
 
         CommonMetrics.setLiveness(true);
 
-        try {
-            DefaultExports.initialize();
-            this.prometheusExporter = new HTTPServer(Configuration.getEnvPrometheusHost(), Configuration.getEnvPrometheusPort());
-        } catch (IOException e) {
-            throw new CommonFactoryException("Failed to create Prometheus exporter", e);
-        }
+        this.prometheusExporter.updateAndGet(server -> {
+            if (server == null) {
+                try {
+                    server = new HTTPServer(prometheusConfiguration.getHost(), prometheusConfiguration.getPort());
+                } catch (IOException e) {
+                    throw new CommonFactoryException("Failed to create Prometheus exporter", e);
+                }
+            }
+            return server;
+        });
     }
 
     /**
@@ -320,6 +331,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected abstract Path getPathToDictionariesDir();
 
+    /**
+     * @return Path to configuration for prometheus server
+     * @see PrometheusConfiguration
+     */
+    protected abstract Path getPathToPrometheusConfiguration();
+
     protected RabbitMQConfiguration loadRabbitMqConfiguration() {
         return getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER);
     }
@@ -336,6 +353,15 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         mapper.registerModule(module);
 
         return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
+    }
+
+    protected PrometheusConfiguration loadPrometheusConfiguration() {
+        try {
+            return getConfiguration(getPathToPrometheusConfiguration(), PrometheusConfiguration.class, MAPPER);
+        } catch (IllegalStateException e) {
+            logger.warn("Can not load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
+            return new PrometheusConfiguration();
+        }
     }
 
     @Override
@@ -378,11 +404,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             return router;
         });
 
-        try {
-            prometheusExporter.stop();
-        } catch (Exception e) {
-            logger.error("Failed to close Prometheus exporter", e);
-        }
+        prometheusExporter.updateAndGet(server -> {
+            if (server != null) {
+                try {
+                    server.stop();
+                } catch (Exception e) {
+                    logger.error("Failed to close Prometheus exporter", e);
+                }
+            }
+            return null;
+        });
 
         logger.info("Common factory has been closed");
     }
