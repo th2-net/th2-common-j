@@ -49,7 +49,6 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
         if (channel == null) {
             channel = connection.createChannel();
-            channel.exchangeDeclare(exchangeName, "direct");
         }
     }
 
