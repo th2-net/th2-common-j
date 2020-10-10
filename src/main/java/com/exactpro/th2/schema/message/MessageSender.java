@@ -19,6 +19,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.rabbitmq.client.Connection;
 
 /**
@@ -27,7 +28,7 @@ import com.rabbitmq.client.Connection;
  */
 @NotThreadSafe
 public interface MessageSender<T> extends AutoCloseable {
-    void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String sendQueue);
+    void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull String sendQueue);
 
     void start() throws Exception;
 

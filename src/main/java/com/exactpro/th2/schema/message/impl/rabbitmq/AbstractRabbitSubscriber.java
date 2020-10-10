@@ -17,8 +17,6 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeoutException;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,8 +25,9 @@ import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
+import com.exactpro.th2.schema.message.impl.rabbitmq.channel.ChannelOwner;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.rabbitmq.client.Channel;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.Delivery;
 
@@ -42,51 +41,55 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private String subscriberName = null;
     private SubscribeTarget[] subscribeTargets = null;
 
-    private Connection connection = null;
-    private Channel channel = null;
+    private ChannelOwner channelOwner = null;
 
     @Override
-    public void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String subscriberName, @NotNull SubscribeTarget... subscribeTargets) {
+    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, String subscriberName, @NotNull SubscribeTarget... subscribeTargets) {
         if (subscribeTargets.length < 1) {
             throw new IllegalArgumentException("Subscribe targets must be more than 0");
         }
 
-        this.connection = Objects.requireNonNull(connection, "connection cannot be null");
+        this.channelOwner = new ChannelOwner(Objects.requireNonNull(connectionOwner, "connection cannot be null"));
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
-        this.subscriberName = subscriberName;
         this.subscribeTargets = subscribeTargets;
+
+        if (subscriberName == null) {
+            this.subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
+            logger.info("Subscriber will use default name: {}", this.subscriberName);
+        } else {
+            this.subscriberName = subscriberName + "." + System.currentTimeMillis();
+        }
     }
 
     @Override
     public void start() throws Exception {
-        if (connection == null || subscribeTargets == null || exchangeName == null) {
+        if (channelOwner == null || subscribeTargets == null || exchangeName == null) {
             throw new IllegalStateException("Subscriber is not initialized");
         }
 
-        if (subscriberName == null) {
-            subscriberName = "rabbit_mq_subscriber";
-            logger.info("Using default subscriber name: '{}'", subscriberName);
-        }
-
-        if (channel == null) {
-            channel = connection.createChannel();
-
+        channelOwner.tryToCreateChannel();
+        channelOwner.runOnChannel(channel -> {
             for (SubscribeTarget subscribeTarget : subscribeTargets) {
 
                 var queue = subscribeTarget.getQueue();
 
                 var routingKey = subscribeTarget.getRoutingKey();
 
-                channel.basicConsume(queue, true, subscriberName + "." + System.currentTimeMillis(), this::handle, this::canceled);
+                if (isOpen()) {
+                    channel.basicConsume(queue, true, subscriberName, this::handle, this::canceled);
+                }
 
                 logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
             }
-        }
+            return null;
+        }, () -> {
+            throw new IOException("Can not start listening. Channel is close");
+        });
     }
 
     @Override
     public boolean isOpen() {
-        return channel != null && channel.isOpen();
+        return channelOwner.isOpen();
     }
 
     @Override
@@ -99,13 +102,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
-    public void close() throws IOException, TimeoutException {
+    public void close() throws Exception {
         listeners.forEach(MessageListener::onClose);
         listeners.clear();
 
-        if (channel != null && channel.isOpen()) {
-            channel.close();
-        }
+        channelOwner.close();
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
@@ -128,11 +129,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 try {
                     listener.handler(consumeTag, filteredValue);
                 } catch (Exception listenerExc) {
-                    logger.warn("Message listener from class '" + listener.getClass() + "' threw exception", listenerExc);
+                    logger.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
                 }
             }
         } catch (Exception e) {
-            logger.error("Can not parse value from delivery for: " + consumeTag, e);
+            logger.error("Can not parse value from delivery for: {}", consumeTag, e);
         }
     }
 
@@ -140,8 +141,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         logger.warn("Consuming cancelled for: '{}'", consumerTag);
         try {
             close();
-        } catch (IOException | TimeoutException e) {
-            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName, subscribeTargets);
+        } catch (Exception e) {
+            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName, subscribeTargets, e);
         }
     }
 

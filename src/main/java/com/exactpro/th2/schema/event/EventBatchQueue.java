@@ -21,25 +21,26 @@ import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.rabbitmq.client.Connection;
 
 public class EventBatchQueue extends AbstractRabbitQueue<EventBatch> {
 
     @Override
-    protected MessageSender<EventBatch> createSender(@NotNull Connection connection, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSender<EventBatch> createSender(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSender eventBatchSender = new EventBatchSender();
-        eventBatchSender.init(connection, queueConfiguration.getExchange(), queueConfiguration.getQueue());
+        eventBatchSender.init(connectionOwner, queueConfiguration.getExchange(), queueConfiguration.getQueue());
         return eventBatchSender;
     }
 
     @Override
-    protected MessageSubscriber<EventBatch> createSubscriber(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSubscriber<EventBatch> createSubscriber(@NotNull ConnectionOwner connectionOwner, String subscriberName, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSubscriber eventBatchSubscriber = new EventBatchSubscriber();
         var subscribeTarget = SubscribeTarget.builder()
                 .routingKey(queueConfiguration.getName())
                 .queue(queueConfiguration.getQueue())
                 .build();
-        eventBatchSubscriber.init(connection, queueConfiguration.getExchange(), subscriberName, subscribeTarget);
+        eventBatchSubscriber.init(connectionOwner, queueConfiguration.getExchange(), subscriberName, subscribeTarget);
         return eventBatchSubscriber;
     }
 }

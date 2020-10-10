@@ -32,6 +32,16 @@ public class RabbitMQConfiguration {
     @JsonProperty(value = "exchange-name")
     private String exchangeName;
 
+    private int connectionTimeout = -1;
+
+    private int connectionCloseTimeout = 10_000;
+
+    private int countTryRecoveryConnection = 5;
+
+    private int minTimeoutForRecoveryConnection = 10_000;
+
+    private int maxTimeoutForRecoveryConnection = 60_000;
+
     public String getHost() {
         return host;
     }
@@ -88,6 +98,46 @@ public class RabbitMQConfiguration {
         this.exchangeName = exchangeName;
     }
 
+    public int getCountTryRecoveryConnection() {
+        return countTryRecoveryConnection;
+    }
+
+    public void setCountTryRecoveryConnection(int countTryRecoveryConnection) {
+        this.countTryRecoveryConnection = countTryRecoveryConnection;
+    }
+
+    public int getMinTimeoutForRecoveryConnection() {
+        return minTimeoutForRecoveryConnection;
+    }
+
+    public void setMinTimeoutForRecoveryConnection(int minTimeoutForRecoveryConnection) {
+        this.minTimeoutForRecoveryConnection = minTimeoutForRecoveryConnection;
+    }
+
+    public int getMaxTimeoutForRecoveryConnection() {
+        return maxTimeoutForRecoveryConnection;
+    }
+
+    public void setMaxTimeoutForRecoveryConnection(int maxTimeoutForRecoveryConnection) {
+        this.maxTimeoutForRecoveryConnection = maxTimeoutForRecoveryConnection;
+    }
+
+    public int getConnectionTimeout() {
+        return connectionTimeout;
+    }
+
+    public void setConnectionTimeout(int connectionTimeout) {
+        this.connectionTimeout = connectionTimeout;
+    }
+
+    public int getConnectionCloseTimeout() {
+        return connectionCloseTimeout;
+    }
+
+    public void setConnectionCloseTimeout(int connectionCloseTimeout) {
+        this.connectionCloseTimeout = connectionCloseTimeout;
+    }
+
     @Override
     public String toString() {
         return "RabbitMQConfiguration{" +
@@ -97,6 +147,11 @@ public class RabbitMQConfiguration {
                 ", username='" + username + '\'' +
                 ", password='" + password + '\'' +
                 ", subscriberName='" + subscriberName + '\'' +
+                ", connectionTimeout='" + connectionTimeout + '\'' +
+                ", connectionCloseTimeout='" + connectionCloseTimeout + '\'' +
+                ", countTryRecoveryConnection='" + countTryRecoveryConnection + '\'' +
+                ", minTimeoutForRecoveryConnection='" + minTimeoutForRecoveryConnection + '\'' +
+                ", maxTimeoutForRecoveryConnection='" + maxTimeoutForRecoveryConnection + '\'' +
                 '}';
     }
 }

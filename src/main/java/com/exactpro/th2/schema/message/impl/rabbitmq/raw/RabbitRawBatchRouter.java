@@ -20,18 +20,35 @@ import org.jetbrains.annotations.NotNull;
 import com.exactpro.th2.infra.grpc.RawMessage;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch.Builder;
+import com.exactpro.th2.schema.message.Attributes;
 import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
 import com.rabbitmq.client.Connection;
 
 public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch, RawMessageBatch.Builder> {
 
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(@NotNull Connection connection, String subscriberName, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionOwner connectionOwner, QueueConfiguration queueConfiguration) {
         MessageQueue<RawMessageBatch> queue = new RabbitRawBatchQueue();
-        queue.init(connection, subscriberName, queueConfiguration);
+        queue.init(connectionOwner, queueConfiguration);
         return queue;
+    }
+
+    @Override
+    protected String[] requiredAttributesForRouter() {
+        return new String[]{ Attributes.RAW.toString() };
+    }
+
+    @Override
+    protected String[] requiredAttributesForSubscribe() {
+        return new String[]{Attributes.SUBSCRIBE.toString()};
+    }
+
+    @Override
+    protected String[] requiredAttributesForSend() {
+        return new String[]{Attributes.PUBLISH.toString()};
     }
 
     @Override

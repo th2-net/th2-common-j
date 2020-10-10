@@ -14,68 +14,83 @@
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageSender;
+import com.exactpro.th2.schema.message.impl.rabbitmq.channel.ChannelOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private Connection connection = null;
-    private Channel channel = null;
-
     private String sendQueue = null;
     private String exchangeName = null;
+    private ChannelOwner channelOwner = null;
 
     @Override
-    public void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String sendQueue) {
-        this.connection = Objects.requireNonNull(connection, "connection cannot be null");
+    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull String sendQueue) {
+        this.channelOwner = new ChannelOwner(Objects.requireNonNull(connectionOwner, "connection cannot be null"));
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name can not be null");
         this.sendQueue = sendQueue;
     }
 
     @Override
     public void start() throws Exception {
-        if (connection == null || sendQueue == null || exchangeName == null) {
+        if (channelOwner == null || sendQueue == null || exchangeName == null) {
             throw new IllegalStateException("Sender is not initialized");
         }
 
-        if (channel == null) {
-            channel = connection.createChannel();
+        try {
+            channelOwner.tryToCreateChannel();
+        } catch (IllegalStateException e) {
+            throw new IllegalStateException("Can not start closed sender", e);
         }
     }
 
     @Override
     public boolean isOpen() {
-        return channel != null && channel.isOpen();
+        return channelOwner.isOpen();
     }
 
     @Override
     public void send(T value) throws IOException {
-        if (channel == null) {
-            throw new IllegalStateException("Can not send. Sender was not started");
+        if (channelOwner.wasClosed()) {
+            throw new IllegalStateException("Can not send message '" + toShortDebugString(value) + "'. Sender was closed");
         }
 
-        channel.basicPublish(exchangeName, sendQueue, null, valueToBytes(value));
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
-                    exchangeName, sendQueue, toShortDebugString(value));
+        try {
+            channelOwner.runOnChannel(channel -> {
+                channel.basicPublish(exchangeName, sendQueue, null, valueToBytes(value));
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
+                            exchangeName, sendQueue, toShortDebugString(value));
+                }
+                return null;
+            }, () -> {
+                throw new Exception("Can not send message, because sender closed.");
+            });
+        } catch (Exception e) {
+            throw new IOException("Can not send message: " + toShortDebugString(value), e);
         }
     }
 
     @Override
-    public void close() throws IOException, TimeoutException {
-        if (channel != null && channel.isOpen()) {
-            channel.close();
-        }
+    public void close() throws Exception {
+
     }
 
     protected String toShortDebugString(T value) {
@@ -83,4 +98,6 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     }
 
     protected abstract byte[] valueToBytes(T value);
+
+
 }

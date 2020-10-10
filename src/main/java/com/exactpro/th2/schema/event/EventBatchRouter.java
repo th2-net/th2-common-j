@@ -18,22 +18,39 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import com.exactpro.th2.infra.grpc.EventBatch;
+import com.exactpro.th2.schema.message.Attributes;
 import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.rabbitmq.client.Connection;
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
     @Override
-    protected MessageQueue<EventBatch> createQueue(Connection connection, String subscriberName, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<EventBatch> createQueue(ConnectionOwner connectionOwner, QueueConfiguration queueConfiguration) {
         EventBatchQueue eventBatchQueue = new EventBatchQueue();
-        eventBatchQueue.init(connection, subscriberName, queueConfiguration);
+        eventBatchQueue.init(connectionOwner, queueConfiguration);
         return eventBatchQueue;
     }
 
     @Override
     protected Map<String, EventBatch> findByFilter(Map<String, QueueConfiguration> queues, EventBatch msg) {
         return queues.entrySet().stream().collect(Collectors.toMap(Entry::getKey, v -> msg));
+    }
+
+    @Override
+    protected String[] requiredAttributesForRouter() {
+        return new String[]{ Attributes.EVENT.toString() };
+    }
+
+    @Override
+    protected String[] requiredAttributesForSubscribe() {
+        return new String[]{Attributes.SUBSCRIBE.toString()};
+    }
+
+    @Override
+    protected String[] requiredAttributesForSend() {
+        return new String[]{Attributes.PUBLISH.toString()};
     }
 }

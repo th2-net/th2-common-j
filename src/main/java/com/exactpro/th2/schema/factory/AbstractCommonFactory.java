@@ -25,6 +25,8 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -49,6 +51,7 @@ import com.exactpro.th2.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.schema.message.MessageRouter;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.exactpro.th2.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
@@ -75,6 +78,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final MessageRouterConfiguration messageRouterConfiguration = loadMessageRouterConfiguration();
     @Getter(lazy = true)
     private final GrpcRouterConfiguration grpcRouterConfiguration = loadGrpcRouterConfiguration();
+    @Getter(lazy = true)
+    private final ConnectionOwner connectionOwner = createConnectionOwner();
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
@@ -84,6 +89,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
+    private final Deque<Runnable> shutdownHandlers = new ConcurrentLinkedDeque<>();
+    private final Thread shutdownHook = new Thread(() -> {
+        logger.info("Application will be stop");
+        for (Runnable onShutdownHandler : shutdownHandlers) {
+            try {
+                onShutdownHandler.run();
+            } catch (Exception e) {
+                logger.error("Application throw exception while stop", e);
+            }
+        }
+    });
 
     /**
      * Create factory with default implementation schema classes
@@ -108,6 +124,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
+
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
     public void start() {
         DefaultExports.initialize();
@@ -125,6 +143,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return server;
         });
+
+        addShutdownHandlerToStart(() -> CommonMetrics.setLiveness(false));
+        addShutdownHandlerToStart(() -> this.prometheusExporter.updateAndGet(server -> {
+            if (server != null) {
+                server.stop();
+            }
+            return null;
+        }));
     }
 
     /**
@@ -137,7 +163,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
+                    router.init(getConnectionOwner(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
@@ -157,7 +183,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
+                    router.init(getConnectionOwner(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
@@ -177,7 +203,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConfiguration(), getMessageRouterConfiguration());
+                    router.init(getConnectionOwner(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
@@ -298,6 +324,18 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * Add shutdown handler in shutdown hook for last execution
+     * @param handler
+     */
+    public void addShutdownHandlerToEnd(Runnable handler) {
+        shutdownHandlers.addLast(handler);
+    }
+
+    public void addShutdownHandlerToStart(Runnable handler) {
+        shutdownHandlers.addFirst(handler);
+    }
+
+    /**
      * @return Path to configuration for RabbitMQ connection
      * @see RabbitMQConfiguration
      */
@@ -362,6 +400,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             logger.warn("Can not load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
             return new PrometheusConfiguration();
         }
+    }
+
+    protected ConnectionOwner createConnectionOwner() {
+        addShutdownHandlerToStart(() -> getConnectionOwner().close());
+        return new ConnectionOwner(getRabbitMqConfiguration(), () -> { if (!shutdownHook.isAlive()) shutdownHook.start();});
     }
 
     @Override
