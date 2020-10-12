@@ -29,6 +29,7 @@ import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.schema.message.MessageRouter;
+import org.apache.log4j.PropertyConfigurator;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -51,6 +52,12 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path cradle;
     private final Path custom;
     private final Path dictionariesDir;
+
+    private static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
+
+    static {
+        PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
+    }
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
@@ -78,6 +85,8 @@ public class CommonFactory extends AbstractCommonFactory {
         this.prometheus = prometheus;
 
         start();
+
+        System.setProperty("log4j.configurationFile", LOG4J_CONFIG_DEFAULT_PATH);
     }
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
