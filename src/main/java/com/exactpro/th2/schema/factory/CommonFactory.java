@@ -85,8 +85,6 @@ public class CommonFactory extends AbstractCommonFactory {
         this.prometheus = prometheus;
 
         start();
-
-        System.setProperty("log4j.configurationFile", LOG4J_CONFIG_DEFAULT_PATH);
     }
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
