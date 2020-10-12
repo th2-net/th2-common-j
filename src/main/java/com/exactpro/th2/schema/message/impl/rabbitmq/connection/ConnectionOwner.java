@@ -15,8 +15,8 @@ package com.exactpro.th2.schema.message.impl.rabbitmq.connection;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -27,6 +27,8 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfi
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Recoverable;
+import com.rabbitmq.client.RecoveryListener;
 
 import lombok.val;
 
@@ -34,10 +36,23 @@ public class ConnectionOwner implements AutoCloseable {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final AtomicReference<Connection> connection = new AtomicReference<>(null);
+    private final Connection connection;
     private final AtomicInteger countTriesToRecoveryConnection = new AtomicInteger(0);
+    private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final RabbitMQConfiguration configuration;
     private final String subscriberName;
+    private final boolean recoveryListenerAddedToConnection;
+
+    private final RecoveryListener recoveryListener = new RecoveryListener() {
+        @Override
+        public void handleRecovery(Recoverable recoverable) {
+            logger.debug("Count tries to recovery connection reset to 0");
+            countTriesToRecoveryConnection.set(0);
+        }
+
+        @Override
+        public void handleRecoveryStarted(Recoverable recoverable) {}
+    };
 
     public ConnectionOwner(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
@@ -70,11 +85,13 @@ public class ConnectionOwner implements AutoCloseable {
 
         factory.setAutomaticRecoveryEnabled(true);
         factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
-            if (countTriesToRecoveryConnection.get() < rabbitMQConfiguration.getCountTryRecoveryConnection()) {
-                logger.info("Try to recovery connection to RabbitMQ. Count tries = {}", countTriesToRecoveryConnection.get() + 1);
+            int tmpCountTriesToRecovery = countTriesToRecoveryConnection.get();
+
+            if (tmpCountTriesToRecovery < rabbitMQConfiguration.getCountTryRecoveryConnection()) {
+                logger.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
                 return true;
             }
-            logger.error("Can not connect to RabbitMQ. Count tries = {}", countTriesToRecoveryConnection.get());
+            logger.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
             if (onFailedRecoveryConnection != null) {
                 onFailedRecoveryConnection.run();
             } else {
@@ -85,32 +102,58 @@ public class ConnectionOwner implements AutoCloseable {
         });
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
+                    int tmpCountTriesToRecovery = countTriesToRecoveryConnection.getAndIncrement();
+
                     int recoveryDelay = rabbitMQConfiguration.getMinTimeoutForRecoveryConnection()
                             + (rabbitMQConfiguration.getMaxTimeoutForRecoveryConnection() - rabbitMQConfiguration.getMinTimeoutForRecoveryConnection())
                             / rabbitMQConfiguration.getCountTryRecoveryConnection()
-                            * countTriesToRecoveryConnection.get();
+                            * tmpCountTriesToRecovery;
 
-                    logger.info("Recovery delay for '{}' try = {}", countTriesToRecoveryConnection.incrementAndGet(), recoveryDelay);
+                    logger.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
                     return recoveryDelay;
                 }
         );
 
-        this.connection.updateAndGet(connection -> {
-            try {
-                return factory.newConnection();
-            } catch (IOException | TimeoutException e) {
-                throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
-            }
-        });
+        try {
+            this.connection = factory.newConnection();
+        } catch (IOException | TimeoutException e) {
+            throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
+        }
+
+        boolean tmpRecoveryListenerAddedToConnection = false;
+        try {
+            Recoverable recoverableConnection = (Recoverable) this.connection;
+            recoverableConnection.addRecoveryListener(recoveryListener);
+            tmpRecoveryListenerAddedToConnection = true;
+            logger.debug("Recovery listener was added to connection.");
+        } catch (ClassCastException e) {
+            logger.warn("Can not add recovery handler to connection. Count tries to recovery connection will not reset to 0 after recovery connection");
+        }
+
+        recoveryListenerAddedToConnection = tmpRecoveryListenerAddedToConnection;
     }
 
     public Channel createChannel() throws IOException {
-        Connection tmp = this.connection.get();
-        if (tmp == null || !tmp.isOpen()) {
-            throw new IllegalStateException("Connection is close");
+
+        while (!connection.isOpen() && !connectionIsClosed.get()) {
+            Thread.yield();
         }
 
-        return tmp.createChannel();
+        if (connectionIsClosed.get()) {
+            throw new IllegalStateException("Connection already close");
+        }
+
+        Channel newChannel = this.connection.createChannel();
+        if (!recoveryListenerAddedToConnection) {
+            try {
+                Recoverable recoverableConnection = (Recoverable) newChannel;
+                recoverableConnection.addRecoveryListener(recoveryListener);
+            } catch (ClassCastException e) {
+                logger.warn("Can not add recovery handler to channel. Count tries to recovery connection may will not reset to zero after recovery connection");
+            }
+        }
+
+        return newChannel;
     }
 
     public String getSubscriberName() {
@@ -119,15 +162,14 @@ public class ConnectionOwner implements AutoCloseable {
 
     @Override
     public void close() throws IllegalStateException {
-        connection.updateAndGet(connection -> {
-            if (connection != null && connection.isOpen()) {
-                try {
-                    connection.close(configuration.getConnectionCloseTimeout());
-                } catch (IOException e) {
-                    throw new IllegalStateException("Can not close connection");
-                }
+        connectionIsClosed.set(true);
+
+        if (connection.isOpen()) {
+            try {
+                connection.close(configuration.getConnectionCloseTimeout());
+            } catch (IOException e) {
+                throw new IllegalStateException("Can not close connection");
             }
-            return null;
-        });
+        }
     }
 }
