@@ -28,7 +28,7 @@ public class EventBatchQueue extends AbstractRabbitQueue<EventBatch> {
     @Override
     protected MessageSender<EventBatch> createSender(@NotNull Connection connection, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSender eventBatchSender = new EventBatchSender();
-        eventBatchSender.init(connection, queueConfiguration.getExchange(), queueConfiguration.getQueue());
+        eventBatchSender.init(connection, queueConfiguration.getExchange(), queueConfiguration.getName());
         return eventBatchSender;
     }
 

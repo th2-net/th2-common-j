@@ -13,19 +13,26 @@
 
 package com.exactpro.th2.schema.message.configuration;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-
 import java.util.Collections;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import lombok.Getter;
 
 @Getter
 public class QueueConfiguration implements Configuration {
 
+    /**
+     * Routing key in RabbitMQ
+     */
     @JsonProperty(required = true)
     private String name;
 
+    /**
+     * Queue name in RabbitMQ
+     */
     @JsonProperty(required = true)
     private String queue;
 
