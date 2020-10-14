@@ -15,17 +15,22 @@ package com.exactpro.th2.schema.event;
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.collections4.SetUtils;
+
 import com.exactpro.th2.infra.grpc.EventBatch;
-import com.exactpro.th2.schema.message.Attributes;
 import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.QueueAttribute;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
-import com.rabbitmq.client.Connection;
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
+
+    private Set<String> requiredSubscribeAttribute = SetUtils.hashSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private Set<String> requiredSendAttributes = SetUtils.hashSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
     protected MessageQueue<EventBatch> createQueue(ConnectionOwner connectionOwner, QueueConfiguration queueConfiguration) {
@@ -40,17 +45,12 @@ public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
     }
 
     @Override
-    protected String[] requiredAttributesForRouter() {
-        return new String[]{ Attributes.EVENT.toString() };
+    protected Set<String> requiredSubscribeAttributes() {
+        return requiredSubscribeAttribute;
     }
 
     @Override
-    protected String[] requiredAttributesForSubscribe() {
-        return new String[]{Attributes.SUBSCRIBE.toString()};
-    }
-
-    @Override
-    protected String[] requiredAttributesForSend() {
-        return new String[]{Attributes.PUBLISH.toString()};
+    protected Set<String> requiredSendAttributes() {
+        return requiredSendAttributes;
     }
 }

@@ -14,20 +14,24 @@
 package com.exactpro.th2.schema.message.impl.rabbitmq.parsed;
 
 import java.util.List;
+import java.util.Set;
 
+import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.MessageBatch.Builder;
-import com.exactpro.th2.schema.message.Attributes;
 import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.QueueAttribute;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
-import com.rabbitmq.client.Connection;
 
 public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Message, MessageBatch, MessageBatch.Builder> {
+
+    private Set<String> requiredSubscribeAttribute = SetUtils.hashSet(QueueAttribute.PARSED.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private Set<String> requiredSendAttributes = SetUtils.hashSet(QueueAttribute.PARSED.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
     protected MessageQueue<MessageBatch> createQueue(@NotNull ConnectionOwner connectionOwner, QueueConfiguration queueConfiguration) {
@@ -37,18 +41,13 @@ public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Me
     }
 
     @Override
-    protected String[] requiredAttributesForRouter() {
-        return new String[]{ Attributes.PARSED.toString() };
+    protected Set<String> requiredSubscribeAttributes() {
+        return requiredSubscribeAttribute;
     }
 
     @Override
-    protected String[] requiredAttributesForSubscribe() {
-        return new String[]{Attributes.SUBSCRIBE.toString()};
-    }
-
-    @Override
-    protected String[] requiredAttributesForSend() {
-        return new String[]{Attributes.PUBLISH.toString()};
+    protected Set<String> requiredSendAttributes() {
+        return requiredSendAttributes;
     }
 
     @Override

@@ -26,6 +26,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Deque;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -61,6 +62,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
+import kotlin.Pair;
 import lombok.Getter;
 
 /**
@@ -79,7 +81,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     @Getter(lazy = true)
     private final GrpcRouterConfiguration grpcRouterConfiguration = loadGrpcRouterConfiguration();
     @Getter(lazy = true)
-    private final ConnectionOwner connectionOwner = createConnectionOwner();
+    private final ConnectionOwner rabbitMqConnection = createConnectionOwner();
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
@@ -89,16 +91,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
-    private final Deque<Runnable> shutdownHandlers = new ConcurrentLinkedDeque<>();
+    private final Deque<Pair<String, Runnable>> shutdownHandlers = new ConcurrentLinkedDeque<>();
     private final Thread shutdownHook = new Thread(() -> {
-        logger.info("Application will be stop");
-        for (Runnable onShutdownHandler : shutdownHandlers) {
+        logger.debug("Stopping application");
+        for (Pair<String, Runnable> onShutdownHandler : shutdownHandlers) {
             try {
-                onShutdownHandler.run();
+                onShutdownHandler.getSecond().run();
             } catch (Exception e) {
-                logger.error("Application throw exception while stop", e);
+                logger.error("Failed to execute one of the shutdown handlers. Handler name = {}",onShutdownHandler.getFirst(), e);
             }
         }
+        logger.info("Stopped application");
     });
 
     /**
@@ -124,8 +127,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
-
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
     public void start() {
         DefaultExports.initialize();
@@ -144,8 +145,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             return server;
         });
 
-        addShutdownHandlerToStart(() -> CommonMetrics.setLiveness(false));
-        addShutdownHandlerToStart(() -> this.prometheusExporter.updateAndGet(server -> {
+        addOnConnectionLostHandlerToFirst("Liveness", () -> CommonMetrics.setLiveness(false));
+        addOnConnectionLostHandlerToFirst("Stop prometheus server", () -> this.prometheusExporter.updateAndGet(server -> {
             if (server != null) {
                 server.stop();
             }
@@ -163,7 +164,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getConnectionOwner(), getMessageRouterConfiguration());
+                    router.init(getRabbitMqConnection(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
@@ -183,7 +184,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getConnectionOwner(), getMessageRouterConfiguration());
+                    router.init(getRabbitMqConnection(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
@@ -203,7 +204,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(getConnectionOwner(), getMessageRouterConfiguration());
+                    router.init(getRabbitMqConnection(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
@@ -324,15 +325,19 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Add shutdown handler in shutdown hook for last execution
+     * Add on connection lost handler for last execution
      * @param handler
      */
-    public void addShutdownHandlerToEnd(Runnable handler) {
-        shutdownHandlers.addLast(handler);
+    public void addOnConnectionLostHandlerToLast(String name, @NotNull Runnable handler) {
+        shutdownHandlers.addLast(new Pair<>(name, Objects.requireNonNull(handler, "Shutdown handle can not be null")));
     }
 
-    public void addShutdownHandlerToStart(Runnable handler) {
-        shutdownHandlers.addFirst(handler);
+    /**
+     * Add on connection lost handler for first execution
+     * @param handler
+     */
+    public void addOnConnectionLostHandlerToFirst(String name, @NotNull Runnable handler) {
+        shutdownHandlers.addFirst(new Pair<>(name, Objects.requireNonNull(handler, "Shutdown handle can not be null")));
     }
 
     /**
@@ -403,7 +408,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected ConnectionOwner createConnectionOwner() {
-        addShutdownHandlerToStart(() -> getConnectionOwner().close());
+        addOnConnectionLostHandlerToFirst("Close RabbitMQ connection", () -> getRabbitMqConnection().close());
         return new ConnectionOwner(getRabbitMqConfiguration(), () -> { if (!shutdownHook.isAlive()) shutdownHook.start();});
     }
 
@@ -457,6 +462,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return null;
         });
+
+        try {
+            getRabbitMqConnection().close();
+        } catch (Exception e) {
+            logger.error("Failed to close RabbitMQ connection", e);
+        }
 
         logger.info("Common factory has been closed");
     }

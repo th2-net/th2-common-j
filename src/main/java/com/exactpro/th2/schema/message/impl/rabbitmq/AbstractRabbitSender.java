@@ -14,83 +14,75 @@
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageSender;
-import com.exactpro.th2.schema.message.impl.rabbitmq.channel.ChannelOwner;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private String sendQueue = null;
-    private String exchangeName = null;
-    private ChannelOwner channelOwner = null;
+    private final AtomicReference<String> sendQueue = new AtomicReference<>();
+    private final AtomicReference<String> exchangeName = new AtomicReference<>();
+    private final AtomicReference<ConnectionOwner> connectionOwner = new AtomicReference<>();
 
     @Override
     public void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull String sendQueue) {
-        this.channelOwner = new ChannelOwner(Objects.requireNonNull(connectionOwner, "connection cannot be null"));
-        this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name can not be null");
-        this.sendQueue = sendQueue;
-    }
+        Objects.requireNonNull(connectionOwner, "Connection can not be null");
+        Objects.requireNonNull(exchangeName, "Exchange name can not be null");
+        Objects.requireNonNull(sendQueue, "Send queue can not be null");
 
-    @Override
-    public void start() throws Exception {
-        if (channelOwner == null || sendQueue == null || exchangeName == null) {
-            throw new IllegalStateException("Sender is not initialized");
+        if (this.connectionOwner.get() != null && this.sendQueue.get() != null && this.exchangeName.get() != null) {
+            throw new IllegalStateException("Sender is already initialize");
         }
 
-        try {
-            channelOwner.tryToCreateChannel();
-        } catch (IllegalStateException e) {
-            throw new IllegalStateException("Can not start closed sender", e);
-        }
+        this.connectionOwner.updateAndGet(connection -> {
+            if (connection == null) {
+                connection = connectionOwner;
+            }
+            return connection;
+        });
+
+        this.exchangeName.updateAndGet(exchange -> {
+            if (exchange == null) {
+                exchange = exchangeName;
+            }
+            return exchange;
+        });
+
+        this.sendQueue.updateAndGet(queue -> {
+            if (queue == null) {
+                queue = sendQueue;
+            }
+            return queue;
+        });
     }
 
     @Override
     public boolean isOpen() {
-        return channelOwner.isOpen();
+        ConnectionOwner connectionOwner = this.connectionOwner.get();
+        return connectionOwner != null && connectionOwner.isOpen();
     }
 
     @Override
     public void send(T value) throws IOException {
-        if (channelOwner.wasClosed()) {
-            throw new IllegalStateException("Can not send message '" + toShortDebugString(value) + "'. Sender was closed");
-        }
 
         try {
-            channelOwner.runOnChannel(channel -> {
-                channel.basicPublish(exchangeName, sendQueue, null, valueToBytes(value));
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
-                            exchangeName, sendQueue, toShortDebugString(value));
-                }
-                return null;
-            }, () -> {
-                throw new Exception("Can not send message, because sender closed.");
-            });
+            ConnectionOwner connection = this.connectionOwner.get();
+            connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value));
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
+                        exchangeName, sendQueue, toShortDebugString(value));
+            }
         } catch (Exception e) {
             throw new IOException("Can not send message: " + toShortDebugString(value), e);
         }
-    }
-
-    @Override
-    public void close() throws Exception {
-
     }
 
     protected String toShortDebugString(T value) {

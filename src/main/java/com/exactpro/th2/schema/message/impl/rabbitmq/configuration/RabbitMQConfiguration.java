@@ -36,11 +36,11 @@ public class RabbitMQConfiguration {
 
     private int connectionCloseTimeout = 10_000;
 
-    private int countTryRecoveryConnection = 5;
+    private int maxRecoveryAttempts = 5;
 
-    private int minTimeoutForRecoveryConnection = 10_000;
+    private int minRecoveryConnectionTimeout = 10_000;
 
-    private int maxTimeoutForRecoveryConnection = 60_000;
+    private int maxRecoveryConnectionTimeout = 60_000;
 
     public String getHost() {
         return host;
@@ -98,28 +98,28 @@ public class RabbitMQConfiguration {
         this.exchangeName = exchangeName;
     }
 
-    public int getCountTryRecoveryConnection() {
-        return countTryRecoveryConnection;
+    public int getMaxRecoveryAttempts() {
+        return maxRecoveryAttempts;
     }
 
-    public void setCountTryRecoveryConnection(int countTryRecoveryConnection) {
-        this.countTryRecoveryConnection = countTryRecoveryConnection;
+    public void setMaxRecoveryAttempts(int maxRecoveryAttempts) {
+        this.maxRecoveryAttempts = maxRecoveryAttempts;
     }
 
-    public int getMinTimeoutForRecoveryConnection() {
-        return minTimeoutForRecoveryConnection;
+    public int getMinRecoveryConnectionTimeout() {
+        return minRecoveryConnectionTimeout;
     }
 
-    public void setMinTimeoutForRecoveryConnection(int minTimeoutForRecoveryConnection) {
-        this.minTimeoutForRecoveryConnection = minTimeoutForRecoveryConnection;
+    public void setMinRecoveryConnectionTimeout(int minRecoveryConnectionTimeout) {
+        this.minRecoveryConnectionTimeout = minRecoveryConnectionTimeout;
     }
 
-    public int getMaxTimeoutForRecoveryConnection() {
-        return maxTimeoutForRecoveryConnection;
+    public int getMaxRecoveryConnectionTimeout() {
+        return maxRecoveryConnectionTimeout;
     }
 
-    public void setMaxTimeoutForRecoveryConnection(int maxTimeoutForRecoveryConnection) {
-        this.maxTimeoutForRecoveryConnection = maxTimeoutForRecoveryConnection;
+    public void setMaxRecoveryConnectionTimeout(int maxRecoveryConnectionTimeout) {
+        this.maxRecoveryConnectionTimeout = maxRecoveryConnectionTimeout;
     }
 
     public int getConnectionTimeout() {
@@ -149,9 +149,9 @@ public class RabbitMQConfiguration {
                 ", subscriberName='" + subscriberName + '\'' +
                 ", connectionTimeout='" + connectionTimeout + '\'' +
                 ", connectionCloseTimeout='" + connectionCloseTimeout + '\'' +
-                ", countTryRecoveryConnection='" + countTryRecoveryConnection + '\'' +
-                ", minTimeoutForRecoveryConnection='" + minTimeoutForRecoveryConnection + '\'' +
-                ", maxTimeoutForRecoveryConnection='" + maxTimeoutForRecoveryConnection + '\'' +
+                ", maxRecoveryAttempts='" + maxRecoveryAttempts + '\'' +
+                ", minRecoveryConnectionTimeout='" + minRecoveryConnectionTimeout + '\'' +
+                ", maxRecoveryConnectionTimeout='" + maxRecoveryConnectionTimeout + '\'' +
                 '}';
     }
 }

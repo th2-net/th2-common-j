@@ -15,9 +15,7 @@ package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jetbrains.annotations.NotNull;
@@ -27,25 +25,45 @@ import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
-import com.rabbitmq.client.Connection;
 
 public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
-    private ConnectionOwner connectionOwner;
-    private String subscriberName;
-    private QueueConfiguration queueConfiguration;
-    private final AtomicReference<MessageSender<T>> sender = new AtomicReference<>(null);
-    private final AtomicReference<MessageSubscriber<T>> subscriber = new AtomicReference<>(null);
+
+    private final AtomicReference<ConnectionOwner> connection = new AtomicReference<>();
+    private final AtomicReference<QueueConfiguration> queueConfiguration = new AtomicReference<>();
+
+    private final AtomicReference<MessageSender<T>> sender = new AtomicReference<>();
+    private final AtomicReference<MessageSubscriber<T>> subscriber = new AtomicReference<>();
 
     @Override
-    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration) {
-        this.connectionOwner = Objects.requireNonNull(connectionOwner, "connection cannot be null");
-        this.subscriberName = connectionOwner.getSubscriberName();
-        this.queueConfiguration = Objects.requireNonNull(queueConfiguration, "queueConfiguration cannot be null");
+    public void init(@NotNull ConnectionOwner connectionWrapper, @NotNull QueueConfiguration queueConfiguration) {
+        if (this.connection.get() != null && this.queueConfiguration.get() != null) {
+            throw new IllegalStateException("Queue is already initialize");
+        }
+
+        Objects.requireNonNull(connection, "Connection can not be null");
+        Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
+
+        this.connection.updateAndGet(connection -> {
+            if (connection == null) {
+                connection = connectionWrapper;
+            }
+            return connection;
+        });
+
+        this.queueConfiguration.updateAndGet(configuration -> {
+            if (configuration == null) {
+                configuration = queueConfiguration;
+            }
+            return configuration;
+        });
     }
 
     @Override
     public MessageSubscriber<T> getSubscriber() {
-        if (connectionOwner == null || queueConfiguration == null) {
+        ConnectionOwner connectionWrapper = connection.get();
+        QueueConfiguration queueConfiguration = this.queueConfiguration.get();
+
+        if (connectionWrapper == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue is not initialized");
         }
 
@@ -53,9 +71,9 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
             throw new IllegalStateException("Queue can not read");
         }
 
-        return subscriber.updateAndGet(subscriber -> {
+        return subscriber.updateAndGet( subscriber -> {
             if (subscriber == null) {
-                subscriber = createSubscriber(connectionOwner, subscriberName, queueConfiguration);
+                subscriber = createSubscriber(connectionWrapper, queueConfiguration);
             }
             return subscriber;
         });
@@ -63,7 +81,10 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
     @Override
     public MessageSender<T> getSender() {
-        if (connectionOwner == null || queueConfiguration == null) {
+        ConnectionOwner connectionWrapper = connection.get();
+        QueueConfiguration queueConfiguration = this.queueConfiguration.get();
+
+        if (connectionWrapper == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue is not initialized");
         }
 
@@ -73,7 +94,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
         return sender.updateAndGet(sender -> {
             if (sender == null) {
-                sender = createSender(connectionOwner, queueConfiguration);
+                sender = createSender(connectionWrapper, queueConfiguration);
             }
             return sender;
         });
@@ -83,20 +104,14 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
     public void close() throws Exception {
         Collection<Exception> exceptions = new ArrayList<>();
 
-        subscriber.updateAndGet(subscriber -> {
-            try {
-                subscriber.close();
-            } catch (Exception e) {
-                exceptions.add(e);
-            }
-            return null;
-        });
 
-        sender.updateAndGet(sender -> {
-            try {
-                sender.close();
-            } catch (Exception e) {
-                exceptions.add(e);
+        subscriber.updateAndGet(subscriber -> {
+            if (subscriber != null) {
+                try {
+                    subscriber.close();
+                } catch (Exception e) {
+                    exceptions.add(e);
+                }
             }
             return null;
         });
@@ -110,5 +125,5 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
     protected abstract MessageSender<T> createSender(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration);
 
-    protected abstract MessageSubscriber<T> createSubscriber(@NotNull ConnectionOwner connectionOwner, String subscriberName, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageSubscriber<T> createSubscriber(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration);
 }

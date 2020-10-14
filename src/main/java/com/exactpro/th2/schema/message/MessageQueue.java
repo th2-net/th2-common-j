@@ -17,7 +17,6 @@ import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
-import com.rabbitmq.client.Connection;
 
 /**
  * Message queue

@@ -10,12 +10,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.schema.message.impl.rabbitmq.channel;
+package com.exactpro.th2.schema.message;
 
-import com.rabbitmq.client.Channel;
+public enum QueueAttribute {
+    FIRST("first"),
+    SECOND("second"),
+    SUBSCRIBE("subscribe"),
+    PUBLISH("publish"),
+    RAW("raw"),
+    PARSED("parsed"),
+    STORE("store"),
+    EVENT("event")
+    ;
+    private String value;
 
-public interface ChannelUsage<T> {
+    QueueAttribute(String value) {
+        this.value = value;
+    }
 
-    T use(Channel channel) throws Exception;
-
+    @Override
+    public String toString() {
+       return value;
+    }
 }

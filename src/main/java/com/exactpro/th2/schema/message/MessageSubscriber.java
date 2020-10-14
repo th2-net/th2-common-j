@@ -19,7 +19,6 @@ import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
-import com.rabbitmq.client.Connection;
 
 /**
  * Listen messages and transmit it to {@link MessageListener}
@@ -28,7 +27,7 @@ import com.rabbitmq.client.Connection;
  */
 @NotThreadSafe
 public interface MessageSubscriber<T> extends AutoCloseable {
-    void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull String subscriberName, @NotNull SubscribeTarget... subscribeTargets);
+    void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets);
 
     void start() throws Exception;
 

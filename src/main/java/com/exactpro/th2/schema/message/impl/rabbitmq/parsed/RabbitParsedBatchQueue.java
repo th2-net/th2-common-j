@@ -22,7 +22,6 @@ import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
-import com.rabbitmq.client.Connection;
 
 public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
 
@@ -34,13 +33,13 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
     }
 
     @Override
-    protected MessageSubscriber<MessageBatch> createSubscriber(@NotNull ConnectionOwner connectionOwner, String subscriberName, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSubscriber<MessageBatch> createSubscriber(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration) {
         MessageSubscriber<MessageBatch> result = new RabbitParsedBatchSubscriber(queueConfiguration.getFilters());
         var subscribeTarget = SubscribeTarget.builder()
                 .routingKey(queueConfiguration.getName())
                 .queue(queueConfiguration.getQueue())
                 .build();
-        result.init(connectionOwner, queueConfiguration.getExchange(), subscriberName, subscribeTarget);
+        result.init(connectionOwner, queueConfiguration.getExchange(), subscribeTarget);
         return result;
     }
 }

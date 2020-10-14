@@ -19,7 +19,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 
 /**

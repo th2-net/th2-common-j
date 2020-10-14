@@ -14,9 +14,10 @@
 package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,88 +26,112 @@ import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.impl.rabbitmq.channel.ChannelOwner;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
-import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.Delivery;
 
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     protected final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
 
-    private final Set<MessageListener<T>> listeners = new HashSet<>();
-
-    private String exchangeName = null;
-    private String subscriberName = null;
-    private SubscribeTarget[] subscribeTargets = null;
-
-    private ChannelOwner channelOwner = null;
+    private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
+    private final AtomicReference<String> exchangeName = new AtomicReference<>();
+    private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
+    private final AtomicReference<ConnectionOwner> connectionOwner = new AtomicReference<>();
+    private final AtomicReference<String> consumerTag = new AtomicReference<>();
 
     @Override
-    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, String subscriberName, @NotNull SubscribeTarget... subscribeTargets) {
-        if (subscribeTargets.length < 1) {
-            throw new IllegalArgumentException("Subscribe targets must be more than 0");
+    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
+        Objects.requireNonNull(connectionOwner, "Connection cannot be null");
+        Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
+        Objects.requireNonNull(subscribeTarget, "Subscriber target is can not be null");
+
+        if (this.connectionOwner.get() != null || this.exchangeName.get() != null || this.subscribeTarget.get() != null) {
+            throw new IllegalStateException("Subscriber is already initialize");
         }
 
-        this.channelOwner = new ChannelOwner(Objects.requireNonNull(connectionOwner, "connection cannot be null"));
-        this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
-        this.subscribeTargets = subscribeTargets;
-
-        if (subscriberName == null) {
-            this.subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
-            logger.info("Subscriber will use default name: {}", this.subscriberName);
-        } else {
-            this.subscriberName = subscriberName + "." + System.currentTimeMillis();
-        }
-    }
-
-    @Override
-    public void start() throws Exception {
-        if (channelOwner == null || subscribeTargets == null || exchangeName == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
-        channelOwner.tryToCreateChannel();
-        channelOwner.runOnChannel(channel -> {
-            for (SubscribeTarget subscribeTarget : subscribeTargets) {
-
-                var queue = subscribeTarget.getQueue();
-
-                var routingKey = subscribeTarget.getRoutingKey();
-
-                if (isOpen()) {
-                    channel.basicConsume(queue, true, subscriberName, this::handle, this::canceled);
-                }
-
-                logger.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+        this.connectionOwner.updateAndGet(connection -> {
+            if (connection == null) {
+                connection = connectionOwner;
             }
-            return null;
-        }, () -> {
-            throw new IOException("Can not start listening. Channel is close");
+            return connection;
+        });
+
+        this.exchangeName.updateAndGet(exchange -> {
+            if (exchange == null) {
+                exchange = exchangeName;
+            }
+            return exchange;
+        });
+
+        this.subscribeTarget.updateAndGet(target -> {
+            if (target == null) {
+                target = subscribeTarget;
+            }
+            return target;
         });
     }
 
     @Override
-    public boolean isOpen() {
-        return channelOwner.isOpen();
+    public void start() throws Exception {
+
+        ConnectionOwner connectionOwner = this.connectionOwner.get();
+        SubscribeTarget target = subscribeTarget.get();
+        String exchange = exchangeName.get();
+
+        if (connectionOwner == null || target == null || exchange == null) {
+            throw new IllegalStateException("Subscriber is not initialized");
+        }
+
+        try {
+            var queue = target.getQueue();
+            var routingKey = target.getRoutingKey();
+
+            consumerTag.updateAndGet(tag -> {
+                if (tag == null) {
+                    try {
+                        tag = connectionOwner.basicConsume(queue, true, this::handle, this::canceled);
+                        logger.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
+                    } catch (IOException e) {
+                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
+                    }
+                } else {
+                    throw new IllegalStateException("Subscriber already started");
+                }
+                return tag;
+            });
+        } catch (Exception e) {
+            throw new IOException("Can not start listening", e);
+        }
     }
 
     @Override
     public void addListener(MessageListener<T> messageListener) {
-        if (messageListener == null) {
-            return;
-        }
-
         listeners.add(messageListener);
     }
 
     @Override
+    public boolean isOpen() {
+        ConnectionOwner connectionOwner = this.connectionOwner.get();
+        return consumerTag.get() != null && connectionOwner != null && connectionOwner.isOpen();
+    }
+
+    @Override
     public void close() throws Exception {
+        ConnectionOwner connectionOwner = this.connectionOwner.get();
+        if (connectionOwner == null) {
+            throw new IllegalStateException("Subscriber is not initialized");
+        }
+
+        String tag = consumerTag.getAndSet(null);
+        if (tag == null) {
+            return;
+        }
+
+        connectionOwner.basicCancel(tag);
+
         listeners.forEach(MessageListener::onClose);
         listeners.clear();
-
-        channelOwner.close();
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
@@ -142,7 +167,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         try {
             close();
         } catch (Exception e) {
-            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName, subscribeTargets, e);
+            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName.get(), subscribeTarget.get(), e);
         }
     }
 
