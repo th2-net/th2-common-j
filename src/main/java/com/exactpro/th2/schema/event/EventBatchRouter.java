@@ -29,8 +29,8 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
-    private Set<String> requiredSubscribeAttribute = SetUtils.hashSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
-    private Set<String> requiredSendAttributes = SetUtils.hashSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
+    private final Set<String> requiredSubscribeAttribute = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private final Set<String> requiredSendAttributes = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
     protected MessageQueue<EventBatch> createQueue(ConnectionOwner connectionOwner, QueueConfiguration queueConfiguration) {

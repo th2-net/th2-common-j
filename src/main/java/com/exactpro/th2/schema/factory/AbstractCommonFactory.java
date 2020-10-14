@@ -25,9 +25,6 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Deque;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -62,7 +59,6 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import kotlin.Pair;
 import lombok.Getter;
 
 /**
@@ -80,29 +76,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final MessageRouterConfiguration messageRouterConfiguration = loadMessageRouterConfiguration();
     @Getter(lazy = true)
     private final GrpcRouterConfiguration grpcRouterConfiguration = loadGrpcRouterConfiguration();
-    @Getter(lazy = true)
-    private final ConnectionOwner rabbitMqConnection = createConnectionOwner();
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
+    private final AtomicReference<ConnectionOwner> rabbitMqConnection = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
-    private final Deque<Pair<String, Runnable>> shutdownHandlers = new ConcurrentLinkedDeque<>();
-    private final Thread shutdownHook = new Thread(() -> {
-        logger.debug("Stopping application");
-        for (Pair<String, Runnable> onShutdownHandler : shutdownHandlers) {
-            try {
-                onShutdownHandler.getSecond().run();
-            } catch (Exception e) {
-                logger.error("Failed to execute one of the shutdown handlers. Handler name = {}",onShutdownHandler.getFirst(), e);
-            }
-        }
-        logger.info("Stopped application");
-    });
 
     /**
      * Create factory with default implementation schema classes
@@ -144,14 +127,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return server;
         });
-
-        addOnConnectionLostHandlerToFirst("Liveness", () -> CommonMetrics.setLiveness(false));
-        addOnConnectionLostHandlerToFirst("Stop prometheus server", () -> this.prometheusExporter.updateAndGet(server -> {
-            if (server != null) {
-                server.stop();
-            }
-            return null;
-        }));
     }
 
     /**
@@ -325,22 +300,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Add on connection lost handler for last execution
-     * @param handler
-     */
-    public void addOnConnectionLostHandlerToLast(String name, @NotNull Runnable handler) {
-        shutdownHandlers.addLast(new Pair<>(name, Objects.requireNonNull(handler, "Shutdown handle can not be null")));
-    }
-
-    /**
-     * Add on connection lost handler for first execution
-     * @param handler
-     */
-    public void addOnConnectionLostHandlerToFirst(String name, @NotNull Runnable handler) {
-        shutdownHandlers.addFirst(new Pair<>(name, Objects.requireNonNull(handler, "Shutdown handle can not be null")));
-    }
-
-    /**
      * @return Path to configuration for RabbitMQ connection
      * @see RabbitMQConfiguration
      */
@@ -407,9 +366,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         }
     }
 
-    protected ConnectionOwner createConnectionOwner() {
-        addOnConnectionLostHandlerToFirst("Close RabbitMQ connection", () -> getRabbitMqConnection().close());
-        return new ConnectionOwner(getRabbitMqConfiguration(), () -> { if (!shutdownHook.isAlive()) shutdownHook.start();});
+    protected ConnectionOwner createRabbitMQConnection() {
+        return new ConnectionOwner(getRabbitMqConfiguration(), () -> CommonMetrics.setLiveness(false));
+    }
+
+    protected ConnectionOwner getRabbitMqConnection() {
+        return rabbitMqConnection.updateAndGet(connection -> {
+            if (connection == null) {
+                connection = createRabbitMQConnection();
+            }
+            return connection;
+        });
     }
 
     @Override
@@ -440,6 +407,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             return router;
         });
 
+        rabbitMqConnection.updateAndGet(connection -> {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (Exception e) {
+                    logger.error("Failed to close RabbitMQ connection", e);
+                }
+            }
+            return connection;
+        });
+
         grpcRouter.getAndUpdate(router -> {
             if (router != null) {
                 try {
@@ -462,12 +440,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return null;
         });
-
-        try {
-            getRabbitMqConnection().close();
-        } catch (Exception e) {
-            logger.error("Failed to close RabbitMQ connection", e);
-        }
 
         logger.info("Common factory has been closed");
     }
