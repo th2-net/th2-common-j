@@ -18,6 +18,7 @@ import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
+import com.google.protobuf.TextFormat;
 
 import java.util.List;
 
@@ -45,6 +46,11 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
     @Override
     protected MessageBatch createBatch(List<Message> messages) {
         return MessageBatch.newBuilder().addAllMessages(messages).build();
+    }
+
+    @Override
+    protected String toShortDebugString(MessageBatch value) {
+        return TextFormat.shortDebugString(value);
     }
 
     @Override

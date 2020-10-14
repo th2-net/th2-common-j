@@ -25,9 +25,11 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.google.protobuf.TextFormat;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.Delivery;
@@ -110,6 +112,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
 
+    protected abstract String toShortDebugString(T value);
+
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
@@ -118,9 +122,14 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         try {
             T value = valueFromBytes(delivery.getBody());
 
+            if (logger.isDebugEnabled()) {
+                logger.debug("The received message {}", toShortDebugString(value));
+            }
+
             var filteredValue = filter(value);
 
             if (Objects.isNull(filteredValue)) {
+                logger.debug("Message is filtred");
                 return;
             }
 

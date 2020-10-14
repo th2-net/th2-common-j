@@ -17,11 +17,17 @@ import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.infra.grpc.EventBatch;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
+import com.google.protobuf.TextFormat;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     @Override
     protected EventBatch valueFromBytes(byte[] bytes) throws Exception {
         return EventBatch.parseFrom(bytes);
+    }
+
+    @Override
+    protected String toShortDebugString(EventBatch value) {
+        return TextFormat.shortDebugString(value);
     }
 
     @Nullable
