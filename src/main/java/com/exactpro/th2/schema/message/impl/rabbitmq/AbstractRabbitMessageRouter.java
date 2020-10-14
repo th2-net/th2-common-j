@@ -109,27 +109,33 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         return new SubscriberMonitorImpl(subscriber, queue);
     }
 
-    @Nullable
+    @NotNull
     @Override
     public SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr) {
         var queues = configuration.findQueuesByAttr(queueAttr);
-        if (queues.size() > 1) {
-            throw new IllegalStateException("Wrong size of queues aliases for send. Not more then 1");
+        if (queues.size() != 1) {
+            throw new IllegalStateException("Wrong size of queues aliases for subscribe. Should be equal to 1");
         }
 
-        return queues.size() < 1 ? null : subscribe(queues.keySet().iterator().next(), callback);
+        return subscribe(queues.keySet().iterator().next(), callback);
     }
 
     @Override
     public SubscriberMonitor subscribeAll(MessageListener<T> callback) {
         List<SubscriberMonitor> subscribers = configuration.getQueues().keySet().stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
-        return subscribers.isEmpty() ? null : new MultiplySubscribeMonitorImpl(subscribers);
+        if (subscribers.isEmpty()) {
+            throw new IllegalStateException("Wrong size of queues aliases for subscribeAll. Should not be empty");
+        }
+        return new MultiplySubscribeMonitorImpl(subscribers);
     }
 
     @Override
     public SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr) {
         List<SubscriberMonitor> subscribers = configuration.findQueuesByAttr(queueAttr).keySet().stream().map(queueConfiguration -> subscribe(queueConfiguration, callback)).collect(Collectors.toList());
-        return subscribers.isEmpty() ? null : new MultiplySubscribeMonitorImpl(subscribers);
+        if (subscribers.isEmpty()) {
+            throw new IllegalStateException("Wrong size of queues aliases for subscribeAll. Should not be empty");
+        }
+        return new MultiplySubscribeMonitorImpl(subscribers);
     }
 
     @Override
