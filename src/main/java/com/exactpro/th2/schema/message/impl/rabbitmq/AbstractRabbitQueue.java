@@ -15,9 +15,8 @@ package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -25,68 +24,86 @@ import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.rabbitmq.client.Connection;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
-    private Connection connection;
-    private String subscriberName;
-    private QueueConfiguration queueConfiguration;
-    private final List<AutoCloseable> resources = new CopyOnWriteArrayList<>();
+
+    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+    private final AtomicReference<QueueConfiguration> queueConfiguration = new AtomicReference<>();
+
+    private final AtomicReference<MessageSender<T>> sender = new AtomicReference<>();
+    private final AtomicReference<MessageSubscriber<T>> subscriber = new AtomicReference<>();
 
     @Override
-    public void init(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration) {
-        this.connection = Objects.requireNonNull(connection, "connection cannot be null");
-        this.subscriberName = subscriberName;
-        this.queueConfiguration = Objects.requireNonNull(queueConfiguration, "queueConfiguration cannot be null");
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
+        Objects.requireNonNull(connectionManager, "Connection can not be null");
+        Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
+
+        if (this.connectionManager.get() != null && this.queueConfiguration.get() != null) {
+            throw new IllegalStateException("Queue is already initialize");
+        }
+
+        this.connectionManager.set(connectionManager);
+        this.queueConfiguration.set(queueConfiguration);
     }
 
     @Override
     public MessageSubscriber<T> getSubscriber() {
-        if (connection == null || queueConfiguration == null) {
+        ConnectionManager connectionManger = connectionManager.get();
+        QueueConfiguration queueConfiguration = this.queueConfiguration.get();
+
+        if (connectionManger == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue is not initialized");
         }
 
-        if (!queueConfiguration.isCanRead()) {
+        if (!queueConfiguration.isReadable()) {
             throw new IllegalStateException("Queue can not read");
         }
 
-        MessageSubscriber<T> subscriber = createSubscriber(connection, subscriberName, queueConfiguration);
-
-        resources.add(subscriber);
-
-        return subscriber;
+        return subscriber.updateAndGet( subscriber -> {
+            if (subscriber == null) {
+                return createSubscriber(connectionManger, queueConfiguration);
+            }
+            return subscriber;
+        });
     }
 
     @Override
     public MessageSender<T> getSender() {
-        if (connection == null || queueConfiguration == null) {
+        ConnectionManager connectionManager = this.connectionManager.get();
+        QueueConfiguration queueConfiguration = this.queueConfiguration.get();
+
+        if (connectionManager == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue is not initialized");
         }
 
-        if (!queueConfiguration.isCanWrite()) {
+        if (!queueConfiguration.isWritable()) {
             throw new IllegalStateException("Queue can not write");
         }
 
-        MessageSender<T> sender = createSender(connection, queueConfiguration);
-
-        resources.add(sender);
-
-        return sender;
+        return sender.updateAndGet(sender -> {
+            if (sender == null) {
+                return createSender(connectionManager, queueConfiguration);
+            }
+            return sender;
+        });
     }
 
     @Override
     public void close() throws Exception {
         Collection<Exception> exceptions = new ArrayList<>();
 
-        for (AutoCloseable resource : resources) {
-            try {
-                resource.close();
-            } catch (Exception e) {
-                exceptions.add(e);
-            }
-        }
 
-        resources.clear();
+        subscriber.updateAndGet(subscriber -> {
+            if (subscriber != null) {
+                try {
+                    subscriber.close();
+                } catch (Exception e) {
+                    exceptions.add(e);
+                }
+            }
+            return null;
+        });
 
         if (!exceptions.isEmpty()) {
             Exception exception = new Exception("Can not close message queue");
@@ -95,7 +112,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
         }
     }
 
-    protected abstract MessageSender<T> createSender(@NotNull Connection connection, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageSender<T> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
 
-    protected abstract MessageSubscriber<T> createSubscriber(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageSubscriber<T> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
 }

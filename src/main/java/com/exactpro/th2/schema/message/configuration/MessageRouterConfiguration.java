@@ -14,6 +14,7 @@
 package com.exactpro.th2.schema.message.configuration;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -45,8 +46,12 @@ public class MessageRouterConfiguration {
 
     public Map<String, QueueConfiguration> findQueuesByAttr(String... attrs) {
         var attributes = Arrays.asList(attrs);
+        return findQueuesByAttr(attributes);
+    }
+
+    public Map<String, QueueConfiguration> findQueuesByAttr(Collection<String> attr) {
         return queues.entrySet().stream()
-                .filter(e -> e.getValue().getAttributes().containsAll(attributes))
+                .filter(e -> e.getValue().getAttributes().containsAll(attr))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

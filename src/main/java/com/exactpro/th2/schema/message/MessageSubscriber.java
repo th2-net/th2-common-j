@@ -18,7 +18,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.rabbitmq.client.Connection;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Listen messages and transmit it to {@link MessageListener}
@@ -27,10 +27,11 @@ import com.rabbitmq.client.Connection;
  */
 @NotThreadSafe
 public interface MessageSubscriber<T> extends AutoCloseable {
-    void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String subscriberName, @NotNull SubscribeTarget... subscribeTargets);
+    void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets);
 
     void start() throws Exception;
 
+    @Deprecated(forRemoval = true, since = "1.4.2")
     boolean isOpen();
 
     void addListener(MessageListener<T> messageListener);

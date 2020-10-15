@@ -15,66 +15,56 @@ package com.exactpro.th2.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageSender;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private Connection connection = null;
-    private Channel channel = null;
-
-    private String sendQueue = null;
-    private String exchangeName = null;
+    private final AtomicReference<String> sendQueue = new AtomicReference<>();
+    private final AtomicReference<String> exchangeName = new AtomicReference<>();
+    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
 
     @Override
-    public void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String sendQueue) {
-        this.connection = Objects.requireNonNull(connection, "connection cannot be null");
-        this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name can not be null");
-        this.sendQueue = sendQueue;
-    }
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
+        Objects.requireNonNull(connectionManager, "Connection can not be null");
+        Objects.requireNonNull(exchangeName, "Exchange name can not be null");
+        Objects.requireNonNull(sendQueue, "Send queue can not be null");
 
-    @Override
-    public void start() throws Exception {
-        if (connection == null || sendQueue == null || exchangeName == null) {
-            throw new IllegalStateException("Sender is not initialized");
+        if (this.connectionManager.get() != null && this.sendQueue.get() != null && this.exchangeName.get() != null) {
+            throw new IllegalStateException("Sender is already initialize");
         }
 
-        if (channel == null) {
-            channel = connection.createChannel();
-        }
+        this.connectionManager.set(connectionManager);
+        this.exchangeName.set(exchangeName);
+        this.sendQueue.set(sendQueue);
     }
 
     @Override
     public boolean isOpen() {
-        return channel != null && channel.isOpen();
+        ConnectionManager connectionManager = this.connectionManager.get();
+        return connectionManager != null && connectionManager.isOpen();
     }
 
     @Override
     public void send(T value) throws IOException {
-        if (channel == null) {
-            throw new IllegalStateException("Can not send. Sender was not started");
-        }
 
-        channel.basicPublish(exchangeName, sendQueue, null, valueToBytes(value));
+        try {
+            ConnectionManager connection = this.connectionManager.get();
+            connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value));
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
-                    exchangeName, sendQueue, toShortDebugString(value));
-        }
-    }
-
-    @Override
-    public void close() throws IOException, TimeoutException {
-        if (channel != null && channel.isOpen()) {
-            channel.close();
+            if (logger.isDebugEnabled()) {
+                logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
+                        exchangeName, sendQueue, toShortDebugString(value));
+            }
+        } catch (Exception e) {
+            throw new IOException("Can not send message: " + toShortDebugString(value), e);
         }
     }
 
@@ -83,4 +73,6 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     }
 
     protected abstract byte[] valueToBytes(T value);
+
+
 }

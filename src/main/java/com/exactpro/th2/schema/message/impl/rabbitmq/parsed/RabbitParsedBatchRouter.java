@@ -14,24 +14,40 @@
 package com.exactpro.th2.schema.message.impl.rabbitmq.parsed;
 
 import java.util.List;
+import java.util.Set;
 
+import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.infra.grpc.Message;
 import com.exactpro.th2.infra.grpc.MessageBatch;
 import com.exactpro.th2.infra.grpc.MessageBatch.Builder;
 import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.QueueAttribute;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
-import com.rabbitmq.client.Connection;
 
 public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Message, MessageBatch, MessageBatch.Builder> {
 
+    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.PUBLISH.toString());
+
     @Override
-    protected MessageQueue<MessageBatch> createQueue(@NotNull Connection connection, String subscriberName, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<MessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
         RabbitParsedBatchQueue queue = new RabbitParsedBatchQueue();
-        queue.init(connection, subscriberName, queueConfiguration);
+        queue.init(connectionManager, queueConfiguration);
         return queue;
+    }
+
+    @Override
+    protected Set<String> requiredSubscribeAttributes() {
+        return REQUIRED_SUBSCRIBE_ATTRIBUTES;
+    }
+
+    @Override
+    protected Set<String> requiredSendAttributes() {
+        return REQUIRED_SEND_ATTRIBUTES;
     }
 
     @Override

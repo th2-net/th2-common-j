@@ -47,9 +47,9 @@ public class QueueConfiguration implements Configuration {
     private List<MqRouterFilterConfiguration> filters = Collections.emptyList();
 
     @JsonProperty(value = "read", defaultValue = "true")
-    private boolean canRead = true;
+    private boolean isReadable = true;
 
     @JsonProperty(value = "write", defaultValue = "true")
-    private boolean canWrite = true;
+    private boolean isWritable = true;
 
 }

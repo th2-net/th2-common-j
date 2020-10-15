@@ -13,13 +13,17 @@
 
 package com.exactpro.th2.schema.message.impl.rabbitmq.router;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
 import com.google.protobuf.Message;
-
-import java.util.*;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
 public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitMessageRouter<MB> {
 
@@ -53,7 +57,7 @@ public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MB
             var queueAlias = queueEntry.getKey();
             var filters = queueEntry.getValue().getFilters();
 
-            if (filters.isEmpty() || filterStrategy.verify(message, filters)) {
+            if (filters.isEmpty() || filterStrategy.get().verify(message, filters)) {
                 aliases.add(queueAlias);
             }
 

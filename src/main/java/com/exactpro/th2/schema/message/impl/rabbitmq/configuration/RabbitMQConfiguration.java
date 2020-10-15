@@ -32,6 +32,16 @@ public class RabbitMQConfiguration {
     @JsonProperty(value = "exchange-name")
     private String exchangeName;
 
+    private int connectionTimeout = -1;
+
+    private int connectionCloseTimeout = 10_000;
+
+    private int maxRecoveryAttempts = 5;
+
+    private int minConnectionRecoveryTimeout = 10_000;
+
+    private int maxConnectionRecoveryTimeout = 60_000;
+
     public String getHost() {
         return host;
     }
@@ -88,6 +98,46 @@ public class RabbitMQConfiguration {
         this.exchangeName = exchangeName;
     }
 
+    public int getMaxRecoveryAttempts() {
+        return maxRecoveryAttempts;
+    }
+
+    public void setMaxRecoveryAttempts(int maxRecoveryAttempts) {
+        this.maxRecoveryAttempts = maxRecoveryAttempts;
+    }
+
+    public int getMinConnectionRecoveryTimeout() {
+        return minConnectionRecoveryTimeout;
+    }
+
+    public void setMinConnectionRecoveryTimeout(int minConnectionRecoveryTimeout) {
+        this.minConnectionRecoveryTimeout = minConnectionRecoveryTimeout;
+    }
+
+    public int getMaxConnectionRecoveryTimeout() {
+        return maxConnectionRecoveryTimeout;
+    }
+
+    public void setMaxConnectionRecoveryTimeout(int maxConnectionRecoveryTimeout) {
+        this.maxConnectionRecoveryTimeout = maxConnectionRecoveryTimeout;
+    }
+
+    public int getConnectionTimeout() {
+        return connectionTimeout;
+    }
+
+    public void setConnectionTimeout(int connectionTimeout) {
+        this.connectionTimeout = connectionTimeout;
+    }
+
+    public int getConnectionCloseTimeout() {
+        return connectionCloseTimeout;
+    }
+
+    public void setConnectionCloseTimeout(int connectionCloseTimeout) {
+        this.connectionCloseTimeout = connectionCloseTimeout;
+    }
+
     @Override
     public String toString() {
         return "RabbitMQConfiguration{" +
@@ -97,6 +147,11 @@ public class RabbitMQConfiguration {
                 ", username='" + username + '\'' +
                 ", password='" + password + '\'' +
                 ", subscriberName='" + subscriberName + '\'' +
+                ", connectionTimeout='" + connectionTimeout + '\'' +
+                ", connectionCloseTimeout='" + connectionCloseTimeout + '\'' +
+                ", maxRecoveryAttempts='" + maxRecoveryAttempts + '\'' +
+                ", minConnectionRecoveryTimeout='" + minConnectionRecoveryTimeout + '\'' +
+                ", maxConnectionRecoveryTimeout='" + maxConnectionRecoveryTimeout + '\'' +
                 '}';
     }
 }

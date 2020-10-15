@@ -15,25 +15,42 @@ package com.exactpro.th2.schema.event;
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.apache.commons.collections4.SetUtils;
 
 import com.exactpro.th2.infra.grpc.EventBatch;
 import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.QueueAttribute;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
-import com.rabbitmq.client.Connection;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
+    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
+
     @Override
-    protected MessageQueue<EventBatch> createQueue(Connection connection, String subscriberName, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<EventBatch> createQueue(ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
         EventBatchQueue eventBatchQueue = new EventBatchQueue();
-        eventBatchQueue.init(connection, subscriberName, queueConfiguration);
+        eventBatchQueue.init(connectionManager, queueConfiguration);
         return eventBatchQueue;
     }
 
     @Override
     protected Map<String, EventBatch> findByFilter(Map<String, QueueConfiguration> queues, EventBatch msg) {
         return queues.entrySet().stream().collect(Collectors.toMap(Entry::getKey, v -> msg));
+    }
+
+    @Override
+    protected Set<String> requiredSubscribeAttributes() {
+        return REQUIRED_SUBSCRIBE_ATTRIBUTES;
+    }
+
+    @Override
+    protected Set<String> requiredSendAttributes() {
+        return REQUIRED_SEND_ATTRIBUTES;
     }
 }

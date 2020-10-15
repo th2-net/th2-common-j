@@ -19,18 +19,17 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.rabbitmq.client.Connection;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Send message to {@link MessageQueue}
  * @param <T>
  */
 @NotThreadSafe
-public interface MessageSender<T> extends AutoCloseable {
-    void init(@NotNull Connection connection, @NotNull String exchangeName, @NotNull String sendQueue);
+public interface MessageSender<T> {
+    void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue);
 
-    void start() throws Exception;
-
+    @Deprecated(forRemoval = true, since = "1.4.2")
     boolean isOpen();
 
     void send(T message) throws IOException;

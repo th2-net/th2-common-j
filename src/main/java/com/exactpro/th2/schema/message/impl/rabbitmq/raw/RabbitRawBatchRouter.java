@@ -14,24 +14,40 @@
 package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
 
 import java.util.List;
+import java.util.Set;
 
+import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.infra.grpc.RawMessage;
 import com.exactpro.th2.infra.grpc.RawMessageBatch;
 import com.exactpro.th2.infra.grpc.RawMessageBatch.Builder;
 import com.exactpro.th2.schema.message.MessageQueue;
+import com.exactpro.th2.schema.message.QueueAttribute;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
-import com.rabbitmq.client.Connection;
 
 public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch, RawMessageBatch.Builder> {
 
+    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.PUBLISH.toString());
+
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(@NotNull Connection connection, String subscriberName, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
         MessageQueue<RawMessageBatch> queue = new RabbitRawBatchQueue();
-        queue.init(connection, subscriberName, queueConfiguration);
+        queue.init(connectionManager, queueConfiguration);
         return queue;
+    }
+
+    @Override
+    protected Set<String> requiredSubscribeAttributes() {
+        return REQUIRED_SUBSCRIBE_ATTRIBUTES;
+    }
+
+    @Override
+    protected Set<String> requiredSendAttributes() {
+        return REQUIRED_SEND_ATTRIBUTES;
     }
 
     @Override

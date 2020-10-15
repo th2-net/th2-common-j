@@ -21,25 +21,25 @@ import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.rabbitmq.client.Connection;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public class EventBatchQueue extends AbstractRabbitQueue<EventBatch> {
 
     @Override
-    protected MessageSender<EventBatch> createSender(@NotNull Connection connection, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSender<EventBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSender eventBatchSender = new EventBatchSender();
-        eventBatchSender.init(connection, queueConfiguration.getExchange(), queueConfiguration.getName());
+        eventBatchSender.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getQueue());
         return eventBatchSender;
     }
 
     @Override
-    protected MessageSubscriber<EventBatch> createSubscriber(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSubscriber<EventBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSubscriber eventBatchSubscriber = new EventBatchSubscriber();
         var subscribeTarget = SubscribeTarget.builder()
                 .routingKey(queueConfiguration.getName())
                 .queue(queueConfiguration.getQueue())
                 .build();
-        eventBatchSubscriber.init(connection, queueConfiguration.getExchange(), subscriberName, subscribeTarget);
+        eventBatchSubscriber.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
         return eventBatchSubscriber;
     }
 }

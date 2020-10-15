@@ -16,7 +16,7 @@ package com.exactpro.th2.schema.message;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.rabbitmq.client.Connection;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Message queue
@@ -25,7 +25,7 @@ import com.rabbitmq.client.Connection;
  * @see MessageSender
  */
 public interface MessageQueue<T> extends AutoCloseable {
-    void init(@NotNull Connection connection, String subscriberName, @NotNull QueueConfiguration queueConfiguration);
+    void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
 
     MessageSubscriber<T> getSubscriber();
 
