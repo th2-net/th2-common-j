@@ -139,7 +139,7 @@ public class ConnectionManager implements AutoCloseable {
             recoverableConnection.addRecoveryListener(recoveryListener);
             logger.debug("Recovery listener was added to connection.");
         } else {
-            throw new IllegalStateException("Connection is not implements Recoverable. Can not add RecoveryListener to one");
+            throw new IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
     }
 

@@ -29,7 +29,7 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManage
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
-    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTE = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
@@ -46,7 +46,7 @@ public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
     @Override
     protected Set<String> requiredSubscribeAttributes() {
-        return REQUIRED_SUBSCRIBE_ATTRIBUTE;
+        return REQUIRED_SUBSCRIBE_ATTRIBUTES;
     }
 
     @Override

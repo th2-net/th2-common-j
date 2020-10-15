@@ -30,7 +30,7 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchM
 
 public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch, RawMessageBatch.Builder> {
 
-    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTE = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
@@ -42,7 +42,7 @@ public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMe
 
     @Override
     protected Set<String> requiredSubscribeAttributes() {
-        return REQUIRED_SUBSCRIBE_ATTRIBUTE;
+        return REQUIRED_SUBSCRIBE_ATTRIBUTES;
     }
 
     @Override
