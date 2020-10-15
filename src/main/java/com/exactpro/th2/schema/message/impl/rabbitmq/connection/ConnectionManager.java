@@ -47,7 +47,6 @@ public class ConnectionManager implements AutoCloseable {
     private final RabbitMQConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
-    private final boolean recoveryListenerAddedToConnection;
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
@@ -138,11 +137,9 @@ public class ConnectionManager implements AutoCloseable {
         if (this.connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) this.connection;
             recoverableConnection.addRecoveryListener(recoveryListener);
-            recoveryListenerAddedToConnection = true;
             logger.debug("Recovery listener was added to connection.");
         } else {
-            recoveryListenerAddedToConnection = false;
-            logger.warn("Can not add recovery handler to connection. Count tries to recovery connection will not reset to 0 after recovery connection");
+            throw new IllegalStateException("Connection is not implements Recoverable. Can not add RecoveryListener to one");
         }
     }
 
@@ -166,47 +163,39 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        waitForRecoveryConnection(channel.get());
-        channel.get().basicPublish(exchange, routingKey, props, body);
+        Channel channel = this.channel.get();
+        waitForConnectionRecovery(channel);
+        channel.basicPublish(exchange, routingKey, props, body);
     }
 
     public String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-        waitForRecoveryConnection(channel.get());
-        return channel.get().basicConsume(queue, autoAck, subscriberName + "_" + nextSubscriberId.getAndIncrement(), deliverCallback, cancelCallback);
+        Channel channel = this.channel.get();
+        waitForConnectionRecovery(channel);
+        return channel.basicConsume(queue, autoAck, subscriberName + "_" + nextSubscriberId.getAndIncrement(), deliverCallback, cancelCallback);
     }
 
     public void basicCancel(String consumerTag) throws IOException {
-        waitForRecoveryConnection(channel.get());
-        channel.get().basicCancel(consumerTag);
+        Channel channel = this.channel.get();
+        waitForConnectionRecovery(channel);
+        channel.basicCancel(consumerTag);
     }
 
     private Channel createChannel() {
-        waitForRecoveryConnection(connection);
+        waitForConnectionRecovery(connection);
 
         try {
-            Channel newChannel = this.connection.createChannel();
-
-            if (!recoveryListenerAddedToConnection) {
-                if (newChannel instanceof Recoverable) {
-                    Recoverable recoverableChannel = (Recoverable) newChannel;
-                    recoverableChannel.addRecoveryListener(recoveryListener);
-                } else {
-                    logger.warn("Can not add recovery handler to channel. Count tries to recovery connection may will not reset to zero after recovery connection");
-                }
-            }
-
-            return newChannel;
+            return connection.createChannel();
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
         }
     }
 
-    private void waitForRecoveryConnection(ShutdownNotifier notifier) {
+    private void waitForConnectionRecovery(ShutdownNotifier notifier) {
         while (!notifier.isOpen() && !connectionIsClosed.get()) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
-                logger.error("Wait for recovery connection was interrupted", e);
+                logger.error("Wait for connection recovery was interrupted", e);
                 break;
             }
         }

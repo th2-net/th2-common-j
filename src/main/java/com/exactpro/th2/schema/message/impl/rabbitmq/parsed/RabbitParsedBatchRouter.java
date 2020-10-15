@@ -30,8 +30,8 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchM
 
 public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Message, MessageBatch, MessageBatch.Builder> {
 
-    private static final Set<String> requiredSubscribeAttribute = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.SUBSCRIBE.toString());
-    private static final Set<String> requiredSendAttributes = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.PUBLISH.toString());
+    private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTE = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
     protected MessageQueue<MessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
@@ -42,12 +42,12 @@ public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Me
 
     @Override
     protected Set<String> requiredSubscribeAttributes() {
-        return requiredSubscribeAttribute;
+        return REQUIRED_SUBSCRIBE_ATTRIBUTE;
     }
 
     @Override
     protected Set<String> requiredSendAttributes() {
-        return requiredSendAttributes;
+        return REQUIRED_SEND_ATTRIBUTES;
     }
 
     @Override

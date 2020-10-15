@@ -31,6 +31,7 @@ public interface MessageSubscriber<T> extends AutoCloseable {
 
     void start() throws Exception;
 
+    @Deprecated(forRemoval = true, since = "1.4.2")
     boolean isOpen();
 
     void addListener(MessageListener<T> messageListener);

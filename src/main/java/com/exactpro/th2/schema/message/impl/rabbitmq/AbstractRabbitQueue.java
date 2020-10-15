@@ -62,7 +62,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
         return subscriber.updateAndGet( subscriber -> {
             if (subscriber == null) {
-                subscriber = createSubscriber(connectionManger, queueConfiguration);
+                return createSubscriber(connectionManger, queueConfiguration);
             }
             return subscriber;
         });
@@ -83,7 +83,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
         return sender.updateAndGet(sender -> {
             if (sender == null) {
-                sender = createSender(connectionManager, queueConfiguration);
+                return createSender(connectionManager, queueConfiguration);
             }
             return sender;
         });

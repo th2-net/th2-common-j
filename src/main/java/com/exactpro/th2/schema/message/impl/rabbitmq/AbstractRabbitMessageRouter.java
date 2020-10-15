@@ -49,8 +49,8 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private AtomicReference<ConnectionManager> connection = new AtomicReference<>();
-    private AtomicReference<MessageRouterConfiguration> configuration = new AtomicReference<>();
+    private final AtomicReference<ConnectionManager> connection = new AtomicReference<>();
+    private final AtomicReference<MessageRouterConfiguration> configuration = new AtomicReference<>();
     protected final AtomicReference<FilterStrategy> filterStrategy = new AtomicReference<>(new DefaultFilterStrategy());
 
     private final ConcurrentMap<String, MessageQueue<T>> queueConnections = new ConcurrentHashMap<>();
