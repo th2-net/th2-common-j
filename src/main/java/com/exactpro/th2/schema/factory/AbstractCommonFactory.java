@@ -49,7 +49,7 @@ import com.exactpro.th2.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.schema.message.MessageRouter;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
@@ -80,7 +80,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
-    private final AtomicReference<ConnectionOwner> rabbitMqConnection = new AtomicReference<>();
+    private final AtomicReference<ConnectionManager> rabbitMqConnectionManager = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
@@ -139,7 +139,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConnection(), getMessageRouterConfiguration());
+                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
@@ -159,7 +159,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConnection(), getMessageRouterConfiguration());
+                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
@@ -179,7 +179,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConnection(), getMessageRouterConfiguration());
+                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
@@ -366,16 +366,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         }
     }
 
-    protected ConnectionOwner createRabbitMQConnection() {
-        return new ConnectionOwner(getRabbitMqConfiguration(), () -> CommonMetrics.setLiveness(false));
+    protected ConnectionManager createRabbitMQConnectionManager() {
+        return new ConnectionManager(getRabbitMqConfiguration(), () -> CommonMetrics.setLiveness(false));
     }
 
-    protected ConnectionOwner getRabbitMqConnection() {
-        return rabbitMqConnection.updateAndGet(connection -> {
-            if (connection == null) {
-                connection = createRabbitMQConnection();
+    protected ConnectionManager getRabbitMqConnectionManager() {
+        return rabbitMqConnectionManager.updateAndGet(connectionManager -> {
+            if (connectionManager == null) {
+                return createRabbitMQConnectionManager();
             }
-            return connection;
+            return connectionManager;
         });
     }
 
@@ -407,7 +407,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             return router;
         });
 
-        rabbitMqConnection.updateAndGet(connection -> {
+        rabbitMqConnectionManager.updateAndGet(connection -> {
             if (connection != null) {
                 try {
                     connection.close();

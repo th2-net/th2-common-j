@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Interface for send and receive RabbitMQ messages
@@ -29,10 +29,10 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Initialization message router
-     * @param connectionOwner
+     * @param connectionManager
      * @param configuration message router configuration
      */
-    void init(@NotNull ConnectionOwner connectionOwner, @NotNull MessageRouterConfiguration configuration);
+    void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration);
 
     /**
      * Listen RabbitMQ queue by schemas queues alias

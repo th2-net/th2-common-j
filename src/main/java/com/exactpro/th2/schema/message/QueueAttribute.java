@@ -20,8 +20,8 @@ public enum QueueAttribute {
     RAW("raw"),
     PARSED("parsed"),
     STORE("store"),
-    EVENT("event")
-    ;
+    EVENT("event");
+
     private String value;
 
     QueueAttribute(String value) {

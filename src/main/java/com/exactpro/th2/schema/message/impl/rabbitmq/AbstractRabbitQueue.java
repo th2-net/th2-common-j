@@ -24,56 +24,45 @@ import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.MessageSender;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
-    private final AtomicReference<ConnectionOwner> connection = new AtomicReference<>();
+    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<QueueConfiguration> queueConfiguration = new AtomicReference<>();
 
     private final AtomicReference<MessageSender<T>> sender = new AtomicReference<>();
     private final AtomicReference<MessageSubscriber<T>> subscriber = new AtomicReference<>();
 
     @Override
-    public void init(@NotNull ConnectionOwner connectionWrapper, @NotNull QueueConfiguration queueConfiguration) {
-        if (this.connection.get() != null && this.queueConfiguration.get() != null) {
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
+        Objects.requireNonNull(connectionManager, "Connection can not be null");
+        Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
+
+        if (this.connectionManager.get() != null && this.queueConfiguration.get() != null) {
             throw new IllegalStateException("Queue is already initialize");
         }
 
-        Objects.requireNonNull(connection, "Connection can not be null");
-        Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
-
-        this.connection.updateAndGet(connection -> {
-            if (connection == null) {
-                connection = connectionWrapper;
-            }
-            return connection;
-        });
-
-        this.queueConfiguration.updateAndGet(configuration -> {
-            if (configuration == null) {
-                configuration = queueConfiguration;
-            }
-            return configuration;
-        });
+        this.connectionManager.set(connectionManager);
+        this.queueConfiguration.set(queueConfiguration);
     }
 
     @Override
     public MessageSubscriber<T> getSubscriber() {
-        ConnectionOwner connectionWrapper = connection.get();
+        ConnectionManager connectionManger = connectionManager.get();
         QueueConfiguration queueConfiguration = this.queueConfiguration.get();
 
-        if (connectionWrapper == null || queueConfiguration == null) {
+        if (connectionManger == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue is not initialized");
         }
 
-        if (!queueConfiguration.isCanRead()) {
+        if (!queueConfiguration.isReadable()) {
             throw new IllegalStateException("Queue can not read");
         }
 
         return subscriber.updateAndGet( subscriber -> {
             if (subscriber == null) {
-                subscriber = createSubscriber(connectionWrapper, queueConfiguration);
+                subscriber = createSubscriber(connectionManger, queueConfiguration);
             }
             return subscriber;
         });
@@ -81,20 +70,20 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
     @Override
     public MessageSender<T> getSender() {
-        ConnectionOwner connectionWrapper = connection.get();
+        ConnectionManager connectionManager = this.connectionManager.get();
         QueueConfiguration queueConfiguration = this.queueConfiguration.get();
 
-        if (connectionWrapper == null || queueConfiguration == null) {
+        if (connectionManager == null || queueConfiguration == null) {
             throw new IllegalStateException("Queue is not initialized");
         }
 
-        if (!queueConfiguration.isCanWrite()) {
+        if (!queueConfiguration.isWritable()) {
             throw new IllegalStateException("Queue can not write");
         }
 
         return sender.updateAndGet(sender -> {
             if (sender == null) {
-                sender = createSender(connectionWrapper, queueConfiguration);
+                sender = createSender(connectionManager, queueConfiguration);
             }
             return sender;
         });
@@ -123,7 +112,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
         }
     }
 
-    protected abstract MessageSender<T> createSender(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageSender<T> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
 
-    protected abstract MessageSubscriber<T> createSubscriber(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageSubscriber<T> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
 }

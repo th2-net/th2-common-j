@@ -25,18 +25,18 @@ import com.exactpro.th2.infra.grpc.RawMessageBatch.Builder;
 import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.QueueAttribute;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
 
 public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch, RawMessageBatch.Builder> {
 
-    private final Set<String> requiredSubscribeAttribute = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.SUBSCRIBE.toString());
-    private final Set<String> requiredSendAttributes = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.PUBLISH.toString());
+    private static final Set<String> requiredSubscribeAttribute = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> requiredSendAttributes = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionOwner connectionOwner, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
         MessageQueue<RawMessageBatch> queue = new RabbitRawBatchQueue();
-        queue.init(connectionOwner, queueConfiguration);
+        queue.init(connectionManager, queueConfiguration);
         return queue;
     }
 

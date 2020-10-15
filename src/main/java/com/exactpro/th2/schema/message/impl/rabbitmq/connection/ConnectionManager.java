@@ -36,7 +36,7 @@ import com.rabbitmq.client.ShutdownNotifier;
 
 import lombok.val;
 
-public class ConnectionOwner implements AutoCloseable {
+public class ConnectionManager implements AutoCloseable {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -60,7 +60,7 @@ public class ConnectionOwner implements AutoCloseable {
         public void handleRecoveryStarted(Recoverable recoverable) {}
     };
 
-    public ConnectionOwner(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
+    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
 
         if (StringUtils.isNotEmpty(rabbitMQConfiguration.getSubscriberName())) {
@@ -119,8 +119,8 @@ public class ConnectionOwner implements AutoCloseable {
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
                     int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
 
-                    int recoveryDelay = rabbitMQConfiguration.getMinRecoveryConnectionTimeout()
-                            + (rabbitMQConfiguration.getMaxRecoveryConnectionTimeout() - rabbitMQConfiguration.getMinRecoveryConnectionTimeout())
+                    int recoveryDelay = rabbitMQConfiguration.getMinConnectionRecoveryTimeout()
+                            + (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
                             / rabbitMQConfiguration.getMaxRecoveryAttempts()
                             * tmpCountTriesToRecovery;
 
@@ -135,7 +135,7 @@ public class ConnectionOwner implements AutoCloseable {
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
 
-        if (this.configuration instanceof Recoverable) {
+        if (this.connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) this.connection;
             recoverableConnection.addRecoveryListener(recoveryListener);
             recoveryListenerAddedToConnection = true;
@@ -166,22 +166,22 @@ public class ConnectionOwner implements AutoCloseable {
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        waitRecoveryConnection(channel.get());
+        waitForRecoveryConnection(channel.get());
         channel.get().basicPublish(exchange, routingKey, props, body);
     }
 
     public String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-        waitRecoveryConnection(channel.get());
+        waitForRecoveryConnection(channel.get());
         return channel.get().basicConsume(queue, autoAck, subscriberName + "_" + nextSubscriberId.getAndIncrement(), deliverCallback, cancelCallback);
     }
 
     public void basicCancel(String consumerTag) throws IOException {
-        waitRecoveryConnection(channel.get());
+        waitForRecoveryConnection(channel.get());
         channel.get().basicCancel(consumerTag);
     }
 
     private Channel createChannel() {
-        waitRecoveryConnection(connection);
+        waitForRecoveryConnection(connection);
 
         try {
             Channel newChannel = this.connection.createChannel();
@@ -201,11 +201,12 @@ public class ConnectionOwner implements AutoCloseable {
         }
     }
 
-    private void waitRecoveryConnection(ShutdownNotifier notifier) {
+    private void waitForRecoveryConnection(ShutdownNotifier notifier) {
         while (!notifier.isOpen() && !connectionIsClosed.get()) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
+                logger.error("Wait for recovery connection was interrupted", e);
                 break;
             }
         }

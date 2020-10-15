@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.schema.message.MessageListener;
 import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Delivery;
 
 
@@ -37,49 +37,32 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
-    private final AtomicReference<ConnectionOwner> connectionOwner = new AtomicReference<>();
+    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<String> consumerTag = new AtomicReference<>();
 
     @Override
-    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
-        Objects.requireNonNull(connectionOwner, "Connection cannot be null");
-        Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
+        Objects.requireNonNull(connectionManager, "Connection cannot be null");
         Objects.requireNonNull(subscribeTarget, "Subscriber target is can not be null");
+        Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
 
-        if (this.connectionOwner.get() != null || this.exchangeName.get() != null || this.subscribeTarget.get() != null) {
+
+        if (this.connectionManager.get() != null || this.exchangeName.get() != null || this.subscribeTarget.get() != null) {
             throw new IllegalStateException("Subscriber is already initialize");
         }
 
-        this.connectionOwner.updateAndGet(connection -> {
-            if (connection == null) {
-                connection = connectionOwner;
-            }
-            return connection;
-        });
-
-        this.exchangeName.updateAndGet(exchange -> {
-            if (exchange == null) {
-                exchange = exchangeName;
-            }
-            return exchange;
-        });
-
-        this.subscribeTarget.updateAndGet(target -> {
-            if (target == null) {
-                target = subscribeTarget;
-            }
-            return target;
-        });
+        this.connectionManager.set(connectionManager);
+        this.subscribeTarget.set(subscribeTarget);
+        this.exchangeName.set(exchangeName);
     }
 
     @Override
     public void start() throws Exception {
-
-        ConnectionOwner connectionOwner = this.connectionOwner.get();
+        ConnectionManager connectionManager = this.connectionManager.get();
         SubscribeTarget target = subscribeTarget.get();
         String exchange = exchangeName.get();
 
-        if (connectionOwner == null || target == null || exchange == null) {
+        if (connectionManager == null || target == null || exchange == null) {
             throw new IllegalStateException("Subscriber is not initialized");
         }
 
@@ -88,16 +71,17 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             var routingKey = target.getRoutingKey();
 
             consumerTag.updateAndGet(tag -> {
-                if (tag == null) {
-                    try {
-                        tag = connectionOwner.basicConsume(queue, true, this::handle, this::canceled);
-                        logger.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    }
-                } else {
+                if (tag != null) {
                     throw new IllegalStateException("Subscriber already started");
                 }
+
+                try {
+                    tag = connectionManager.basicConsume(queue, true, this::handle, this::canceled);
+                    logger.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
+                } catch (IOException e) {
+                    throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
+                }
+
                 return tag;
             });
         } catch (Exception e) {
@@ -112,14 +96,14 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public boolean isOpen() {
-        ConnectionOwner connectionOwner = this.connectionOwner.get();
-        return consumerTag.get() != null && connectionOwner != null && connectionOwner.isOpen();
+        ConnectionManager connectionManager = this.connectionManager.get();
+        return consumerTag.get() != null && connectionManager != null && connectionManager.isOpen();
     }
 
     @Override
     public void close() throws Exception {
-        ConnectionOwner connectionOwner = this.connectionOwner.get();
-        if (connectionOwner == null) {
+        ConnectionManager connectionManager = this.connectionManager.get();
+        if (connectionManager == null) {
             throw new IllegalStateException("Subscriber is not initialized");
         }
 
@@ -128,7 +112,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             return;
         }
 
-        connectionOwner.basicCancel(tag);
+        connectionManager.basicCancel(tag);
 
         listeners.forEach(MessageListener::onClose);
         listeners.clear();

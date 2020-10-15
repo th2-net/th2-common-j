@@ -38,9 +38,9 @@ public class RabbitMQConfiguration {
 
     private int maxRecoveryAttempts = 5;
 
-    private int minRecoveryConnectionTimeout = 10_000;
+    private int minConnectionRecoveryTimeout = 10_000;
 
-    private int maxRecoveryConnectionTimeout = 60_000;
+    private int maxConnectionRecoveryTimeout = 60_000;
 
     public String getHost() {
         return host;
@@ -106,20 +106,20 @@ public class RabbitMQConfiguration {
         this.maxRecoveryAttempts = maxRecoveryAttempts;
     }
 
-    public int getMinRecoveryConnectionTimeout() {
-        return minRecoveryConnectionTimeout;
+    public int getMinConnectionRecoveryTimeout() {
+        return minConnectionRecoveryTimeout;
     }
 
-    public void setMinRecoveryConnectionTimeout(int minRecoveryConnectionTimeout) {
-        this.minRecoveryConnectionTimeout = minRecoveryConnectionTimeout;
+    public void setMinConnectionRecoveryTimeout(int minConnectionRecoveryTimeout) {
+        this.minConnectionRecoveryTimeout = minConnectionRecoveryTimeout;
     }
 
-    public int getMaxRecoveryConnectionTimeout() {
-        return maxRecoveryConnectionTimeout;
+    public int getMaxConnectionRecoveryTimeout() {
+        return maxConnectionRecoveryTimeout;
     }
 
-    public void setMaxRecoveryConnectionTimeout(int maxRecoveryConnectionTimeout) {
-        this.maxRecoveryConnectionTimeout = maxRecoveryConnectionTimeout;
+    public void setMaxConnectionRecoveryTimeout(int maxConnectionRecoveryTimeout) {
+        this.maxConnectionRecoveryTimeout = maxConnectionRecoveryTimeout;
     }
 
     public int getConnectionTimeout() {
@@ -150,8 +150,8 @@ public class RabbitMQConfiguration {
                 ", connectionTimeout='" + connectionTimeout + '\'' +
                 ", connectionCloseTimeout='" + connectionCloseTimeout + '\'' +
                 ", maxRecoveryAttempts='" + maxRecoveryAttempts + '\'' +
-                ", minRecoveryConnectionTimeout='" + minRecoveryConnectionTimeout + '\'' +
-                ", maxRecoveryConnectionTimeout='" + maxRecoveryConnectionTimeout + '\'' +
+                ", minConnectionRecoveryTimeout='" + minConnectionRecoveryTimeout + '\'' +
+                ", maxConnectionRecoveryTimeout='" + maxConnectionRecoveryTimeout + '\'' +
                 '}';
     }
 }

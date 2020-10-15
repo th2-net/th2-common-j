@@ -43,40 +43,29 @@ import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.SubscriberMonitor;
 import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private AtomicReference<ConnectionOwner> connection = new AtomicReference<>();
+    private AtomicReference<ConnectionManager> connection = new AtomicReference<>();
     private AtomicReference<MessageRouterConfiguration> configuration = new AtomicReference<>();
     protected final AtomicReference<FilterStrategy> filterStrategy = new AtomicReference<>(new DefaultFilterStrategy());
 
     private final ConcurrentMap<String, MessageQueue<T>> queueConnections = new ConcurrentHashMap<>();
 
     @Override
-    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull MessageRouterConfiguration messageRouterConfiguration) {
-        Objects.requireNonNull(connectionOwner, "Connection owner can not be null");
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration messageRouterConfiguration) {
+        Objects.requireNonNull(connectionManager, "Connection owner can not be null");
         Objects.requireNonNull(configuration, "configuration cannot be null");
 
         if (this.connection.get() != null || this.configuration.get() != null) {
-            throw new IllegalStateException("Router is already initialize");
+            throw new IllegalStateException("Router is already initialized");
         }
 
-        this.connection.updateAndGet(connection -> {
-            if (connection == null) {
-                connection = connectionOwner;
-            }
-            return connection;
-        });
-
-        this.configuration.updateAndGet(configuration -> {
-            if (configuration == null) {
-                configuration = messageRouterConfiguration;
-            }
-            return configuration;
-        });
+        this.connection.set(connectionManager);
+        this.configuration.set(messageRouterConfiguration);
     }
 
     @Nullable
@@ -192,7 +181,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         logger.info("Message router has been successfully closed");
     }
 
-    protected abstract MessageQueue<T> createQueue(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageQueue<T> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
 
     protected abstract Map<String, T> findByFilter(Map<String, QueueConfiguration> queues, T msg);
 
@@ -223,8 +212,8 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     protected MessageQueue<T> getMessageQueue(String queueAlias) {
         return queueConnections.computeIfAbsent(queueAlias, key -> {
-            ConnectionOwner connectionOwner = connection.get();
-            if (connectionOwner == null) {
+            ConnectionManager connectionManager = connection.get();
+            if (connectionManager == null) {
                 throw new IllegalStateException("Router is not initialized");
             }
 
@@ -233,7 +222,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
                 throw new IllegalStateException("Can not find queue");
             }
 
-            return createQueue(connectionOwner, queueByAlias);
+            return createQueue(connectionManager, queueByAlias);
         });
     }
 
@@ -283,15 +272,13 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     }
 
     private Collection<String> addRequiredSubscribeAttributes(String[] queueAttr) {
-        Set<String> attributes = new HashSet<>();
-        attributes.addAll(requiredSubscribeAttributes());
+        Set<String> attributes = new HashSet<>(requiredSubscribeAttributes());
         attributes.addAll(Arrays.asList(queueAttr));
         return attributes;
     }
 
     private Collection<String> addRequiredSendAttributes(String[] queueAttr) {
-        Set<String> attributes = new HashSet<>();
-        attributes.addAll(requiredSubscribeAttributes());
+        Set<String> attributes = new HashSet<>(requiredSubscribeAttributes());
         attributes.addAll(Arrays.asList(queueAttr));
         return attributes;
     }

@@ -22,58 +22,41 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.schema.message.MessageSender;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
     private final AtomicReference<String> sendQueue = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
-    private final AtomicReference<ConnectionOwner> connectionOwner = new AtomicReference<>();
+    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
 
     @Override
-    public void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull String sendQueue) {
-        Objects.requireNonNull(connectionOwner, "Connection can not be null");
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
+        Objects.requireNonNull(connectionManager, "Connection can not be null");
         Objects.requireNonNull(exchangeName, "Exchange name can not be null");
         Objects.requireNonNull(sendQueue, "Send queue can not be null");
 
-        if (this.connectionOwner.get() != null && this.sendQueue.get() != null && this.exchangeName.get() != null) {
+        if (this.connectionManager.get() != null && this.sendQueue.get() != null && this.exchangeName.get() != null) {
             throw new IllegalStateException("Sender is already initialize");
         }
 
-        this.connectionOwner.updateAndGet(connection -> {
-            if (connection == null) {
-                connection = connectionOwner;
-            }
-            return connection;
-        });
-
-        this.exchangeName.updateAndGet(exchange -> {
-            if (exchange == null) {
-                exchange = exchangeName;
-            }
-            return exchange;
-        });
-
-        this.sendQueue.updateAndGet(queue -> {
-            if (queue == null) {
-                queue = sendQueue;
-            }
-            return queue;
-        });
+        this.connectionManager.set(connectionManager);
+        this.exchangeName.set(exchangeName);
+        this.sendQueue.set(sendQueue);
     }
 
     @Override
     public boolean isOpen() {
-        ConnectionOwner connectionOwner = this.connectionOwner.get();
-        return connectionOwner != null && connectionOwner.isOpen();
+        ConnectionManager connectionManager = this.connectionManager.get();
+        return connectionManager != null && connectionManager.isOpen();
     }
 
     @Override
     public void send(T value) throws IOException {
 
         try {
-            ConnectionOwner connection = this.connectionOwner.get();
+            ConnectionManager connection = this.connectionManager.get();
             connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value));
 
             if (logger.isDebugEnabled()) {

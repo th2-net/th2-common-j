@@ -21,25 +21,25 @@ import com.exactpro.th2.schema.message.MessageSubscriber;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     @Override
-    protected MessageSender<RawMessageBatch> createSender(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSender<RawMessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         var result = new RabbitRawBatchSender();
-        result.init(connectionOwner, queueConfiguration.getExchange(), queueConfiguration.getName());
+        result.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getName());
         return result;
     }
 
     @Override
-    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull ConnectionOwner connectionOwner, @NotNull QueueConfiguration queueConfiguration) {
+    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters());
         var subscribeTarget = SubscribeTarget.builder()
                 .routingKey(queueConfiguration.getName())
                 .queue(queueConfiguration.getQueue())
                 .build();
-        result.init(connectionOwner, queueConfiguration.getExchange(), subscribeTarget);
+        result.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
         return result;
     }
 }

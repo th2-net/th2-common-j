@@ -19,7 +19,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Send message to {@link MessageQueue}
@@ -27,7 +27,7 @@ import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
  */
 @NotThreadSafe
 public interface MessageSender<T> {
-    void init(@NotNull ConnectionOwner connectionOwner, @NotNull String exchangeName, @NotNull String sendQueue);
+    void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue);
 
     boolean isOpen();
 

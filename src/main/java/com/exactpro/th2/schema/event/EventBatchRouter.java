@@ -25,17 +25,17 @@ import com.exactpro.th2.schema.message.MessageQueue;
 import com.exactpro.th2.schema.message.QueueAttribute;
 import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionOwner;
+import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
-    private final Set<String> requiredSubscribeAttribute = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
-    private final Set<String> requiredSendAttributes = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
+    private static final Set<String> requiredSubscribeAttribute = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
+    private static final Set<String> requiredSendAttributes = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
-    protected MessageQueue<EventBatch> createQueue(ConnectionOwner connectionOwner, QueueConfiguration queueConfiguration) {
+    protected MessageQueue<EventBatch> createQueue(ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
         EventBatchQueue eventBatchQueue = new EventBatchQueue();
-        eventBatchQueue.init(connectionOwner, queueConfiguration);
+        eventBatchQueue.init(connectionManager, queueConfiguration);
         return eventBatchQueue;
     }
 
