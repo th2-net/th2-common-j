@@ -285,7 +285,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     }
 
     private Collection<String> addRequiredSendAttributes(String[] queueAttr) {
-        Set<String> attributes = new HashSet<>(requiredSubscribeAttributes());
+        Set<String> attributes = new HashSet<>(requiredSendAttributes());
         attributes.addAll(Arrays.asList(queueAttr));
         return attributes;
     }
