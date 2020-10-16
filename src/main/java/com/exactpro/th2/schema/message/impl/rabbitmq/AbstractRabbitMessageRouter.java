@@ -87,11 +87,11 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     @NotNull
     @Override
     public SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr) {
-        var queues = getConfiguration().findQueuesByAttr(addRequiredSubscribeAttributes(queueAttr));
+        var attributes = addRequiredSubscribeAttributes(queueAttr);
+        var queues = getConfiguration().findQueuesByAttr(attributes);
         if (queues.size() != 1) {
-            throw new IllegalStateException("Wrong count of queues for subscribe. Must be not more then 1. Find queues = " + queues.size());
+            throw new IllegalStateException("Wrong amount of queues for subscribe. Found " + queues.size() + " queues, but must not be more than 1. Search was done by " + attributes + " attributes")
         }
-
         return subscribe(queues.keySet().iterator().next(), callback);
     }
 
@@ -99,16 +99,17 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     public SubscriberMonitor subscribeAll(MessageListener<T> callback) {
         List<SubscriberMonitor> subscribers = getConfiguration().findQueuesByAttr(requiredSubscribeAttributes()).keySet().stream().map(alias -> subscribe(alias, callback)).collect(Collectors.toList());
         if (subscribers.isEmpty()) {
-            throw new IllegalStateException("Wrong size of queues aliases for subscribeAll. Should not be empty");
+            throw new IllegalStateException("Wrong amount of queues for subscribeAll. Should not be empty. Search was done by " + requiredSubscribeAttributes() + " attributes");
         }
         return new MultiplySubscribeMonitorImpl(subscribers);
     }
 
     @Override
     public SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr) {
-        List<SubscriberMonitor> subscribers = getConfiguration().findQueuesByAttr(addRequiredSubscribeAttributes(queueAttr)).keySet().stream().map(queueConfiguration -> subscribe(queueConfiguration, callback)).collect(Collectors.toList());
+        var attributes = addRequiredSubscribeAttributes(queueAttr);
+        List<SubscriberMonitor> subscribers = getConfiguration().findQueuesByAttr(attributes).keySet().stream().map(queueConfiguration -> subscribe(queueConfiguration, callback)).collect(Collectors.toList());
         if (subscribers.isEmpty()) {
-            throw new IllegalStateException("Wrong size of queues aliases for subscribeAll. Should not be empty");
+            throw new IllegalStateException("Wrong amount of queues for subscribeAll. Should not be empty. Search was done by " + attributes + " attributes");
         }
         return new MultiplySubscribeMonitorImpl(subscribers);
     }
