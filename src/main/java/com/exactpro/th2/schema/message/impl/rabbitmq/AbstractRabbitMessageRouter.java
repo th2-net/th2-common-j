@@ -90,7 +90,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         var attributes = addRequiredSubscribeAttributes(queueAttr);
         var queues = getConfiguration().findQueuesByAttr(attributes);
         if (queues.size() != 1) {
-            throw new IllegalStateException("Wrong amount of queues for subscribe. Found " + queues.size() + " queues, but must not be more than 1. Search was done by " + attributes + " attributes")
+            throw new IllegalStateException("Wrong amount of queues for subscribe. Found " + queues.size() + " queues, but must not be more than 1. Search was done by " + attributes + " attributes");
         }
         return subscribe(queues.keySet().iterator().next(), callback);
     }
