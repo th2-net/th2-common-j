@@ -101,7 +101,7 @@ public class RabbitMqSubscriber implements Closeable {
     }
 
     /**
-     * Starts listening to specified routes with manual ack after each processed message. Uses specified {@code prefetchCount} per consumer.<br/>
+     * Starts listening to specified routes with manual ack after each processed message. Uses specified {@code prefetchCount} per consumer.
      * If {@code prefetchCount=0} indicates unlimited number of unacknowledged messages delivered by server
      */
     public void startListeningManualAck(String host, String vHost, int port, String username, String password, @Nullable String subscriberName,
