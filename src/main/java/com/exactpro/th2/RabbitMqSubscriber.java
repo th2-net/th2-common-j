@@ -29,6 +29,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
+import com.rabbitmq.client.Delivery;
 
 public class RabbitMqSubscriber implements Closeable {
     private static final int CLOSE_TIMEOUT = 1_000;
@@ -81,7 +83,54 @@ public class RabbitMqSubscriber implements Closeable {
         this.startListening(host, vHost, port, username, password, subscriberName, null);
     }
 
+    /**
+     * Starts listening to specified routes with auto ack on message delivered. Prefetch count is unlimited
+     */
     public void startListening(String host, String vHost, int port, String username, String password, @Nullable String subscriberName, Runnable onFailedRecoveryConnection) throws IOException, TimeoutException {
+        // TODO: there should be a check that we are not listening yet
+        ConnectionFactory factory = createConnectionFactory(host, vHost, port, username, password, onFailedRecoveryConnection);
+
+        connection = factory.newConnection();
+        channel = createAndConfigureChannel(connection, exchangeName);
+        subscribeToRoutesAutoAck(exchangeName, subscriberName, routes);
+    }
+
+    public void startListeningManualAck(String host, String vHost, int port, String username, String password, @Nullable String subscriberName,
+                                        int prefetchCount) throws IOException, TimeoutException {
+        startListeningManualAck(host, vHost, port, username, password, subscriberName, prefetchCount, null);
+    }
+
+    /**
+     * Starts listening to specified routes with manual ack after each processed message. Uses specified {@code prefetchCount} per consumer.<br/>
+     * If {@code prefetchCount=0} indicates unlimited number of unacknowledged messages delivered by server
+     */
+    public void startListeningManualAck(String host, String vHost, int port, String username, String password, @Nullable String subscriberName,
+                                int prefetchCount, @Nullable Runnable onFailedRecoveryConnection) throws IOException, TimeoutException {
+        // TODO: there should be a check that we are not listening yet
+        ConnectionFactory factory = createConnectionFactory(host, vHost, port, username, password, onFailedRecoveryConnection);
+
+        connection = factory.newConnection();
+        channel = createAndConfigureChannel(connection, exchangeName);
+        channel.basicQos(prefetchCount);
+        subscribeToRoutesManualAck(exchangeName, subscriberName, routes);
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (connection != null && connection.isOpen()) {
+            connection.close(CLOSE_TIMEOUT);
+        }
+    }
+
+    private static Channel createAndConfigureChannel(Connection connection, String exchangeName) throws IOException {
+        Channel channel = connection.createChannel();
+        channel.exchangeDeclare(exchangeName, "direct");
+        return channel;
+    }
+
+    @NotNull
+    private static ConnectionFactory createConnectionFactory(String host, String vHost, int port, String username, String password,
+                                                             @Nullable Runnable onFailedRecoveryConnection) {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(host);
         if (StringUtils.isNotEmpty(vHost)) {
@@ -123,28 +172,56 @@ public class RabbitMqSubscriber implements Closeable {
                     return recoveryDelay;
                 }
         );
-
-        connection = factory.newConnection();
-        channel = connection.createChannel();
-        channel.exchangeDeclare(exchangeName, "direct");
-        subscribeToRoutes(exchangeName, subscriberName, routes);
+        return factory;
     }
 
-    @Override
-    public void close() throws IOException {
-        if (connection != null && connection.isOpen()) {
-            connection.close(CLOSE_TIMEOUT);
-        }
-    }
-
-    private void subscribeToRoutes(String exchangeName, String subscriberName, String[] routes)
+    private void subscribeToRoutesAutoAck(String exchangeName, String subscriberName, String[] routes)
             throws IOException {
         for (String route : routes) {
-            DeclareOk declareResult = subscriberName == null ? channel.queueDeclare() : channel.queueDeclare(subscriberName + "." + System.currentTimeMillis(), false, true, true, Collections.emptyMap());
+            DeclareOk declareResult = declareQueue(subscriberName);
             String queue = declareResult.getQueue();
             channel.queueBind(queue, exchangeName, route);
             channel.basicConsume(queue, true, deliverCallback, consumerTag -> logger.info("consuming cancelled for {}", consumerTag));
             logger.info("Start listening exchangeName='{}', routingKey='{}', queue='{}'", exchangeName, route, queue);
+        }
+    }
+
+    private void subscribeToRoutesManualAck(String exchangeName, String subscriberName, String[] routes)
+            throws IOException {
+        for (String route : routes) {
+            DeclareOk declareResult = declareQueue(subscriberName);
+            String queue = declareResult.getQueue();
+            channel.queueBind(queue, exchangeName, route);
+            channel.basicConsume(queue, false, // manual ack
+                    new ManualAckDeliveryCallback(channel, deliverCallback),
+                    consumerTag -> logger.info("consuming cancelled for {}",
+                    consumerTag));
+            logger.info("Start listening (manual ack) exchangeName='{}', routingKey='{}', queue='{}'", exchangeName, route, queue);
+        }
+    }
+
+    private DeclareOk declareQueue(String subscriberName) throws IOException {
+        return subscriberName == null ?
+                channel.queueDeclare() :
+                channel.queueDeclare(subscriberName + "." + System.currentTimeMillis(), false, true, true, Collections.emptyMap());
+    }
+
+    private static class ManualAckDeliveryCallback implements DeliverCallback {
+        private final Channel channel;
+        private final DeliverCallback delegate;
+
+        private ManualAckDeliveryCallback(Channel channel, DeliverCallback delegate) {
+            this.channel = Objects.requireNonNull(channel, "'Channel' parameter");
+            this.delegate = Objects.requireNonNull(delegate, "'Delegate' parameter");
+        }
+
+        @Override
+        public void handle(String consumerTag, Delivery message) throws IOException {
+            try {
+                delegate.handle(consumerTag, message);
+            } finally {
+                channel.basicAck(message.getEnvelope().getDeliveryTag(),false);
+            }
         }
     }
 }
