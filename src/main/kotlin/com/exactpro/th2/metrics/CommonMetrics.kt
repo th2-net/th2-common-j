@@ -18,9 +18,15 @@
 package com.exactpro.th2.metrics
 
 import io.prometheus.client.Gauge
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 
 private val LIVENESS = Gauge.build("th2_liveness", "Service liveness").register()
 private val READINESS = Gauge.build("th2_readiness", "Service readiness").register()
+
+private val RABBITMQ_READINESS = AtomicBoolean(true)
+private val GRPC_READINESS = AtomicBoolean(true)
+private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC_READINESS))
 
 var liveness: Boolean
     get() = LIVENESS.get() == 0.0
@@ -29,3 +35,29 @@ var liveness: Boolean
 var readiness: Boolean
     get() = READINESS.get() == 0.0
     set(value) = READINESS.set(if (value) 1.0 else 0.0)
+
+fun updateCommonReadiness() {
+    var isReadness = true
+    for (readinessParameter in ALL_READINESS) {
+        if (!readinessParameter.get()) {
+            isReadness = false
+            break
+        }
+    }
+
+    readiness = isReadness
+}
+
+fun addReadinessParameter(parameter: AtomicBoolean) {
+    ALL_READINESS.add(parameter)
+}
+
+fun setRabbitMQReadiness(value: Boolean) {
+    RABBITMQ_READINESS.set(value)
+    updateCommonReadiness()
+}
+
+fun setGRPCReadiness(value: Boolean) {
+    GRPC_READINESS.set(value)
+    updateCommonReadiness()
+}

@@ -23,16 +23,20 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.th2.metrics.CommonMetrics;
 import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DeliverCallback;
+import com.rabbitmq.client.ExceptionHandler;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
+import com.rabbitmq.client.TopologyRecoveryException;
 
 import lombok.val;
 
@@ -53,6 +57,8 @@ public class ConnectionManager implements AutoCloseable {
         public void handleRecovery(Recoverable recoverable) {
             logger.debug("Count tries to recovery connection reset to 0");
             connectionRecoveryAttempts.set(0);
+            CommonMetrics.setRabbitMQReadiness(true);
+            logger.debug("Set RabbitMQ readiness to true");
         }
 
         @Override
@@ -93,6 +99,53 @@ public class ConnectionManager implements AutoCloseable {
             factory.setConnectionTimeout(rabbitMQConfiguration.getConnectionTimeout());
         }
 
+        factory.setExceptionHandler(new ExceptionHandler() {
+            @Override
+            public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
+                turnOffReandess(exception);
+            }
+
+            @Override
+            public void handleReturnListenerException(Channel channel, Throwable exception) {
+                turnOffReandess(exception);
+            }
+
+            @Override
+            public void handleConfirmListenerException(Channel channel, Throwable exception) {
+                turnOffReandess(exception);
+            }
+
+            @Override
+            public void handleBlockedListenerException(Connection connection, Throwable exception) {
+                turnOffReandess(exception);
+            }
+
+            @Override
+            public void handleConsumerException(Channel channel, Throwable exception, Consumer consumer, String consumerTag, String methodName) {
+                turnOffReandess(exception);
+            }
+
+            @Override
+            public void handleConnectionRecoveryException(Connection conn, Throwable exception) {
+                turnOffReandess(exception);
+            }
+
+            @Override
+            public void handleChannelRecoveryException(Channel ch, Throwable exception) {
+                turnOffReandess(exception);
+            }
+
+            @Override
+            public void handleTopologyRecoveryException(Connection conn, Channel ch, TopologyRecoveryException exception) {
+                turnOffReandess(exception);
+            }
+
+            private void turnOffReandess(Throwable exception){
+                CommonMetrics.setRabbitMQReadiness(false);
+                logger.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
+            }
+        });
+
         factory.setAutomaticRecoveryEnabled(true);
         factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
             if (connectionIsClosed.get()) {
@@ -130,7 +183,11 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             this.connection = factory.newConnection();
+            CommonMetrics.setRabbitMQReadiness(true);
+            logger.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
+            CommonMetrics.setRabbitMQReadiness(false);
+            logger.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
 
