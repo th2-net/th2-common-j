@@ -42,6 +42,8 @@ public class RabbitMQConfiguration {
 
     private int maxConnectionRecoveryTimeout = 60_000;
 
+    private int prefetchCount = 10;
+
     public String getHost() {
         return host;
     }
@@ -138,6 +140,16 @@ public class RabbitMQConfiguration {
         this.connectionCloseTimeout = connectionCloseTimeout;
     }
 
+    public int getPrefetchCount() {
+        return prefetchCount;
+    }
+
+    public void setPrefetchCount(int prefetchCount) {
+        if (prefetchCount > -1) {
+            this.prefetchCount = prefetchCount;
+        }
+    }
+
     @Override
     public String toString() {
         return "RabbitMQConfiguration{" +
@@ -147,11 +159,13 @@ public class RabbitMQConfiguration {
                 ", username='" + username + '\'' +
                 ", password='" + password + '\'' +
                 ", subscriberName='" + subscriberName + '\'' +
-                ", connectionTimeout='" + connectionTimeout + '\'' +
-                ", connectionCloseTimeout='" + connectionCloseTimeout + '\'' +
-                ", maxRecoveryAttempts='" + maxRecoveryAttempts + '\'' +
-                ", minConnectionRecoveryTimeout='" + minConnectionRecoveryTimeout + '\'' +
-                ", maxConnectionRecoveryTimeout='" + maxConnectionRecoveryTimeout + '\'' +
+                ", exchangeName='" + exchangeName + '\'' +
+                ", connectionTimeout=" + connectionTimeout +
+                ", connectionCloseTimeout=" + connectionCloseTimeout +
+                ", maxRecoveryAttempts=" + maxRecoveryAttempts +
+                ", minConnectionRecoveryTimeout=" + minConnectionRecoveryTimeout +
+                ", maxConnectionRecoveryTimeout=" + maxConnectionRecoveryTimeout +
+                ", prefetchCount=" + prefetchCount +
                 '}';
     }
 }

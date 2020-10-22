@@ -225,10 +225,16 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicPublish(exchange, routingKey, props, body);
     }
 
-    public String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
+    public String basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         Channel channel = this.channel.get();
         waitForConnectionRecovery(channel);
-        return channel.basicConsume(queue, autoAck, subscriberName + "_" + nextSubscriberId.getAndIncrement(), deliverCallback, cancelCallback);
+        return channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tag, delivery) -> {
+            try {
+                deliverCallback.handle(tag, delivery);
+            } finally {
+                basicAck(delivery.getEnvelope().getDeliveryTag());
+            }
+        }, cancelCallback);
     }
 
     public void basicCancel(String consumerTag) throws IOException {
@@ -241,7 +247,9 @@ public class ConnectionManager implements AutoCloseable {
         waitForConnectionRecovery(connection);
 
         try {
-            return connection.createChannel();
+            Channel channel = connection.createChannel();
+            channel.basicQos(configuration.getPrefetchCount());
+            return channel;
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
         }
@@ -260,5 +268,11 @@ public class ConnectionManager implements AutoCloseable {
         if (connectionIsClosed.get()) {
             throw new IllegalStateException("Connection is already closed");
         }
+    }
+
+    private void basicAck(long deliveryTag) throws IOException {
+        Channel channel = this.channel.get();
+        waitForConnectionRecovery(channel);
+        channel.basicAck(deliveryTag, false);
     }
 }

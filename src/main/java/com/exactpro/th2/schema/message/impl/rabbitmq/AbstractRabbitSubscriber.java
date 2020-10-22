@@ -76,7 +76,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 }
 
                 try {
-                    tag = connectionManager.basicConsume(queue, true, this::handle, this::canceled);
+                    tag = connectionManager.basicConsume(queue, this::handle, this::canceled);
                     logger.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
                 } catch (IOException e) {
                     throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
