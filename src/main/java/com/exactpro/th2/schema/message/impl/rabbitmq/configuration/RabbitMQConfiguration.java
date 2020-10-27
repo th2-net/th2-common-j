@@ -28,8 +28,6 @@ public class RabbitMQConfiguration {
     private String username;
     private String password;
     private String subscriberName;
-
-    @JsonProperty(value = "exchange-name")
     private String exchangeName;
 
     private int connectionTimeout = -1;
