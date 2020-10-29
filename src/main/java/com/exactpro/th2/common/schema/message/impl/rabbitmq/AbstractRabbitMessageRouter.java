@@ -69,8 +69,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     }
 
     @Nullable
-    @Override
-    public SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback) {
+    private SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback) {
         var queue = getMessageQueue(queueAlias);
         MessageSubscriber<T> subscriber = queue.getSubscriber();
         subscriber.addListener(callback);

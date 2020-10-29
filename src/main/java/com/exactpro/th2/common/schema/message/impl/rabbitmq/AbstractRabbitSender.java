@@ -47,12 +47,6 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     }
 
     @Override
-    public boolean isOpen() {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        return connectionManager != null && connectionManager.isOpen();
-    }
-
-    @Override
     public void send(T value) throws IOException {
 
         try {

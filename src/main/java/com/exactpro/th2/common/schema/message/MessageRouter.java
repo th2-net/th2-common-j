@@ -35,18 +35,6 @@ public interface MessageRouter<T> extends AutoCloseable {
     void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration);
 
     /**
-     * Listen RabbitMQ queue by schemas queues alias
-     * @param queueAlias queues alias
-     * @param callback listener
-     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
-     *
-     * @deprecated please use {@link MessageRouter#subscribe(MessageListener, String...)}
-     */
-    @Nullable
-    @Deprecated(since = "1.4.2", forRemoval = true)
-    SubscriberMonitor subscribe(String queueAlias, MessageListener<T> callback);
-
-    /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
      * @param queueAttr queues attributes
      * @param callback listener

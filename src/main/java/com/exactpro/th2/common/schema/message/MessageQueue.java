@@ -20,7 +20,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 
 /**
  * Message queue
- * @param <T>
  * @see MessageSubscriber
  * @see MessageSender
  */

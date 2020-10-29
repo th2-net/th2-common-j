@@ -27,7 +27,6 @@ import io.grpc.Server;
 public interface GrpcRouter extends AutoCloseable {
     /**
      * Initialization router
-     * @param configuration
      */
     void init(GrpcRouterConfiguration configuration);
 
@@ -35,7 +34,6 @@ public interface GrpcRouter extends AutoCloseable {
      * Create grpc service for send message to grpc servers
      * @param cls service class
      * @return service
-     * @throws ClassNotFoundException
      */
     <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException;
 

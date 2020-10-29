@@ -62,7 +62,6 @@ public class ConfigurationUtils {
      * @param loadable Function loads T from {@link InputStream}
      * @param createDefault Function creates default value of type T
      * @param filePath Path to file
-     * @param <T>
      * @return Object of type T which safe loaded
      */
     public static <T> T safeLoad(Loadable<T> loadable, Supplier<T> createDefault, String filePath) {
@@ -89,7 +88,6 @@ public class ConfigurationUtils {
      * @param loadable Function loads T from {@link InputStream}
      * @param createDefault Function creates default value of type T
      * @param inputStream inputStream
-     * @param <T>
      * @return Object of type T which safe loaded
      */
     public static <T> T safeLoad(Loadable<T> loadable, Supplier<T> createDefault, InputStream inputStream) {

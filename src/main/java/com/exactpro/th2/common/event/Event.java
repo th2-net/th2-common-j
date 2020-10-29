@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.event;
 
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
-import static com.exactpro.th2.common.message.MessageUtils.toProtoMessageID;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
@@ -26,8 +25,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -206,24 +203,6 @@ public class Event {
     public Event messageID(MessageID attachedMessageID) {
         attachedMessageIDS.add(requireNonNull(attachedMessageID, "Attached message id can't be null"));
         return this;
-    }
-
-    /**
-     * @deprecated please use {@link #messageID(MessageID)} method
-     */
-    @Deprecated(since = "TH2 1.1", forRemoval = true)
-    public Event messageID(com.exactpro.th2.common.event.bean.MessageID attachedMessageID) {
-        messageID(toProtoMessageID(requireNonNull(attachedMessageID, "Attached message id can't be null")));
-        return this;
-    }
-
-
-    /**
-     * @deprecated Please use {@link #toProtoEvent(String)}
-     */
-    @Deprecated(since = "TH2 1.1", forRemoval = true)
-    public List<com.exactpro.th2.common.grpc.Event> toProtoEventBuilders(String parentID) throws JsonProcessingException {
-        return toProtoEvents(parentID);
     }
 
     public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(String parentID) throws JsonProcessingException {

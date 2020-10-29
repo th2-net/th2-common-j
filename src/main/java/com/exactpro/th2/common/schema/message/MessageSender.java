@@ -23,14 +23,10 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 
 /**
  * Send message to {@link MessageQueue}
- * @param <T>
  */
 @NotThreadSafe
 public interface MessageSender<T> {
     void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue);
-
-    @Deprecated(forRemoval = true, since = "1.4.2")
-    boolean isOpen();
 
     void send(T message) throws IOException;
 }

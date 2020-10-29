@@ -23,11 +23,9 @@ import com.exactpro.th2.common.grpc.FilterOperation.NOT_EQUAL
 import com.exactpro.th2.common.grpc.ListValueFilter
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
-import com.exactpro.th2.common.grpc.ValueFilter.KindCase.LIST_FILTER
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.MESSAGE_FILTER
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import java.math.BigDecimal
-import kotlin.DeprecationLevel.WARNING
 
 fun equalValueFilter() = ValueFilter.newBuilder().setOperation(EQUAL).build()
 fun notEqualValueFilter() = ValueFilter.newBuilder().setOperation(NOT_EQUAL).build()
@@ -40,15 +38,6 @@ fun ValueFilter.getLong(): Long? = getString()?.toLongOrNull()
 fun ValueFilter.getDouble(): Double? = getString()?.toDoubleOrNull()
 fun ValueFilter.getBigDecimal(): BigDecimal? = getString()?.toBigDecimalOrNull()
 fun ValueFilter.getMessage(): MessageFilter? = if (kindCase == MESSAGE_FILTER) messageFilter else null
-
-@Deprecated(
-    message = "Return type will be replaced to List<ValueFilter>",
-    level = WARNING,
-    replaceWith = ReplaceWith(
-        expression = "this.listFilter",
-        imports = []
-    ))
-fun ValueFilter.getList(): ListValueFilter? = if (kindCase == LIST_FILTER) listFilter else null
 
 fun String.toValueFilter(): ValueFilter = ValueFilter.newBuilder().setSimpleFilter(this).build()
 

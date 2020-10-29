@@ -25,7 +25,6 @@ import com.exactpro.th2.common.grpc.Value.KindCase.MESSAGE_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import java.math.BigDecimal
 import java.math.BigInteger
-import kotlin.DeprecationLevel.WARNING
 
 fun nullValue(): Value = Value.newBuilder().setNullValue(NULL_VALUE).build()
 
@@ -36,15 +35,6 @@ fun Value.getDouble(): Double? = this.getString()?.toDoubleOrNull()
 fun Value.getBigInteger(): BigInteger? = this.getString()?.toBigIntegerOrNull()
 fun Value.getBigDecimal(): BigDecimal? = this.getString()?.toBigDecimalOrNull()
 fun Value.getMessage(): Message? = if (this.kindCase == MESSAGE_VALUE) this.messageValue else null
-
-@Deprecated(
-    message = "Return type will be replaced to List<Value>",
-    level = WARNING,
-    replaceWith = ReplaceWith(
-        expression = "this.listValue",
-        imports = []
-    ))
-fun Value.getList(): ListValue? = if (this.kindCase == LIST_VALUE) this.listValue else null
 
 fun String.toValue(): Value = Value.newBuilder().setSimpleValue(this).build()
 

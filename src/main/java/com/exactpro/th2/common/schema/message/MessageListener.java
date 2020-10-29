@@ -15,7 +15,6 @@ package com.exactpro.th2.common.schema.message;
 
 /**
  * Listen message from {@link MessageSubscriber}
- * @param <T>
  */
 public interface MessageListener<T> {
 

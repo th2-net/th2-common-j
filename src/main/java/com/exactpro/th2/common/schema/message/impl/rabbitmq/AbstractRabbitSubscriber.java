@@ -95,12 +95,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
-    public boolean isOpen() {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        return consumerTag.get() != null && connectionManager != null && connectionManager.isOpen();
-    }
-
-    @Override
     public void close() throws Exception {
         ConnectionManager connectionManager = this.connectionManager.get();
         if (connectionManager == null) {

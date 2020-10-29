@@ -40,7 +40,6 @@ import java.time.ZoneOffset
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
-import kotlin.DeprecationLevel.ERROR
 
 fun message() : Message.Builder = Message.newBuilder()
 fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType)
@@ -69,23 +68,6 @@ fun Message.Builder.getList(fieldName: String): List<Value>? = getField(fieldNam
 
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 
-@Deprecated(
-    message = "Will be renamed",
-    level = ERROR,
-    replaceWith = ReplaceWith(
-        expression = "this.copyField(message, key)",
-        imports = []
-    ))
-fun Message.Builder.addField(message: Message, key: String) : Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
-@Deprecated(
-    message = "Will be renamed",
-    level = ERROR,
-    replaceWith = ReplaceWith(
-        expression = "this.copyField(message, key)",
-        imports = []
-    ))
-fun Message.Builder.addField(message: Message.Builder, key: String): Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
-
 fun Message.Builder.copyField(message: Message, key: String) : Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
 fun Message.Builder.copyField(message: Message.Builder, key: String): Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
 
@@ -100,23 +82,6 @@ fun Message.Builder.addFields(vararg fields: Any?): Message.Builder = apply {
 }
 
 fun Message.Builder.addFields(fields: Map<String, Any?>?): Message.Builder = apply { fields?.forEach { addField(it.key, it.value?.toValue() ?: nullValue()) } }
-
-@Deprecated(
-    message = "Will be renamed",
-    level = ERROR,
-    replaceWith = ReplaceWith(
-        expression = "this.copyFields(message, *keys)",
-        imports = []
-    ))
-fun Message.Builder.addFields(message: Message, vararg keys: String) : Message.Builder = apply { keys.forEach { copyField(message, it) } }
-@Deprecated(
-    message = "Will be renamed",
-    level = ERROR,
-    replaceWith = ReplaceWith(
-        expression = "this.copyFields(message, *keys)",
-        imports = []
-    ))
-fun Message.Builder.addFields(message: Message.Builder, vararg keys: String) : Message.Builder = apply { keys.forEach { copyField(message, it) } }
 
 fun Message.Builder.copyFields(message: Message, vararg keys: String) : Message.Builder = apply { keys.forEach { copyField(message, it) } }
 fun Message.Builder.copyFields(message: Message.Builder, vararg keys: String) : Message.Builder = apply { keys.forEach { copyField(message, it) } }
