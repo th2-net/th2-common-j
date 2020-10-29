@@ -68,7 +68,7 @@ public class ConnectionManager implements AutoCloseable {
     public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
 
-        if (StringUtils.isNotEmpty(rabbitMQConfiguration.getSubscriberName())) {
+        if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
             subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
             logger.info("Subscribers will use default name: {}", subscriberName);
         } else {
