@@ -39,7 +39,7 @@ public class MessageUtils {
     }
 
     /**
-     * @deprecated {@link MessageID} class is depricated
+     * @deprecated {@link MessageID} class is deprecated
      */
     @NotNull
     @Deprecated(since = "TH2 1.1", forRemoval = true)

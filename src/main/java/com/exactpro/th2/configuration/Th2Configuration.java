@@ -1,4 +1,4 @@
-/******************************************************************************
+/*****************************************************************************
  * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ *****************************************************************************/
 package com.exactpro.th2.configuration;
 
 import static com.exactpro.th2.configuration.Configuration.JSON_READER;
@@ -27,9 +27,18 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.th2.schema.factory.AbstractCommonFactory;
+import com.exactpro.th2.schema.factory.CommonFactory;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableMap;
 
+/**
+ * @deprecated Configuration will be close for user.
+ * Please use factories for create interfaces for work with other services
+ * @see AbstractCommonFactory
+ * @see CommonFactory
+ */
+@Deprecated(since = "1.4.2", forRemoval = true)
 public class Th2Configuration {
     private final static Logger LOGGER = LoggerFactory.getLogger(Th2Configuration.class);
 
