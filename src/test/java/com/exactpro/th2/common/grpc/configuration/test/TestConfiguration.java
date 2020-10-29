@@ -23,9 +23,9 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.exactpro.th2.schema.factory.AbstractCommonFactory;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.factory.AbstractCommonFactory;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 
 @RunWith(SingleInstanceRunner.class)
 public class TestConfiguration extends AbstractCommonFactory {
@@ -60,10 +60,9 @@ public class TestConfiguration extends AbstractCommonFactory {
         return Path.of("./src/test/resources/com.exactpro.th2/grpc/configuration/test/");
     }
 
-    @Test
-    public void testMqConfiguration() {
-        MessageRouterConfiguration conf = this.getMessageRouterConfiguration();
-        Assert.assertEquals(Collections.singleton("fix_in"), conf.getQueuesAliasByAttribute("fix", "in"));
+    @Override
+    protected Path getPathToPrometheusConfiguration() {
+        return null;
     }
 
     @Test
