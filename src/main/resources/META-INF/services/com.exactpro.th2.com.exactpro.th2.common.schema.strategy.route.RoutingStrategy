@@ -1,0 +1,2 @@
+com.exactpro.th2.common.schema.strategy.route.impl.FilterRoutingStrategy
+com.exactpro.th2.common.schema.strategy.route.impl.RobinRoutingStrategy

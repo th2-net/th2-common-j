@@ -12,39 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *****************************************************************************/
-
-/*****************************************************************************
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *****************************************************************************/
-
-/*******************************************************************************
- *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.common.value
 
@@ -57,7 +25,6 @@ import com.exactpro.th2.common.grpc.Value.KindCase.MESSAGE_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import java.math.BigDecimal
 import java.math.BigInteger
-import kotlin.DeprecationLevel.WARNING
 
 fun nullValue(): Value = Value.newBuilder().setNullValue(NULL_VALUE).build()
 
@@ -68,15 +35,6 @@ fun Value.getDouble(): Double? = this.getString()?.toDoubleOrNull()
 fun Value.getBigInteger(): BigInteger? = this.getString()?.toBigIntegerOrNull()
 fun Value.getBigDecimal(): BigDecimal? = this.getString()?.toBigDecimalOrNull()
 fun Value.getMessage(): Message? = if (this.kindCase == MESSAGE_VALUE) this.messageValue else null
-
-@Deprecated(
-    message = "Return type will be replaced to List<Value>",
-    level = WARNING,
-    replaceWith = ReplaceWith(
-        expression = "this.listValue",
-        imports = []
-    ))
-fun Value.getList(): ListValue? = if (this.kindCase == LIST_VALUE) this.listValue else null
 
 fun String.toValue(): Value = Value.newBuilder().setSimpleValue(this).build()
 
@@ -108,12 +66,12 @@ fun Any.toValue(): Value = when (this) {
 }
 
 fun Iterator<*>.toValue(): Value = ListValue.newBuilder()
-    .also { builder ->
+            .also { builder ->
         while (hasNext()) {
             next()?.also {
-                builder.addValues(it.toValue())
-            }
-        }
+                        builder.addValues(it.toValue())
+                    }
+                }
     }.toValue()
 
 fun Iterable<*>.toValue(): Value = iterator().toValue()
