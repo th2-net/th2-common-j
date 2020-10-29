@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.factory;
 
 import com.exactpro.th2.common.grpc.EventBatch;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -175,9 +176,9 @@ public class CommonFactory extends AbstractCommonFactory {
      *             cradle.json - configuration for cradle
      *             custom.json - custom configuration
      * @return CommonFactory with set path
-     * @throws ParseException - Can not parse command line arguments
+     * @throws IllegalArgumentException - Cannot parse command line arguments
      */
-    public static CommonFactory createFromArguments(String... args) throws ParseException {
+    public static CommonFactory createFromArguments(String... args) {
         Options options = new Options();
 
         options.addOption(new Option(null, "rabbitConfiguration", true, null));
@@ -189,19 +190,24 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "prometheusConfiguration", true, null));
         options.addOption(new Option("c", "configs", true, null));
 
-        CommandLine cmd = new DefaultParser().parse(options, args);
+        CommandLine cmd = null;
+        try {
+            cmd = new DefaultParser().parse(options, args);
 
-        String configs = cmd.getOptionValue("configs");
+            String configs = cmd.getOptionValue("configs");
 
-        return new CommonFactory(
-                calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, RABBIT_MQ_FILE_NAME),
-                calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
-                calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
-                calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
-                calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
-                calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
-                calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
-        );
+            return new CommonFactory(
+                    calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, RABBIT_MQ_FILE_NAME),
+                    calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
+                    calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
+                    calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
+                    calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
+                    calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
+                    calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
+            );
+        } catch (ParseException e) {
+            throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
+        }
     }
 
 
