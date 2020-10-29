@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
-package com.exactpro.th2.schema.util;
+package com.exactpro.th2.common.schema.util;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;

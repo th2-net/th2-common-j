@@ -11,10 +11,10 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.filter.strategy;
+package com.exactpro.th2.common.schema.filter.strategy;
 
-import com.exactpro.th2.schema.message.configuration.FieldFilterConfiguration;
-import com.exactpro.th2.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 
 import java.util.List;

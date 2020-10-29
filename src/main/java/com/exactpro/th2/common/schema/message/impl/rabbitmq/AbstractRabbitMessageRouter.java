@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,18 +32,18 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.schema.exception.RouterException;
-import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
-import com.exactpro.th2.schema.message.MessageListener;
-import com.exactpro.th2.schema.message.MessageQueue;
-import com.exactpro.th2.schema.message.MessageRouter;
-import com.exactpro.th2.schema.message.MessageSender;
-import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.SubscriberMonitor;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.exception.RouterException;
+import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.common.schema.message.MessageListener;
+import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.MessageSender;
+import com.exactpro.th2.common.schema.message.MessageSubscriber;
+import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 

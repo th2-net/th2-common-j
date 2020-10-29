@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message;
+package com.exactpro.th2.common.schema.message;
 
 public interface SubscriberMonitor {
 

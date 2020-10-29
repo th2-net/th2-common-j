@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,10 +24,10 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.schema.message.MessageListener;
-import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.MessageListener;
+import com.exactpro.th2.common.schema.message.MessageSubscriber;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Delivery;
 
 

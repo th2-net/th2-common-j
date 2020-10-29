@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.cradle;
+package com.exactpro.th2.common.schema.cradle;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

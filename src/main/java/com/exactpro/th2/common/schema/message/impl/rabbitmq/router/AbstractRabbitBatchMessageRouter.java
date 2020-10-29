@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq.router;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.router;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,8 +21,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
 import com.google.protobuf.Message;
 
 public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitMessageRouter<MB> {

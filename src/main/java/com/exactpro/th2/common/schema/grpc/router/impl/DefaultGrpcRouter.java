@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.grpc.router.impl;
+package com.exactpro.th2.common.schema.grpc.router.impl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -24,11 +24,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
-import com.exactpro.th2.schema.exception.InitGrpcRouterException;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.schema.grpc.configuration.GrpcServiceConfiguration;
-import com.exactpro.th2.schema.grpc.router.AbstractGrpcRouter;
-import com.exactpro.th2.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.AbstractGrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.google.protobuf.Message;
 
 import io.grpc.CallOptions;

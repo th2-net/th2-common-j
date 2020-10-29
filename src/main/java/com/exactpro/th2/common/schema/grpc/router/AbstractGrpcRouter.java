@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.grpc.router;
+package com.exactpro.th2.common.schema.grpc.router;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.schema.grpc.router.impl.DefaultGrpcRouter;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 
 import io.grpc.BindableService;
 import io.grpc.Server;

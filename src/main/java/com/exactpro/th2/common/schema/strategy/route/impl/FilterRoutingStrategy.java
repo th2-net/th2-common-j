@@ -11,13 +11,13 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.strategy.route.impl;
+package com.exactpro.th2.common.schema.strategy.route.impl;
 
-import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRawFilterStrategy;
-import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
-import com.exactpro.th2.schema.strategy.route.StrategyName;
+import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawFilterStrategy;
+import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
+import com.exactpro.th2.common.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
 
 import java.util.HashSet;

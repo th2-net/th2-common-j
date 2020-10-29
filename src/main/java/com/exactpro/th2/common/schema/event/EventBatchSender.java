@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.schema.event;
+package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSender;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 
 public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
     @Override

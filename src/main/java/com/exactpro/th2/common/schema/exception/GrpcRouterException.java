@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.exception;
+package com.exactpro.th2.common.schema.exception;
 
 public class GrpcRouterException extends RouterException {
 

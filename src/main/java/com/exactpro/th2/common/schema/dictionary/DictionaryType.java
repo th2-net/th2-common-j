@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.dictionary;
+package com.exactpro.th2.common.schema.dictionary;
 
 public enum DictionaryType {
     /**

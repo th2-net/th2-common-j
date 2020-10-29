@@ -11,9 +11,9 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.grpc.configuration;
+package com.exactpro.th2.common.schema.grpc.configuration;
 
-import com.exactpro.th2.schema.message.configuration.Configuration;
+import com.exactpro.th2.common.schema.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 

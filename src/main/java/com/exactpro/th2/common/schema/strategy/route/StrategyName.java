@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.strategy.route;
+package com.exactpro.th2.common.schema.strategy.route;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

@@ -11,17 +11,17 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.schema.event;
+package com.exactpro.th2.common.schema.event;
 
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.schema.message.MessageSender;
-import com.exactpro.th2.schema.message.MessageSubscriber;
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitQueue;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.MessageSender;
+import com.exactpro.th2.common.schema.message.MessageSubscriber;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public class EventBatchQueue extends AbstractRabbitQueue<EventBatch> {
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.factory;
+package com.exactpro.th2.common.schema.factory;
 
 import com.exactpro.th2.common.grpc.EventBatch;
 import java.nio.file.Path;
@@ -26,9 +26,9 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.schema.cradle.CradleConfiguration;
-import com.exactpro.th2.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.message.MessageRouter;
 import org.apache.log4j.PropertyConfigurator;
 
 /**

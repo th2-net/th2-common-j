@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -21,8 +21,8 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.schema.message.MessageSender;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.MessageSender;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     protected final Logger logger = LoggerFactory.getLogger(getClass());

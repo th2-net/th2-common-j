@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.schema.event;
+package com.exactpro.th2.common.schema.event;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -21,11 +21,11 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections4.SetUtils;
 
 import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.schema.message.MessageQueue;
-import com.exactpro.th2.schema.message.QueueAttribute;
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.QueueAttribute;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 

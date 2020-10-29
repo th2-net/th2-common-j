@@ -11,11 +11,11 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.grpc.router;
+package com.exactpro.th2.common.schema.grpc.router;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 
 import io.grpc.BindableService;
 import io.grpc.Server;

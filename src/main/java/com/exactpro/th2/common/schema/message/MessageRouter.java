@@ -11,15 +11,15 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message;
+package com.exactpro.th2.common.schema.message;
 
 import java.io.IOException;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Interface for send and receive RabbitMQ messages

@@ -11,14 +11,14 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message;
+package com.exactpro.th2.common.schema.message;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Listen messages and transmit it to {@link MessageListener}

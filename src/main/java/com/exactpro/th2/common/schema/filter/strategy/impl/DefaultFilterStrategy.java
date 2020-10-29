@@ -11,13 +11,13 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.filter.strategy.impl;
+package com.exactpro.th2.common.schema.filter.strategy.impl;
 
-import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.schema.message.configuration.FieldFilterConfiguration;
-import com.exactpro.th2.schema.message.configuration.RouterFilter;
-import com.exactpro.th2.schema.strategy.fieldExtraction.FieldExtractionStrategy;
-import com.exactpro.th2.schema.strategy.fieldExtraction.impl.Th2BatchMsgFieldExtraction;
+import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.common.schema.strategy.fieldExtraction.FieldExtractionStrategy;
+import com.exactpro.th2.common.schema.strategy.fieldExtraction.impl.Th2BatchMsgFieldExtraction;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 

@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq.configuration;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration;
 
 import lombok.Builder;
 import lombok.EqualsAndHashCode;

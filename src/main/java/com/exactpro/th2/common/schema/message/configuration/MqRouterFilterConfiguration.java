@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.configuration;
+package com.exactpro.th2.common.schema.message.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;

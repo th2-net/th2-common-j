@@ -11,12 +11,12 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.strategy.route.json;
+package com.exactpro.th2.common.schema.strategy.route.json;
 
 import java.io.IOException;
 
-import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
-import com.exactpro.th2.schema.strategy.route.RoutingStrategyFactory;
+import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
+import com.exactpro.th2.common.schema.strategy.route.RoutingStrategyFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;

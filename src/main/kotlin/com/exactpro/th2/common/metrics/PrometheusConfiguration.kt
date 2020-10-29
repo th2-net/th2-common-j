@@ -14,6 +14,6 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.metrics
+package com.exactpro.th2.common.metrics
 
 class PrometheusConfiguration(val host: String = "0.0.0.0", val port: Int = 9752)

@@ -15,7 +15,7 @@
  ******************************************************************************/
 @file:JvmName("CommonMetrics")
 
-package com.exactpro.th2.metrics
+package com.exactpro.th2.common.metrics
 
 import io.prometheus.client.Gauge
 import java.util.concurrent.CopyOnWriteArrayList

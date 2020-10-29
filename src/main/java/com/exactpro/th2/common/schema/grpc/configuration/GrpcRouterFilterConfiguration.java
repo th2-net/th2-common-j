@@ -11,10 +11,10 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.grpc.configuration;
+package com.exactpro.th2.common.schema.grpc.configuration;
 
-import com.exactpro.th2.schema.message.configuration.FieldFilterConfiguration;
-import com.exactpro.th2.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 

@@ -14,9 +14,9 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.factory;
+package com.exactpro.th2.common.schema.factory;
 
-import static com.exactpro.th2.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -37,23 +37,23 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.metrics.CommonMetrics;
-import com.exactpro.th2.metrics.PrometheusConfiguration;
-import com.exactpro.th2.schema.cradle.CradleConfiguration;
-import com.exactpro.th2.schema.dictionary.DictionaryType;
-import com.exactpro.th2.schema.event.EventBatchRouter;
-import com.exactpro.th2.schema.exception.CommonFactoryException;
-import com.exactpro.th2.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.schema.grpc.router.impl.DefaultGrpcRouter;
-import com.exactpro.th2.schema.message.MessageRouter;
-import com.exactpro.th2.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.exactpro.th2.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
-import com.exactpro.th2.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
-import com.exactpro.th2.schema.strategy.route.RoutingStrategy;
-import com.exactpro.th2.schema.strategy.route.json.JsonDeserializerRoutingStategy;
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.PrometheusConfiguration;
+import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.common.schema.dictionary.DictionaryType;
+import com.exactpro.th2.common.schema.event.EventBatchRouter;
+import com.exactpro.th2.common.schema.exception.CommonFactoryException;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
+import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
+import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
+import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutingStategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 

@@ -11,12 +11,12 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.grpc.Direction;
-import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.schema.filter.strategy.impl.DefaultFilterStrategy;
-import com.exactpro.th2.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 import lombok.Builder;
 import lombok.Getter;

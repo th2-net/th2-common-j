@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message;
+package com.exactpro.th2.common.schema.message;
 
 import java.io.IOException;
 
@@ -19,7 +19,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Send message to {@link MessageQueue}

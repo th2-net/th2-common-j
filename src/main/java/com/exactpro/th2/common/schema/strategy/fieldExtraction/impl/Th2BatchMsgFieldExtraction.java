@@ -11,10 +11,10 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.strategy.fieldExtraction.impl;
+package com.exactpro.th2.common.schema.strategy.fieldExtraction.impl;
 
 import com.exactpro.th2.common.grpc.Message;
-import com.exactpro.th2.schema.strategy.fieldExtraction.AbstractTh2MsgFieldExtraction;
+import com.exactpro.th2.common.schema.strategy.fieldExtraction.AbstractTh2MsgFieldExtraction;
 
 
 public class Th2BatchMsgFieldExtraction extends AbstractTh2MsgFieldExtraction {

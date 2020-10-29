@@ -11,13 +11,13 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
 import com.exactpro.th2.common.grpc.RawMessage;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.schema.message.configuration.RouterFilter;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
+import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
 import com.google.protobuf.TextFormat;
 
 import java.util.List;

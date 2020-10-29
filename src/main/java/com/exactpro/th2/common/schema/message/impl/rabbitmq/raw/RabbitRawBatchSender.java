@@ -11,11 +11,10 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message.impl.rabbitmq.raw;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
-import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSender;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 import com.google.protobuf.TextFormat;
 
 public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> {

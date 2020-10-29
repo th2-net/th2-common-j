@@ -11,12 +11,12 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.schema.event;
+package com.exactpro.th2.common.schema.event;
 
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
 import com.google.protobuf.TextFormat;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {

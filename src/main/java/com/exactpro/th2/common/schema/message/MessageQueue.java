@@ -11,12 +11,12 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.message;
+package com.exactpro.th2.common.schema.message;
 
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 /**
  * Message queue

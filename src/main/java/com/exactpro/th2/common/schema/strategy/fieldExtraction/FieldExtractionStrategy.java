@@ -11,7 +11,7 @@
  * limitations under the License.
  *****************************************************************************/
 
-package com.exactpro.th2.schema.strategy.fieldExtraction;
+package com.exactpro.th2.common.schema.strategy.fieldExtraction;
 
 import java.util.Map;
 
