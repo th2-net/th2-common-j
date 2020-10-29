@@ -159,9 +159,9 @@ dependencies {
     implementation "org.slf4j:slf4j-log4j12"
     implementation "org.slf4j:slf4j-api"
 
-    implementation 'io.prometheus:simpleclient:0.9.0'
-    implementation 'io.prometheus:simpleclient_hotspot:0.9.0'
-    implementation 'io.prometheus:simpleclient_httpserver:0.9.0'
+    implementation 'io.prometheus:simpleclient'
+    implementation 'io.prometheus:simpleclient_hotspot'
+    implementation 'io.prometheus:simpleclient_httpserver'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.4.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.4.2'
