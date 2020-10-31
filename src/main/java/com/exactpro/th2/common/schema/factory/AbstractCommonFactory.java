@@ -69,7 +69,7 @@ import lombok.Getter;
 public abstract class AbstractCommonFactory implements AutoCloseable {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
     @Getter(lazy = true)
     private final RabbitMQConfiguration rabbitMqConfiguration = loadRabbitMqConfiguration();
     @Getter(lazy = true)
@@ -361,7 +361,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         try {
             return getConfiguration(getPathToPrometheusConfiguration(), PrometheusConfiguration.class, MAPPER);
         } catch (IllegalStateException e) {
-            logger.warn("Can not load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
+            LOGGER.warn("Can not load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
             return new PrometheusConfiguration();
         }
     }
@@ -381,14 +381,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     @Override
     public void close() {
-        logger.info("Closing common factory");
+        LOGGER.info("Closing common factory");
 
         messageRouterParsedBatch.getAndUpdate(router -> {
             if (router != null) {
                 try {
                     router.close();
                 } catch (Exception e) {
-                    logger.error("Failed to close message router for parsed message batches", e);
+                    LOGGER.error("Failed to close message router for parsed message batches", e);
                 }
             }
 
@@ -400,7 +400,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router.close();
                 } catch (Exception e) {
-                    logger.error("Failed to close message router for raw message batches", e);
+                    LOGGER.error("Failed to close message router for raw message batches", e);
                 }
             }
 
@@ -412,7 +412,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     connection.close();
                 } catch (Exception e) {
-                    logger.error("Failed to close RabbitMQ connection", e);
+                    LOGGER.error("Failed to close RabbitMQ connection", e);
                 }
             }
             return connection;
@@ -423,7 +423,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router.close();
                 } catch (Exception e) {
-                    logger.error("Failed to close gRPC router", e);
+                    LOGGER.error("Failed to close gRPC router", e);
                 }
             }
 
@@ -435,12 +435,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     server.stop();
                 } catch (Exception e) {
-                    logger.error("Failed to close Prometheus exporter", e);
+                    LOGGER.error("Failed to close Prometheus exporter", e);
                 }
             }
             return null;
         });
 
-        logger.info("Common factory has been closed");
+        LOGGER.info("Common factory has been closed");
     }
 }

@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 
 public class RoutingStrategyFactory {
 
-    private Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
+    private static  final Logger LOGGER = LoggerFactory.getLogger(RoutingStrategyFactory.class);
     private Map<String, Class<? extends RoutingStrategy>> strategies = new HashMap<>();
 
     public RoutingStrategyFactory() {
@@ -48,10 +48,10 @@ public class RoutingStrategyFactory {
                         throw new IllegalStateException("Strategies names were duplicated with value: '" + name + "'. Classes: '" + cls + "' and '" + prev + "'.");
                     }
                 } else {
-                    logger.warn("Strategy with name '{}' and class '{}' not added to possible strategy, because class have not access to default constructor", name, cls);
+                    LOGGER.warn("Strategy with name '{}' and class '{}' not added to possible strategy, because class have not access to default constructor", name, cls);
                 }
             } catch (NoSuchMethodException e) {
-                logger.warn("Strategy with name '{}' and class '{}' not added to possible strategy, because class have not default constructor", name, cls, e);
+                LOGGER.warn("Strategy with name '{}' and class '{}' not added to possible strategy, because class have not default constructor", name, cls, e);
             }
         });
     }

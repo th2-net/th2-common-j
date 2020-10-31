@@ -35,7 +35,7 @@ import com.rabbitmq.client.Delivery;
 
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
-    protected final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
 
     private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
@@ -80,7 +80,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
                 try {
                     tag = connectionManager.basicConsume(queue, this::handle, this::canceled);
-                    logger.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
+                    LOGGER.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
                 } catch (IOException e) {
                     throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
                 }
@@ -127,14 +127,14 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         try {
             T value = valueFromBytes(delivery.getBody());
 
-            if (logger.isDebugEnabled()) {
-                logger.debug("The received message {}", toShortDebugString(value));
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("The received message {}", toShortDebugString(value));
             }
 
             var filteredValue = filter(value);
 
             if (Objects.isNull(filteredValue)) {
-                logger.debug("Message is filtred");
+                LOGGER.debug("Message is filtred");
                 return;
             }
 
@@ -142,20 +142,20 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 try {
                     listener.handler(consumeTag, filteredValue);
                 } catch (Exception listenerExc) {
-                    logger.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
+                    LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
                 }
             }
         } catch (Exception e) {
-            logger.error("Can not parse value from delivery for: {}", consumeTag, e);
+            LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
         }
     }
 
     private void canceled(String consumerTag) {
-        logger.warn("Consuming cancelled for: '{}'", consumerTag);
+        LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
         try {
             close();
         } catch (Exception e) {
-            logger.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName.get(), subscribeTarget.get(), e);
+            LOGGER.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName.get(), subscribeTarget.get(), e);
         }
     }
 

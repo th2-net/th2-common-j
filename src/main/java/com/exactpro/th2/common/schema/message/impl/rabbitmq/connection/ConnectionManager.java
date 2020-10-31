@@ -45,7 +45,7 @@ import lombok.val;
 
 public class ConnectionManager implements AutoCloseable {
 
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
     private final Connection connection;
     private final ThreadLocal<Channel> channel = ThreadLocal.withInitial(this::createChannel);
@@ -58,10 +58,10 @@ public class ConnectionManager implements AutoCloseable {
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
         public void handleRecovery(Recoverable recoverable) {
-            logger.debug("Count tries to recovery connection reset to 0");
+            LOGGER.debug("Count tries to recovery connection reset to 0");
             connectionRecoveryAttempts.set(0);
             CommonMetrics.setRabbitMQReadiness(true);
-            logger.debug("Set RabbitMQ readiness to true");
+            LOGGER.debug("Set RabbitMQ readiness to true");
         }
 
         @Override
@@ -73,7 +73,7 @@ public class ConnectionManager implements AutoCloseable {
 
         if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
             subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
-            logger.info("Subscribers will use default name: {}", subscriberName);
+            LOGGER.info("Subscribers will use default name: {}", subscriberName);
         } else {
             subscriberName = rabbitMQConfiguration.getSubscriberName() + "." + System.currentTimeMillis();
         }
@@ -145,7 +145,7 @@ public class ConnectionManager implements AutoCloseable {
 
             private void turnOffReandess(Throwable exception){
                 CommonMetrics.setRabbitMQReadiness(false);
-                logger.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
+                LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
             }
         });
 
@@ -158,10 +158,10 @@ public class ConnectionManager implements AutoCloseable {
             int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
 
             if (tmpCountTriesToRecovery < rabbitMQConfiguration.getMaxRecoveryAttempts()) {
-                logger.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
+                LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
                 return true;
             }
-            logger.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
+            LOGGER.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
             if (onFailedRecoveryConnection != null) {
                 onFailedRecoveryConnection.run();
             } else {
@@ -179,7 +179,7 @@ public class ConnectionManager implements AutoCloseable {
                             / rabbitMQConfiguration.getMaxRecoveryAttempts()
                             * tmpCountTriesToRecovery;
 
-                    logger.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
+                    LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
                     return recoveryDelay;
                 }
         );
@@ -187,17 +187,17 @@ public class ConnectionManager implements AutoCloseable {
         try {
             this.connection = factory.newConnection();
             CommonMetrics.setRabbitMQReadiness(true);
-            logger.debug("Set RabbitMQ readiness to true");
+            LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
             CommonMetrics.setRabbitMQReadiness(false);
-            logger.debug("Set RabbitMQ readiness to false. Can not create connection", e);
+            LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
 
         if (this.connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) this.connection;
             recoverableConnection.addRecoveryListener(recoveryListener);
-            logger.debug("Recovery listener was added to connection.");
+            LOGGER.debug("Recovery listener was added to connection.");
         } else {
             throw new IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
@@ -239,7 +239,7 @@ public class ConnectionManager implements AutoCloseable {
                     basicAck(channel, delivery.getEnvelope().getDeliveryTag());
                 }
             } catch (IOException | RuntimeException e) {
-                logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
         }, cancelCallback);
     }
@@ -267,7 +267,7 @@ public class ConnectionManager implements AutoCloseable {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
-                logger.error("Wait for connection recovery was interrupted", e);
+                LOGGER.error("Wait for connection recovery was interrupted", e);
                 break;
             }
         }

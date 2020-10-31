@@ -47,7 +47,7 @@ import io.grpc.stub.StreamObserver;
  */
 public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
-    private static final Logger logger = LoggerFactory.getLogger(DefaultGrpcRouter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultGrpcRouter.class);
 
     private Map<Class<?>, Map<String, AbstractStub<?>>> stubs = new ConcurrentHashMap<>();
     private Map<String, Channel> channels = new ConcurrentHashMap<>();

@@ -32,7 +32,7 @@ import java.util.List;
 
 public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> extends AbstractRabbitSubscriber<MB> {
 
-    protected final Logger logger = LoggerFactory.getLogger(this.getClass() + "@" + this.hashCode());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitBatchSubscriber.class);
 
 
     private FilterStrategy filterStrategy;
@@ -64,7 +64,7 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
             var msg = each.next();
             if (!filterStrategy.verify(msg, filters)) {
                 each.remove();
-                logger.warn("Message was rejected because it did not satisfy filters: " + extractMetadata(msg));
+                LOGGER.warn("Message was rejected because it did not satisfy filters: " + extractMetadata(msg));
             }
         }
 

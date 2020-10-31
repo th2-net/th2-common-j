@@ -43,7 +43,7 @@ import io.grpc.netty.NettyServerBuilder;
 public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected static final long SERVER_SHUTDOWN_TIMEOUT_MS = 5000L;
 
-    protected Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractGrpcRouter.class);
     protected List<Server> servers = new ArrayList<>();
     protected GrpcRouterConfiguration configuration;
 
@@ -82,17 +82,17 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     public void close() {
         for (Server server : servers) {
             try {
-                logger.info("Shutting down server: {}");
+                LOGGER.info("Shutting down server: {}");
                 server.shutdown();
 
                 if (!server.awaitTermination(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                    logger.warn("Failed to shutdown server '{}' in {} ms. Forcing shutdown...", server, SERVER_SHUTDOWN_TIMEOUT_MS);
+                    LOGGER.warn("Failed to shutdown server '{}' in {} ms. Forcing shutdown...", server, SERVER_SHUTDOWN_TIMEOUT_MS);
                     server.shutdownNow();
                 }
 
-                logger.info("Server has been successfully shutdown: {}", server);
+                LOGGER.info("Server has been successfully shutdown: {}", server);
             } catch (Exception e) {
-                logger.error("Failed to shutdown server: {}", server, e);
+                LOGGER.error("Failed to shutdown server: {}", server, e);
             }
         }
     }

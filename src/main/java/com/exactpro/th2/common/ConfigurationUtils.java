@@ -34,7 +34,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 public class ConfigurationUtils {
 
-    private final static Logger LOGGER = LoggerFactory.getLogger(ConfigurationUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationUtils.class);
     private static final ObjectMapper YAML_READER = new ObjectMapper(new YAMLFactory());
 
     @Nullable

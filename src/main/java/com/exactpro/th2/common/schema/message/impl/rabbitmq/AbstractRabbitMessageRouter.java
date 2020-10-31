@@ -50,7 +50,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 
 public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T> {
 
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitMessageRouter.class);
 
     private final AtomicReference<ConnectionManager> connection = new AtomicReference<>();
     private final AtomicReference<MessageRouterConfiguration> configuration = new AtomicReference<>();
@@ -167,7 +167,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     @Override
     public void close() {
-        logger.info("Closing message router");
+        LOGGER.info("Closing message router");
 
         Collection<Exception> exceptions = new ArrayList<>();
 
@@ -187,7 +187,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
             throw exception;
         }
 
-        logger.info("Message router has been successfully closed");
+        LOGGER.info("Message router has been successfully closed");
     }
 
     protected abstract MessageQueue<T> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);

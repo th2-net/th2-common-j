@@ -28,7 +28,7 @@ import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSender.class);
 
     private final AtomicReference<String> sendQueue = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
@@ -56,8 +56,8 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             ConnectionManager connection = this.connectionManager.get();
             connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value));
 
-            if (logger.isDebugEnabled()) {
-                logger.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
                         exchangeName, sendQueue, toShortDebugString(value));
             }
         } catch (Exception e) {
