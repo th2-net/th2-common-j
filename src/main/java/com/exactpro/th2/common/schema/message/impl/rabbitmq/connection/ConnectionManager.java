@@ -233,9 +233,13 @@ public class ConnectionManager implements AutoCloseable {
         waitForConnectionRecovery(channel);
         return channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tag, delivery) -> {
             try {
-                deliverCallback.handle(tag, delivery);
-            } finally {
-                basicAck(delivery.getEnvelope().getDeliveryTag());
+                try {
+                    deliverCallback.handle(tag, delivery);
+                } finally {
+                    basicAck(channel, delivery.getEnvelope().getDeliveryTag());
+                }
+            } catch (IOException | RuntimeException e) {
+                logger.error(e.getMessage(), e);
             }
         }, cancelCallback);
     }
@@ -273,8 +277,12 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private void basicAck(long deliveryTag) throws IOException {
-        Channel channel = this.channel.get();
+    /**
+     * @param channel pass channel witch used for basicConsume, because delivery tags are scoped per channel,
+     *                deliveries must be acknowledged on the same channel they were received on.
+     * @throws IOException
+     */
+    private void basicAck(Channel channel, long deliveryTag) throws IOException {
         waitForConnectionRecovery(channel);
         channel.basicAck(deliveryTag, false);
     }
