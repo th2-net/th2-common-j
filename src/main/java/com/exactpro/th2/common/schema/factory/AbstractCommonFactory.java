@@ -17,6 +17,7 @@
 package com.exactpro.th2.common.schema.factory;
 
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -28,12 +29,19 @@ import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookupFactory;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.cradle.CradleManager;
+import com.exactpro.cradle.cassandra.CassandraCradleManager;
+import com.exactpro.cradle.cassandra.connection.CassandraConnection;
+import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
+import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
@@ -67,6 +75,9 @@ import lombok.Getter;
  * @see CommonFactory
  */
 public abstract class AbstractCommonFactory implements AutoCloseable {
+
+    protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
@@ -86,6 +97,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
+    private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
 
     /**
      * Create factory with default implementation schema classes
@@ -224,10 +236,47 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * @return Schema cradle configuration
-     * @throws IllegalStateException if can not read configuration
+     * @throws IllegalStateException if cannot read configuration
+     * @deprecated please use {@link #getCradleManager()}
      */
+    @Deprecated
     public CradleConfiguration getCradleConfiguration() {
         return getConfiguration(getPathToCradleConfiguration(), CradleConfiguration.class, MAPPER);
+    }
+
+    /**
+     * @return Cradle manager
+     * @throws IllegalStateException if cannot read configuration or initialization failure
+     */
+    public CradleManager getCradleManager() {
+        return cradleManager.updateAndGet(manager -> {
+            if (manager == null) {
+                try {
+                    CradleConfiguration cradleConfiguration = getCradleConfiguration();
+                    CassandraConnectionSettings cassandraConnectionSettings = new CassandraConnectionSettings(
+                            cradleConfiguration.getDataCenter(),
+                            cradleConfiguration.getHost(),
+                            cradleConfiguration.getPort(),
+                            cradleConfiguration.getKeyspace());
+
+                    if (StringUtils.isNotEmpty(cradleConfiguration.getUsername())) {
+                        cassandraConnectionSettings.setUsername(cradleConfiguration.getUsername());
+                    }
+
+                    if (StringUtils.isNotEmpty(cradleConfiguration.getPassword())) {
+                        cassandraConnectionSettings.setPassword(cradleConfiguration.getPassword());
+                    }
+
+                    manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
+                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(),DEFAULT_CRADLE_INSTANCE_NAME));
+                } catch (CradleStorageException | RuntimeException e) {
+                    throw new CommonFactoryException("Cannot create Cradle manager", e);
+                }
+            }
+
+            return manager;
+        });
+
     }
 
     /**
@@ -428,6 +477,18 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
 
             return router;
+        });
+
+        cradleManager.getAndUpdate(manager -> {
+            if (manager != null) {
+                try {
+                    manager.dispose();
+                } catch (Exception e) {
+                    LOGGER.error("Failed to dispose Cradle manager", e);
+                }
+            }
+
+            return manager;
         });
 
         prometheusExporter.updateAndGet(server -> {

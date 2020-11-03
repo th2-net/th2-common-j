@@ -76,7 +76,6 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
-        super();
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -190,9 +189,8 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "prometheusConfiguration", true, null));
         options.addOption(new Option("c", "configs", true, null));
 
-        CommandLine cmd = null;
         try {
-            cmd = new DefaultParser().parse(options, args);
+            CommandLine cmd = new DefaultParser().parse(options, args);
 
             String configs = cmd.getOptionValue("configs");
 

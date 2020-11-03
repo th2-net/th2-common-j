@@ -41,4 +41,6 @@ public class CradleConfiguration {
     @JsonProperty
     private String password;
 
+    @JsonProperty
+    private String cradleInstanceName;
 }
