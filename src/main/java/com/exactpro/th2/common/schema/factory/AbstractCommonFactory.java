@@ -17,23 +17,39 @@
 package com.exactpro.th2.common.schema.factory;
 
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.cradle.CradleManager;
+import com.exactpro.cradle.cassandra.CassandraCradleManager;
+import com.exactpro.cradle.cassandra.connection.CassandraConnection;
+import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
+import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
@@ -67,6 +83,11 @@ import lombok.Getter;
  * @see CommonFactory
  */
 public abstract class AbstractCommonFactory implements AutoCloseable {
+
+    protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
+    protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
+    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
@@ -86,6 +107,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
+    private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
+
+    static {
+        PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
+        loggingManifests();
+    }
 
     /**
      * Create factory with default implementation schema classes
@@ -214,20 +241,60 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
         try {
+            String sourceContent = new String(Files.readAllBytes(configPath));
+            LOGGER.info("Configuration path {} source content {}", configPath, sourceContent);
+
             StringSubstitutor stringSubstitutor = new StringSubstitutor(StringLookupFactory.INSTANCE.environmentVariableStringLookup());
-            String contents = stringSubstitutor.replace(new String(Files.readAllBytes(configPath)));
-            return customObjectMapper.readerFor(configClass).readValue(contents);
+            String content = stringSubstitutor.replace(sourceContent);
+            return customObjectMapper.readerFor(configClass).readValue(content);
         } catch (IOException e) {
-            throw new IllegalStateException(String.format("Can not read %s configuration", configClass.getName()), e);
+            throw new IllegalStateException(String.format("Cannot read %s configuration", configClass.getName()), e);
         }
     }
 
     /**
      * @return Schema cradle configuration
-     * @throws IllegalStateException if can not read configuration
+     * @throws IllegalStateException if cannot read configuration
+     * @deprecated please use {@link #getCradleManager()}
      */
+    @Deprecated
     public CradleConfiguration getCradleConfiguration() {
         return getConfiguration(getPathToCradleConfiguration(), CradleConfiguration.class, MAPPER);
+    }
+
+    /**
+     * @return Cradle manager
+     * @throws IllegalStateException if cannot read configuration or initialization failure
+     */
+    public CradleManager getCradleManager() {
+        return cradleManager.updateAndGet(manager -> {
+            if (manager == null) {
+                try {
+                    CradleConfiguration cradleConfiguration = getCradleConfiguration();
+                    CassandraConnectionSettings cassandraConnectionSettings = new CassandraConnectionSettings(
+                            cradleConfiguration.getDataCenter(),
+                            cradleConfiguration.getHost(),
+                            cradleConfiguration.getPort(),
+                            cradleConfiguration.getKeyspace());
+
+                    if (StringUtils.isNotEmpty(cradleConfiguration.getUsername())) {
+                        cassandraConnectionSettings.setUsername(cradleConfiguration.getUsername());
+                    }
+
+                    if (StringUtils.isNotEmpty(cradleConfiguration.getPassword())) {
+                        cassandraConnectionSettings.setPassword(cradleConfiguration.getPassword());
+                    }
+
+                    manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
+                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(),DEFAULT_CRADLE_INSTANCE_NAME));
+                } catch (CradleStorageException | RuntimeException e) {
+                    throw new CommonFactoryException("Cannot create Cradle manager", e);
+                }
+            }
+
+            return manager;
+        });
+
     }
 
     /**
@@ -361,7 +428,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         try {
             return getConfiguration(getPathToPrometheusConfiguration(), PrometheusConfiguration.class, MAPPER);
         } catch (IllegalStateException e) {
-            LOGGER.warn("Can not load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
+            LOGGER.warn("Cannot load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
             return new PrometheusConfiguration();
         }
     }
@@ -430,6 +497,18 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             return router;
         });
 
+        cradleManager.getAndUpdate(manager -> {
+            if (manager != null) {
+                try {
+                    manager.dispose();
+                } catch (Exception e) {
+                    LOGGER.error("Failed to dispose Cradle manager", e);
+                }
+            }
+
+            return manager;
+        });
+
         prometheusExporter.updateAndGet(server -> {
             if (server != null) {
                 try {
@@ -442,5 +521,29 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
 
         LOGGER.info("Common factory has been closed");
+    }
+
+    private static void loggingManifests() {
+        try {
+            Iterator<URL> urlIterator = Thread.currentThread().getContextClassLoader().getResources(JarFile.MANIFEST_NAME).asIterator();
+            StreamSupport.stream(Spliterators.spliteratorUnknownSize(urlIterator, 0), false)
+                    .map(url -> {
+                        try (InputStream inputStream = url.openStream()) {
+                            return new Manifest(inputStream);
+                        } catch (IOException e) {
+                            LOGGER.warn("Manifest '{}' loading failere", url, e);
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .map(Manifest::getMainAttributes)
+                    .filter(attributes -> EXACTPRO_IMPLEMENTATION_VENDOR.equals(attributes.getValue(Name.IMPLEMENTATION_VENDOR)))
+                    .forEach(attributes -> {
+                        LOGGER.info("Manifest title {}, version {}"
+                                , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION));
+                    });
+        } catch (IOException e) {
+            LOGGER.warn("Manifest searching failure", e);
+        }
     }
 }

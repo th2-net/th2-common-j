@@ -124,9 +124,12 @@ test {
 
 dependencies {
     api platform('com.exactpro.th2:bom:2.1.+')
-    implementation 'com.exactpro.th2:grpc-common'
+    api 'com.exactpro.cradle:cradle-core'
+    api 'com.exactpro.th2:grpc-common'
+
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator'
+    implementation 'com.exactpro.cradle:cradle-cassandra'
 
     //FIXME: Adde these dependnecies as api to grpc-... artifaccts
     implementation "com.google.protobuf:protobuf-java-util"
