@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import com.exactpro.th2.common.grpc.EventBatch;
 import java.nio.file.Path;
 import java.util.Arrays;
 
@@ -25,12 +24,13 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+
+import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
-import org.apache.log4j.PropertyConfigurator;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -53,12 +53,6 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path cradle;
     private final Path custom;
     private final Path dictionariesDir;
-
-    private static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
-
-    static {
-        PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
-    }
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,

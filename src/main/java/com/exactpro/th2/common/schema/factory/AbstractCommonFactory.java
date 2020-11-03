@@ -24,15 +24,23 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,6 +85,8 @@ import lombok.Getter;
 public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
+    protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
+    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -98,6 +108,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
     private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
+
+    static {
+        PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
+        loggingManifests();
+    }
 
     /**
      * Create factory with default implementation schema classes
@@ -413,7 +428,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         try {
             return getConfiguration(getPathToPrometheusConfiguration(), PrometheusConfiguration.class, MAPPER);
         } catch (IllegalStateException e) {
-            LOGGER.warn("Can not load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
+            LOGGER.warn("Cannot load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
             return new PrometheusConfiguration();
         }
     }
@@ -506,5 +521,29 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
 
         LOGGER.info("Common factory has been closed");
+    }
+
+    private static void loggingManifests() {
+        try {
+            Iterator<URL> urlIterator = Thread.currentThread().getContextClassLoader().getResources(JarFile.MANIFEST_NAME).asIterator();
+            StreamSupport.stream(Spliterators.spliteratorUnknownSize(urlIterator, 0), false)
+                    .map(url -> {
+                        try (InputStream inputStream = url.openStream()) {
+                            return new Manifest(inputStream);
+                        } catch (IOException e) {
+                            LOGGER.warn("Manifest '{}' loading failere", url, e);
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .map(Manifest::getMainAttributes)
+                    .filter(attributes -> EXACTPRO_IMPLEMENTATION_VENDOR.equals(attributes.getValue(Name.IMPLEMENTATION_VENDOR)))
+                    .forEach(attributes -> {
+                        LOGGER.info("Manifest title {}, version {}"
+                                , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION));
+                    });
+        } catch (IOException e) {
+            LOGGER.warn("Manifest searching failure", e);
+        }
     }
 }
