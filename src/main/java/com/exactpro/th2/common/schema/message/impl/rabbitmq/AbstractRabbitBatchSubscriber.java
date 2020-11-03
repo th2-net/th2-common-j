@@ -64,7 +64,7 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
             var msg = each.next();
             if (!filterStrategy.verify(msg, filters)) {
                 each.remove();
-                LOGGER.warn("Message was rejected because it did not satisfy filters: " + extractMetadata(msg));
+                LOGGER.debug("Message skipped because it did not satisfy filters: " + extractMetadata(msg));
             }
         }
 
