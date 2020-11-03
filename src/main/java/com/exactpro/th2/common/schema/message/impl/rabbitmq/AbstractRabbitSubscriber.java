@@ -74,15 +74,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             var routingKey = target.getRoutingKey();
 
             consumerTag.updateAndGet(tag -> {
-                if (tag != null) {
-                    throw new IllegalStateException("Subscriber already started");
-                }
-
-                try {
-                    tag = connectionManager.basicConsume(queue, this::handle, this::canceled);
-                    LOGGER.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
-                } catch (IOException e) {
-                    throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
+                if (tag == null) {
+                    try {
+                        tag = connectionManager.basicConsume(queue, this::handle, this::canceled);
+                        LOGGER.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
+                    } catch (IOException e) {
+                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
+                    }
                 }
 
                 return tag;
