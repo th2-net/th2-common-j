@@ -226,11 +226,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
         try {
+            String sourceContent = new String(Files.readAllBytes(configPath));
+            LOGGER.info("Configuration path {} source content {}", configPath, sourceContent);
+
             StringSubstitutor stringSubstitutor = new StringSubstitutor(StringLookupFactory.INSTANCE.environmentVariableStringLookup());
-            String contents = stringSubstitutor.replace(new String(Files.readAllBytes(configPath)));
-            return customObjectMapper.readerFor(configClass).readValue(contents);
+            String content = stringSubstitutor.replace(sourceContent);
+            return customObjectMapper.readerFor(configClass).readValue(content);
         } catch (IOException e) {
-            throw new IllegalStateException(String.format("Can not read %s configuration", configClass.getName()), e);
+            throw new IllegalStateException(String.format("Cannot read %s configuration", configClass.getName()), e);
         }
     }
 
