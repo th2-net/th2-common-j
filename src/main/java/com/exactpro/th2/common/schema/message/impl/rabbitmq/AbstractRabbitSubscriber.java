@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
+import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Delivery;
@@ -41,7 +42,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
-    private final AtomicReference<String> consumerTag = new AtomicReference<>();
+    private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
@@ -73,17 +74,17 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             var queue = target.getQueue();
             var routingKey = target.getRoutingKey();
 
-            consumerTag.updateAndGet(tag -> {
-                if (tag == null) {
+            consumerMonitor.updateAndGet(monitor -> {
+                if (monitor == null) {
                     try {
-                        tag = connectionManager.basicConsume(queue, this::handle, this::canceled);
-                        LOGGER.info("Start listening consumerTag='{}',exchangeName='{}', routing key='{}', queue name='{}'", tag, exchangeName, routingKey, queue);
+                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled);
+                        LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
                     } catch (IOException e) {
                         throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
                     }
                 }
 
-                return tag;
+                return monitor;
             });
         } catch (Exception e) {
             throw new IOException("Can not start listening", e);
@@ -102,12 +103,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             throw new IllegalStateException("Subscriber is not initialized");
         }
 
-        String tag = consumerTag.getAndSet(null);
-        if (tag == null) {
-            return;
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+        if (monitor != null) {
+            monitor.unsubscribe();
         }
-
-        connectionManager.basicCancel(tag);
 
         listeners.forEach(MessageListener::onClose);
         listeners.clear();

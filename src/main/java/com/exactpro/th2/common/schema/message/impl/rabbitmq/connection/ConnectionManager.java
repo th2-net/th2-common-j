@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.CancelCallback;
@@ -228,13 +229,13 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicPublish(exchange, routingKey, props, body);
     }
 
-    public String basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
+    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         Channel channel = this.channel.get();
         waitForConnectionRecovery(channel);
-        return channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tag, delivery) -> {
+        String tag = channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
             try {
                 try {
-                    deliverCallback.handle(tag, delivery);
+                    deliverCallback.handle(tagTmp, delivery);
                 } finally {
                     basicAck(channel, delivery.getEnvelope().getDeliveryTag());
                 }
@@ -242,10 +243,11 @@ public class ConnectionManager implements AutoCloseable {
                 LOGGER.error(e.getMessage(), e);
             }
         }, cancelCallback);
+
+        return new RabbitMqSubscriberMonitor(channel, tag);
     }
 
-    public void basicCancel(String consumerTag) throws IOException {
-        Channel channel = this.channel.get();
+    public void basicCancel(Channel channel, String consumerTag) throws IOException {
         waitForConnectionRecovery(channel);
         channel.basicCancel(consumerTag);
     }
@@ -285,5 +287,21 @@ public class ConnectionManager implements AutoCloseable {
     private void basicAck(Channel channel, long deliveryTag) throws IOException {
         waitForConnectionRecovery(channel);
         channel.basicAck(deliveryTag, false);
+    }
+
+    private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
+
+        private final Channel channel;
+        private final String tag;
+
+        public RabbitMqSubscriberMonitor(Channel channel, String tag) {
+            this.channel = channel;
+            this.tag = tag;
+        }
+
+        @Override
+        public void unsubscribe() throws Exception {
+            basicCancel(channel, tag);
+        }
     }
 }
