@@ -15,23 +15,12 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import java.io.IOException;
-import java.util.Objects;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MainMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
@@ -43,6 +32,24 @@ import com.rabbitmq.client.ExceptionHandler;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.TopologyRecoveryException;
+import io.netty.util.concurrent.DefaultThreadFactory;
+import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -54,6 +61,7 @@ public class ConnectionManager implements AutoCloseable {
     private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final RabbitMQConfiguration configuration;
+    private final ResendMessageConfiguration resendConfiguration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
 
@@ -71,9 +79,12 @@ public class ConnectionManager implements AutoCloseable {
         @Override
         public void handleRecoveryStarted(Recoverable recoverable) {}
     };
+    private final ThreadLocal<Map<Long, PublishData>> rejectHandlers = ThreadLocal.withInitial(ConcurrentHashMap::new);
+    private final ExecutorService resendRejectService;
 
     public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection, ScheduledExecutorService scheduledExecutorService) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
+        this.resendConfiguration = configuration.getResendMessageConfiguration();
 
         if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
             subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
@@ -104,7 +115,7 @@ public class ConnectionManager implements AutoCloseable {
             factory.setPassword(password);
         }
 
-        if (rabbitMQConfiguration.getConnectionTimeout() >  0) {
+        if (rabbitMQConfiguration.getConnectionTimeout() > 0) {
             factory.setConnectionTimeout(rabbitMQConfiguration.getConnectionTimeout());
         }
 
@@ -149,7 +160,7 @@ public class ConnectionManager implements AutoCloseable {
                 turnOffReandess(exception);
             }
 
-            private void turnOffReandess(Throwable exception){
+            private void turnOffReandess(Throwable exception) {
                 CommonMetrics.setRabbitMQReadiness(false);
                 LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
             }
@@ -209,6 +220,16 @@ public class ConnectionManager implements AutoCloseable {
         } else {
             throw new IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
+
+        resendRejectService = Executors.newFixedThreadPool(configuration.getResendMessageConfiguration().getResendWorkers(), new DefaultThreadFactory("th2-resend-thread"));
+    }
+
+    public boolean isOpen() {
+        return connection.isOpen() && !connectionIsClosed.get();
+    }
+
+    public ResendMessageConfiguration getResendConfiguration() {
+        return resendConfiguration;
     }
 
     @Override
@@ -273,6 +294,24 @@ public class ConnectionManager implements AutoCloseable {
         basicPublish(exchange, routingKey, props, body, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
     }
 
+//    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, Supplier<Long> delayHandler, Runnable ackHandler) {
+//        try {
+//            basicPublish(new PublishData(exchange, routingKey, props, body, delayHandler, ackHandler));
+//        } catch (IOException e) {
+//            LOGGER.error("Can not send message with exchange '{}' and routing key '{}'", exchange, routingKey);
+//        }
+//    }
+
+//    private void basicPublish(PublishData data) throws IOException {
+//        Channel channel = this.channel.get();
+//        waitForConnectionRecovery(channel);
+//
+//        long nextSequence = channel.getNextPublishSeqNo();
+//
+//        rejectHandlers.get().put(nextSequence, data);
+//        channel.basicPublish(data.exchange, data.routingKey, data.props, data.body);
+//    }
+
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MainMetrics metrics) {
         Channel channel = this.channel.get();
 
@@ -334,6 +373,96 @@ public class ConnectionManager implements AutoCloseable {
         return channel;
     }
 
+//    private Channel createChannel() {
+//        waitForConnectionRecovery(connection);
+//
+//        try {
+//            Channel channel = connection.createChannel();
+//
+//            channel.basicQos(configuration.getPrefetchCount());
+//            channel.confirmSelect();
+//
+//
+//            Map<Long, PublishData> currentRejectHandlers = rejectHandlers.get();
+//
+//            channel.addConfirmListener(new ConfirmListener() {
+//
+//                private long minSeq = -1l;
+//
+//                @Override
+//                public void handleAck(long deliveryTag, boolean multiple) throws IOException {
+//                    if (multiple) {
+//                        if (minSeq < 0) {
+//                            minSeq = deliveryTag;
+//                        }
+//
+//                        for (; minSeq <= deliveryTag; minSeq++) {
+//                            PublishData data = currentRejectHandlers.remove(minSeq);
+//                            if (data != null) {
+//                                try {
+//                                    data.success();
+//                                } catch (Exception e) {
+//                                    LOGGER.error("Can not execute success handler for exchange '{}', routing key '{}'", data.exchange, data.routingKey, e);
+//                                }
+//                            }
+//                        }
+//
+//                    } else {
+//                        if (minSeq < 0 || minSeq + 1 == deliveryTag) {
+//                            minSeq = deliveryTag;
+//                        }
+//
+//                        PublishData data = currentRejectHandlers.remove(deliveryTag);
+//                        if (data != null) {
+//                            try {
+//                                data.success();
+//                            } catch (Exception e) {
+//                                LOGGER.error("Can not execute success handler for exchange '{}', routing key '{}'", data.exchange, data.routingKey, e);
+//                            }
+//                        }
+//                    }
+//                }
+//
+//                @SneakyThrows
+//                @Override
+//                public void handleNack(long deliveryTag, boolean multiple) throws IOException {
+//
+//                    if (multiple) {
+//                        if (minSeq < 0) {
+//                            minSeq = deliveryTag;
+//                        }
+//
+//                        for (; minSeq <= deliveryTag; minSeq++) {
+//
+//                            LOGGER.trace("Message with delivery tag '{}' is rejected", minSeq);
+//
+//                            PublishData data = currentRejectHandlers.remove(minSeq);
+//
+//                            if (data != null) {
+//                                resendRejectService.submit(data::resend);
+//                            }
+//                        }
+//                    } else {
+//                        if (minSeq < 0 || minSeq + 1 == deliveryTag) {
+//                            minSeq = deliveryTag;
+//                        }
+//
+//                        LOGGER.trace("Message with delivery tag '{}' is rejected", deliveryTag);
+//
+//                        PublishData data = currentRejectHandlers.remove(deliveryTag);
+//
+//                        if (data != null) {
+//                            resendRejectService.submit(data::resend);
+//                        }
+//                    }
+//                }
+//            });
+//            return channel;
+//        } catch (IOException e) {
+//            throw new IllegalStateException("Can not create channel", e);
+//        }
+//    }
+
     public void restoreChannel() {
         try {
             channel.get().clearReturnListeners();
@@ -388,5 +517,67 @@ public class ConnectionManager implements AutoCloseable {
 
     private interface RetriableSupplier<T> {
         T retry() throws IOException;
+    }
+
+    @Getter
+    private class PublishData {
+
+        private final String exchange;
+        private final String routingKey;
+        private final BasicProperties props;
+        private final byte[] body;
+        private final Supplier<Long> delaySupplier;
+        private final Runnable ackHandler;
+
+        public PublishData(String exchange, String routingKey, BasicProperties props, byte[] body, Supplier<Long> delaySupplier, Runnable ackHandler) {
+            this.exchange = exchange;
+            this.routingKey = routingKey;
+            this.props = props;
+            this.body = body;
+            this.delaySupplier = delaySupplier;
+            this.ackHandler = ackHandler;
+        }
+
+        public void send() {
+            try {
+                basicPublish(this);
+            } catch (IOException e) {
+                LOGGER.error("Can not send message to exchange '{}', routing key '{}'", exchange, routingKey);
+            }
+        }
+
+        public void success() {
+            if (ackHandler != null) {
+                try {
+                    ackHandler.run();
+                } catch (Exception e) {
+                    LOGGER.warn("Can not execute ack handler for exchange '{}', routing key '{}'", exchange, routingKey, e);
+                }
+            }
+        }
+
+        public void resend() {
+            if (delaySupplier != null) {
+                long delay = 0;
+                try {
+                    delay = delaySupplier.get();
+                } catch (Exception e) {
+                    LOGGER.error("Can not get delay for message to exchange '{}', routing key '{}'", exchange, routingKey, e);
+                }
+
+                if (delay > -1) {
+                    if (delay > 0) {
+                        LOGGER.trace("Wait for resend message to exchange '{}', routing key '{}' milliseconds = {}", exchange, routingKey, delay);
+                        try {
+                            Thread.sleep(delay);
+                        } catch (InterruptedException e) {
+                            LOGGER.warn("Interrupted resend message to exchange '{}', routing key '{}'", exchange, routingKey, e);
+                        }
+                    }
+
+                    send();
+                }
+            }
+        }
     }
 }

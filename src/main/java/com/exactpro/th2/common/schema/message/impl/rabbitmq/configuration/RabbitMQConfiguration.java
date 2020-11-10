@@ -17,11 +17,16 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Data
 public class RabbitMQConfiguration {
 
     private String host;
+
+    @JsonProperty
     private String vHost;
     private int port;
     private String username;
@@ -41,105 +46,8 @@ public class RabbitMQConfiguration {
 
     private int prefetchCount = 10;
 
-    public String getHost() {
-        return host;
-    }
-
-    public String getvHost() {
-        return vHost;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getSubscriberName() {
-        return subscriberName;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
-    }
-
-    public void setvHost(String vHost) {
-        this.vHost = vHost;
-    }
-
-    public void setPort(int port) {
-        this.port = port;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setSubscriberName(String subscriberName) {
-        this.subscriberName = subscriberName;
-    }
-
-    public String getExchangeName() {
-        return exchangeName;
-    }
-
-    public void setExchangeName(String exchangeName) {
-        this.exchangeName = exchangeName;
-    }
-
-    public int getMaxRecoveryAttempts() {
-        return maxRecoveryAttempts;
-    }
-
-    public void setMaxRecoveryAttempts(int maxRecoveryAttempts) {
-        this.maxRecoveryAttempts = maxRecoveryAttempts;
-    }
-
-    public int getMinConnectionRecoveryTimeout() {
-        return minConnectionRecoveryTimeout;
-    }
-
-    public void setMinConnectionRecoveryTimeout(int minConnectionRecoveryTimeout) {
-        this.minConnectionRecoveryTimeout = minConnectionRecoveryTimeout;
-    }
-
-    public int getMaxConnectionRecoveryTimeout() {
-        return maxConnectionRecoveryTimeout;
-    }
-
-    public void setMaxConnectionRecoveryTimeout(int maxConnectionRecoveryTimeout) {
-        this.maxConnectionRecoveryTimeout = maxConnectionRecoveryTimeout;
-    }
-
-    public int getConnectionTimeout() {
-        return connectionTimeout;
-    }
-
-    public void setConnectionTimeout(int connectionTimeout) {
-        this.connectionTimeout = connectionTimeout;
-    }
-
-    public int getConnectionCloseTimeout() {
-        return connectionCloseTimeout;
-    }
-
-    public void setConnectionCloseTimeout(int connectionCloseTimeout) {
-        this.connectionCloseTimeout = connectionCloseTimeout;
-    }
-
-    public int getPrefetchCount() {
-        return prefetchCount;
-    }
+    @JsonProperty("resendMessage")
+    private ResendMessageConfiguration resendMessageConfiguration = new ResendMessageConfiguration();
 
     public void setPrefetchCount(int prefetchCount) {
         if (prefetchCount > -1) {
