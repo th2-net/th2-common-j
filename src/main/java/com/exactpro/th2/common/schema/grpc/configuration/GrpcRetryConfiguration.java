@@ -13,26 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.exactpro.th2.common.schema.grpc.configuration;
-
-import java.util.Map;
-
-import com.exactpro.th2.common.schema.message.configuration.Configuration;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Data;
 
 @Data
-public class GrpcRouterConfiguration implements Configuration {
+public class GrpcRetryConfiguration {
 
-    @JsonProperty
-    private Map<String, GrpcServiceConfiguration> services;
+    private int maxRetriesAttempts = 5;
 
-    @JsonProperty(value = "server")
-    private GrpcServerConfiguration serverConfiguration;
+    private int minMethodRetriesTimeout = 100;
 
-    @JsonProperty
-    private GrpcRetryConfiguration retryConfiguration = new GrpcRetryConfiguration();
+    private int maxMethodRetriesTimeout = 2_000;
+
+    public int getRetryDelay(int currentAttempt) {
+        return minMethodRetriesTimeout + (maxRetriesAttempts > 1 ? (maxMethodRetriesTimeout - minMethodRetriesTimeout) / (maxRetriesAttempts - 1) * currentAttempt : 0);
+    }
 
 }
