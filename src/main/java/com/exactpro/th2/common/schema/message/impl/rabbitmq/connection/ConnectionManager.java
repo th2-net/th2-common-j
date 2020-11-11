@@ -176,9 +176,11 @@ public class ConnectionManager implements AutoCloseable {
                     int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
 
                     int recoveryDelay = rabbitMQConfiguration.getMinConnectionRecoveryTimeout()
-                            + (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
-                            / rabbitMQConfiguration.getMaxRecoveryAttempts()
-                            * tmpCountTriesToRecovery;
+                            + (rabbitMQConfiguration.getMaxRecoveryAttempts() > 1
+                                ? (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
+                                    / (rabbitMQConfiguration.getMaxRecoveryAttempts() - 1)
+                                    * tmpCountTriesToRecovery
+                                : 0);
 
                     LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
                     return recoveryDelay;
