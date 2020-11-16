@@ -162,8 +162,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
-        }
-        finally {
+        } finally {
             processTimer.setDuration();
         }
     }
