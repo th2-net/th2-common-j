@@ -25,10 +25,16 @@ import com.google.protobuf.TextFormat;
 
 import java.util.List;
 
+import io.prometheus.client.Counter;
+import io.prometheus.client.Gauge;
+
 public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawMessage, RawMessageBatch> {
 
-    private static final String MESSAGE_TYPE = "raw";
+    private static final Counter INCOMING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_raw_msg_batch_quantity", "Quantity of incoming raw message batches").register();
+    private static final Counter INCOMING_RAW_MSG_QUANTITY = Counter.build("th2_mq_incoming_raw_msg_quantity", "Quantity of incoming raw messages").register();
+    private static final Gauge RAW_MSG_PROCESSING_TIME = Gauge.build("th2_mq_raw_msg_processing_time", "Time of processing raw messages").register();
 
+    private static final String MESSAGE_TYPE = "raw";
 
     public RabbitRawBatchSubscriber(List<? extends RouterFilter> filters) {
         super(filters);
@@ -38,6 +44,25 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
         super(filters, filterStrategy);
     }
 
+    @Override
+    protected Counter getCounter() {
+        return INCOMING_RAW_MSG_BATCH_QUANTITY;
+    }
+
+    @Override
+    protected Counter getContentCounter() {
+        return INCOMING_RAW_MSG_QUANTITY;
+    }
+
+    @Override
+    protected Gauge getTimer() {
+        return RAW_MSG_PROCESSING_TIME;
+    }
+
+    @Override
+    protected int extractCountFrom(RawMessageBatch message) {
+        return message.getMessagesCount();
+    }
 
     @Override
     protected RawMessageBatch valueFromBytes(byte[] body) throws Exception {

@@ -20,7 +20,28 @@ import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 import com.google.protobuf.TextFormat;
 
+import io.prometheus.client.Counter;
+
 public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> {
+
+    private static final Counter OUTGOING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_batch_quantity", "Quantity of outgoing raw message batches").register();
+    private static final Counter OUTGOING_RAW_MSG_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_quantity", "Quantity of outgoing raw messages").register();
+
+    @Override
+    protected Counter getCounter() {
+        return OUTGOING_RAW_MSG_BATCH_QUANTITY;
+    }
+
+    @Override
+    protected Counter getContentCounter() {
+        return OUTGOING_RAW_MSG_QUANTITY;
+    }
+
+    @Override
+    protected int extractCountFrom(RawMessageBatch message) {
+        return message.getMessagesCount();
+    }
+
     @Override
     protected byte[] valueToBytes(RawMessageBatch value) {
         return value.toByteArray();
