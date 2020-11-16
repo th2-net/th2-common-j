@@ -122,23 +122,24 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected abstract Counter getCounter();
+    protected abstract Counter getDeliveryCounter();
 
     protected abstract Counter getContentCounter();
 
-    protected abstract Gauge getTimer();
+    protected abstract Gauge getProcessingTimer();
 
     protected abstract int extractCountFrom(T message);
 
     private void handle(String consumeTag, Delivery delivery) {
+        Timer processTimer = getProcessingTimer().startTimer();
+
         try {
             T value = valueFromBytes(delivery.getBody());
 
-            Counter counter = getCounter();
+            Counter counter = getDeliveryCounter();
             counter.inc();
             Counter contentCounter = getContentCounter();
-            contentCounter.inc(extractCountFrom(value));
-            Timer processTimer = getTimer().startTimer();
+            contentCounter.inc(extractCountFrom(Objects.requireNonNull(value)));
 
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("The received message {}", toShortDebugString(value));
@@ -159,10 +160,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 }
             }
 
-            processTimer.setDuration();
-
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
+        }
+        finally {
+            processTimer.setDuration();
         }
     }
 

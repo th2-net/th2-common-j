@@ -35,7 +35,7 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
     private static final Gauge PARSED_MSG_PROCESSING_TIME = Gauge.build("th2_mq_parsed_msg_processing_time", "Time of processing parsed messages").register();
 
     @Override
-    protected Counter getCounter() {
+    protected Counter getDeliveryCounter() {
         return INCOMING_PARSED_MSG_BATCH_QUANTITY;
     }
 
@@ -45,7 +45,7 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
     }
 
     @Override
-    protected Gauge getTimer() {
+    protected Gauge getProcessingTimer() {
         return PARSED_MSG_PROCESSING_TIME;
     }
 

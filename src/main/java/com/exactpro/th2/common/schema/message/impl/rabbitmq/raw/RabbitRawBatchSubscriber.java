@@ -45,7 +45,7 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     }
 
     @Override
-    protected Counter getCounter() {
+    protected Counter getDeliveryCounter() {
         return INCOMING_RAW_MSG_BATCH_QUANTITY;
     }
 
@@ -55,7 +55,7 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     }
 
     @Override
-    protected Gauge getTimer() {
+    protected Gauge getProcessingTimer() {
         return RAW_MSG_PROCESSING_TIME;
     }
 

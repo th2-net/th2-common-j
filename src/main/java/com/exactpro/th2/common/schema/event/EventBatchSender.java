@@ -27,7 +27,7 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
     private static final Counter OUTGOING_EVENT_QUANTITY = Counter.build("th2_mq_outgoing_event_quantity", "Quantity of outgoing events").register();
 
     @Override
-    protected Counter getCounter() {
+    protected Counter getDeliveryCounter() {
         return OUTGOING_EVENT_BATCH_QUANTITY;
     }
 

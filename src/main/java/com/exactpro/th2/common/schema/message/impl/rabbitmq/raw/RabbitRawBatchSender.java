@@ -28,7 +28,7 @@ public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> 
     private static final Counter OUTGOING_RAW_MSG_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_quantity", "Quantity of outgoing raw messages").register();
 
     @Override
-    protected Counter getCounter() {
+    protected Counter getDeliveryCounter() {
         return OUTGOING_RAW_MSG_BATCH_QUANTITY;
     }
 

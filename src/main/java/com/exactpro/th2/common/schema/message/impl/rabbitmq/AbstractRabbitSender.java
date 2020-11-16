@@ -51,7 +51,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         this.sendQueue.set(sendQueue);
     }
 
-    protected abstract Counter getCounter();
+    protected abstract Counter getDeliveryCounter();
 
     protected abstract Counter getContentCounter();
 
@@ -59,10 +59,10 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
     @Override
     public void send(T value) throws IOException {
-        Counter counter = getCounter();
+        Counter counter = getDeliveryCounter();
         counter.inc();
         Counter contentCounter = getContentCounter();
-        contentCounter.inc(extractCountFrom(value));
+        contentCounter.inc(extractCountFrom(Objects.requireNonNull(value)));
 
         try {
             ConnectionManager connection = this.connectionManager.get();

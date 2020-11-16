@@ -28,7 +28,7 @@ public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> 
     private static final Counter OUTGOING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_quantity", "Quantity of outgoing parsed messages").register();
 
     @Override
-    protected Counter getCounter() {
+    protected Counter getDeliveryCounter() {
         return OUTGOING_PARSED_MSG_BATCH_QUANTITY;
     }
 

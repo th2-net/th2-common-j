@@ -32,7 +32,7 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     private static final Gauge EVENT_PROCESSING_TIME = Gauge.build("th2_mq_event_processing_time", "Time of processing events").register();
 
     @Override
-    protected Counter getCounter() {
+    protected Counter getDeliveryCounter() {
         return INCOMING_EVENT_BATCH_QUANTITY;
     }
 
@@ -42,7 +42,7 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected Gauge getTimer() {
+    protected Gauge getProcessingTimer() {
         return EVENT_PROCESSING_TIME;
     }
 
