@@ -27,6 +27,12 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.EventBatchOrBuilder;
+import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageBatchOrBuilder;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.grpc.RawMessageBatchOrBuilder;
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
@@ -34,6 +40,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Subscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Delivery;
 
+import io.prometheus.client.Counter;
+import io.prometheus.client.Gauge;
+import io.prometheus.client.Gauge.Timer;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
@@ -43,6 +52,17 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
+
+    private static final Counter INCOMING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_parsed_batch_msg_quantity", "Quantity of incoming parsed message batches").register();
+    private static final Counter INCOMING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_quantity", "Quantity of incoming parsed messages").register();
+    private static final Counter INCOMING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_raw_batch_msg_quantity", "Quantity of incoming raw message batches").register();
+    private static final Counter INCOMING_RAW_MSG_QUANTITY = Counter.build("th2_mq_incoming_raw_msg_quantity", "Quantity of incoming raw messages").register();
+    private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_incoming_event_batch_quantity", "Quantity of incoming event batches").register();
+    private static final Counter INCOMING_EVENT_QUANTITY = Counter.build("th2_mq_incoming_event_quantity", "Quantity of incoming events").register();
+
+    private static final Gauge PARSED_MSG_PROCESSING_TIME = Gauge.build("th2_mq_parsed_msg_processing_time", "Time of processing parsed messages").register();
+    private static final Gauge RAW_MSG_PROCESSING_TIME = Gauge.build("th2_mq_raw_msg_processing_time", "Time of processing raw messages").register();
+    private static final Gauge EVENT_PROCESSING_TIME = Gauge.build("th2_mq_event_processing_time", "Time of processing events").register();
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
@@ -124,6 +144,26 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         try {
             T value = valueFromBytes(delivery.getBody());
 
+            Timer processTimer = null;
+
+            if (value instanceof MessageBatch) {
+                INCOMING_PARSED_MSG_BATCH_QUANTITY.inc();
+                INCOMING_PARSED_MSG_QUANTITY.inc(((MessageBatchOrBuilder)value).getMessagesCount());
+                processTimer = PARSED_MSG_PROCESSING_TIME.startTimer();
+            }
+
+            if (value instanceof RawMessageBatch) {
+                INCOMING_RAW_MSG_BATCH_QUANTITY.inc();
+                INCOMING_RAW_MSG_QUANTITY.inc(((RawMessageBatchOrBuilder)value).getMessagesCount());
+                processTimer = RAW_MSG_PROCESSING_TIME.startTimer();
+            }
+
+            if (value instanceof EventBatch) {
+                INCOMING_EVENT_BATCH_QUANTITY.inc();
+                INCOMING_EVENT_QUANTITY.inc(((EventBatchOrBuilder)value).getEventsCount());
+                processTimer = EVENT_PROCESSING_TIME.startTimer();
+            }
+
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("The received message {}", toShortDebugString(value));
             }
@@ -142,6 +182,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
                 }
             }
+
+            if (processTimer != null) {
+                processTimer.setDuration();
+            }
+
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
         }

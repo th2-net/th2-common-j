@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.exactpro.th2.common.grpc.*;
+import io.prometheus.client.Counter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicReference<String> sendQueue = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+
+    private static final Counter OUTGOING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_parsed_batch_msg_quantity", "Quantity of outgoing parsed message batches").register();
+    private static final Counter OUTGOING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_quantity", "Quantity of outgoing parsed messages").register();
+    private static final Counter OUTGOING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_raw_batch_msg_quantity", "Quantity of outgoing raw message batches").register();
+    private static final Counter OUTGOING_RAW_MSG_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_quantity", "Quantity of outgoing raw messages").register();
+    private static final Counter OUTGOING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_event_batch_quantity", "Quantity of outgoing event batches").register();
+    private static final Counter OUTGOING_EVENT_QUANTITY = Counter.build("th2_mq_outgoing_event_quantity", "Quantity of outgoing events").register();
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
@@ -51,6 +60,20 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
     @Override
     public void send(T value) throws IOException {
+        if (value instanceof MessageBatch) {
+            OUTGOING_PARSED_MSG_BATCH_QUANTITY.inc();
+            OUTGOING_PARSED_MSG_QUANTITY.inc(((MessageBatchOrBuilder)value).getMessagesCount());
+        }
+
+        if (value instanceof RawMessageBatch) {
+            OUTGOING_RAW_MSG_BATCH_QUANTITY.inc();
+            OUTGOING_RAW_MSG_QUANTITY.inc(((RawMessageBatchOrBuilder)value).getMessagesCount());
+        }
+
+        if (value instanceof EventBatch) {
+            OUTGOING_EVENT_BATCH_QUANTITY.inc();
+            OUTGOING_EVENT_QUANTITY.inc(((EventBatchOrBuilder)value).getEventsCount());
+        }
 
         try {
             ConnectionManager connection = this.connectionManager.get();
