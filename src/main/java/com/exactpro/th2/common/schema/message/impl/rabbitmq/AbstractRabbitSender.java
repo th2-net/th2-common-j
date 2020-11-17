@@ -59,10 +59,12 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
     @Override
     public void send(T value) throws IOException {
+        Objects.requireNonNull(value, "Value for send can not be null");
+
         Counter counter = getDeliveryCounter();
         counter.inc();
         Counter contentCounter = getContentCounter();
-        contentCounter.inc(extractCountFrom(Objects.requireNonNull(value)));
+        contentCounter.inc(extractCountFrom(value));
 
         try {
             ConnectionManager connection = this.connectionManager.get();
