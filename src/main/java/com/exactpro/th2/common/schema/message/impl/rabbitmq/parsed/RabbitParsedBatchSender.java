@@ -20,7 +20,28 @@ import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 import com.google.protobuf.TextFormat;
 
+import io.prometheus.client.Counter;
+
 public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> {
+
+    private static final Counter OUTGOING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_batch_quantity", "Quantity of outgoing parsed message batches").register();
+    private static final Counter OUTGOING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_quantity", "Quantity of outgoing parsed messages").register();
+
+    @Override
+    protected Counter getDeliveryCounter() {
+        return OUTGOING_PARSED_MSG_BATCH_QUANTITY;
+    }
+
+    @Override
+    protected Counter getContentCounter() {
+        return OUTGOING_PARSED_MSG_QUANTITY;
+    }
+
+    @Override
+    protected int extractCountFrom(MessageBatch message) {
+        return message.getMessagesCount();
+    }
+
     @Override
     protected byte[] valueToBytes(MessageBatch value) {
         return value.toByteArray();

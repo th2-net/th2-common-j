@@ -34,6 +34,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Subscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Delivery;
 
+import io.prometheus.client.Counter;
+import io.prometheus.client.Gauge;
+import io.prometheus.client.Gauge.Timer;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
@@ -119,10 +122,26 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
+    protected abstract Counter getDeliveryCounter();
+
+    protected abstract Counter getContentCounter();
+
+    protected abstract Gauge getProcessingTimer();
+
+    protected abstract int extractCountFrom(T message);
 
     private void handle(String consumeTag, Delivery delivery) {
+        Timer processTimer = getProcessingTimer().startTimer();
+
         try {
             T value = valueFromBytes(delivery.getBody());
+
+            Objects.requireNonNull(value, "Received value is null");
+
+            Counter counter = getDeliveryCounter();
+            counter.inc();
+            Counter contentCounter = getContentCounter();
+            contentCounter.inc(extractCountFrom(value));
 
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("The received message {}", toShortDebugString(value));
@@ -142,8 +161,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
                 }
             }
+
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
+        } finally {
+            processTimer.setDuration();
         }
     }
 

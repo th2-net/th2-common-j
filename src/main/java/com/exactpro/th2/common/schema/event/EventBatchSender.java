@@ -19,7 +19,28 @@ package com.exactpro.th2.common.schema.event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 
+import io.prometheus.client.Counter;
+
 public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
+
+    private static final Counter OUTGOING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_event_batch_quantity", "Quantity of outgoing event batches").register();
+    private static final Counter OUTGOING_EVENT_QUANTITY = Counter.build("th2_mq_outgoing_event_quantity", "Quantity of outgoing events").register();
+
+    @Override
+    protected Counter getDeliveryCounter() {
+        return OUTGOING_EVENT_BATCH_QUANTITY;
+    }
+
+    @Override
+    protected Counter getContentCounter() {
+        return OUTGOING_EVENT_QUANTITY;
+    }
+
+    @Override
+    protected int extractCountFrom(EventBatch message) {
+        return message.getEventsCount();
+    }
+
     @Override
     protected byte[] valueToBytes(EventBatch value) {
         return value.toByteArray();

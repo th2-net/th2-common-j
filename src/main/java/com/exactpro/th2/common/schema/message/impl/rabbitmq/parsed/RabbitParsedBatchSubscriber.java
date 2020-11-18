@@ -25,7 +25,34 @@ import com.google.protobuf.TextFormat;
 
 import java.util.List;
 
+import io.prometheus.client.Counter;
+import io.prometheus.client.Gauge;
+
 public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<Message, MessageBatch> {
+
+    private static final Counter INCOMING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_batch_quantity", "Quantity of incoming parsed message batches").register();
+    private static final Counter INCOMING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_quantity", "Quantity of incoming parsed messages").register();
+    private static final Gauge PARSED_MSG_PROCESSING_TIME = Gauge.build("th2_mq_parsed_msg_processing_time", "Time of processing parsed messages").register();
+
+    @Override
+    protected Counter getDeliveryCounter() {
+        return INCOMING_PARSED_MSG_BATCH_QUANTITY;
+    }
+
+    @Override
+    protected Counter getContentCounter() {
+        return INCOMING_PARSED_MSG_QUANTITY;
+    }
+
+    @Override
+    protected Gauge getProcessingTimer() {
+        return PARSED_MSG_PROCESSING_TIME;
+    }
+
+    @Override
+    protected int extractCountFrom(MessageBatch message) {
+        return message.getMessagesCount();
+    }
 
     public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters) {
         super(filters);
