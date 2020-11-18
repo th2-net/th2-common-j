@@ -1,10 +1,8 @@
 variables:
-  MAJOR_VERSION: "2"
-  MINOR_VERSION: "5"
-  MAINTENANCE_VERSION: "0"
-  DOCKER_PUBLISH_ENABLED: 'false'
+  DOCKER_PUBLISH_ENABLED: "false"
+  ARTIFACTORY_PUBLISH_ENABLED: "false"
 
 include:
-  - project: 'vivarium/th2/pipelines'
+  - project: "vivarium/th2/pipelines"
     ref: master
-    file: '/.gitlab-ci-java.yml'
+    file: "/.gitlab-ci-java.yml"
