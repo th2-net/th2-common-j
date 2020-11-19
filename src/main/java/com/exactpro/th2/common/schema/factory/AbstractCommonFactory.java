@@ -145,7 +145,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         CommonMetrics.setLiveness(true);
 
         this.prometheusExporter.updateAndGet(server -> {
-            if (server == null) {
+            if (server == null && prometheusConfiguration.getEnabled()) {
                 try {
                     server = new HTTPServer(prometheusConfiguration.getHost(), prometheusConfiguration.getPort());
                 } catch (IOException e) {
