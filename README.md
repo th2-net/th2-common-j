@@ -20,7 +20,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     var factory = CommonFactory.createFromArguments(args);
     ```
 
-After that you can get various `Routers` through `factory` properties:
+After that you can receive various Routers through factory properties:
 ```
 var messageRouter = factory.getMessageRouterParsedBatch();
 var rawRouter = factory.getMessageRouterRawBatch();
@@ -31,16 +31,16 @@ var eventRouter = factory.getEventBatchRouter();
 `rawRouter` is working with `RawMessageBatch` <br>
 `eventRouter` is working with `EventBatch`
 
-See [th2-grpc-common](https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for details.
+Please refer to [th2-grpc-common] (https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for further details.
 
-With `router` created, you can subscribe to pins (specifying callback function) or send data that router works with:
+With router created, you can subscribe to pins (by specifying the callback function) or to send data that the router works with:
 ```
 router.subscribe(callback)  # subscribe to only one pin 
 router.subscribeAll(callback)  # subscribe to one or several pins
 router.send(message)  # send to only one pim
 router.sendAll(message)  # send to one or several pins
 ```
-You can do these actions provide pin attributes in addition to default ones.
+You can perform these actions by providing pin attributes in addition to the default ones.
 ```
 router.subscribe(callback, attrs...)  # subscribe to only one pin
 router.subscribeAll(callback, attrs...)  # subscribe to one or several pins
