@@ -2,20 +2,20 @@
 
 ## Usage
 
-First things first, you need to import `CommonFactory` class:
+Firstly, you must import CommonFactory class:
 ```
 import com.exactpro.th2.common.schema.factory.CommonFactory
 ```
-Then you create an instance of imported class, choosing one of the options:
-1. Create factory with configs from default path (`/var/th2/config/*`):
+Then you will create an instance of imported class, by choosing one of the following options:
+1. Create factory with configs from the default path (`/var/th2/config/*`):
     ```
     var factory = CommonFactory();
     ```
-2. Create factory with configs from specified file paths:
+1. Create factory with configs from the specified file paths:
     ```
     var factory = CommonFactory(rabbitMQ, routerMQ, routerGRPC, cradle, custom, prometheus, dictionariesDir);
     ```
-3. Create factory with configs from specified arguments:
+1. Create factory with configs from the specified arguments:
     ```
     var factory = CommonFactory.createFromArguments(args);
     ```
@@ -47,7 +47,7 @@ router.subscribeAll(callback, attrs...)  # subscribe to one or several pins
 router.send(message, attrs...)  # send to only one pin
 router.sendAll(message, attrs...)  # send to one or several pins
 ```
-Default attributes are:
+The default attributes are:
 - `message_parsed_batch_router`
     - Subscribe: `subscribe`, `parsed`
     - Send: `publish`, `parsed`
@@ -62,12 +62,12 @@ This library allows you to:
 
 ## Export common metrics to Prometheus
   
-It can be done via following utility methods in `CommonMetrics` class
+It can be performed by the following utility methods in CommonMetrics class
 
 * `setLiveness` - sets "liveness" metric of a service (exported as `th2_liveness` gauge)
-* `setReadiness` - sets "readiness" metric of a service which (exported as `th2_readiness` gauge)
+* `setReadiness` - sets "readiness" metric of a service (exported as th2_readiness gauge)
 
 NOTES:
 
-* for metrics to be exported you also need to create an instance of `CommonFactory`
-* common JVM metrics are also exported alongside common service metrics
+* in order for the metrics to be exported, you also will need to create an instance of CommonFactory
+* common JVM metrics will also be exported alongside common service metrics
