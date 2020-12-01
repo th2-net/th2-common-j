@@ -17,15 +17,15 @@
 package com.exactpro.th2.common.schema.factory;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.exactpro.th2.common.metrics.PrometheusConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -71,7 +71,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path custom;
     private final Path dictionariesDir;
 
-    private static final Logger logger = Logger.getLogger(CommonFactory.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CommonFactory.class.getName());
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
@@ -180,6 +181,10 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --prometheusConfiguration - path to json file with configuration for prometheus metrics server
      *             <p>
+     *             --namespace - namespace in Kubernetes to find configMaps
+     *             <p>
+     *             --boxName - name of the box from Kubernetes
+     *             <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
      *             rabbitMq.json - configuration for RabbitMQ
@@ -202,25 +207,42 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "prometheusConfiguration", true, null));
         options.addOption(new Option("c", "configs", true, null));
 
+        options.addOption(new Option(null, "namespace", true, null));
+        options.addOption(new Option(null, "boxName", true, null));
+
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
 
             String configs = cmd.getOptionValue("configs");
 
-            return new CommonFactory(
-                    calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, RABBIT_MQ_FILE_NAME),
-                    calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
-                    calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
-                    calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
-                    calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
-                    calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
-                    calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
-            );
+            String namespace = cmd.getOptionValue("namespace");
+            String boxName = cmd.getOptionValue("boxName");
+
+            if(namespace != null && boxName != null) {
+                return createFromKubernetes(namespace, boxName);
+            } else {
+                return new CommonFactory(
+                        calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, RABBIT_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
+                );
+            }
         } catch (ParseException e) {
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
         }
     }
 
+    /**
+     * Create {@link CommonFactory} from Kubernetes
+     *
+     * @param namespace - namespace in Kubernetes to find configMaps
+     * @param boxName - name of the box from Kubernetes
+     * @return CommonFactory with set path
+     */
     public static CommonFactory createFromKubernetes(String namespace, String boxName) {
 
         Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource;
@@ -231,21 +253,29 @@ public class CommonFactory extends AbstractCommonFactory {
         ConfigMap rabbitMqConfigMap;
         ConfigMap cradleConfigMap;
 
-        Path grpcPath = Path.of(System.getProperty("user.dir") + "/generated_configs/" + ROUTER_GRPC_FILE_NAME);
-        Path rabbitMqPath = Path.of(System.getProperty("user.dir") + "/generated_configs/" + RABBIT_MQ_FILE_NAME);
-        Path cradlePath = Path.of(System.getProperty("user.dir") + "/generated_configs/" + CRADLE_FILE_NAME);
-        Path mqPath = Path.of(System.getProperty("user.dir") + "/generated_configs/" + ROUTER_MQ_FILE_NAME);
-        Path customPath = Path.of(System.getProperty("user.dir") + "/generated_configs/" + CUSTOM_FILE_NAME);
-        Path prometheusPath = Path.of(System.getProperty("user.dir") + "/generated_configs/" + PROMETHEUS_FILE_NAME);
-        Path dictionaryPath = Path.of(System.getProperty("user.dir") + "/generated_configs/dictionary.json");
+        String userDir = System.getProperty("user.dir");
+        String generatedConfigsDir = "generated_configs";
+
+        Path grpcPath = Path.of(userDir, generatedConfigsDir, ROUTER_GRPC_FILE_NAME);
+        Path rabbitMqPath = Path.of(userDir, generatedConfigsDir, RABBIT_MQ_FILE_NAME);
+        Path cradlePath = Path.of(userDir, generatedConfigsDir, CRADLE_FILE_NAME);
+        Path mqPath = Path.of(userDir, generatedConfigsDir, ROUTER_MQ_FILE_NAME);
+        Path customPath = Path.of(userDir, generatedConfigsDir, CUSTOM_FILE_NAME);
+        Path prometheusPath = Path.of(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME);
+        Path dictionaryPath = Path.of(userDir,generatedConfigsDir, "dictionary.json");
 
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
             String currentCluster = client.getConfiguration().getCurrentContext().getContext().getCluster();
 
-            boxConfigMapResource = client.configMaps().inNamespace(namespace).withName(boxName + "-app-config");
-            rabbitMqConfigMapResource = client.configMaps().inNamespace(namespace).withName("rabbit-mq-app-config");
-            cradleConfigMapResource = client.configMaps().inNamespace(namespace).withName("cradle");
+            var configMaps
+                    = client.configMaps();
+            var services
+                    = client.services();
+
+            boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
+            rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName("rabbit-mq-app-config");
+            cradleConfigMapResource = configMaps.inNamespace(namespace).withName("cradle");
 
             boxConfigMap = boxConfigMapResource.require();
             rabbitMqConfigMap = rabbitMqConfigMapResource.require();
@@ -257,95 +287,66 @@ public class CommonFactory extends AbstractCommonFactory {
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
             Map<String, String> cradleConfigData = cradleConfigMap.getData();
 
-            Service rabbitMqService = client.services().inNamespace("service").withName("rabbitmq-schema").require();
-            Service cassandraService = client.services().inNamespace("service").withName("cassandra-schema").require();
+            Service rabbitMqService = services.inNamespace("service").withName("rabbitmq-schema").require();
+            Service cassandraService = services.inNamespace("service").withName("cassandra-schema").require();
 
-            ObjectNode grpcNode = new ObjectMapper().readValue(boxData.get("grpc.json"), ObjectNode.class);
-            ObjectNode mqNode = new ObjectMapper().readValue(boxData.get("mq.json"), ObjectNode.class);
-            ObjectNode customNode = new ObjectMapper().readValue(boxData.get("custom.json"), ObjectNode.class);
+            GrpcRouterConfiguration grpc = MAPPER.readValue(boxData.get(ROUTER_GRPC_FILE_NAME), GrpcRouterConfiguration.class);
+            MessageRouterConfiguration mq = MAPPER.readValue(boxData.get(ROUTER_MQ_FILE_NAME), MessageRouterConfiguration.class);
+            ObjectNode custom = MAPPER.readValue(boxData.get(CUSTOM_FILE_NAME), ObjectNode.class);
+            RabbitMQConfiguration rabbitMq = MAPPER.readValue(rabbitMqData.get(RABBIT_MQ_FILE_NAME), RabbitMQConfiguration.class);
+            CradleConfiguration cradle = MAPPER.readValue(cradleConfigData.get(CRADLE_FILE_NAME), CradleConfiguration.class);
 
-            ObjectNode rabbitMqNode = new ObjectMapper().readValue(rabbitMqData.get("rabbitMQ.json"), ObjectNode.class);
-            ObjectNode cradleNode = new ObjectMapper().readValue(cradleConfigData.get("cradle.json"), ObjectNode.class);
+            Map<String, GrpcServiceConfiguration> grpcServices = grpc.getServices();
 
-            if(grpcNode.has("services")) {
-                ObjectNode serverNode = (ObjectNode) grpcNode.get("services");
+            grpcServices.values().forEach(serviceConfig -> serviceConfig.getEndpoints().values().forEach(endpoint -> {
+                Service boxService = client.services().inNamespace(namespace).withName(endpoint.getHost()).require();
+                endpoint.setPort(getExposedPort(endpoint.getPort(), boxService));
+                endpoint.setHost(currentCluster);
+            }));
 
-                for (Iterator<String> service = serverNode.fieldNames(); service.hasNext(); ) {
-                    String serviceName = service.next();
+            rabbitMq.setPort(getExposedPort(rabbitMq.getPort(), rabbitMqService));
+            rabbitMq.setHost(currentCluster);
 
-                    JsonNode serviceNode = serverNode.get(serviceName);
+            cradle.setPort(getExposedPort(cradle.getPort(), cassandraService));
+            cradle.setHost(currentCluster);
 
-                    JsonNode endpointsNode = serviceNode.get("endpoints");
+            File generatedConfigsDirFile = new File(userDir, generatedConfigsDir);
 
-                    for (Iterator<String> endpoint = endpointsNode.fieldNames(); endpoint.hasNext(); ) {
-                        String endpointName = endpoint.next();
-
-                        ObjectNode endpointNode = (ObjectNode) endpointsNode.get(endpointName);
-
-                        Service boxService = client.services().inNamespace(namespace).withName(endpointNode.get("host").asText()).require();
-
-                        changePort(endpointNode, boxService);
-
-                        endpointNode.put("host", currentCluster);
-
-                    }
-                }
+            if(generatedConfigsDirFile.mkdir()) {
+                LOGGER.info("Directory " + generatedConfigsDir + " is created at " + userDir);
+            } else {
+                LOGGER.info(grpcPath + " will be overridden");
+                LOGGER.info(rabbitMqPath + " will be overridden");
+                LOGGER.info(cradlePath + " will be overridden");
+                LOGGER.info(mqPath + " will be overridden");
+                LOGGER.info(customPath + " will be overridden");
+                LOGGER.info(prometheusPath + " will be overridden");
+                LOGGER.info(dictionaryPath + " will be overridden");
             }
 
-            if(rabbitMqNode.has("port")) {
-                changePort(rabbitMqNode, rabbitMqService);
-            }
+            if(generatedConfigsDirFile.exists()) {
+                File grpcFile = grpcPath.toFile();
+                File rabbitMqFile = rabbitMqPath.toFile();
+                File cradleFile = cradlePath.toFile();
+                File mqFile = mqPath.toFile();
+                File customFile = customPath.toFile();
+                File prometheusFile = prometheusPath.toFile();
+                File dictionaryFile = dictionaryPath.toFile();
 
-            if(rabbitMqNode.has("host")) {
-                rabbitMqNode.put("host", currentCluster);
-            }
+                writeToJson(grpcFile, grpc);
+                writeToJson(rabbitMqFile, rabbitMq);
+                writeToJson(cradleFile, cradle);
+                writeToJson(mqFile, mq);
+                writeToJson(customFile, custom);
+                writeToJson(prometheusFile, new PrometheusConfiguration("", 25565, false));
 
-            if(cradleNode.has("port")) {
-                changePort(cradleNode, cassandraService);
-            }
-
-            if(cradleNode.has("host")) {
-                cradleNode.put("host", currentCluster);
-            }
-
-            File generatedConfigsDir = new File(System.getProperty("user.dir") + "/generated_configs/");
-
-            if(generatedConfigsDir.mkdir()) {
-                logger.info("Directory \"generated_configs\" is created at " + System.getProperty("user.dir"));
-            }
-
-            if(generatedConfigsDir.exists()) {
-                File grpcFile = new File(String.valueOf(grpcPath));
-                File rabbitMqFile = new File(String.valueOf(rabbitMqPath));
-                File cradleFile = new File(String.valueOf(cradlePath));
-                File mqFile = new File(String.valueOf(mqPath));
-                File customFile = new File(String.valueOf(customPath));
-                File prometheusFile = new File(String.valueOf(prometheusPath));
-                File dictionaryFile = new File(String.valueOf(dictionaryPath));
-
-                writeToJson(grpcFile, String.valueOf(grpcNode));
-                writeToJson(rabbitMqFile, String.valueOf(rabbitMqNode));
-                writeToJson(cradleFile, String.valueOf(cradleNode));
-                writeToJson(mqFile, String.valueOf(mqNode));
-                writeToJson(customFile, String.valueOf(customNode));
-
-                if(prometheusFile.createNewFile() || prometheusFile.exists()) {
-                    try(Writer prometheusWriter = new FileWriter(prometheusFile)) {
-                        prometheusWriter.write("{\"host\":\"\",\"port\":null,\"enabled\":false}");
-                    }
-                }
-
-                if(dictionaryFile.createNewFile() || dictionaryFile.exists()) {
-                    try(Writer dictionaryWriter = new FileWriter(dictionaryFile)) {
-                        if(dictionaryConfigMap != null) {
-                            dictionaryWriter.write(dictionaryConfigMap.getData().toString());
-                        }
-                    }
+                if(dictionaryConfigMap != null) {
+                    writeToJson(dictionaryFile, dictionaryConfigMap.getData());
                 }
             }
 
         } catch (IOException e) {
-            logger.error(e);
+            LOGGER.error(e);
         }
 
         return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath);
@@ -360,23 +361,20 @@ public class CommonFactory extends AbstractCommonFactory {
         return null;
     }
 
-    private static void changePort(ObjectNode node, Service service) {
+    private static int getExposedPort(int port, Service service) {
         for(int i = 0; i < service.getSpec().getPorts().size(); i++) {
-            if(service.getSpec().getPorts().get(i).getPort() == node.get("port").asInt()) {
-                node.put("port", service.getSpec().getPorts().get(i).getNodePort());
-                break;
+            if(service.getSpec().getPorts().get(i).getPort() == port) {
+                return port;
             }
         }
+        return -1;
     }
 
-    private static void writeToJson(File file, String data) throws IOException {
+    private static void writeToJson(File file, Object object) throws IOException {
         if(file.createNewFile() || file.exists()) {
-            try(Writer customWriter = new FileWriter(file)) {
-                customWriter.write(String.valueOf(data));
-            }
+            MAPPER.writeValue(file, object);
         }
     }
-
 
     private static Path calculatePath(String path, String configsPath) {
         return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath) : CONFIG_DEFAULT_PATH);
