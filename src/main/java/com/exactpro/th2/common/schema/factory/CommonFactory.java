@@ -44,7 +44,8 @@ import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -68,7 +69,7 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path custom;
     private final Path dictionariesDir;
 
-    private static final Logger LOGGER = Logger.getLogger(CommonFactory.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
@@ -178,9 +179,9 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --prometheusConfiguration - path to json file with configuration for prometheus metrics server
      *             <p>
-     *             --namespace - namespace in Kubernetes to find configMaps
+     *             --namespace - namespace in Kubernetes to find config maps related to the target
      *             <p>
-     *             --boxName - name of the box from Kubernetes
+     *             --boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
      *             <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
@@ -212,10 +213,10 @@ public class CommonFactory extends AbstractCommonFactory {
 
             String configs = cmd.getOptionValue("configs");
 
-            String namespace = cmd.getOptionValue("namespace");
-            String boxName = cmd.getOptionValue("boxName");
+            if(cmd.hasOption("namespace") && cmd.hasOption("boxName")) {
+                String namespace = cmd.getOptionValue("namespace");
+                String boxName = cmd.getOptionValue("boxName");
 
-            if(namespace != null && boxName != null) {
                 return createFromKubernetes(namespace, boxName);
             } else {
                 return new CommonFactory(
@@ -234,10 +235,10 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     /**
-     * Create {@link CommonFactory} from Kubernetes
+     * Create {@link CommonFactory} via configs map from Kubernetes
      *
-     * @param namespace - namespace in Kubernetes to find configMaps
-     * @param boxName - name of the box from Kubernetes
+     * @param namespace - namespace in Kubernetes to find config maps related to the target th2 box
+     * @param boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
      * @return CommonFactory with set path
      */
     public static CommonFactory createFromKubernetes(String namespace, String boxName) {
@@ -310,15 +311,9 @@ public class CommonFactory extends AbstractCommonFactory {
             File generatedConfigsDirFile = new File(userDir, generatedConfigsDir);
 
             if(generatedConfigsDirFile.mkdir()) {
-                LOGGER.info("Directory " + generatedConfigsDir + " is created at " + userDir);
+                LOGGER.info("Directory {} is created at {}", generatedConfigsDir, userDir);
             } else {
-                LOGGER.info(grpcPath + " will be overridden");
-                LOGGER.info(rabbitMqPath + " will be overridden");
-                LOGGER.info(cradlePath + " will be overridden");
-                LOGGER.info(mqPath + " will be overridden");
-                LOGGER.info(customPath + " will be overridden");
-                LOGGER.info(prometheusPath + " will be overridden");
-                LOGGER.info(dictionaryPath + " will be overridden");
+                LOGGER.info("All configuration in the '{}' folder are overridden", generatedConfigsDir);
             }
 
             if(generatedConfigsDirFile.exists()) {
@@ -343,7 +338,7 @@ public class CommonFactory extends AbstractCommonFactory {
             }
 
         } catch (IOException e) {
-            LOGGER.error(e);
+            LOGGER.error(e.getMessage(), e);
         }
 
         return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath);
@@ -361,10 +356,10 @@ public class CommonFactory extends AbstractCommonFactory {
     private static int getExposedPort(int port, Service service) {
         for(ServicePort servicePort : service.getSpec().getPorts()) {
             if(servicePort.getPort() == port) {
-                return port;
+                return servicePort.getNodePort();
             }
         }
-        return -1;
+        throw new IllegalStateException("There is no exposed port for the target port " + port);
     }
 
     private static void writeToJson(File file, Object object) throws IOException {
