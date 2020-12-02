@@ -19,6 +19,10 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromArguments(args);
     ```
+1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
+    ```
+    var factory = CommonFactory.createFromKubernetes(namespace, boxName);
+    ```
 
 After that you can receive various Routers through factory properties:
 ```
