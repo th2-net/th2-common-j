@@ -15,10 +15,12 @@
  */
 package com.exactpro.th2.common.schema.grpc.configuration;
 
+import com.exactpro.th2.service.generator.service.RetryPolicy;
+
 import lombok.Data;
 
 @Data
-public class GrpcRetryConfiguration {
+public class GrpcRetryConfiguration implements RetryPolicy {
 
     private int maxRetriesAttempts = 5;
 
@@ -26,8 +28,13 @@ public class GrpcRetryConfiguration {
 
     private int maxMethodRetriesTimeout = 2_000;
 
-    public int getRetryDelay(int currentAttempt) {
+    @Override
+    public long getDelay(int currentAttempt) {
         return minMethodRetriesTimeout + (maxRetriesAttempts > 1 ? (maxMethodRetriesTimeout - minMethodRetriesTimeout) / (maxRetriesAttempts - 1) * currentAttempt : 0);
     }
 
+    @Override
+    public int getMaxAttempts() {
+        return maxRetriesAttempts;
+    }
 }
