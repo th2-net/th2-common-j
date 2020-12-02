@@ -28,10 +28,7 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.ConfigMapList;
-import io.fabric8.kubernetes.api.model.DoneableConfigMap;
-import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
@@ -362,8 +359,8 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     private static int getExposedPort(int port, Service service) {
-        for(int i = 0; i < service.getSpec().getPorts().size(); i++) {
-            if(service.getSpec().getPorts().get(i).getPort() == port) {
+        for(ServicePort servicePort : service.getSpec().getPorts()) {
+            if(servicePort.getPort() == port) {
                 return port;
             }
         }
