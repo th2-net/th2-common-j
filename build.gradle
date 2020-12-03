@@ -107,7 +107,7 @@ allprojects {
                 desc = project.version
                 released  = new Date()
             }
-        }
+            }
         publish = true
     }
 }
@@ -127,13 +127,13 @@ test {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:2.3.+')
-    api 'com.exactpro.th2:cradle-core'
+    api platform('com.exactpro.th2:bom:2.9.1')
+    api 'com.exactpro.th2:cradle-core:2.4.0'
     api 'com.exactpro.th2:grpc-common'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator'
-    implementation 'com.exactpro.th2:cradle-cassandra'
+    implementation 'com.exactpro.th2:cradle-cassandra:2.4.0'
 
     //FIXME: Adde these dependnecies as api to grpc-... artifaccts
     implementation "com.google.protobuf:protobuf-java-util"
