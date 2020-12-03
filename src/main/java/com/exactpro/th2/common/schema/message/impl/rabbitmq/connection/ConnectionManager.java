@@ -260,6 +260,8 @@ public class ConnectionManager implements AutoCloseable {
         try {
             Channel channel = connection.createChannel();
             channel.basicQos(configuration.getPrefetchCount());
+            channel.addReturnListener(ret ->
+                    LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
             return channel;
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
