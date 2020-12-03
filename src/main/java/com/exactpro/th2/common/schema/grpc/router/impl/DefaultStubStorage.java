@@ -50,8 +50,8 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
             GrpcEndpointConfiguration endpoint = serviceConfiguration.getEndpoints().get(key);
 
             if (Objects.isNull(endpoint)) {
-                throw new IllegalStateException("No endpoint in configuration " +
-                        "that matching the provided alias: " + key);
+                throw new IllegalStateException("No endpoint in the configuration " +
+                        "that matches the provided alias: " + key);
             }
 
             return stubFactory.newStub(ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort()).usePlaintext().build(), CallOptions.DEFAULT);

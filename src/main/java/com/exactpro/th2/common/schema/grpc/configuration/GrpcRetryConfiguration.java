@@ -17,9 +17,6 @@ package com.exactpro.th2.common.schema.grpc.configuration;
 
 import com.exactpro.th2.service.generator.service.RetryPolicy;
 
-import lombok.Data;
-
-@Data
 public class GrpcRetryConfiguration implements RetryPolicy {
 
     private int maxRetriesAttempts = 5;

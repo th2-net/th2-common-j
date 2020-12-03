@@ -31,9 +31,9 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.AbstractGrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
 import com.exactpro.th2.service.generator.service.RetryPolicy;
 import com.exactpro.th2.service.generator.service.StubStorage;
+import com.exactpro.th2.service.generator.service.annotation.GrpcStub;
 import com.exactpro.th2.service.generator.service.annotation.TH2Impl;
 import com.google.protobuf.Message;
 
@@ -52,9 +52,9 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultGrpcRouter.class);
 
-    private Map<Class<?>, Map<String, AbstractStub<?>>> stubs = new ConcurrentHashMap<>();
-    private Map<String, Channel> channels = new ConcurrentHashMap<>();
-    private Map<Class<?>, StubStorage<?>> stubsStorages = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Map<String, AbstractStub<?>>> stubs = new ConcurrentHashMap<>();
+    private final Map<String, Channel> channels = new ConcurrentHashMap<>();
+    private final Map<Class<?>, StubStorage<?>> stubsStorages = new ConcurrentHashMap<>();
 
     /**
      * Creates a service instance according to the filters in {@link GrpcRouterConfiguration}
@@ -69,16 +69,21 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
         TH2Impl implementationAnnotation = cls.getAnnotation(TH2Impl.class);
 
-        if (implementationAnnotation == null) {
+        if (implementationAnnotation == null || implementationAnnotation.value() == null) {
             return getProxyService(cls);
         }
 
         Class<?> th2ImplClass = implementationAnnotation.value();
 
+
         try {
-            return (T) th2ImplClass.getConstructor(RetryPolicy.class, StubStorage.class).newInstance(configuration.getRetryConfiguration(), stubsStorages.computeIfAbsent(cls, key -> new DefaultStubStorage<>(getServiceConfig(key))));
+            return (T) th2ImplClass.getConstructor(RetryPolicy.class, StubStorage.class)
+                    .newInstance(
+                            configuration.getRetryConfiguration(),
+                            stubsStorages.computeIfAbsent(cls, key ->
+                                    new DefaultStubStorage<>(getServiceConfig(key))));
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new IllegalStateException("Can not create new instance of service", e);
+            throw new IllegalStateException("Can not create new instance of service from class " + cls, e);
         }
     }
 
@@ -128,8 +133,10 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     }
 
     protected AbstractStub<?> getGrpcStubToSend(Class<?> proxyService, Message message) throws ClassNotFoundException {
-        var grpcStubAnnOld = proxyService.getAnnotation(GrpcStub.class);
-        var grpcStubAnnNew = proxyService.getAnnotation(com.exactpro.th2.service.generator.service.annotation.GrpcStub.class);
+        //For compatibility with older version
+        //FIXME: Remove in new versions
+        var grpcStubAnnOld = proxyService.getAnnotation(com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub.class);
+        var grpcStubAnnNew = proxyService.getAnnotation(GrpcStub.class);
 
 
         if (Objects.isNull(grpcStubAnnOld) && Objects.isNull(grpcStubAnnNew)) {
