@@ -23,6 +23,14 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
     ```
+    
+### Requirements for creatring factory with Kubernetes
+
+1. It is necessary to have Kubernetes configuration written in ~/.kube/config. 
+
+1. It is necessary to have environment variables `CASSANDRA_PASS` and `RABBITMQ_PASS` to use configs from `cradle.json` and `rabbitMQ.json` as the passwords are not stored there explicitly. 
+
+1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` is invoked again. 
 
 After that you can receive various Routers through factory properties:
 ```
