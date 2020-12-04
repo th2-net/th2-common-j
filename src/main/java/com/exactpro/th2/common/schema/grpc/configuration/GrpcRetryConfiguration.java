@@ -15,7 +15,7 @@
  */
 package com.exactpro.th2.common.schema.grpc.configuration;
 
-import com.exactpro.th2.service.generator.service.RetryPolicy;
+import com.exactpro.th2.service.RetryPolicy;
 
 public class GrpcRetryConfiguration implements RetryPolicy {
 

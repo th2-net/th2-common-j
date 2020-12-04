@@ -31,10 +31,10 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.AbstractGrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.service.generator.service.RetryPolicy;
-import com.exactpro.th2.service.generator.service.StubStorage;
-import com.exactpro.th2.service.generator.service.annotation.GrpcStub;
-import com.exactpro.th2.service.generator.service.annotation.TH2Impl;
+import com.exactpro.th2.service.RetryPolicy;
+import com.exactpro.th2.service.StubStorage;
+import com.exactpro.th2.service.annotation.GrpcStub;
+import com.exactpro.th2.service.annotation.TH2Impl;
 import com.google.protobuf.Message;
 
 import io.grpc.CallOptions;

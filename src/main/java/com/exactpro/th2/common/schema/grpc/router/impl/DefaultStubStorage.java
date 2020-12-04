@@ -25,7 +25,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
-import com.exactpro.th2.service.generator.service.StubStorage;
+import com.exactpro.th2.service.StubStorage;
 import com.google.protobuf.Message;
 
 import io.grpc.CallOptions;
