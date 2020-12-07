@@ -265,6 +265,7 @@ public class CommonFactory extends AbstractCommonFactory {
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
             String currentCluster = client.getConfiguration().getCurrentContext().getContext().getCluster();
+            String username = client.getConfiguration().getCurrentContext().getContext().getUser();
 
             var configMaps
                     = client.configMaps();
@@ -304,6 +305,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
             rabbitMq.setPort(getExposedPort(rabbitMq.getPort(), rabbitMqService));
             rabbitMq.setHost(currentCluster);
+            rabbitMq.setUsername(username);
 
             cradle.setPort(getExposedPort(cradle.getPort(), cassandraService));
             cradle.setHost(currentCluster);
