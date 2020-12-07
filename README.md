@@ -26,7 +26,8 @@ Then you will create an instance of imported class, by choosing one of the follo
     
 ### Requirements for creatring factory with Kubernetes
 
-1. It is necessary to have Kubernetes configuration written in ~/.kube/config. 
+1. It is necessary to have Kubernetes configuration written in ~/.kube/config. See more on kubectl configuration: 
+https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/
 
 1. It is necessary to have environment variables `CASSANDRA_PASS` and `RABBITMQ_PASS` to use configs from `cradle.json` and `rabbitMQ.json` as the passwords are not stored there explicitly. 
 
