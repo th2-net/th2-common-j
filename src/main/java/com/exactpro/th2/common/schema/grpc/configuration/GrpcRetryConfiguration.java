@@ -34,4 +34,24 @@ public class GrpcRetryConfiguration implements RetryPolicy {
     public int getMaxAttempts() {
         return maxRetriesAttempts;
     }
+
+    public void setMaxRetriesAttempts(int maxRetriesAttempts) {
+        this.maxRetriesAttempts = maxRetriesAttempts;
+    }
+
+    public int getMinMethodRetriesTimeout() {
+        return minMethodRetriesTimeout;
+    }
+
+    public void setMinMethodRetriesTimeout(int minMethodRetriesTimeout) {
+        this.minMethodRetriesTimeout = minMethodRetriesTimeout;
+    }
+
+    public int getMaxMethodRetriesTimeout() {
+        return maxMethodRetriesTimeout;
+    }
+
+    public void setMaxMethodRetriesTimeout(int maxMethodRetriesTimeout) {
+        this.maxMethodRetriesTimeout = maxMethodRetriesTimeout;
+    }
 }

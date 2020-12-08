@@ -38,8 +38,8 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     private final GrpcServiceConfiguration serviceConfiguration;
     private final Map<String, T> stubs = new ConcurrentHashMap<>();
 
-    public DefaultStubStorage(GrpcServiceConfiguration serviceConfiguration) {
-        this.serviceConfiguration = serviceConfiguration;
+    public DefaultStubStorage(@NotNull GrpcServiceConfiguration serviceConfiguration) {
+        this.serviceConfiguration = Objects.requireNonNull(serviceConfiguration, "Service configuration can not be null");
     }
 
     @NotNull

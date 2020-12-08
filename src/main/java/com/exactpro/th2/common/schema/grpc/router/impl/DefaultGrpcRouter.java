@@ -81,7 +81,9 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                     .newInstance(
                             configuration.getRetryConfiguration(),
                             stubsStorages.computeIfAbsent(cls, key ->
-                                    new DefaultStubStorage<>(getServiceConfig(key))));
+                                    new DefaultStubStorage<>(getServiceConfig(key))
+                            )
+                    );
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new IllegalStateException("Can not create new instance of service from class " + cls, e);
         }
