@@ -117,7 +117,7 @@ ext {
     protobufVersion     = '3.11.0'
 
     sailfishVersion     = '3.2-SNAPSHOT'
-    cradleVersion       = '1.2-SNAPSHOT'
+    cradleVersion       = '2.4.0'
 
     jacksonVersion      = "2.11.2"
 }
@@ -128,12 +128,12 @@ test {
 
 dependencies {
     api platform('com.exactpro.th2:bom:2.9.1')
-    api 'com.exactpro.th2:cradle-core:2.4.0'
+    api "com.exactpro.th2:cradle-core:${cradleVersion}"
     api 'com.exactpro.th2:grpc-common'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator'
-    implementation 'com.exactpro.th2:cradle-cassandra:2.4.0'
+    implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     //FIXME: Adde these dependnecies as api to grpc-... artifaccts
     implementation "com.google.protobuf:protobuf-java-util"
