@@ -107,7 +107,7 @@ allprojects {
                 desc = project.version
                 released  = new Date()
             }
-            }
+        }
         publish = true
     }
 }
