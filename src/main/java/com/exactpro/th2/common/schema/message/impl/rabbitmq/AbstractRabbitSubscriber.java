@@ -115,7 +115,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         listeners.clear();
     }
 
-    protected abstract T valueFromBytes(byte[] body) throws Exception;
+    protected abstract List<T> valueFromBytes(byte[] body) throws Exception;
 
     protected abstract String toShortDebugString(T value);
 
@@ -134,34 +134,35 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         Timer processTimer = getProcessingTimer().startTimer();
 
         try {
-            T value = valueFromBytes(delivery.getBody());
+            List<T> values = valueFromBytes(delivery.getBody());
 
-            Objects.requireNonNull(value, "Received value is null");
+            for (T value : values) {
+                Objects.requireNonNull(value, "Received value is null");
 
-            Counter counter = getDeliveryCounter();
-            counter.inc();
-            Counter contentCounter = getContentCounter();
-            contentCounter.inc(extractCountFrom(value));
+                Counter counter = getDeliveryCounter();
+                counter.inc();
+                Counter contentCounter = getContentCounter();
+                contentCounter.inc(extractCountFrom(value));
 
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("The received message {}", toShortDebugString(value));
-            }
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("The received message {}", toShortDebugString(value));
+                }
 
-            var filteredValue = filter(value);
+                var filteredValue = filter(value);
 
-            if (Objects.isNull(filteredValue)) {
-                LOGGER.debug("Message is filtred");
-                return;
-            }
+                if (Objects.isNull(filteredValue)) {
+                    LOGGER.debug("Message is filtred");
+                    return;
+                }
 
-            for (MessageListener<T> listener : listeners) {
-                try {
-                    listener.handler(consumeTag, filteredValue);
-                } catch (Exception listenerExc) {
-                    LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
+                for (MessageListener<T> listener : listeners) {
+                    try {
+                        listener.handler(consumeTag, filteredValue);
+                    } catch (Exception listenerExc) {
+                        LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
+                    }
                 }
             }
-
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
         } finally {

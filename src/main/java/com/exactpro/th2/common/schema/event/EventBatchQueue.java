@@ -31,17 +31,14 @@ public class EventBatchQueue extends AbstractRabbitQueue<EventBatch> {
     @Override
     protected MessageSender<EventBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSender eventBatchSender = new EventBatchSender();
-        eventBatchSender.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getName());
+        eventBatchSender.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
         return eventBatchSender;
     }
 
     @Override
     protected MessageSubscriber<EventBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSubscriber eventBatchSubscriber = new EventBatchSubscriber();
-        var subscribeTarget = SubscribeTarget.builder()
-                .routingKey(queueConfiguration.getName())
-                .queue(queueConfiguration.getQueue())
-                .build();
+        var subscribeTarget = new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey());
         eventBatchSubscriber.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
         return eventBatchSubscriber;
     }

@@ -14,21 +14,6 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
 
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-
-@Getter
-@Builder
-@ToString
-@EqualsAndHashCode
-public class SubscribeTarget {
-
-    private String queue;
-
-    private String routingKey;
-
-}
+data class SubscribeTarget(val queue: String, val routingKey: String)

@@ -27,6 +27,7 @@ import org.apache.commons.cli.ParseException;
 
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
@@ -55,11 +56,12 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path dictionariesDir;
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                         Class<? extends GrpcRouter> grpcRouterClass,
-                         Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
-        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, eventBatchRouterClass, grpcRouterClass);
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass,
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
+        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -82,10 +84,11 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                         Class<? extends GrpcRouter> grpcRouterClass) {
-        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, eventBatchRouterClass, grpcRouterClass,
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass) {
+        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass,
                 CONFIG_DEFAULT_PATH.resolve(RABBIT_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_MQ_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(ROUTER_GRPC_FILE_NAME),
