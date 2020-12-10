@@ -20,7 +20,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -31,10 +33,9 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.AbstractGrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
 import com.exactpro.th2.service.RetryPolicy;
 import com.exactpro.th2.service.StubStorage;
-import com.exactpro.th2.service.annotation.GrpcStub;
-import com.exactpro.th2.service.annotation.TH2Impl;
 import com.google.protobuf.Message;
 
 import io.grpc.CallOptions;
@@ -65,15 +66,19 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
     public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
-        Objects.requireNonNull(cls, "Services class can not be null");
+        var implementations = ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
+                .stream().collect(Collectors.toList());
 
-        TH2Impl implementationAnnotation = cls.getAnnotation(TH2Impl.class);
+        if (implementations.size() > 1) {
+            throw new IllegalStateException("Can not choose implementation. Fount " + implementations.size() + " implementations");
+        }
 
-        if (implementationAnnotation == null || implementationAnnotation.value() == null) {
+        if (implementations.isEmpty()) {
+            //FIXME: Remove in future releases
             return getProxyService(cls);
         }
 
-        Class<?> th2ImplClass = implementationAnnotation.value();
+        Class<?> th2ImplClass = implementations.get(0).type();
 
 
         try {
@@ -135,19 +140,14 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     }
 
     protected AbstractStub<?> getGrpcStubToSend(Class<?> proxyService, Message message) throws ClassNotFoundException {
-        //For compatibility with older version
-        //FIXME: Remove in new versions
-        var grpcStubAnnOld = proxyService.getAnnotation(com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub.class);
-        var grpcStubAnnNew = proxyService.getAnnotation(GrpcStub.class);
+        var grpcStubAnn = proxyService.getAnnotation(GrpcStub.class);
 
-
-        if (Objects.isNull(grpcStubAnnOld) && Objects.isNull(grpcStubAnnNew)) {
+        if (Objects.isNull(grpcStubAnn)) {
             throw new ClassNotFoundException("Provided service class not annotated " +
                     "by GrpcStub annotation: " + proxyService.getSimpleName());
         }
 
-        Class<? extends AbstractStub> grpcStubClass = Objects.isNull(grpcStubAnnNew) ? grpcStubAnnOld.value() : grpcStubAnnNew.value();
-        return getStubInstanceOrCreate(proxyService, grpcStubClass, message);
+        return getStubInstanceOrCreate(proxyService, grpcStubAnn.value(), message);
     }
 
     protected  <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<?> proxyService, Class<T> stubClass, Message message) {
