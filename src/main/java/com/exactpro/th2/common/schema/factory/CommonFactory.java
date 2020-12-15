@@ -337,7 +337,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 writeToJson(cradleFile, cradle);
                 writeToJson(mqFile, mq);
                 writeToJson(customFile, custom);
-                writeToJson(prometheusFile, new PrometheusConfiguration("", 25565, false));
+                writeToJson(prometheusFile, new PrometheusConfiguration());
 
                 if(dictionaryConfigMap != null) {
                     writeToJson(dictionaryFile, dictionaryConfigMap.getData());
