@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
@@ -38,6 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookupFactory;
 import org.apache.log4j.PropertyConfigurator;
@@ -47,6 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
+import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
@@ -286,7 +290,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     }
 
                     manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
-                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(),DEFAULT_CRADLE_INSTANCE_NAME));
+                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME), false,
+                            cradleConfiguration.getCradleMaxMessageBatchSize() > 0 ? cradleConfiguration.getCradleMaxMessageBatchSize() : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
+                            cradleConfiguration.getCradleMaxEventBatchSize() > 0 ? cradleConfiguration.getCradleMaxEventBatchSize() : DEFAULT_MAX_EVENT_BATCH_SIZE);
                 } catch (CradleStorageException | RuntimeException e) {
                     throw new CommonFactoryException("Cannot create Cradle manager", e);
                 }
