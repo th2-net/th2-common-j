@@ -22,9 +22,6 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import lombok.Getter;
-
-@Getter
 public class QueueConfiguration implements Configuration {
 
     /**
@@ -55,4 +52,59 @@ public class QueueConfiguration implements Configuration {
     @JsonProperty(value = "write", defaultValue = "true")
     private boolean isWritable = true;
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getQueue() {
+        return queue;
+    }
+
+    public void setQueue(String queue) {
+        this.queue = queue;
+    }
+
+    public String getExchange() {
+        return exchange;
+    }
+
+    public void setExchange(String exchange) {
+        this.exchange = exchange;
+    }
+
+    public List<String> getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(List<String> attributes) {
+        this.attributes = attributes;
+    }
+
+    public List<MqRouterFilterConfiguration> getFilters() {
+        return filters;
+    }
+
+    public void setFilters(List<MqRouterFilterConfiguration> filters) {
+        this.filters = filters;
+    }
+
+    public boolean isReadable() {
+        return isReadable;
+    }
+
+    public void setReadable(boolean readable) {
+        isReadable = readable;
+    }
+
+    public boolean isWritable() {
+        return isWritable;
+    }
+
+    public void setWritable(boolean writable) {
+        isWritable = writable;
+    }
 }

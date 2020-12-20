@@ -16,17 +16,27 @@
 
 package com.exactpro.th2.common.schema.grpc.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 
-@Data
-@ToString(callSuper = true)
-@EqualsAndHashCode(callSuper = true)
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class GrpcServerConfiguration extends GrpcEndpointConfiguration {
 
     @JsonProperty
     private int workers;
 
+    public int getWorkers() {
+        return workers;
+    }
+
+    public void setWorkers(int workers) {
+        this.workers = workers;
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+                .append("workers", workers)
+                .toString();
+    }
 }

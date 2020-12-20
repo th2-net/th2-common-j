@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 
 import java.util.List;
@@ -65,7 +66,7 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     }
 
     @Override
-    protected RawMessageBatch valueFromBytes(byte[] body) throws Exception {
+    protected RawMessageBatch valueFromBytes(byte[] body) throws InvalidProtocolBufferException {
         return RawMessageBatch.parseFrom(body);
     }
 
@@ -88,12 +89,7 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     protected Metadata extractMetadata(RawMessage message) {
         var metadata = message.getMetadata();
         var messageID = metadata.getId();
-        return Metadata.builder()
-                .messageType(MESSAGE_TYPE)
-                .direction(messageID.getDirection())
-                .sequence(messageID.getSequence())
-                .sessionAlias(messageID.getConnectionId().getSessionAlias())
-                .build();
+        return new Metadata(messageID.getSequence(), MESSAGE_TYPE, messageID.getConnectionId().getSessionAlias(), messageID.getDirection());
     }
 
 }

@@ -38,10 +38,7 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
     @Override
     protected MessageSubscriber<MessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         MessageSubscriber<MessageBatch> result = new RabbitParsedBatchSubscriber(queueConfiguration.getFilters());
-        var subscribeTarget = SubscribeTarget.builder()
-                .routingKey(queueConfiguration.getName())
-                .queue(queueConfiguration.getQueue())
-                .build();
+        var subscribeTarget = new SubscribeTarget(queueConfiguration.getName(), queueConfiguration.getQueue());
         result.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
         return result;
     }

@@ -18,9 +18,7 @@ package com.exactpro.th2.common.schema.message.configuration;
 
 import com.exactpro.th2.common.grpc.FilterOperation;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
 
-@Getter
 public class FieldFilterConfiguration implements Configuration {
 
     @JsonProperty
@@ -29,5 +27,20 @@ public class FieldFilterConfiguration implements Configuration {
     @JsonProperty(required = true)
     private FilterOperation operation;
 
+    public String getValue() {
+        return value;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+
+    public FilterOperation getOperation() {
+        return operation;
+    }
+
+    public void setOperation(FilterOperation operation) {
+        this.operation = operation;
+    }
 }
 

@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookupFactory;
 import org.apache.log4j.PropertyConfigurator;
@@ -50,7 +49,6 @@ import org.slf4j.LoggerFactory;
 
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
-import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
@@ -79,7 +77,6 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import lombok.Getter;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -95,12 +92,22 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
-    @Getter(lazy = true)
-    private final RabbitMQConfiguration rabbitMqConfiguration = loadRabbitMqConfiguration();
-    @Getter(lazy = true)
-    private final MessageRouterConfiguration messageRouterConfiguration = loadMessageRouterConfiguration();
-    @Getter(lazy = true)
-    private final GrpcRouterConfiguration grpcRouterConfiguration = loadGrpcRouterConfiguration();
+    private final AtomicReference<RabbitMQConfiguration> rabbitMqConfiguration = new AtomicReference<>();
+    private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
+    private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
+
+    public RabbitMQConfiguration getRabbitMqConfiguration() {
+        return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
+    }
+
+    public MessageRouterConfiguration getMessageRouterConfiguration() {
+        return messageRouterConfiguration.updateAndGet(this::loadMessageRouterConfiguration);
+    }
+
+    public GrpcRouterConfiguration getGrpcRouterConfiguration() {
+        return grpcRouterConfiguration.updateAndGet(this::loadGrpcRouterConfiguration);
+    }
+
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
@@ -412,22 +419,26 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected abstract Path getPathToPrometheusConfiguration();
 
-    protected RabbitMQConfiguration loadRabbitMqConfiguration() {
-        return getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER);
+    protected RabbitMQConfiguration loadRabbitMqConfiguration(RabbitMQConfiguration currentValue) {
+        return currentValue == null ? getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER) : currentValue;
+
     }
 
-    protected MessageRouterConfiguration loadMessageRouterConfiguration() {
-        return getConfiguration(getPathToMessageRouterConfiguration(), MessageRouterConfiguration.class, MAPPER);
+    protected MessageRouterConfiguration loadMessageRouterConfiguration(MessageRouterConfiguration currentValue) {
+        return currentValue == null ? getConfiguration(getPathToMessageRouterConfiguration(), MessageRouterConfiguration.class, MAPPER) : currentValue;
     }
 
-    protected GrpcRouterConfiguration loadGrpcRouterConfiguration() {
-        SimpleModule module = new SimpleModule();
-        module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+    protected GrpcRouterConfiguration loadGrpcRouterConfiguration(GrpcRouterConfiguration currentValue) {
+        if (currentValue == null) {
+            SimpleModule module = new SimpleModule();
+            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
 
-        var mapper = new ObjectMapper();
-        mapper.registerModule(module);
+            var mapper = new ObjectMapper();
+            mapper.registerModule(module);
 
-        return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
+            return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
+        }
+        return currentValue;
     }
 
     protected PrometheusConfiguration loadPrometheusConfiguration() {

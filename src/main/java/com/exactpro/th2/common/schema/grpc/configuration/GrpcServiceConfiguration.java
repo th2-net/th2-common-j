@@ -22,9 +22,6 @@ import com.exactpro.th2.common.schema.message.configuration.Configuration;
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import lombok.Data;
-
-@Data
 public class GrpcServiceConfiguration implements Configuration {
 
     @JsonProperty(required = true)
@@ -36,4 +33,27 @@ public class GrpcServiceConfiguration implements Configuration {
     @JsonProperty(required = true)
     private Map<String, GrpcEndpointConfiguration> endpoints;
 
+    public RoutingStrategy<?> getStrategy() {
+        return strategy;
+    }
+
+    public void setStrategy(RoutingStrategy<?> strategy) {
+        this.strategy = strategy;
+    }
+
+    public Class<?> getServiceClass() {
+        return serviceClass;
+    }
+
+    public void setServiceClass(Class<?> serviceClass) {
+        this.serviceClass = serviceClass;
+    }
+
+    public Map<String, GrpcEndpointConfiguration> getEndpoints() {
+        return endpoints;
+    }
+
+    public void setEndpoints(Map<String, GrpcEndpointConfiguration> endpoints) {
+        this.endpoints = endpoints;
+    }
 }
