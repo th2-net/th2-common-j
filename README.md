@@ -26,11 +26,11 @@ Then you will create an instance of imported class, by choosing one of the follo
 
 ### Configuration formats
 
-RabbitMQ's connection configuration is read from rabbitMQ.json file.
+RabbitMQ configuration is read from rabbitMQ.json file.
 * host - the required setting defines the RabbitMQ host.
 * vHost - the required setting defines the virtual host that will be used for the connection to RabbitMQ. Please see more detail about the virtual host in RabbitMQ via [link](https://www.rabbitmq.com/vhosts.html)
 * port - the required setting defines the RabbitMQ port.
-* username - the required setting defines the RabbitMQ username. the required setting defines the RabbitMQ username. The user must have publish and subscribe permissions.
+* username - the required setting defines the RabbitMQ username. The user must have permission to publish messages via routing keys and subscribe to message queues.
 * password - the required setting defines the password that will be used for the connection to RabbitMQ.
 * exchangeName - the required setting defines the exchange that will be used for sending/subscribing operation in MQ routers. Please see more detail about the exchange in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
 * connectionTimeout - the connection TCP establishment timeout in milliseconds, zero for infinite, default value is 60000.
@@ -45,7 +45,7 @@ RabbitMQ's connection configuration is read from rabbitMQ.json file.
 {
   "host": "<host>",
   "vHost": "<virtual host>",
-  "port": "<port>",
+  "port": 5672,
   "username": "<user name>",
   "password": "<password>",
   "exchangeName": "<exchange name>",
@@ -55,6 +55,31 @@ RabbitMQ's connection configuration is read from rabbitMQ.json file.
   "minConnectionRecoveryTimeout": 10000,
   "maxConnectionRecoveryTimeout": 60000,
   "prefetchCount": 10
+}
+```
+
+Cradle configuration is read from cradle.json file.
+* dataCenter - the required setting defines the data center in the Cassandra cluster.
+* host - the required setting defines the Cassandra host.
+* port - the required setting defines the Cassandra port.
+* keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
+* username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
+* password - the required setting defines the password that will be used for the connection to Cassandra.
+* cradleInstanceName - the option defines a special identifier to divide data within one keyspace with `infra` as the default value.
+* cradleMaxEventBatchSize - the option defines the maximum of the event batch size in bytes with 1048576 as the default value.
+* cradleMaxMessageBatchSize - the option defines the maximum of the message batch size in bytes with 1048576 as the default value.
+
+```json
+{
+  "dataCenter": "<datacenter>",
+  "host": "<host>",
+  "port": 9042,
+  "keyspace": "<keyspace>",
+  "username": "<username>",
+  "password": "<password>",
+  "cradleInstanceName": "<cradle instance name>",
+  "cradleMaxEventBatchSize": 1048576,
+  "cradleMaxMessageBatchSize": 1048576
 }
 ```
 

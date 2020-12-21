@@ -36,6 +36,7 @@ public class GrpcServerConfiguration extends GrpcEndpointConfiguration {
     @Override
     public String toString() {
         return new ToStringBuilder(this)
+                .appendSuper(super.toString())
                 .append("workers", workers)
                 .toString();
     }

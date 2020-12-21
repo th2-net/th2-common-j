@@ -111,18 +111,30 @@ public class CradleConfiguration {
         this.cradleInstanceName = cradleInstanceName;
     }
 
+    /**
+     * Gets the max of the event batch size in bytes.
+     */
     public long getCradleMaxEventBatchSize() {
         return cradleMaxEventBatchSize;
     }
 
+    /**
+     * Sets the max of the event batch size in bytes.
+     */
     public void setCradleMaxEventBatchSize(long cradleMaxEventBatchSize) {
         this.cradleMaxEventBatchSize = cradleMaxEventBatchSize;
     }
 
+    /**
+     * Gets the max of the message batch size in bytes.
+     */
     public long getCradleMaxMessageBatchSize() {
         return cradleMaxMessageBatchSize;
     }
 
+    /**
+     * Sets the max of the message batch size in bytes.
+     */
     public void setCradleMaxMessageBatchSize(long cradleMaxMessageBatchSize) {
         this.cradleMaxMessageBatchSize = cradleMaxMessageBatchSize;
     }

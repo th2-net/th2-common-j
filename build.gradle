@@ -109,7 +109,7 @@ allprojects {
 
 ext {
     cradleVersion       = '2.6.1'
-    jupiterVersion      = '5.4.2'
+    junitVersion      = '5.4.2'
 }
 
 test {
@@ -162,8 +162,8 @@ dependencies {
 
     implementation 'io.fabric8:kubernetes-client:4.13.0'
 
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${jupiterVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${jupiterVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
 jar {
