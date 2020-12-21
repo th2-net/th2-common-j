@@ -23,7 +23,41 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
     ```
-    
+
+### Configuration formats
+
+RabbitMQ's connection configuration is read from rabbitMQ.json file.
+* host - the required setting defines the RabbitMQ host.
+* vHost - the required setting defines the virtual host that will be used for the connection to RabbitMQ. Please see more detail about the virtual host in RabbitMQ via [link](https://www.rabbitmq.com/vhosts.html)
+* port - the required setting defines the RabbitMQ port.
+* username - the required setting defines the RabbitMQ username. the required setting defines the RabbitMQ username. The user must have publish and subscribe permissions.
+* password - the required setting defines the password that will be used for the connection to RabbitMQ.
+* exchangeName - the required setting defines the exchange that will be used for sending/subscribing operation in MQ routers. Please see more detail about the exchange in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
+* connectionTimeout - the connection TCP establishment timeout in milliseconds, zero for infinite, default value is 60000.
+* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, default value is 10000.
+* maxRecoveryAttempts - the option defines the number of reconnection attempts to RabbitMQ with 5 as the default value. 
+  The `th2_readiness` probe is set to false and publishers blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set false.
+* minConnectionRecoveryTimeout - the option defines a minimal interval in milliseconds between reconnect attempts, the default value is 10000. Common factory increases reconnect interval from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout values. 
+* maxConnectionRecoveryTimeout - the option defines a maximum interval in milliseconds between reconnect attempts, the default value is 60000. Common factory increases reconnect interval from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout values.
+* prefetchCount - the option is maximum number of messages that the server will deliver, 0 if unlimited, the default value is 10.
+
+```json
+{
+  "host": "<host>",
+  "vHost": "<virtual host>",
+  "port": "<port>",
+  "username": "<user name>",
+  "password": "<password>",
+  "exchangeName": "<exchange name>",
+  "connectionTimeout": 60000,
+  "connectionCloseTimeout": 10000,
+  "maxRecoveryAttempts": 5,
+  "minConnectionRecoveryTimeout": 10000,
+  "maxConnectionRecoveryTimeout": 60000,
+  "prefetchCount": 10
+}
+```
+
 ### Requirements for creatring factory with Kubernetes
 
 1. It is necessary to have Kubernetes configuration written in ~/.kube/config. See more on kubectl configuration [here](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
@@ -44,7 +78,7 @@ var eventRouter = factory.getEventBatchRouter();
 `rawRouter` is working with `RawMessageBatch` <br>
 `eventRouter` is working with `EventBatch`
 
-Please refer to [th2-grpc-common] (https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for further details.
+Please refer to [th2-grpc-common](https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for further details.
 
 With router created, you can subscribe to pins (by specifying the callback function) or to send data that the router works with:
 ```
