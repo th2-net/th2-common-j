@@ -18,9 +18,11 @@ package com.exactpro.th2.common.schema.grpc.router.impl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -66,7 +68,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
     public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
-        var implementations = ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
+        List<Provider<T>> implementations = ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
                 .stream().collect(Collectors.toList());
 
         if (implementations.size() > 1) {
@@ -78,11 +80,10 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
             return getProxyService(cls);
         }
 
-        Class<?> th2ImplClass = implementations.get(0).type();
-
+        Class<? extends T> th2ImplClass = implementations.get(0).type();
 
         try {
-            return (T) th2ImplClass.getConstructor(RetryPolicy.class, StubStorage.class)
+            return th2ImplClass.getConstructor(RetryPolicy.class, StubStorage.class)
                     .newInstance(
                             configuration.getRetryConfiguration(),
                             stubsStorages.computeIfAbsent(cls, key ->
