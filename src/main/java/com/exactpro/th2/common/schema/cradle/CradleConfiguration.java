@@ -45,13 +45,13 @@ public class CradleConfiguration {
 
     /**
      * This is the max of the event batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_EVENT_BATCH_SIZE} as the default value.
-     * The option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
+     * This option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
      */
     private long cradleMaxEventBatchSize = CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
 
     /**
      * This is the max of the message batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_MESSAGE_BATCH_SIZE} as the default value.
-     * The option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
+     * This option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
      */
     private long cradleMaxMessageBatchSize = CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 
@@ -112,28 +112,28 @@ public class CradleConfiguration {
     }
 
     /**
-     * Gets the max of the event batch size in bytes.
+     * Gets the maximum event batch size in bytes.
      */
     public long getCradleMaxEventBatchSize() {
         return cradleMaxEventBatchSize;
     }
 
     /**
-     * Sets the max of the event batch size in bytes.
+     * Sets the maximum event batch size in bytes.
      */
     public void setCradleMaxEventBatchSize(long cradleMaxEventBatchSize) {
         this.cradleMaxEventBatchSize = cradleMaxEventBatchSize;
     }
 
     /**
-     * Gets the max of the message batch size in bytes.
+     * Gets the maximum message batch size in bytes.
      */
     public long getCradleMaxMessageBatchSize() {
         return cradleMaxMessageBatchSize;
     }
 
     /**
-     * Sets the max of the message batch size in bytes.
+     * Sets the maximum message batch size in bytes.
      */
     public void setCradleMaxMessageBatchSize(long cradleMaxMessageBatchSize) {
         this.cradleMaxMessageBatchSize = cradleMaxMessageBatchSize;
