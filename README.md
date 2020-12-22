@@ -26,7 +26,7 @@ Then you will create an instance of imported class, by choosing one of the follo
 
 ### Configuration formats
 
-RabbitMQ configuration is read from rabbitMQ.json file.
+The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * host - the required setting defines the RabbitMQ host.
 * vHost - the required setting defines the virtual host that will be used for the connection to RabbitMQ. Please see more detail about the virtual host in RabbitMQ via [link](https://www.rabbitmq.com/vhosts.html)
 * port - the required setting defines the RabbitMQ port.
