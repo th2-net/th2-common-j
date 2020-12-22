@@ -117,7 +117,7 @@ ext {
     protobufVersion     = '3.11.0'
 
     sailfishVersion     = '3.2-SNAPSHOT'
-    cradleVersion       = '1.2-SNAPSHOT'
+    cradleVersion       = '2.4.0'
 
     jacksonVersion      = "2.11.2"
 }
@@ -127,13 +127,13 @@ test {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:2.3.+')
-    api 'com.exactpro.th2:cradle-core'
+    api platform('com.exactpro.th2:bom:2.9.1')
+    api "com.exactpro.th2:cradle-core:${cradleVersion}"
     api 'com.exactpro.th2:grpc-common'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.1.2'
-    implementation 'com.exactpro.th2:cradle-cassandra'
+    implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     //FIXME: Adde these dependnecies as api to grpc-... artifaccts
     implementation "com.google.protobuf:protobuf-java-util"
@@ -169,6 +169,8 @@ dependencies {
     implementation 'io.prometheus:simpleclient'
     implementation 'io.prometheus:simpleclient_hotspot'
     implementation 'io.prometheus:simpleclient_httpserver'
+
+    implementation 'io.fabric8:kubernetes-client:4.13.0'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.4.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.4.2'
