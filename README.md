@@ -58,7 +58,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 }
 ```
 
-Cradle configuration is read from cradle.json file.
+The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * dataCenter - the required setting defines the data center in the Cassandra cluster.
 * host - the required setting defines the Cassandra host.
 * port - the required setting defines the Cassandra port.
