@@ -28,12 +28,12 @@ Then you will create an instance of imported class, by choosing one of the follo
 
 The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * host - the required setting defines the RabbitMQ host.
-* vHost - the required setting defines the virtual host that will be used for the connecting to RabbitMQ. 
+* vHost - the required setting defines the virtual host that will be used for connecting to RabbitMQ. 
   Please see more details about the virtual host in RabbitMQ via [link](https://www.rabbitmq.com/vhosts.html)
 * port - the required setting defines the RabbitMQ port.
 * username - the required setting defines the RabbitMQ username. 
   The user must have permission to publish messages via routing keys and subscribe to message queues.
-* password - the required setting defines the password that will be used for the connecting to RabbitMQ.
+* password - the required setting defines the password that will be used for connecting to RabbitMQ.
 * exchangeName - the required setting defines the exchange that will be used for sending/subscribing operation in MQ routers. 
   Please see more details about the exchanges in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
 * connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for infinite waiting.
