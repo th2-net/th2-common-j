@@ -32,4 +32,7 @@ public class GrpcRouterConfiguration implements Configuration {
     @JsonProperty(value = "server")
     private GrpcServerConfiguration serverConfiguration;
 
+    @JsonProperty
+    private GrpcRetryConfiguration retryConfiguration = new GrpcRetryConfiguration();
+
 }
