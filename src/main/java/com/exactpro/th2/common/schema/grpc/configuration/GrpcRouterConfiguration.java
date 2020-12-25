@@ -29,6 +29,9 @@ public class GrpcRouterConfiguration implements Configuration {
     @JsonProperty(value = "server")
     private GrpcServerConfiguration serverConfiguration;
 
+    @JsonProperty
+    private GrpcRetryConfiguration retryConfiguration = new GrpcRetryConfiguration();
+
     public Map<String, GrpcServiceConfiguration> getServices() {
         return services;
     }
@@ -43,5 +46,13 @@ public class GrpcRouterConfiguration implements Configuration {
 
     public void setServerConfiguration(GrpcServerConfiguration serverConfiguration) {
         this.serverConfiguration = serverConfiguration;
+    }
+
+    public GrpcRetryConfiguration getRetryConfiguration() {
+        return retryConfiguration;
+    }
+
+    public void setRetryConfiguration(GrpcRetryConfiguration retryConfiguration) {
+        this.retryConfiguration = retryConfiguration;
     }
 }

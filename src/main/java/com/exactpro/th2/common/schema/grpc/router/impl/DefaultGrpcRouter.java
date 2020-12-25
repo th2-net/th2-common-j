@@ -18,20 +18,26 @@ package com.exactpro.th2.common.schema.grpc.router.impl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
 import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.AbstractGrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
+import com.exactpro.th2.service.RetryPolicy;
+import com.exactpro.th2.service.StubStorage;
 import com.google.protobuf.Message;
 
 import io.grpc.CallOptions;
@@ -49,8 +55,9 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultGrpcRouter.class);
 
-    private Map<Class<?>, Map<String, AbstractStub<?>>> stubs = new ConcurrentHashMap<>();
-    private Map<String, Channel> channels = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Map<String, AbstractStub<?>>> stubs = new ConcurrentHashMap<>();
+    private final Map<String, Channel> channels = new ConcurrentHashMap<>();
+    private final Map<Class<?>, StubStorage<?>> stubsStorages = new ConcurrentHashMap<>();
 
     /**
      * Creates a service instance according to the filters in {@link GrpcRouterConfiguration}
@@ -61,7 +68,31 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
     public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
-        return getProxyService(cls);
+        List<Provider<T>> implementations = ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
+                .stream().collect(Collectors.toList());
+
+        if (implementations.size() > 1) {
+            throw new IllegalStateException("Can not choose implementation. Fount " + implementations.size() + " implementations");
+        }
+
+        if (implementations.isEmpty()) {
+            //FIXME: Remove in future releases
+            return getProxyService(cls);
+        }
+
+        Class<? extends T> th2ImplClass = implementations.get(0).type();
+
+        try {
+            return th2ImplClass.getConstructor(RetryPolicy.class, StubStorage.class)
+                    .newInstance(
+                            configuration.getRetryConfiguration(),
+                            stubsStorages.computeIfAbsent(cls, key ->
+                                    new DefaultStubStorage<>(getServiceConfig(key))
+                            )
+                    );
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new IllegalStateException("Can not create new instance of service from class " + cls, e);
+        }
     }
 
 
@@ -173,5 +204,4 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
             throw new InitGrpcRouterException("Something went wrong while creating stub instance: " + stubClass, e);
         }
     }
-
 }
