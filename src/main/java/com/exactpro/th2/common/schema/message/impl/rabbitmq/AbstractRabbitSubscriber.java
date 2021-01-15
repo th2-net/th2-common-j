@@ -22,6 +22,8 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -102,6 +104,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Override
     public void close() throws Exception {
         ConnectionManager connectionManager = this.connectionManager.get();
+
         if (connectionManager == null) {
             throw new IllegalStateException("Subscriber is not initialized");
         }
@@ -169,12 +172,45 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
+    private boolean resubscribe() {
+        LOGGER.info("Trying to resubscribe to queue.");
+
+        RabbitMQConfiguration configuration = this.connectionManager.get().getConfiguration();
+        int attemptsCount = 0;
+        int amountOfAttempts = configuration.getMaxRecoveryAttempts();
+        boolean successful = false;
+
+        while (attemptsCount < amountOfAttempts) {
+            try {
+                Thread.sleep(configuration.getMaxConnectionRecoveryTimeout());
+            } catch (InterruptedException | IllegalArgumentException e) {
+                LOGGER.error(e.getMessage());
+            }
+
+            try {
+                attemptsCount++;
+                start();
+
+                CommonMetrics.setReadiness(true);
+                successful = true;
+                break;
+            } catch (Exception e) {
+                if(attemptsCount == amountOfAttempts) {
+                    LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
+                }
+            }
+        }
+
+        return successful;
+    }
+
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
-        try {
-            close();
-        } catch (Exception e) {
-            LOGGER.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName.get(), subscribeTarget.get(), e);
+
+        CommonMetrics.setReadiness(false);
+
+        if(!resubscribe()) {
+            CommonMetrics.setLiveness(false);
         }
     }
 

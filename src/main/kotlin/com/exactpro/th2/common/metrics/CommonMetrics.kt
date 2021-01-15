@@ -28,6 +28,15 @@ private val RABBITMQ_READINESS = AtomicBoolean(true)
 private val GRPC_READINESS = AtomicBoolean(true)
 private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC_READINESS))
 
+val LIVENESS_ARBITER = MetricArbiter(LIVENESS)
+val READINESS_ARBITER = MetricArbiter(READINESS)
+
+var livenessArbiter: MetricArbiter = LIVENESS_ARBITER
+    get() = LIVENESS_ARBITER
+
+var readinessArbiter: MetricArbiter = READINESS_ARBITER
+    get() = READINESS_ARBITER
+
 var liveness: Boolean
     get() = LIVENESS.get() == 0.0
     set(value) = LIVENESS.set(if (value) 1.0 else 0.0)
