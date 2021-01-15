@@ -255,14 +255,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Registers message router for custom type that is passed via {@code messageClass} parameter. <br>
+     * Registers message router for custom type that is passed via {@code messageClass} parameter.<br>
      *
-     * Creates the router at the first call. The next calls with the same {@code messageClass} will return the same router as the first call did.
+     * Creates the router at the first call. The next calls with the same {@code messageClass} will return the same router.
      * The router will be automatically closed when {@link #close()} is invoked
      * @param messageClass custom message class
-     * @param messageConverter converter to serialize message to bytes and vice versa
-     * @param defaultSendAttributes set of attributes that pin must have to send message to it
-     * @param defaultSubscribeAttributes set of attributes that pin must have to receive messages from it
+     * @param messageConverter converter that will used to convert message to bytes and vice versa
+     * @param defaultSendAttributes set of attributes for sending. A pin must have all of them to be selected for sending the message
+     * @param defaultSubscribeAttributes set of attributes subscription. A pin must have all of them to be selected for receiving messages
      * @param <T> custom message type
      * @return the router that can send and receive messages with type {@link T}
      */
