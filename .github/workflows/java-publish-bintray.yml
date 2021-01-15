@@ -2,8 +2,8 @@ name: Build and publish Java distributions to Bintray
 
 on:
   push:
-    branches:
-    - master
+#    branches:
+#    - master
 #     paths:
 #     - gradle.properties
 
@@ -18,4 +18,8 @@ jobs:
         with:
           java-version: '11'
       - name: Build with Gradle
-        run: ./gradlew clean build bintrayUpload -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }}
+        env:
+          BUILD_NUM: ${{ github.run_number }}
+          BRANCH_NAME: ${GITHUB_REF#refs/*/}
+#        run: ./gradlew clean build bintrayUpload -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }}
+        run: ./gradlew clean build  -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Pbranch=${{ BRANCH_NAME }} -Pbuild_num{{ BUILD_NUM }}
