@@ -297,7 +297,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     }
 
                     manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
-                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME), false,
+                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME), true,
                             cradleConfiguration.getCradleMaxMessageBatchSize() > 0 ? cradleConfiguration.getCradleMaxMessageBatchSize() : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
                             cradleConfiguration.getCradleMaxEventBatchSize() > 0 ? cradleConfiguration.getCradleMaxEventBatchSize() : DEFAULT_MAX_EVENT_BATCH_SIZE);
                 } catch (CradleStorageException | RuntimeException e) {
