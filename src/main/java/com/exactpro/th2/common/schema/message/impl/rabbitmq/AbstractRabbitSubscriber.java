@@ -189,13 +189,14 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
             try {
                 attemptsCount++;
+                consumerMonitor.set(null);
                 start();
 
                 CommonMetrics.setReadiness(true);
                 successful = true;
                 break;
             } catch (Exception e) {
-                if(attemptsCount == amountOfAttempts) {
+                if(attemptsCount >= amountOfAttempts) {
                     LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
                 }
             }
