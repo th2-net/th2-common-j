@@ -29,9 +29,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.Spliterators;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
@@ -65,9 +69,12 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
@@ -119,6 +126,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
     private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
+    private final Map<Class<?>, MessageRouter<?>> customMessageRouters = new ConcurrentHashMap<>();
 
     static {
         PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
@@ -158,7 +166,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         this.prometheusExporter.updateAndGet(server -> {
             if (server == null && prometheusConfiguration.getEnabled()) {
                 try {
-                    server = new HTTPServer(prometheusConfiguration.getHost(), prometheusConfiguration.getPort());
+                    return new HTTPServer(prometheusConfiguration.getHost(), prometheusConfiguration.getPort());
                 } catch (IOException e) {
                     throw new CommonFactoryException("Failed to create Prometheus exporter", e);
                 }
@@ -244,6 +252,51 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
             return router;
         });
+    }
+
+    /**
+     * Registers message router for custom type that is passed via {@code messageClass} parameter. <br>
+     *
+     * Creates the router at the first call. The next calls with the same {@code messageClass} will return the same router as the first call did.
+     * The router will be automatically closed when {@link #close()} is invoked
+     * @param messageClass custom message class
+     * @param messageConverter converter to serialize message to bytes and vice versa
+     * @param defaultSendAttributes set of attributes that pin must have to send message to it
+     * @param defaultSubscribeAttributes set of attributes that pin must have to receive messages from it
+     * @param <T> custom message type
+     * @return the router that can send and receive messages with type {@link T}
+     */
+    @SuppressWarnings("unchecked")
+    public <T> MessageRouter<T> getCustomMessageRouter(
+            Class<T> messageClass,
+            MessageConverter<T> messageConverter,
+            Set<String> defaultSendAttributes,
+            Set<String> defaultSubscribeAttributes
+            ) {
+        return (MessageRouter<T>)customMessageRouters.computeIfAbsent(
+                messageClass,
+                it -> {
+                    var router = new RabbitCustomRouter<>(messageClass.getSimpleName(), messageConverter, defaultSendAttributes,
+                            defaultSubscribeAttributes);
+                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
+                    return router;
+                }
+        );
+    }
+
+    /**
+     * Registers custom message router.
+     *
+     * Unlike the {@link #getCustomMessageRouter(Class, MessageConverter, Set, Set)} the created router won't have any additional pins attributes
+     * except {@link QueueAttribute#SUBSCRIBE} for subscribe methods and {@link QueueAttribute#PUBLISH} for send methods
+     *
+     * @see #getCustomMessageRouter(Class, MessageConverter, Set, Set)
+     */
+    public <T> MessageRouter<T> getCustomMessageRouter(
+            Class<T> messageClass,
+            MessageConverter<T> messageConverter
+    ) {
+        return getCustomMessageRouter(messageClass, messageConverter, Collections.emptySet(), Collections.emptySet());
     }
 
     /**
@@ -512,6 +565,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
 
             return router;
+        });
+
+        customMessageRouters.forEach((messageType, router) -> {
+            try {
+                router.close();
+            } catch (Exception e) {
+                LOGGER.error("Failed to close custom router for {}", messageType, e);
+            }
         });
 
         cradleManager.getAndUpdate(manager -> {
