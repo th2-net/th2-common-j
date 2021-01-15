@@ -20,6 +20,6 @@ jobs:
       - name: Build with Gradle
         env:
           BUILD_NUM: ${{ github.run_number }}
-          BRANCH_NAME: ${GITHUB_REF#refs/*/}
+          BRANCH_NAME: "${GITHUB_REF#refs/*/}"
 #        run: ./gradlew clean build bintrayUpload -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }}
         run: ./gradlew clean build  -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Pbranch=${BRANCH_NAME} -Pbuild_num=${BUILD_NUM}
