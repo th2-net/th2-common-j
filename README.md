@@ -38,11 +38,11 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   Please see more details about the exchanges in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
 * connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for infinite waiting.
 * connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, default value is set to 10000.
-* maxRecoveryAttempts - the option defines the number of reconnection attempts to RabbitMQ with 5 as the default value. 
-  The `th2_readiness` probe is set to false and publishers blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set false.
-* minConnectionRecoveryTimeout - the option defines a minimal interval in milliseconds between reconnect attempts, the default value is 10000. Common factory increases reconnect interval from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout values. 
-* maxConnectionRecoveryTimeout - the option defines a maximum interval in milliseconds between reconnect attempts, the default value is 60000. Common factory increases reconnect interval from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout values.
-* prefetchCount - the option is maximum number of messages that the server will deliver, 0 if unlimited, the default value is 10.
+* maxRecoveryAttempts - this option defines the number of reconnection attempts to RabbitMQ, with its default value set to 5. 
+  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set false.
+* minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
+* maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
+* prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
 
 ```json
 {
@@ -67,10 +67,10 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * port - the required setting defines the Cassandra port.
 * keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
 * username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
-* password - the required setting defines the password that will be used for the connection to Cassandra.
-* cradleInstanceName - the option defines a special identifier to divide data within one keyspace with `infra` as the default value.
-* cradleMaxEventBatchSize - the option defines the maximum of the event batch size in bytes with 1048576 as the default value.
-* cradleMaxMessageBatchSize - the option defines the maximum of the message batch size in bytes with 1048576 as the default value.
+* password - the required setting defines the password that will be used for the connecting to Cassandra.
+* cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra as the default value.
+* cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
+* cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
 
 ```json
 {
@@ -86,7 +86,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 }
 ```
 
-### Requirements for creatring factory with Kubernetes
+### Requirements for creating factory with Kubernetes
 
 1. It is necessary to have Kubernetes configuration written in ~/.kube/config. See more on kubectl configuration [here](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
 

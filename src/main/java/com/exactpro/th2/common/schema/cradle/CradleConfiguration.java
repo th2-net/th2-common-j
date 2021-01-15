@@ -44,13 +44,13 @@ public class CradleConfiguration {
     private String cradleInstanceName;
 
     /**
-     * This is the max of the event batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_EVENT_BATCH_SIZE} as the default value.
+     * TThis is the maximum event batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_EVENT_BATCH_SIZE} set as the default value.
      * This option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
      */
     private long cradleMaxEventBatchSize = CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
 
     /**
-     * This is the max of the message batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_MESSAGE_BATCH_SIZE} as the default value.
+     * This is the maximum message batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_MESSAGE_BATCH_SIZE} set as the default value.
      * This option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
      */
     private long cradleMaxMessageBatchSize = CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
