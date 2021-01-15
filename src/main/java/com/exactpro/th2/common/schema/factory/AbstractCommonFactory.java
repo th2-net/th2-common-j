@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
@@ -75,7 +77,6 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import lombok.Getter;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -91,12 +92,22 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
-    @Getter(lazy = true)
-    private final RabbitMQConfiguration rabbitMqConfiguration = loadRabbitMqConfiguration();
-    @Getter(lazy = true)
-    private final MessageRouterConfiguration messageRouterConfiguration = loadMessageRouterConfiguration();
-    @Getter(lazy = true)
-    private final GrpcRouterConfiguration grpcRouterConfiguration = loadGrpcRouterConfiguration();
+    private final AtomicReference<RabbitMQConfiguration> rabbitMqConfiguration = new AtomicReference<>();
+    private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
+    private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
+
+    public RabbitMQConfiguration getRabbitMqConfiguration() {
+        return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
+    }
+
+    public MessageRouterConfiguration getMessageRouterConfiguration() {
+        return messageRouterConfiguration.updateAndGet(this::loadMessageRouterConfiguration);
+    }
+
+    public GrpcRouterConfiguration getGrpcRouterConfiguration() {
+        return grpcRouterConfiguration.updateAndGet(this::loadGrpcRouterConfiguration);
+    }
+
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
@@ -286,7 +297,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     }
 
                     manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
-                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(),DEFAULT_CRADLE_INSTANCE_NAME));
+                    manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME), true /* FIXME: should be `false` when db manipulations are moved to operator */,
+                            cradleConfiguration.getCradleMaxMessageBatchSize() > 0 ? cradleConfiguration.getCradleMaxMessageBatchSize() : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
+                            cradleConfiguration.getCradleMaxEventBatchSize() > 0 ? cradleConfiguration.getCradleMaxEventBatchSize() : DEFAULT_MAX_EVENT_BATCH_SIZE);
                 } catch (CradleStorageException | RuntimeException e) {
                     throw new CommonFactoryException("Cannot create Cradle manager", e);
                 }
@@ -406,22 +419,26 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected abstract Path getPathToPrometheusConfiguration();
 
-    protected RabbitMQConfiguration loadRabbitMqConfiguration() {
-        return getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER);
+    protected RabbitMQConfiguration loadRabbitMqConfiguration(RabbitMQConfiguration currentValue) {
+        return currentValue == null ? getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER) : currentValue;
+
     }
 
-    protected MessageRouterConfiguration loadMessageRouterConfiguration() {
-        return getConfiguration(getPathToMessageRouterConfiguration(), MessageRouterConfiguration.class, MAPPER);
+    protected MessageRouterConfiguration loadMessageRouterConfiguration(MessageRouterConfiguration currentValue) {
+        return currentValue == null ? getConfiguration(getPathToMessageRouterConfiguration(), MessageRouterConfiguration.class, MAPPER) : currentValue;
     }
 
-    protected GrpcRouterConfiguration loadGrpcRouterConfiguration() {
-        SimpleModule module = new SimpleModule();
-        module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+    protected GrpcRouterConfiguration loadGrpcRouterConfiguration(GrpcRouterConfiguration currentValue) {
+        if (currentValue == null) {
+            SimpleModule module = new SimpleModule();
+            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
 
-        var mapper = new ObjectMapper();
-        mapper.registerModule(module);
+            var mapper = new ObjectMapper();
+            mapper.registerModule(module);
 
-        return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
+            return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
+        }
+        return currentValue;
     }
 
     protected PrometheusConfiguration loadPrometheusConfiguration() {

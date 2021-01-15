@@ -16,15 +16,16 @@
 
 package com.exactpro.th2.common.schema.grpc.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-
 import java.util.List;
 
-@Data
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class GrpcRawFilterStrategy {
 
     @JsonProperty(required = true)
     protected List<GrpcRouterFilterConfiguration> filters;
 
+    public List<GrpcRouterFilterConfiguration> getFilters() {
+        return filters;
+    }
 }

@@ -38,10 +38,7 @@ public class EventBatchQueue extends AbstractRabbitQueue<EventBatch> {
     @Override
     protected MessageSubscriber<EventBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         EventBatchSubscriber eventBatchSubscriber = new EventBatchSubscriber();
-        var subscribeTarget = SubscribeTarget.builder()
-                .routingKey(queueConfiguration.getName())
-                .queue(queueConfiguration.getQueue())
-                .build();
+        var subscribeTarget = new SubscribeTarget(queueConfiguration.getName(), queueConfiguration.getQueue());
         eventBatchSubscriber.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
         return eventBatchSubscriber;
     }

@@ -16,19 +16,54 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration;
 
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 
-@Getter
-@Builder
-@ToString
-@EqualsAndHashCode
 public class SubscribeTarget {
 
-    private String queue;
+    private final String queue;
 
-    private String routingKey;
+    private final String routingKey;
 
+    public SubscribeTarget(String routingKey, String queue) {
+        this.queue = queue;
+        this.routingKey = routingKey;
+    }
+
+    public String getQueue() {
+        return queue;
+    }
+
+    public String getRoutingKey() {
+        return routingKey;
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+                .append("queue", queue)
+                .append("routingKey", routingKey)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        SubscribeTarget that = (SubscribeTarget)obj;
+
+        return new EqualsBuilder().append(queue, that.queue).append(routingKey, that.routingKey).isEquals();
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder().append(queue).append(routingKey).toHashCode();
+    }
 }

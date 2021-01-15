@@ -42,8 +42,6 @@ import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
 
-import lombok.val;
-
 public class ConnectionManager implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
@@ -79,10 +77,10 @@ public class ConnectionManager implements AutoCloseable {
             subscriberName = rabbitMQConfiguration.getSubscriberName() + "." + System.currentTimeMillis();
         }
 
-        val factory = new ConnectionFactory();
-        val virtualHost = rabbitMQConfiguration.getvHost();
-        val username = rabbitMQConfiguration.getUsername();
-        val password = rabbitMQConfiguration.getPassword();
+        var factory = new ConnectionFactory();
+        var virtualHost = rabbitMQConfiguration.getvHost();
+        var username = rabbitMQConfiguration.getUsername();
+        var password = rabbitMQConfiguration.getPassword();
 
         factory.setHost(rabbitMQConfiguration.getHost());
         factory.setPort(rabbitMQConfiguration.getPort());
