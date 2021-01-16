@@ -255,28 +255,43 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * Registers custom message router.
+     *
+     * Unlike the {@link #registerCustomMessageRouter(Class, MessageConverter, Set, Set)} the registered router won't have any additional pins attributes
+     * except {@link QueueAttribute#SUBSCRIBE} for subscribe methods and {@link QueueAttribute#PUBLISH} for send methods
+     *
+     * @see #registerCustomMessageRouter(Class, MessageConverter, Set, Set)
+     */
+    public <T> void registerCustomMessageRouter(
+            Class<T> messageClass,
+            MessageConverter<T> messageConverter
+    ) {
+        registerCustomMessageRouter(messageClass, messageConverter, Collections.emptySet(), Collections.emptySet());
+    }
+
+    /**
      * Registers message router for custom type that is passed via {@code messageClass} parameter.<br>
      *
-     * Creates the router at the first call. The next calls with the same {@code messageClass} will return the same router.
-     * The router will be automatically closed when {@link #close()} is invoked
      * @param messageClass custom message class
      * @param messageConverter converter that will used to convert message to bytes and vice versa
      * @param defaultSendAttributes set of attributes for sending. A pin must have all of them to be selected for sending the message
      * @param defaultSubscribeAttributes set of attributes subscription. A pin must have all of them to be selected for receiving messages
      * @param <T> custom message type
-     * @return the router that can send and receive messages with type {@link T}
+     * @throws IllegalStateException if the router for {@code messageClass} is already registered
      */
-    @SuppressWarnings("unchecked")
-    public <T> MessageRouter<T> getCustomMessageRouter(
+    public <T> void registerCustomMessageRouter(
             Class<T> messageClass,
             MessageConverter<T> messageConverter,
             Set<String> defaultSendAttributes,
             Set<String> defaultSubscribeAttributes
-            ) {
-        return (MessageRouter<T>)customMessageRouters.computeIfAbsent(
+    ) {
+        customMessageRouters.compute(
                 messageClass,
-                it -> {
-                    var router = new RabbitCustomRouter<>(messageClass.getSimpleName(), messageConverter, defaultSendAttributes,
+                (msgClass, curValue) -> {
+                    if (curValue != null) {
+                        throw new IllegalStateException("Message router for type " + msgClass.getCanonicalName() + " is already registered");
+                    }
+                    var router = new RabbitCustomRouter<>(msgClass.getSimpleName(), messageConverter, defaultSendAttributes,
                             defaultSubscribeAttributes);
                     router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
                     return router;
@@ -285,18 +300,23 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Registers custom message router.
+     * Returns previously registered message router for message of {@code messageClass} type.
      *
-     * Unlike the {@link #getCustomMessageRouter(Class, MessageConverter, Set, Set)} the created router won't have any additional pins attributes
-     * except {@link QueueAttribute#SUBSCRIBE} for subscribe methods and {@link QueueAttribute#PUBLISH} for send methods
-     *
-     * @see #getCustomMessageRouter(Class, MessageConverter, Set, Set)
+     * It the router for that type is not registered yet throws {@link IllegalArgumentException}
+     * @param messageClass custom message class
+     * @param <T> custom message type
+     * @throws IllegalArgumentException if router for specified type is not registered
+     * @return the previously registered router for specified type
      */
-    public <T> MessageRouter<T> getCustomMessageRouter(
-            Class<T> messageClass,
-            MessageConverter<T> messageConverter
-    ) {
-        return getCustomMessageRouter(messageClass, messageConverter, Collections.emptySet(), Collections.emptySet());
+    @SuppressWarnings("unchecked")
+    @NotNull
+    public <T> MessageRouter<T> getCustomMessageRouter(Class<T> messageClass) {
+        MessageRouter<?> router = customMessageRouters.get(messageClass);
+        if (router == null) {
+            throw new IllegalArgumentException(
+                    "Router for class " + messageClass.getCanonicalName() + "is not registered. Call 'registerCustomMessageRouter' first");
+        }
+        return (MessageRouter<T>)router;
     }
 
     /**
