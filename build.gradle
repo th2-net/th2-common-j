@@ -30,7 +30,7 @@ allprojects {
 
     group = 'com.exactpro.th2'
     printf('release ver %s, branch name %s, build number %s', release_version, branch_name, build_num)
-    version = branch_name == 'master' ? release_version : "$release_version-$branch_name-$build_num")
+    version = branch_name == 'master' ? release_version : "$release_version-$branch_name-$build_num"
     println ''
     printf('Release version %s', version)
     sourceCompatibility = 11
