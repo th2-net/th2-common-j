@@ -30,7 +30,6 @@ allprojects {
 
     group = 'com.exactpro.th2'
     version = release_version
-    println version
     sourceCompatibility = 11
     targetCompatibility = 11
 
