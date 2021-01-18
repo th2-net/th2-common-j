@@ -29,6 +29,7 @@ allprojects {
     }
 
     group = 'com.exactpro.th2'
+    printf('Branch name %s, build number %s', branch_name, build_num)
     version = release_version
 
     sourceCompatibility = 11

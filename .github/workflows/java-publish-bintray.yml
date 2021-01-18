@@ -13,9 +13,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Get branch name
+        id: vars
+        run: echo ::set-output name=branch_name::${GITHUB_REF#refs/*/}
       - name: Set up JDK 1.8
         uses: actions/setup-java@v1
         with:
           java-version: '11'
       - name: Build with Gradle
-        run: ./gradlew clean build bintrayUpload -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }}
+        env:
+          BUILD_NUM: ${{ github.run_number }}
+          BRANCH_NAME: ${{ steps.vars.outputs.branch_name }}
+        # run: ./gradlew clean build bintrayUpload -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Pbranch_name=${BRANCH_NAME} -Pbuild_num=${BUILD_NUM}
+        run: ./gradlew clean build -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Pbranch_name=${BRANCH_NAME} -Pbuild_num=${BUILD_NUM}
