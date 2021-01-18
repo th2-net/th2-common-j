@@ -32,7 +32,8 @@ jobs:
         with:
           cond: ${{ env.BRANCH_NAME == 'master' }}
           if_true: $RELEASE_VERSION
-          if_false: $(echo $RELEASE_VERSION-$BRANCH_NAME-$BUILD_NUM)"
+          # if_false: $(echo $RELEASE_VERSION-$BRANCH_NAME-$BUILD_NUM)"
+          if_false: "$RELEASE_VERSION"
       - name: testvar
         env:
           TEST: ${{ steps.release_ver.outputs.value }}
