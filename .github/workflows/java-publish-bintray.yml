@@ -24,21 +24,19 @@ jobs:
           property: release_version
       - name: Define release_version
         id: release_ver
+        uses: haya14busa/action-cond@v1
         env:
           BUILD_NUM: ${{ github.run_number }}
           BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
           RELEASE_VERSION: ${{ steps.ver.outputs.value }}
-        run: | 
-          if [$BRANCH_NAME == 'master']
-          then
-              echo "::set-output name=release_ver::$RELEASE_VERSION"
-          else
-              echo "::set-output name=release_ver::$(echo $RELEASE_VERSION-$BRANCH_NAME-$BUILD_NUM)"
-          fi
+        with:
+          cond: ${{ $BRANCH_NAME == 'master' }}
+          if_true: $RELEASE_VERSION
+          if_false: $(echo $RELEASE_VERSION-$BRANCH_NAME-$BUILD_NUM)"
       - name: Set up JDK 1.8
         uses: actions/setup-java@v1
         with:
           java-version: '11'
       - name: Build with Gradle
         # run: ./gradlew clean build bintrayUpload -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Pbranch_name=${BRANCH_NAME} -Pbuild_num=${BUILD_NUM}
-        run: ./gradlew clean build -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Prelease_version=${{ steps.release_ver.output.release_ver }}
+        run: ./gradlew clean build -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Prelease_version=${{ steps.release_ver.output.value }}
