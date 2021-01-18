@@ -30,7 +30,7 @@ jobs:
           BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
           RELEASE_VERSION: ${{ steps.ver.outputs.value }}
         with:
-          cond: ${{ $BRANCH_NAME == 'master' }}
+          cond: ${{ env.BRANCH_NAME == 'master' }}
           if_true: $RELEASE_VERSION
           if_false: $(echo $RELEASE_VERSION-$BRANCH_NAME-$BUILD_NUM)"
       - name: Set up JDK 1.8
