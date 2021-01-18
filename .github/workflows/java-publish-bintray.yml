@@ -29,6 +29,7 @@ jobs:
           cond: ${{ steps.branch.outputs.branch_name == 'master' }}
           if_true: "${{ steps.ver.outputs.value }}"
           if_false: "${{ steps.ver.outputs.value }}-${{ steps.branch.outputs.branch_name }}-${{ github.run_number }}"
+        run: echo "Release version - ${{ steps.release_ver.outputs.value }}"
       - name: testvar
         env:
           TEST: ${{ steps.release_ver.outputs.value }}
