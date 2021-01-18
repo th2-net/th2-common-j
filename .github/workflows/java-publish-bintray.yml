@@ -25,15 +25,10 @@ jobs:
       - name: Define release_version
         id: release_ver
         uses: haya14busa/action-cond@v1
-        env:
-          BUILD_NUM: ${{ github.run_number }}
-          BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
-          RELEASE_VERSION: ${{ steps.ver.outputs.value }}
         with:
           cond: ${{ env.BRANCH_NAME == 'master' }}
-          if_true: $RELEASE_VERSION
-          # if_false: $(echo $RELEASE_VERSION-$BRANCH_NAME-$BUILD_NUM)"
-          if_false: "${{ steps.ver.outputs.value}}-${{steps.branch.outputs.branch_name}}"
+          if_true: "${{ steps.ver.outputs.value }}"
+          if_false: "${{ steps.ver.outputs.value }}-${{ steps.branch.outputs.branch_name }}-${{ github.run_number }}"
       - name: testvar
         env:
           TEST: ${{ steps.release_ver.outputs.value }}
