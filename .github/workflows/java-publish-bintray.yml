@@ -18,16 +18,16 @@ jobs:
         run: echo ::set-output name=branch_name::${GITHUB_REF#refs/*/}
       - name: Get package version
         id: ver
-        uses: notiz-dev/github-action-json-property@release
+        uses: christian-draeger/read-properties@1.0.1
         with:
           path: gradle.properties
-          prop_path: release_version
+          property: release_version
       - name: Define release_version
         id: release_ver
         env:
           BUILD_NUM: ${{ github.run_number }}
           BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
-          RELEASE_VERSION: ${{ steps.ver.outputs.prop }}
+          RELEASE_VERSION: ${{ steps.ver.outputs.value }}
         run: | 
           if [$BRANCH_NAME == 'master']
           then
