@@ -31,8 +31,8 @@ private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC
 val LIVENESS_ARBITER = MetricArbiter(LIVENESS)
 val READINESS_ARBITER = MetricArbiter(READINESS)
 
-private val LIVENESS_MONITOR = LIVENESS_ARBITER.register("old_liveness")
-private val READINESS_MONITOR = READINESS_ARBITER.register("old_readiness")
+private val LIVENESS_MONITOR = LIVENESS_ARBITER.register("user_liveness")
+private val READINESS_MONITOR = READINESS_ARBITER.register("user_readiness")
 
 var liveness: Boolean
     get() = LIVENESS_MONITOR.isEnabled

@@ -23,6 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MetricArbiter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -49,6 +50,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
 
+    private final MetricArbiter livenessArbiter = CommonMetrics.LIVENESS_ARBITER;
+    private final MetricArbiter readinessArbiter = CommonMetrics.READINESS_ARBITER;
+    private MetricArbiter.MetricMonitor livenessMonitor;
+    private MetricArbiter.MetricMonitor readinessMonitor;
+
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
         Objects.requireNonNull(connectionManager, "Connection cannot be null");
@@ -63,6 +69,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         this.connectionManager.set(connectionManager);
         this.subscribeTarget.set(subscribeTarget);
         this.exchangeName.set(exchangeName);
+
+        livenessMonitor = livenessArbiter.register("rabbit_subscriber_liveness");
+        readinessMonitor = readinessArbiter.register("rabbit_subscriber_readiness");
     }
 
     @Override
@@ -192,13 +201,22 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 consumerMonitor.set(null);
                 start();
 
-                CommonMetrics.setReadiness(true);
                 successful = true;
+
                 break;
             } catch (Exception e) {
                 if(attemptsCount >= amountOfAttempts) {
                     LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
                 }
+            }
+        }
+
+        if(successful) {
+            readinessMonitor.unregister(readinessMonitor.getId());
+            livenessMonitor.unregister(livenessMonitor.getId());
+        } else {
+            if(livenessMonitor.isEnabled()) {
+                livenessMonitor.disable();
             }
         }
 
@@ -208,10 +226,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
 
-        CommonMetrics.setReadiness(false);
+        readinessMonitor.disable();
 
-        if(!resubscribe()) {
-            CommonMetrics.setLiveness(false);
+        while (true) {
+            if (resubscribe()) {
+                break;
+            }
         }
     }
 
