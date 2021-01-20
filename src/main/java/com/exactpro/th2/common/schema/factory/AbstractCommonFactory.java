@@ -86,7 +86,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
-    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
+    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/exp.exactpro.com/eugene.zheltov/Work/log4j.properties";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

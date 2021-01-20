@@ -50,8 +50,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
 
-    private final MetricArbiter livenessArbiter = CommonMetrics.LIVENESS_ARBITER;
-    private final MetricArbiter readinessArbiter = CommonMetrics.READINESS_ARBITER;
+    private final MetricArbiter livenessArbiter = CommonMetrics.getLIVENESS_ARBITER();
+    private final MetricArbiter readinessArbiter = CommonMetrics.getREADINESS_ARBITER();
     private MetricArbiter.MetricMonitor livenessMonitor;
     private MetricArbiter.MetricMonitor readinessMonitor;
 
@@ -184,43 +184,41 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private boolean resubscribe() {
         LOGGER.info("Trying to resubscribe to queue.");
 
-        RabbitMQConfiguration configuration = this.connectionManager.get().getConfiguration();
-        int attemptsCount = 0;
-        int amountOfAttempts = configuration.getMaxRecoveryAttempts();
-        boolean successful = false;
+        int attemptsCount;
+        //int amountOfAttempts = connectionManager.get().getMaxRecoveryAttempts();
+        int amountOfAttempts = 4;
 
-        while (attemptsCount < amountOfAttempts) {
+        for (attemptsCount = 0; attemptsCount < amountOfAttempts; attemptsCount++ ) {
             try {
-                Thread.sleep(configuration.getMaxConnectionRecoveryTimeout());
+                /*Thread.sleep(connectionManager.get().getMaxConnectionRecoveryTimeout());*/
+                Thread.sleep(2000);
             } catch (InterruptedException | IllegalArgumentException e) {
                 LOGGER.error(e.getMessage());
             }
 
             try {
-                attemptsCount++;
+                LOGGER.debug("Attempt to resub number " + attemptsCount);
+
                 consumerMonitor.set(null);
                 start();
 
-                successful = true;
+                LOGGER.info("Resubscription was successful.");
 
                 break;
             } catch (Exception e) {
-                if(attemptsCount >= amountOfAttempts) {
-                    LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
-                }
+                LOGGER.error(e.getMessage());
             }
         }
 
-        if(successful) {
-            readinessMonitor.unregister(readinessMonitor.getId());
-            livenessMonitor.unregister(livenessMonitor.getId());
-        } else {
-            if(livenessMonitor.isEnabled()) {
-                livenessMonitor.disable();
-            }
+        if(attemptsCount >= amountOfAttempts) {
+            LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
+            return false;
         }
 
-        return successful;
+        readinessMonitor.unregister(readinessMonitor.getId());
+        livenessMonitor.unregister(livenessMonitor.getId());
+
+        return true;
     }
 
     private void canceled(String consumerTag) {

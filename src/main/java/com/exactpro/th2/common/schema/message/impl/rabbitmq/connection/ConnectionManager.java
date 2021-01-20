@@ -210,6 +210,10 @@ public class ConnectionManager implements AutoCloseable {
         return connection.isOpen() && !connectionIsClosed.get();
     }
 
+    public int getMaxRecoveryAttempts() { return configuration.getMaxRecoveryAttempts(); }
+
+    public int getMaxConnectionRecoveryTimeout() { return configuration.getMaxConnectionRecoveryTimeout(); }
+
     @Override
     public void close() throws IllegalStateException {
         if (connectionIsClosed.getAndSet(true)) {
