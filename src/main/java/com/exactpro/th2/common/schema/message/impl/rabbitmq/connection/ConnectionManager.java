@@ -17,6 +17,9 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -206,10 +209,6 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    public boolean isOpen() {
-        return connection.isOpen() && !connectionIsClosed.get();
-    }
-
     public int getMaxRecoveryAttempts() { return configuration.getMaxRecoveryAttempts(); }
 
     public int getMaxConnectionRecoveryTimeout() { return configuration.getMaxConnectionRecoveryTimeout(); }
@@ -273,6 +272,8 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void waitForConnectionRecovery(ShutdownNotifier notifier) {
+        LOGGER.debug("closeReason: " + notifier.getCloseReason() + " in Thread " + Thread.currentThread().getName() + " " + Thread.currentThread().getId());
+
         while (!notifier.isOpen() && !connectionIsClosed.get()) {
             try {
                 Thread.sleep(1);

@@ -19,12 +19,11 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -103,6 +102,26 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         } catch (Exception e) {
             throw new IOException("Can not start listening", e);
         }
+    }
+
+    ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(3);
+
+    private final ExecutorService executor
+            //= Executors.newSingleThreadExecutor();
+            = Executors.newCachedThreadPool();
+
+    private Future<Boolean> futureStart() {
+        consumerMonitor.set(null);
+
+        return executor.submit(() -> {
+            try {
+                start();
+            } catch (Exception e) {
+                LOGGER.error(e.getMessage());
+                return Boolean.FALSE;
+            }
+            return Boolean.TRUE;
+        });
     }
 
     @Override
@@ -186,7 +205,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         int attemptsCount;
         //int amountOfAttempts = connectionManager.get().getMaxRecoveryAttempts();
-        int amountOfAttempts = 4;
+        int amountOfAttempts = 5;
 
         for (attemptsCount = 0; attemptsCount < amountOfAttempts; attemptsCount++ ) {
             try {
@@ -196,29 +215,29 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 LOGGER.error(e.getMessage());
             }
 
-            try {
-                LOGGER.debug("Attempt to resub number " + attemptsCount);
+            LOGGER.debug("Attempt to resub number " + attemptsCount);
 
-                consumerMonitor.set(null);
-                start();
+            LOGGER.debug("futureStart().isDone() " + futureStart().isDone());
+            if(futureStart().isDone()) {
+                readinessMonitor.unregister(readinessMonitor.getId());
+                livenessMonitor.unregister(livenessMonitor.getId());
 
-                LOGGER.info("Resubscription was successful.");
-
-                break;
-            } catch (Exception e) {
-                LOGGER.error(e.getMessage());
+                return true;
             }
         }
 
-        if(attemptsCount >= amountOfAttempts) {
-            LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
-            return false;
+        LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
+        return false;
+    }
+
+    private void recursiveResub() {
+        if(futureStart().isDone()) {
+            LOGGER.debug("Done!");
+            readinessMonitor.unregister(readinessMonitor.getId());
+            livenessMonitor.unregister(livenessMonitor.getId());
+        } else {
+            executorService.schedule(this::recursiveResub, 3, TimeUnit.SECONDS);
         }
-
-        readinessMonitor.unregister(readinessMonitor.getId());
-        livenessMonitor.unregister(livenessMonitor.getId());
-
-        return true;
     }
 
     private void canceled(String consumerTag) {
@@ -226,11 +245,14 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         readinessMonitor.disable();
 
-        while (true) {
+        //executorService.schedule(this::resubscribe, 2, TimeUnit.SECONDS);
+        executorService.schedule(this::recursiveResub, 3, TimeUnit.SECONDS);
+
+        /*while (true) {
             if (resubscribe()) {
                 break;
             }
-        }
+        }*/
     }
 
 }
