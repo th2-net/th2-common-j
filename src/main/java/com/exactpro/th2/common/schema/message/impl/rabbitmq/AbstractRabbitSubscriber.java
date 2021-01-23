@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.rabbitmq.client.ShutdownSignalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -53,6 +54,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final MetricArbiter readinessArbiter = CommonMetrics.getREADINESS_ARBITER();
     private MetricArbiter.MetricMonitor livenessMonitor;
     private MetricArbiter.MetricMonitor readinessMonitor;
+
+    private final ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(3);
+    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
@@ -99,16 +103,14 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
                 return monitor;
             });
+        } catch (ShutdownSignalException e) {
+            LOGGER.error(e.getMessage());
+            connectionManager.restoreChannel();
+            throw new Exception(e);
         } catch (Exception e) {
             throw new IOException("Can not start listening", e);
         }
     }
-
-    ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(3);
-
-    private final ExecutorService executor
-            //= Executors.newSingleThreadExecutor();
-            = Executors.newCachedThreadPool();
 
     private Future<Boolean> futureStart() {
         consumerMonitor.set(null);
@@ -116,11 +118,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         return executor.submit(() -> {
             try {
                 start();
+                return Boolean.TRUE;
             } catch (Exception e) {
                 LOGGER.error(e.getMessage());
                 return Boolean.FALSE;
             }
-            return Boolean.TRUE;
         });
     }
 
@@ -200,43 +202,19 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
-    private boolean resubscribe() {
-        LOGGER.info("Trying to resubscribe to queue.");
-
-        int attemptsCount;
-        //int amountOfAttempts = connectionManager.get().getMaxRecoveryAttempts();
-        int amountOfAttempts = 5;
-
-        for (attemptsCount = 0; attemptsCount < amountOfAttempts; attemptsCount++ ) {
-            try {
-                /*Thread.sleep(connectionManager.get().getMaxConnectionRecoveryTimeout());*/
-                Thread.sleep(2000);
-            } catch (InterruptedException | IllegalArgumentException e) {
-                LOGGER.error(e.getMessage());
-            }
-
-            LOGGER.debug("Attempt to resub number " + attemptsCount);
-
-            LOGGER.debug("futureStart().isDone() " + futureStart().isDone());
-            if(futureStart().isDone()) {
+    private void recursiveResubscribe() {
+        try {
+            if(futureStart().get()) {
                 readinessMonitor.unregister(readinessMonitor.getId());
                 livenessMonitor.unregister(livenessMonitor.getId());
-
-                return true;
+            } else {
+                if(livenessMonitor.isEnabled()) {
+                    livenessMonitor.disable();
+                }
+                executorService.schedule(this::recursiveResubscribe, 3, TimeUnit.SECONDS);
             }
-        }
-
-        LOGGER.error("Failed to start listening when resubscribing after {} attempts.", amountOfAttempts);
-        return false;
-    }
-
-    private void recursiveResub() {
-        if(futureStart().isDone()) {
-            LOGGER.debug("Done!");
-            readinessMonitor.unregister(readinessMonitor.getId());
-            livenessMonitor.unregister(livenessMonitor.getId());
-        } else {
-            executorService.schedule(this::recursiveResub, 3, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error(e.getMessage());
         }
     }
 
@@ -245,14 +223,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         readinessMonitor.disable();
 
-        //executorService.schedule(this::resubscribe, 2, TimeUnit.SECONDS);
-        executorService.schedule(this::recursiveResub, 3, TimeUnit.SECONDS);
+        int timeout = connectionManager.get().getMinConnectionRecoveryTimeout();
 
-        /*while (true) {
-            if (resubscribe()) {
-                break;
-            }
-        }*/
+        executorService.schedule(this::recursiveResubscribe, timeout, TimeUnit.MILLISECONDS);
     }
 
 }

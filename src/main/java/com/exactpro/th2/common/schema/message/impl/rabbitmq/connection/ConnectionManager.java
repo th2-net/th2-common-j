@@ -17,9 +17,6 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,7 +39,6 @@ import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.ExceptionHandler;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
-import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
 
 import lombok.val;
@@ -209,9 +205,9 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    public int getMaxRecoveryAttempts() { return configuration.getMaxRecoveryAttempts(); }
-
     public int getMaxConnectionRecoveryTimeout() { return configuration.getMaxConnectionRecoveryTimeout(); }
+
+    public int getMinConnectionRecoveryTimeout() { return configuration.getMinConnectionRecoveryTimeout(); }
 
     @Override
     public void close() throws IllegalStateException {
@@ -230,13 +226,13 @@ public class ConnectionManager implements AutoCloseable {
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
         Channel channel = this.channel.get();
-        waitForConnectionRecovery(channel);
+        checkConnection();
         channel.basicPublish(exchange, routingKey, props, body);
     }
 
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         Channel channel = this.channel.get();
-        waitForConnectionRecovery(channel);
+        checkConnection();
         String tag = channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
             try {
                 try {
@@ -253,12 +249,12 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicCancel(Channel channel, String consumerTag) throws IOException {
-        waitForConnectionRecovery(channel);
+        checkConnection();
         channel.basicCancel(consumerTag);
     }
 
     private Channel createChannel() {
-        waitForConnectionRecovery(connection);
+        checkConnection();
 
         try {
             Channel channel = connection.createChannel();
@@ -271,18 +267,19 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private void waitForConnectionRecovery(ShutdownNotifier notifier) {
-        LOGGER.debug("closeReason: " + notifier.getCloseReason() + " in Thread " + Thread.currentThread().getName() + " " + Thread.currentThread().getId());
-
-        while (!notifier.isOpen() && !connectionIsClosed.get()) {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                LOGGER.error("Wait for connection recovery was interrupted", e);
-                break;
-            }
+    public void restoreChannel() {
+        try {
+            channel.get().clearReturnListeners();
+            channel.get().clearConfirmListeners();
+            channel.get().abort();
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage());
         }
 
+        channel.remove();
+    }
+
+    private void checkConnection() {
         if (connectionIsClosed.get()) {
             throw new IllegalStateException("Connection is already closed");
         }
@@ -294,7 +291,7 @@ public class ConnectionManager implements AutoCloseable {
      * @throws IOException
      */
     private void basicAck(Channel channel, long deliveryTag) throws IOException {
-        waitForConnectionRecovery(channel);
+        checkConnection();
         channel.basicAck(deliveryTag, false);
     }
 
