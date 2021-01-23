@@ -271,7 +271,7 @@ public class ConnectionManager implements AutoCloseable {
         try {
             channel.get().clearReturnListeners();
             channel.get().clearConfirmListeners();
-            channel.get().abort();
+            channel.get().abort(1, "Aborted while trying to restore channel.");
         } catch (IOException e) {
             LOGGER.error(e.getMessage());
         }

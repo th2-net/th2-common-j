@@ -55,7 +55,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private MetricArbiter.MetricMonitor livenessMonitor;
     private MetricArbiter.MetricMonitor readinessMonitor;
 
-    private final ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(3);
+    private final ScheduledExecutorService scheduledExecutorService = new ScheduledThreadPoolExecutor(3);
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @Override
@@ -146,6 +146,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         listeners.forEach(MessageListener::onClose);
         listeners.clear();
+
+        scheduledExecutorService.shutdown();
+        executor.shutdown();
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
@@ -211,7 +214,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 if(livenessMonitor.isEnabled()) {
                     livenessMonitor.disable();
                 }
-                executorService.schedule(this::recursiveResubscribe, 3, TimeUnit.SECONDS);
+                scheduledExecutorService.schedule(this::recursiveResubscribe, 3, TimeUnit.SECONDS);
             }
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.error(e.getMessage());
@@ -225,7 +228,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         int timeout = connectionManager.get().getMinConnectionRecoveryTimeout();
 
-        executorService.schedule(this::recursiveResubscribe, timeout, TimeUnit.MILLISECONDS);
+        scheduledExecutorService.schedule(this::recursiveResubscribe, timeout, TimeUnit.MILLISECONDS);
     }
 
 }
