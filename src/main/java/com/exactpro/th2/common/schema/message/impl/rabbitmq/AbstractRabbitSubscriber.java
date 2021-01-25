@@ -19,9 +19,12 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.rabbitmq.client.ShutdownSignalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -47,6 +50,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
 
+    private final MetricArbiter livenessArbiter = CommonMetrics.getLIVENESS_ARBITER();
+    private final MetricArbiter readinessArbiter = CommonMetrics.getREADINESS_ARBITER();
+    private MetricArbiter.MetricMonitor livenessMonitor;
+    private MetricArbiter.MetricMonitor readinessMonitor;
+
+    private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1);
+
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
         Objects.requireNonNull(connectionManager, "Connection cannot be null");
@@ -61,6 +71,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         this.connectionManager.set(connectionManager);
         this.subscribeTarget.set(subscribeTarget);
         this.exchangeName.set(exchangeName);
+
+        livenessMonitor = livenessArbiter.register("rabbit_subscriber_liveness");
+        readinessMonitor = readinessArbiter.register("rabbit_subscriber_readiness");
     }
 
     @Override
@@ -89,9 +102,27 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
                 return monitor;
             });
+        } catch (ShutdownSignalException e) {
+            LOGGER.error(e.getMessage());
+            connectionManager.restoreChannel();
+            throw new Exception(e);
         } catch (Exception e) {
             throw new IOException("Can not start listening", e);
         }
+    }
+
+    private Future<Boolean> futureStart() {
+        consumerMonitor.set(null);
+
+        return executor.submit(() -> {
+            try {
+                start();
+                return Boolean.TRUE;
+            } catch (Exception e) {
+                LOGGER.error(e.getMessage());
+                return Boolean.FALSE;
+            }
+        });
     }
 
     @Override
@@ -102,6 +133,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Override
     public void close() throws Exception {
         ConnectionManager connectionManager = this.connectionManager.get();
+
         if (connectionManager == null) {
             throw new IllegalStateException("Subscriber is not initialized");
         }
@@ -113,6 +145,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         listeners.forEach(MessageListener::onClose);
         listeners.clear();
+
+        executor.shutdown();
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
@@ -169,13 +203,30 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
+    private void recursiveResubscribe() {
+        try {
+            if(futureStart().get()) {
+                readinessMonitor.unregister(readinessMonitor.getId());
+                livenessMonitor.unregister(livenessMonitor.getId());
+            } else {
+                if(livenessMonitor.isEnabled()) {
+                    livenessMonitor.disable();
+                }
+                executor.schedule(this::recursiveResubscribe, 3, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error(e.getMessage());
+        }
+    }
+
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
-        try {
-            close();
-        } catch (Exception e) {
-            LOGGER.error("Can not close subscriber with exchange name '{}' and queues '{}'", exchangeName.get(), subscribeTarget.get(), e);
-        }
+
+        readinessMonitor.disable();
+
+        int timeout = connectionManager.get().getMinConnectionRecoveryTimeout();
+
+        executor.schedule(this::recursiveResubscribe, timeout, TimeUnit.MILLISECONDS);
     }
 
 }

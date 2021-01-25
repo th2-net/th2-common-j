@@ -28,13 +28,19 @@ private val RABBITMQ_READINESS = AtomicBoolean(true)
 private val GRPC_READINESS = AtomicBoolean(true)
 private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC_READINESS))
 
+val LIVENESS_ARBITER = MetricArbiter(LIVENESS)
+val READINESS_ARBITER = MetricArbiter(READINESS)
+
+private val LIVENESS_MONITOR = LIVENESS_ARBITER.register("user_liveness")
+private val READINESS_MONITOR = READINESS_ARBITER.register("user_readiness")
+
 var liveness: Boolean
-    get() = LIVENESS.get() == 0.0
-    set(value) = LIVENESS.set(if (value) 1.0 else 0.0)
+    get() = LIVENESS_MONITOR.isEnabled
+    set(value) = if (value) LIVENESS_MONITOR.enable() else LIVENESS_MONITOR.disable()
 
 var readiness: Boolean
-    get() = READINESS.get() == 0.0
-    set(value) = READINESS.set(if (value) 1.0 else 0.0)
+    get() = READINESS_MONITOR.isEnabled
+    set(value) = if (value) READINESS_MONITOR.enable() else READINESS_MONITOR.disable()
 
 fun updateCommonReadiness() {
     var isReadness = true
