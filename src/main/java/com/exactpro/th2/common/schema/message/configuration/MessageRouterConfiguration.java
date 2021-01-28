@@ -27,14 +27,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonCreator.Mode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import lombok.Getter;
-
 
 public class MessageRouterConfiguration {
 
-    @Getter
     private Map<String, QueueConfiguration> queues;
-
 
     @JsonCreator(mode = Mode.PROPERTIES)
     public MessageRouterConfiguration(@JsonProperty("queues") Map<String, QueueConfiguration> queues) {
@@ -56,5 +52,13 @@ public class MessageRouterConfiguration {
         return queues.entrySet().stream()
                 .filter(e -> e.getValue().getAttributes().containsAll(attr))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    public Map<String, QueueConfiguration> getQueues() {
+        return queues;
+    }
+
+    public void setQueues(Map<String, QueueConfiguration> queues) {
+        this.queues = queues;
     }
 }

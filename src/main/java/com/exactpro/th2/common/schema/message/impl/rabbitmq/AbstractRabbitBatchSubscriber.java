@@ -19,6 +19,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,12 +109,12 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
         @Override
         public String toString() {
-            return "Message{ " +
-                    "messageType='" + messageType + '\'' +
-                    ", sessionAlias='" + sessionAlias + '\'' +
-                    ", direction=" + direction +
-                    ", sequence=" + sequence +
-                    " }";
+            return new ToStringBuilder(this)
+                    .append("sequence", sequence)
+                    .append("messageType", messageType)
+                    .append("sessionAlias", sessionAlias)
+                    .append("direction", direction)
+                    .toString();
         }
     }
 

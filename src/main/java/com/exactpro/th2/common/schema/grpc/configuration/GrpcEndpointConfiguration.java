@@ -16,11 +16,11 @@
 
 package com.exactpro.th2.common.schema.grpc.configuration;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
+
 import com.exactpro.th2.common.schema.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
 
-@Data
 public class GrpcEndpointConfiguration implements Configuration {
 
     @JsonProperty(required = true)
@@ -29,4 +29,27 @@ public class GrpcEndpointConfiguration implements Configuration {
     @JsonProperty(required = true)
     private int port;
 
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+                .append("host", host)
+                .append("port", port)
+                .toString();
+    }
 }

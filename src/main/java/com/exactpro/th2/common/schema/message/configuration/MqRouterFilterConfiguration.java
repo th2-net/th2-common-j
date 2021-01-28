@@ -16,14 +16,12 @@
 
 package com.exactpro.th2.common.schema.message.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-
 import java.util.Collections;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Getter
+
 public class MqRouterFilterConfiguration implements RouterFilter {
 
     @JsonProperty
@@ -32,4 +30,21 @@ public class MqRouterFilterConfiguration implements RouterFilter {
     @JsonProperty
     private Map<String, FieldFilterConfiguration> message = Collections.emptyMap();
 
+    @Override
+    public Map<String, FieldFilterConfiguration> getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(Map<String, FieldFilterConfiguration> metadata) {
+        this.metadata = metadata;
+    }
+
+    @Override
+    public Map<String, FieldFilterConfiguration> getMessage() {
+        return message;
+    }
+
+    public void setMessage(Map<String, FieldFilterConfiguration> message) {
+        this.message = message;
+    }
 }

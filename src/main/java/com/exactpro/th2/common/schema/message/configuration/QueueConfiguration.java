@@ -79,4 +79,8 @@ public class QueueConfiguration implements Configuration {
     public boolean isWritable() {
         return isWritable;
     }
+
+    public void setWritable(boolean writable) {
+        isWritable = writable;
+    }
 }

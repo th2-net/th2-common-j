@@ -16,11 +16,10 @@
 
 package com.exactpro.th2.common.schema.cradle;
 
+import com.exactpro.cradle.CradleManager;
+import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import lombok.Data;
-
-@Data
 public class CradleConfiguration {
 
     @JsonProperty(required = true)
@@ -43,4 +42,100 @@ public class CradleConfiguration {
 
     @JsonProperty
     private String cradleInstanceName;
+
+    /**
+     * TThis is the maximum event batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_EVENT_BATCH_SIZE} set as the default value.
+     * This option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
+     */
+    private long cradleMaxEventBatchSize = CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+
+    /**
+     * This is the maximum message batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_MESSAGE_BATCH_SIZE} set as the default value.
+     * This option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
+     */
+    private long cradleMaxMessageBatchSize = CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+
+    public String getDataCenter() {
+        return dataCenter;
+    }
+
+    public void setDataCenter(String dataCenter) {
+        this.dataCenter = dataCenter;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public String getKeyspace() {
+        return keyspace;
+    }
+
+    public void setKeyspace(String keyspace) {
+        this.keyspace = keyspace;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getCradleInstanceName() {
+        return cradleInstanceName;
+    }
+
+    public void setCradleInstanceName(String cradleInstanceName) {
+        this.cradleInstanceName = cradleInstanceName;
+    }
+
+    /**
+     * Gets the maximum event batch size in bytes.
+     */
+    public long getCradleMaxEventBatchSize() {
+        return cradleMaxEventBatchSize;
+    }
+
+    /**
+     * Sets the maximum event batch size in bytes.
+     */
+    public void setCradleMaxEventBatchSize(long cradleMaxEventBatchSize) {
+        this.cradleMaxEventBatchSize = cradleMaxEventBatchSize;
+    }
+
+    /**
+     * Gets the maximum message batch size in bytes.
+     */
+    public long getCradleMaxMessageBatchSize() {
+        return cradleMaxMessageBatchSize;
+    }
+
+    /**
+     * Sets the maximum message batch size in bytes.
+     */
+    public void setCradleMaxMessageBatchSize(long cradleMaxMessageBatchSize) {
+        this.cradleMaxMessageBatchSize = cradleMaxMessageBatchSize;
+    }
 }

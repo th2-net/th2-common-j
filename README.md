@@ -19,6 +19,81 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromArguments(args);
     ```
+1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
+    ```
+    var factory = CommonFactory.createFromKubernetes(namespace, boxName);
+    ```
+
+### Configuration formats
+
+The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
+* host - the required setting defines the RabbitMQ host.
+* vHost - the required setting defines the virtual host that will be used for connecting to RabbitMQ. 
+  Please see more details about the virtual host in RabbitMQ via [link](https://www.rabbitmq.com/vhosts.html)
+* port - the required setting defines the RabbitMQ port.
+* username - the required setting defines the RabbitMQ username. 
+  The user must have permission to publish messages via routing keys and subscribe to message queues.
+* password - the required setting defines the password that will be used for connecting to RabbitMQ.
+* exchangeName - the required setting defines the exchange that will be used for sending/subscribing operation in MQ routers. 
+  Please see more details about the exchanges in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
+* connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for infinite waiting.
+* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, default value is set to 10000.
+* maxRecoveryAttempts - this option defines the number of reconnection attempts to RabbitMQ, with its default value set to 5. 
+  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set false.
+* minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
+* maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
+* prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
+
+```json
+{
+  "host": "<host>",
+  "vHost": "<virtual host>",
+  "port": 5672,
+  "username": "<user name>",
+  "password": "<password>",
+  "exchangeName": "<exchange name>",
+  "connectionTimeout": 60000,
+  "connectionCloseTimeout": 10000,
+  "maxRecoveryAttempts": 5,
+  "minConnectionRecoveryTimeout": 10000,
+  "maxConnectionRecoveryTimeout": 60000,
+  "prefetchCount": 10
+}
+```
+
+The `CommonFactory` reads a Cradle configuration from the cradle.json file.
+* dataCenter - the required setting defines the data center in the Cassandra cluster.
+* host - the required setting defines the Cassandra host.
+* port - the required setting defines the Cassandra port.
+* keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
+* username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
+* password - the required setting defines the password that will be used for the connecting to Cassandra.
+* cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra as the default value.
+* cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
+* cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
+
+```json
+{
+  "dataCenter": "<datacenter>",
+  "host": "<host>",
+  "port": 9042,
+  "keyspace": "<keyspace>",
+  "username": "<username>",
+  "password": "<password>",
+  "cradleInstanceName": "<cradle instance name>",
+  "cradleMaxEventBatchSize": 1048576,
+  "cradleMaxMessageBatchSize": 1048576
+}
+```
+
+### Requirements for creating factory with Kubernetes
+
+1. It is necessary to have Kubernetes configuration written in ~/.kube/config. See more on kubectl configuration [here](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
+
+
+1. It is necessary to have environment variables `CASSANDRA_PASS` and `RABBITMQ_PASS` to use configs from `cradle.json` and `rabbitMQ.json` as the passwords are not stored there explicitly. 
+
+1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` is invoked again. 
 
 After that you can receive various Routers through factory properties:
 ```
@@ -31,7 +106,7 @@ var eventRouter = factory.getEventBatchRouter();
 `rawRouter` is working with `RawMessageBatch` <br>
 `eventRouter` is working with `EventBatch`
 
-Please refer to [th2-grpc-common] (https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for further details.
+Please refer to [th2-grpc-common](https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for further details.
 
 With router created, you can subscribe to pins (by specifying the callback function) or to send data that the router works with:
 ```

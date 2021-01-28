@@ -16,15 +16,13 @@
 
 package com.exactpro.th2.common.schema.grpc.configuration;
 
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
-import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-
 import java.util.Collections;
 import java.util.Map;
 
-@Data
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class GrpcRouterFilterConfiguration implements RouterFilter {
 
     @JsonProperty(required = true)
@@ -36,4 +34,29 @@ public class GrpcRouterFilterConfiguration implements RouterFilter {
     @JsonProperty
     private Map<String, FieldFilterConfiguration> message = Collections.emptyMap();
 
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    public void setEndpoint(String endpoint) {
+        this.endpoint = endpoint;
+    }
+
+    @Override
+    public Map<String, FieldFilterConfiguration> getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(Map<String, FieldFilterConfiguration> metadata) {
+        this.metadata = metadata;
+    }
+
+    @Override
+    public Map<String, FieldFilterConfiguration> getMessage() {
+        return message;
+    }
+
+    public void setMessage(Map<String, FieldFilterConfiguration> message) {
+        this.message = message;
+    }
 }

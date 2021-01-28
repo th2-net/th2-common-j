@@ -21,9 +21,6 @@ import java.util.Map;
 import com.exactpro.th2.common.schema.message.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import lombok.Data;
-
-@Data
 public class GrpcRouterConfiguration implements Configuration {
 
     @JsonProperty
@@ -32,4 +29,30 @@ public class GrpcRouterConfiguration implements Configuration {
     @JsonProperty(value = "server")
     private GrpcServerConfiguration serverConfiguration;
 
+    @JsonProperty
+    private GrpcRetryConfiguration retryConfiguration = new GrpcRetryConfiguration();
+
+    public Map<String, GrpcServiceConfiguration> getServices() {
+        return services;
+    }
+
+    public void setServices(Map<String, GrpcServiceConfiguration> services) {
+        this.services = services;
+    }
+
+    public GrpcServerConfiguration getServerConfiguration() {
+        return serverConfiguration;
+    }
+
+    public void setServerConfiguration(GrpcServerConfiguration serverConfiguration) {
+        this.serverConfiguration = serverConfiguration;
+    }
+
+    public GrpcRetryConfiguration getRetryConfiguration() {
+        return retryConfiguration;
+    }
+
+    public void setRetryConfiguration(GrpcRetryConfiguration retryConfiguration) {
+        this.retryConfiguration = retryConfiguration;
+    }
 }
