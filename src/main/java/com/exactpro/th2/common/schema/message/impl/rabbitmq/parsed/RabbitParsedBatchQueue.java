@@ -31,17 +31,14 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
     @Override
     protected MessageSender<MessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         MessageSender<MessageBatch> result = new RabbitParsedBatchSender();
-        result.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getName());
+        result.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
         return result;
     }
 
     @Override
     protected MessageSubscriber<MessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
         MessageSubscriber<MessageBatch> result = new RabbitParsedBatchSubscriber(queueConfiguration.getFilters());
-        var subscribeTarget = SubscribeTarget.builder()
-                .routingKey(queueConfiguration.getName())
-                .queue(queueConfiguration.getQueue())
-                .build();
+        var subscribeTarget = new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey());
         result.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
         return result;
     }

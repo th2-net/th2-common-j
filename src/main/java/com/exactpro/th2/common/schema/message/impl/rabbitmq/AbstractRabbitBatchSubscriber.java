@@ -16,18 +16,17 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.common.grpc.Direction;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
-import lombok.Builder;
-import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
 
 
 public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> extends AbstractRabbitSubscriber<MB> {
@@ -78,14 +77,34 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
     protected abstract Metadata extractMetadata(M message);
 
-
-    @Getter
-    @Builder
     protected static class Metadata {
-        private long sequence;
-        private String messageType;
-        private String sessionAlias;
-        private Direction direction;
+        private final long sequence;
+        private final String messageType;
+        private final Direction direction;
+        private final String sessionAlias;
+
+        public Metadata(long sequence, String messageType, Direction direction, String sessionAlias) {
+            this.sequence = sequence;
+            this.messageType = messageType;
+            this.direction = direction;
+            this.sessionAlias = sessionAlias;
+        }
+
+        public long getSequence() {
+            return sequence;
+        }
+
+        public String getMessageType() {
+            return messageType;
+        }
+
+        public Direction getDirection() {
+            return direction;
+        }
+
+        public String getSessionAlias() {
+            return sessionAlias;
+        }
 
         @Override
         public String toString() {
