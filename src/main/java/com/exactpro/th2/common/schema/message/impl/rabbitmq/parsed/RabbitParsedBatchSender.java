@@ -16,9 +16,12 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
+import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroup;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
-import com.google.protobuf.TextFormat;
 
 import io.prometheus.client.Counter;
 
@@ -44,11 +47,21 @@ public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> 
 
     @Override
     protected byte[] valueToBytes(MessageBatch value) {
-        return value.toByteArray();
+        var groupBuilder = MessageGroup.newBuilder();
+
+        for (var message : value.getMessagesList()) {
+            var anyMessage = AnyMessage.newBuilder().setMessage(message).build();
+            groupBuilder.addMessages(anyMessage);
+        }
+
+        var batchBuilder = MessageGroupBatch.newBuilder();
+        var group = groupBuilder.build();
+
+        return batchBuilder.addGroups(group).build().toByteArray();
     }
 
     @Override
     protected String toShortDebugString(MessageBatch value) {
-        return TextFormat.shortDebugString(value);
+        return MessageRouterUtils.toJson(value);
     }
 }
