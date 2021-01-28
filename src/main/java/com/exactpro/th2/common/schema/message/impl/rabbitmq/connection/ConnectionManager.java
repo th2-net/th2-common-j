@@ -17,10 +17,13 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.exactpro.th2.common.metrics.MetricArbiter;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -52,6 +55,8 @@ public class ConnectionManager implements AutoCloseable {
     private final RabbitMQConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
+
+    private static final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(3);
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
@@ -203,10 +208,6 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    public int getMaxConnectionRecoveryTimeout() { return configuration.getMaxConnectionRecoveryTimeout(); }
-
-    public int getMinConnectionRecoveryTimeout() { return configuration.getMinConnectionRecoveryTimeout(); }
-
     @Override
     public void close() throws IllegalStateException {
         if (connectionIsClosed.getAndSet(true)) {
@@ -222,16 +223,90 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
+    public static ScheduledExecutorService getExecutor() {
+        return executor;
+    }
+
+    private void retry(Retriable retriable) throws IOException {
+        Exception exception = new Exception("Recovery attempts expired.");
+        int attemptsCount = 0;
+
+        while (true) {
+            attemptsCount++;
+
+            try {
+                retriable.retry();
+                break;
+            } catch (Exception e) {
+                exception.addSuppressed(e);
+                LOGGER.error(e.getMessage());
+
+                if(attemptsCount >= configuration.getMaxRecoveryAttempts()) {
+                    throw new IOException(exception);
+                }
+            }
+        }
+    }
+
+    private String retryWithString(RetriableSupplier<String> supplier) throws IOException {
+        Exception exception = new Exception("Recovery attempts expired.");
+        int attemptsCount = 0;
+        int maxAttempts = configuration.getMaxRecoveryAttempts();
+
+        while (true) {
+            attemptsCount++;
+
+            try {
+                return supplier.retry();
+            } catch (Exception e) {
+                exception.addSuppressed(e);
+                LOGGER.error(e.getMessage());
+
+                if(attemptsCount >= maxAttempts) {
+                    throw new IOException(exception);
+                }
+            }
+        }
+    }
+
+    private Channel retryWithChannel(RetriableSupplier<Channel> supplier) throws IOException {
+        Exception exception = new Exception("Recovery attempts expired.");
+        int attemptsCount = 0;
+        int maxAttempts = configuration.getMaxRecoveryAttempts();
+
+        while (true) {
+            attemptsCount++;
+
+            try {
+                return supplier.retry();
+            } catch (Exception e) {
+                exception.addSuppressed(e);
+                LOGGER.error(e.getMessage());
+
+                if(attemptsCount >= maxAttempts) {
+                    throw new IOException(exception);
+                }
+            }
+        }
+    }
+
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MetricArbiter.MetricMonitor readinessMonitor)
+            throws IOException {
         Channel channel = this.channel.get();
         checkConnection();
-        channel.basicPublish(exchange, routingKey, props, body);
+
+        //retry(() -> channel.basicPublish(exchange, routingKey, props, body));
+        retry(() -> {
+            channel.basicPublish(exchange, routingKey, props, body);
+            readinessMonitor.disable();
+        });
     }
 
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         Channel channel = this.channel.get();
         checkConnection();
-        String tag = channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
+
+        String tag = retryWithString(() -> channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
             try {
                 try {
                     deliverCallback.handle(tagTmp, delivery);
@@ -241,25 +316,27 @@ public class ConnectionManager implements AutoCloseable {
             } catch (IOException | RuntimeException e) {
                 LOGGER.error(e.getMessage(), e);
             }
-        }, cancelCallback);
+        }, cancelCallback));
 
         return new RabbitMqSubscriberMonitor(channel, tag);
     }
 
     public void basicCancel(Channel channel, String consumerTag) throws IOException {
         checkConnection();
-        channel.basicCancel(consumerTag);
+        retry(() -> channel.basicCancel(consumerTag));
     }
 
     private Channel createChannel() {
         checkConnection();
 
         try {
-            Channel channel = connection.createChannel();
-            channel.basicQos(configuration.getPrefetchCount());
-            channel.addReturnListener(ret ->
-                    LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
-            return channel;
+            return retryWithChannel(() -> {
+                Channel channel = connection.createChannel();
+                channel.basicQos(configuration.getPrefetchCount());
+                channel.addReturnListener(ret ->
+                        LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
+                return channel;
+            });
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
         }
@@ -290,7 +367,7 @@ public class ConnectionManager implements AutoCloseable {
      */
     private void basicAck(Channel channel, long deliveryTag) throws IOException {
         checkConnection();
-        channel.basicAck(deliveryTag, false);
+        retry(() -> channel.basicAck(deliveryTag, false));
     }
 
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
@@ -307,5 +384,14 @@ public class ConnectionManager implements AutoCloseable {
         public void unsubscribe() throws Exception {
             basicCancel(channel, tag);
         }
+    }
+
+    @FunctionalInterface
+    private interface Retriable {
+        void retry() throws IOException;
+    }
+
+    private interface RetriableSupplier<T> {
+        T retry() throws IOException;
     }
 }
