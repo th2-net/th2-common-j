@@ -113,32 +113,36 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         ConnectionManager connectionManager = this.connectionManager.get();
 
         boolean doResubsribe;
+        int timeout = rabbitMQConfiguration.getMinConnectionRecoveryTimeout();
 
         try {
             doResubsribe = executor.get().submit(() -> {
                 try {
                     start();
                     return false;
+                } catch (ShutdownSignalException e) {
+                    LOGGER.error(e.getMessage());
+                    connectionManager.restoreChannel();
+                    return true;
                 } catch (Exception e) {
                     LOGGER.error(e.getMessage());
                     return true;
                 }
             }).get();
-        } catch (InterruptedException | CancellationException | ExecutionException e) {
+        } catch (InterruptedException | CancellationException e) {
             LOGGER.error(e.getMessage());
-            doResubsribe = true;
-        } catch (ShutdownSignalException e) {
+            doResubsribe = false;
+        } catch (ExecutionException e) {
             LOGGER.error(e.getMessage());
-            connectionManager.restoreChannel();
             doResubsribe = true;
         }
 
-        if(!doResubsribe) {
+        if(doResubsribe) {
+            livenessMonitor.disable();
+            executor.get().schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
+        } else {
             readinessMonitor.unregister(readinessMonitor.getId());
             livenessMonitor.unregister(livenessMonitor.getId());
-        } else {
-            livenessMonitor.disable();
-            executor.get().schedule(this::resubscribe, 3, TimeUnit.SECONDS);
         }
     }
 
@@ -225,9 +229,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         readinessMonitor.disable();
 
-        int timeout = rabbitMQConfiguration.getMinConnectionRecoveryTimeout();
-
-        executor.get().schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
+        executor.get().submit(this::resubscribe);
     }
 
 }
