@@ -108,27 +108,37 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
-    private boolean resubscribe() {
+    private void resubscribe() {
         consumerMonitor.set(null);
         ConnectionManager connectionManager = this.connectionManager.get();
 
+        boolean doResubsribe;
+
         try {
-            return executor.get().submit(() -> {
+            doResubsribe = executor.get().submit(() -> {
                 try {
                     start();
-                    return true;
+                    return false;
                 } catch (Exception e) {
                     LOGGER.error(e.getMessage());
-                    return false;
+                    return true;
                 }
             }).get();
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | CancellationException | ExecutionException e) {
             LOGGER.error(e.getMessage());
-            return false;
+            doResubsribe = true;
         } catch (ShutdownSignalException e) {
             LOGGER.error(e.getMessage());
             connectionManager.restoreChannel();
-            return false;
+            doResubsribe = true;
+        }
+
+        if(!doResubsribe) {
+            readinessMonitor.unregister(readinessMonitor.getId());
+            livenessMonitor.unregister(livenessMonitor.getId());
+        } else {
+            livenessMonitor.disable();
+            executor.get().schedule(this::resubscribe, 3, TimeUnit.SECONDS);
         }
     }
 
@@ -210,16 +220,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
-    private void recursiveResubscribe() {
-        if(resubscribe()) {
-            readinessMonitor.unregister(readinessMonitor.getId());
-            livenessMonitor.unregister(livenessMonitor.getId());
-        } else {
-            livenessMonitor.disable();
-            executor.get().schedule(this::recursiveResubscribe, 3, TimeUnit.SECONDS);
-        }
-    }
-
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
 
@@ -227,7 +227,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         int timeout = rabbitMQConfiguration.getMinConnectionRecoveryTimeout();
 
-        executor.get().schedule(this::recursiveResubscribe, timeout, TimeUnit.MILLISECONDS);
+        executor.get().schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
     }
 
 }
