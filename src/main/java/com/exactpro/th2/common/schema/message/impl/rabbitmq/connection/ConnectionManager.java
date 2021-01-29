@@ -49,7 +49,7 @@ public class ConnectionManager implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
     private final Connection connection;
-    private final ThreadLocal<Channel> channel = ThreadLocal.withInitial(this::createChannel);
+    private final ThreadLocal<Channel> channel = ThreadLocal.withInitial(() -> createChannel(CommonMetrics.getREADINESS_MONITOR()));
     private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final RabbitMQConfiguration configuration;
@@ -227,9 +227,11 @@ public class ConnectionManager implements AutoCloseable {
         return executor;
     }
 
-    private void retry(Retriable retriable) throws IOException {
-        Exception exception = new Exception("Recovery attempts expired.");
+    private void basicAction(Retriable retriable, MetricArbiter.MetricMonitor metric) throws IOException {
+        checkConnection();
+        IOException exception = new IOException("Recovery attempts expired.");
         int attemptsCount = 0;
+        int maxAttempts = configuration.getMaxRecoveryAttempts();
 
         while (true) {
             attemptsCount++;
@@ -241,105 +243,100 @@ public class ConnectionManager implements AutoCloseable {
                 exception.addSuppressed(e);
                 LOGGER.error(e.getMessage());
 
-                if(attemptsCount >= configuration.getMaxRecoveryAttempts()) {
-                    throw new IOException(exception);
-                }
-            }
-        }
-    }
-
-    private String retryWithString(RetriableSupplier<String> supplier) throws IOException {
-        Exception exception = new Exception("Recovery attempts expired.");
-        int attemptsCount = 0;
-        int maxAttempts = configuration.getMaxRecoveryAttempts();
-
-        while (true) {
-            attemptsCount++;
-
-            try {
-                return supplier.retry();
-            } catch (Exception e) {
-                exception.addSuppressed(e);
-                LOGGER.error(e.getMessage());
-
                 if(attemptsCount >= maxAttempts) {
-                    throw new IOException(exception);
+                    metric.disable();
+                    throw exception;
                 }
             }
         }
     }
 
-    private Channel retryWithChannel(RetriableSupplier<Channel> supplier) throws IOException {
-        Exception exception = new Exception("Recovery attempts expired.");
-        int attemptsCount = 0;
-        int maxAttempts = configuration.getMaxRecoveryAttempts();
-
-        while (true) {
-            attemptsCount++;
-
-            try {
-                return supplier.retry();
-            } catch (Exception e) {
-                exception.addSuppressed(e);
-                LOGGER.error(e.getMessage());
-
-                if(attemptsCount >= maxAttempts) {
-                    throw new IOException(exception);
-                }
-            }
-        }
-    }
-
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MetricArbiter.MetricMonitor readinessMonitor)
-            throws IOException {
-        Channel channel = this.channel.get();
+    private <T> T basicAction(RetriableSupplier<T> supplier, MetricArbiter.MetricMonitor metric) throws IOException {
         checkConnection();
+        IOException exception = new IOException("Recovery attempts expired.");
+        int attemptsCount = 0;
+        int maxAttempts = configuration.getMaxRecoveryAttempts();
 
-        //retry(() -> channel.basicPublish(exchange, routingKey, props, body));
-        retry(() -> {
-            channel.basicPublish(exchange, routingKey, props, body);
-            readinessMonitor.disable();
-        });
+        while (true) {
+            attemptsCount++;
+
+            try {
+                return supplier.retry();
+            } catch (Exception e) {
+                exception.addSuppressed(e);
+                LOGGER.error(e.getMessage());
+
+                if(attemptsCount >= maxAttempts) {
+                    metric.disable();
+                    throw exception;
+                }
+            }
+        }
     }
 
+    @Deprecated
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
+        basicPublish(exchange, routingKey, props, body, CommonMetrics.getREADINESS_MONITOR());
+    }
+
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MetricArbiter.MetricMonitor metric) throws IOException {
+        Channel channel = this.channel.get();
+
+        basicAction(() -> channel.basicPublish(exchange, routingKey, props, body), metric);
+    }
+
+    @Deprecated
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-        Channel channel = this.channel.get();
-        checkConnection();
+        return basicConsume(queue, deliverCallback, cancelCallback, CommonMetrics.getREADINESS_MONITOR());
+    }
 
-        String tag = retryWithString(() -> channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
+    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, MetricArbiter.MetricMonitor metric) throws IOException {
+        Channel channel = this.channel.get();
+
+        String tag = basicAction(() -> channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
             try {
                 try {
                     deliverCallback.handle(tagTmp, delivery);
                 } finally {
-                    basicAck(channel, delivery.getEnvelope().getDeliveryTag());
+                    basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metric);
                 }
             } catch (IOException | RuntimeException e) {
                 LOGGER.error(e.getMessage(), e);
             }
-        }, cancelCallback));
+        }, cancelCallback), metric);
 
         return new RabbitMqSubscriberMonitor(channel, tag);
     }
 
+    @Deprecated
     public void basicCancel(Channel channel, String consumerTag) throws IOException {
-        checkConnection();
-        retry(() -> channel.basicCancel(consumerTag));
+        basicCancel(channel, consumerTag, CommonMetrics.getREADINESS_MONITOR());
     }
 
-    private Channel createChannel() {
+    public void basicCancel(Channel channel, String consumerTag, MetricArbiter.MetricMonitor metric) throws IOException {
+        basicAction(() -> channel.basicCancel(consumerTag), metric);
+    }
+
+    private Channel createChannel(MetricArbiter.MetricMonitor metric) {
         checkConnection();
 
+        Channel channel;
+
         try {
-            return retryWithChannel(() -> {
-                Channel channel = connection.createChannel();
-                channel.basicQos(configuration.getPrefetchCount());
-                channel.addReturnListener(ret ->
-                        LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
-                return channel;
-            });
+            channel = basicAction((RetriableSupplier<Channel>) connection::createChannel, metric);
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
         }
+
+        channel.addReturnListener(ret ->
+                LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
+
+        try {
+            basicAction(() -> channel.basicQos(configuration.getPrefetchCount()), CommonMetrics.getREADINESS_MONITOR());
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not create channel", e);
+        }
+        return channel;
     }
 
     public void restoreChannel() {
@@ -365,9 +362,8 @@ public class ConnectionManager implements AutoCloseable {
      *                deliveries must be acknowledged on the same channel they were received on.
      * @throws IOException
      */
-    private void basicAck(Channel channel, long deliveryTag) throws IOException {
-        checkConnection();
-        retry(() -> channel.basicAck(deliveryTag, false));
+    private void basicAck(Channel channel, long deliveryTag, MetricArbiter.MetricMonitor metric) throws IOException {
+        basicAction(() -> channel.basicAck(deliveryTag, false), metric);
     }
 
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
@@ -375,14 +371,20 @@ public class ConnectionManager implements AutoCloseable {
         private final Channel channel;
         private final String tag;
 
+        private MetricArbiter.MetricMonitor livenessMonitor;
+        private MetricArbiter.MetricMonitor readinessMonitor;
+
         public RabbitMqSubscriberMonitor(Channel channel, String tag) {
             this.channel = channel;
             this.tag = tag;
+
+            livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register("channel_" + tag + "_liveness");
+            readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register("channel_" + tag + "_readiness");
         }
 
         @Override
         public void unsubscribe() throws Exception {
-            basicCancel(channel, tag);
+            basicCancel(channel, tag, readinessMonitor);
         }
     }
 

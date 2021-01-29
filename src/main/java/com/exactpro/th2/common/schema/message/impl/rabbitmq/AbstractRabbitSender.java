@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MetricArbiter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
 
+    private MetricArbiter.MetricMonitor livenessMonitor;
+    private MetricArbiter.MetricMonitor readinessMonitor;
+
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
         Objects.requireNonNull(connectionManager, "Connection can not be null");
@@ -49,6 +54,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         this.connectionManager.set(connectionManager);
         this.exchangeName.set(exchangeName);
         this.sendQueue.set(sendQueue);
+
+        livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(sendQueue + "_liveness");
+        readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(sendQueue + "_readiness");
     }
 
     protected abstract Counter getDeliveryCounter();
@@ -68,7 +76,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
         try {
             ConnectionManager connection = this.connectionManager.get();
-            connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value));
+            connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value), readinessMonitor);
 
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",

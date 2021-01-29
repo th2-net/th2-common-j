@@ -52,8 +52,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
     private final AtomicReference<ScheduledExecutorService> executor = new AtomicReference<>();
 
-    private final MetricArbiter livenessArbiter = CommonMetrics.getLIVENESS_ARBITER();
-    private final MetricArbiter readinessArbiter = CommonMetrics.getREADINESS_ARBITER();
     private MetricArbiter.MetricMonitor livenessMonitor;
     private MetricArbiter.MetricMonitor readinessMonitor;
 
@@ -74,8 +72,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         this.subscribeTarget.set(subscribeTarget);
         this.exchangeName.set(exchangeName);
 
-        livenessMonitor = livenessArbiter.register(subscribeTarget.getQueue() + "_liveness");
-        readinessMonitor = readinessArbiter.register(subscribeTarget.getQueue() + "_readiness");
+        livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(subscribeTarget.getQueue() + "_liveness");
+        readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(subscribeTarget.getQueue() + "_readiness");
 
         executor.set(ConnectionManager.getExecutor());
     }
@@ -97,7 +95,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             consumerMonitor.updateAndGet(monitor -> {
                 if (monitor == null) {
                     try {
-                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled);
+                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, readinessMonitor);
                         LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
                     } catch (IOException e) {
                         throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
@@ -110,7 +108,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
-    private boolean futureStart() {
+    private boolean resubscribe() {
         consumerMonitor.set(null);
         ConnectionManager connectionManager = this.connectionManager.get();
 
@@ -213,7 +211,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     private void recursiveResubscribe() {
-        if(futureStart()) {
+        if(resubscribe()) {
             readinessMonitor.unregister(readinessMonitor.getId());
             livenessMonitor.unregister(livenessMonitor.getId());
         } else {
