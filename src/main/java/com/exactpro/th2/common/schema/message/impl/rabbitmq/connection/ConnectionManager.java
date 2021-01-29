@@ -72,12 +72,6 @@ public class ConnectionManager implements AutoCloseable {
     };
 
     public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection, ScheduledExecutorService scheduledExecutorService) {
-        this(rabbitMQConfiguration, onFailedRecoveryConnection);
-        executor = scheduledExecutorService;
-    }
-
-    @Deprecated
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
 
         if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
@@ -91,6 +85,8 @@ public class ConnectionManager implements AutoCloseable {
         var virtualHost = rabbitMQConfiguration.getvHost();
         var username = rabbitMQConfiguration.getUsername();
         var password = rabbitMQConfiguration.getPassword();
+
+        executor = scheduledExecutorService;
 
         factory.setHost(rabbitMQConfiguration.getHost());
         factory.setPort(rabbitMQConfiguration.getPort());
@@ -185,10 +181,10 @@ public class ConnectionManager implements AutoCloseable {
 
                     int recoveryDelay = rabbitMQConfiguration.getMinConnectionRecoveryTimeout()
                             + (rabbitMQConfiguration.getMaxRecoveryAttempts() > 1
-                                ? (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
-                                    / (rabbitMQConfiguration.getMaxRecoveryAttempts() - 1)
-                                    * tmpCountTriesToRecovery
-                                : 0);
+                            ? (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
+                            / (rabbitMQConfiguration.getMaxRecoveryAttempts() - 1)
+                            * tmpCountTriesToRecovery
+                            : 0);
 
                     LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
                     return recoveryDelay;
