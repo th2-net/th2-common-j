@@ -16,6 +16,15 @@
 
 package com.exactpro.th2.common.message
 
+import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.ConnectionID
+import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.MessageMetadata
+import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
 import com.exactpro.th2.common.value.getDouble
@@ -25,12 +34,6 @@ import com.exactpro.th2.common.value.getMessage
 import com.exactpro.th2.common.value.getString
 import com.exactpro.th2.common.value.nullValue
 import com.exactpro.th2.common.value.toValue
-import com.exactpro.th2.common.grpc.ConnectionID
-import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.grpc.MessageMetadata
-import com.exactpro.th2.common.grpc.Value
 import com.google.protobuf.Timestamp
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -110,6 +113,22 @@ fun Message.Builder.setMetadata(messageType: String? = null, direction: Directio
             }.build()
         }
     })
+
+operator fun MessageGroup.Builder.plusAssign(message: Message) {
+    addMessages(AnyMessage.newBuilder().setMessage(message))
+}
+
+operator fun MessageGroup.Builder.plusAssign(message: Message.Builder) {
+    addMessages(AnyMessage.newBuilder().setMessage(message))
+}
+
+operator fun MessageGroup.Builder.plusAssign(rawMessage: RawMessage) {
+    addMessages(AnyMessage.newBuilder().setRawMessage(rawMessage))
+}
+
+operator fun MessageGroup.Builder.plusAssign(rawMessage: RawMessage.Builder) {
+    addMessages(AnyMessage.newBuilder().setRawMessage(rawMessage))
+}
 
 fun Instant.toTimestamp(): Timestamp = Timestamp.newBuilder().setSeconds(epochSecond).setNanos(nano).build()
 fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()

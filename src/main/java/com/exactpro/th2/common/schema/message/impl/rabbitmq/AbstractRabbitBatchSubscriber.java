@@ -78,18 +78,17 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
     protected abstract Metadata extractMetadata(M message);
 
-
     protected static class Metadata {
         private final long sequence;
         private final String messageType;
-        private final String sessionAlias;
         private final Direction direction;
+        private final String sessionAlias;
 
-        public Metadata(long sequence, String messageType, String sessionAlias, Direction direction) {
+        public Metadata(long sequence, String messageType, Direction direction, String sessionAlias) {
             this.sequence = sequence;
             this.messageType = messageType;
-            this.sessionAlias = sessionAlias;
             this.direction = direction;
+            this.sessionAlias = sessionAlias;
         }
 
         public long getSequence() {
@@ -100,12 +99,12 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
             return messageType;
         }
 
-        public String getSessionAlias() {
-            return sessionAlias;
-        }
-
         public Direction getDirection() {
             return direction;
+        }
+
+        public String getSessionAlias() {
+            return sessionAlias;
         }
 
         @Override

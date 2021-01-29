@@ -23,82 +23,58 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class QueueConfiguration implements Configuration {
+    @JsonAlias("name")
+    @JsonProperty(required = true)
+    private String routingKey;
 
     /**
      * Routing key in RabbitMQ
      */
+    public String getRoutingKey() {
+        return routingKey;
+    }
+
     @JsonProperty(required = true)
-    private String name;
+    private String queue;
 
     /**
      * Queue name in RabbitMQ
      */
-    @JsonProperty(required = true)
-    private String queue;
-
-    @JsonProperty(required = true)
-    private String exchange;
-
-    @JsonAlias({"labels", "tags"})
-    @JsonProperty(required = true)
-    private List<String> attributes = Collections.emptyList();
-
-    @JsonProperty
-    private List<MqRouterFilterConfiguration> filters = Collections.emptyList();
-
-    @JsonProperty(value = "read", defaultValue = "true")
-    private boolean isReadable = true;
-
-    @JsonProperty(value = "write", defaultValue = "true")
-    private boolean isWritable = true;
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public String getQueue() {
         return queue;
     }
 
-    public void setQueue(String queue) {
-        this.queue = queue;
-    }
+    @JsonProperty(required = true)
+    private String exchange;
 
     public String getExchange() {
         return exchange;
     }
 
-    public void setExchange(String exchange) {
-        this.exchange = exchange;
-    }
+    @JsonAlias({ "labels", "tags" })
+    @JsonProperty(required = true)
+    private List<String> attributes = Collections.emptyList();
 
     public List<String> getAttributes() {
         return attributes;
     }
 
-    public void setAttributes(List<String> attributes) {
-        this.attributes = attributes;
-    }
+    @JsonProperty
+    private List<MqRouterFilterConfiguration> filters = Collections.emptyList();
 
     public List<MqRouterFilterConfiguration> getFilters() {
         return filters;
     }
 
-    public void setFilters(List<MqRouterFilterConfiguration> filters) {
-        this.filters = filters;
-    }
+    @JsonProperty(value = "read", defaultValue = "true")
+    private boolean isReadable = true;
 
     public boolean isReadable() {
         return isReadable;
     }
 
-    public void setReadable(boolean readable) {
-        isReadable = readable;
-    }
+    @JsonProperty(value = "write", defaultValue = "true")
+    private boolean isWritable = true;
 
     public boolean isWritable() {
         return isWritable;

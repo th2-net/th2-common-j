@@ -60,6 +60,7 @@ import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
@@ -77,6 +78,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
@@ -125,11 +127,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
+    private final Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
     private final AtomicReference<ConnectionManager> rabbitMqConnectionManager = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
+    private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
@@ -145,7 +149,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * Create factory with default implementation schema classes
      */
     public AbstractCommonFactory() {
-        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class);
+        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class);
     }
 
     /**
@@ -157,14 +161,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @param grpcRouterClass               Class for {@link GrpcRouter}
      */
     public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                                 @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                                 @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                                 @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+            @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
+        this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
     }
+
     public void start() {
         DefaultExports.initialize();
         PrometheusConfiguration prometheusConfiguration = loadPrometheusConfiguration();
@@ -216,6 +223,26 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
+                }
+            }
+
+            return router;
+        });
+    }
+
+    /**
+     * @return Initialized {@link MessageRouter} which works with {@link MessageGroupBatch}
+     * @throws CommonFactoryException if can not call default constructor from class
+     * @throws IllegalStateException  if can not read configuration
+     */
+    public MessageRouter<MessageGroupBatch> getMessageRouterMessageGroupBatch() {
+        return messageRouterMessageGroupBatch.updateAndGet(router -> {
+            if (router == null) {
+                try {
+                    router = messageRouterMessageGroupBatchClass.getConstructor().newInstance();
+                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    throw new CommonFactoryException("Can not create group message router", e);
                 }
             }
 
@@ -566,6 +593,18 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     router.close();
                 } catch (Exception e) {
                     LOGGER.error("Failed to close message router for raw message batches", e);
+                }
+            }
+
+            return router;
+        });
+
+        messageRouterMessageGroupBatch.getAndUpdate(router -> {
+            if (router != null) {
+                try {
+                    router.close();
+                } catch (Exception e) {
+                    LOGGER.error("Failed to close message router for message group batches", e);
                 }
             }
 
