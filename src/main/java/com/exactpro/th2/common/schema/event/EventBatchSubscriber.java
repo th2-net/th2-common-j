@@ -16,11 +16,13 @@
 
 package com.exactpro.th2.common.schema.event;
 
+import java.util.List;
+
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
-import com.google.protobuf.TextFormat;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
@@ -52,13 +54,13 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected EventBatch valueFromBytes(byte[] bytes) throws Exception {
-        return EventBatch.parseFrom(bytes);
+    protected List<EventBatch> valueFromBytes(byte[] bytes) throws Exception {
+        return List.of(EventBatch.parseFrom(bytes));
     }
 
     @Override
     protected String toShortDebugString(EventBatch value) {
-        return TextFormat.shortDebugString(value);
+        return MessageRouterUtils.toJson(value);
     }
 
     @Nullable

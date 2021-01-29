@@ -24,7 +24,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.google.common.base.CaseFormat
 import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
 
@@ -42,7 +41,7 @@ class RabbitCustomQueue<T : Any>(
             metricsHolder.outgoingDeliveryCounter,
             metricsHolder.outgoingDataCounter
         ).apply {
-            init(connectionManager, queueConfiguration.exchange, queueConfiguration.name)
+            init(connectionManager, queueConfiguration.exchange, queueConfiguration.routingKey)
         }
     }
 
@@ -59,7 +58,7 @@ class RabbitCustomQueue<T : Any>(
             init(
                 connectionManager,
                 queueConfiguration.exchange,
-                SubscribeTarget(queueConfiguration.name, queueConfiguration.queue)
+                SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey)
             )
         }
     }
@@ -86,7 +85,7 @@ class RabbitCustomQueue<T : Any>(
         private val timer: Gauge,
         private val dataCounter: Counter
     ) : AbstractRabbitSubscriber<T>() {
-        override fun valueFromBytes(body: ByteArray): T = converter.fromByteArray(body)
+        override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
 
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)
 

@@ -25,6 +25,8 @@ import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
+import com.google.protobuf.MessageOrBuilder
+import com.google.protobuf.util.JsonFormat
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
@@ -54,3 +56,8 @@ fun MessageRouter<EventBatch>.storeEvent(
 
     storeEvent(this, parentId)
 }
+
+fun MessageOrBuilder.toJson(): String = JsonFormat.printer()
+    .omittingInsignificantWhitespace()
+    .includingDefaultValueFields()
+    .print(this)

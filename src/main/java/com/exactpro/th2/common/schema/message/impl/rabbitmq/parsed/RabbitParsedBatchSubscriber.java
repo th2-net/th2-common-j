@@ -16,15 +16,18 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.exactpro.th2.common.grpc.AnyMessage;
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.TextFormat;
-
-import java.util.List;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
@@ -63,10 +66,27 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
         super(filters, filterStrategy);
     }
 
-
     @Override
-    protected MessageBatch valueFromBytes(byte[] body) throws InvalidProtocolBufferException {
-        return MessageBatch.parseFrom(body);
+    protected List<MessageBatch> valueFromBytes(byte[] body) throws Exception {
+        var groupBatch = MessageGroupBatch.parseFrom(body);
+        var messageGroups = groupBatch.getGroupsList();
+        var parsedBatches = new ArrayList<MessageBatch>(messageGroups.size());
+
+        for (var group : messageGroups) {
+            var builder = MessageBatch.newBuilder();
+
+            for (AnyMessage message : group.getMessagesList()) {
+                if (message.getKindCase() != KindCase.MESSAGE) {
+                    throw new IllegalStateException("Message group batch contains raw messages: " + MessageRouterUtils.toJson(groupBatch));
+                }
+
+                builder.addMessages(message.getMessage());
+            }
+
+            parsedBatches.add(builder.build());
+        }
+
+        return parsedBatches;
     }
 
     @Override
@@ -81,14 +101,19 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
 
     @Override
     protected String toShortDebugString(MessageBatch value) {
-        return TextFormat.shortDebugString(value);
+        return MessageRouterUtils.toJson(value);
     }
 
     @Override
     protected Metadata extractMetadata(Message message) {
         var metadata = message.getMetadata();
         var messageID = metadata.getId();
-        return new Metadata(messageID.getSequence(), metadata.getMessageType(), messageID.getConnectionId().getSessionAlias(), messageID.getDirection());
+        return new Metadata(
+                messageID.getSequence(),
+                metadata.getMessageType(),
+                messageID.getDirection(),
+                messageID.getConnectionId().getSessionAlias()
+        );
     }
 
 }
