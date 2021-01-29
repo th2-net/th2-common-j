@@ -36,6 +36,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.Spliterators;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
@@ -103,6 +105,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
 
+    private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(3);
+
     public RabbitMQConfiguration getRabbitMqConfiguration() {
         return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
     }
@@ -113,6 +117,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     public GrpcRouterConfiguration getGrpcRouterConfiguration() {
         return grpcRouterConfiguration.updateAndGet(this::loadGrpcRouterConfiguration);
+    }
+
+    public ScheduledExecutorService getExecutor() {
+        return executor;
     }
 
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;

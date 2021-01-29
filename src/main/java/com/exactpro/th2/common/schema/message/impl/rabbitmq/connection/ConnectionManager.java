@@ -56,7 +56,7 @@ public class ConnectionManager implements AutoCloseable {
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
 
-    private static final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(3);
+    private ScheduledExecutorService executor;
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
@@ -71,6 +71,12 @@ public class ConnectionManager implements AutoCloseable {
         public void handleRecoveryStarted(Recoverable recoverable) {}
     };
 
+    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection, ScheduledExecutorService scheduledExecutorService) {
+        this(rabbitMQConfiguration, onFailedRecoveryConnection);
+        executor = scheduledExecutorService;
+    }
+
+    @Deprecated
     public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
 
@@ -223,7 +229,15 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    public static ScheduledExecutorService getExecutor() {
+    public RabbitMQConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    public int getMaxConnectionRecoveryTimeout() { return configuration.getMaxConnectionRecoveryTimeout(); }
+
+    public int getMinConnectionRecoveryTimeout() { return configuration.getMinConnectionRecoveryTimeout(); }
+
+    public ScheduledExecutorService getExecutor() {
         return executor;
     }
 
@@ -371,14 +385,12 @@ public class ConnectionManager implements AutoCloseable {
         private final Channel channel;
         private final String tag;
 
-        private MetricArbiter.MetricMonitor livenessMonitor;
         private MetricArbiter.MetricMonitor readinessMonitor;
 
         public RabbitMqSubscriberMonitor(Channel channel, String tag) {
             this.channel = channel;
             this.tag = tag;
 
-            livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register("channel_" + tag + "_liveness");
             readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register("channel_" + tag + "_readiness");
         }
 

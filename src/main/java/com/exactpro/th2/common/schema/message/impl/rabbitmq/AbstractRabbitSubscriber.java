@@ -55,7 +55,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private MetricArbiter.MetricMonitor livenessMonitor;
     private MetricArbiter.MetricMonitor readinessMonitor;
 
-    private final RabbitMQConfiguration rabbitMQConfiguration = new RabbitMQConfiguration();
+    private RabbitMQConfiguration rabbitMQConfiguration;
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
@@ -75,7 +75,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(subscribeTarget.getQueue() + "_liveness");
         readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(subscribeTarget.getQueue() + "_readiness");
 
-        executor.set(ConnectionManager.getExecutor());
+        executor.set(connectionManager.getExecutor());
+
+        rabbitMQConfiguration = connectionManager.getConfiguration();
     }
 
     @Override
@@ -113,7 +115,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         ConnectionManager connectionManager = this.connectionManager.get();
 
         boolean doResubsribe;
-        int timeout = rabbitMQConfiguration.getMinConnectionRecoveryTimeout();
+        int timeout = connectionManager.getMinConnectionRecoveryTimeout();
 
         try {
             doResubsribe = executor.get().submit(() -> {
@@ -139,7 +141,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         if(doResubsribe) {
             livenessMonitor.disable();
-            executor.get().schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
+
+            ScheduledExecutorService scheduledExecutorService = executor.get();
+
+            if(scheduledExecutorService != null) {
+                scheduledExecutorService.schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
+            }
         } else {
             readinessMonitor.unregister(readinessMonitor.getId());
             livenessMonitor.unregister(livenessMonitor.getId());
@@ -167,7 +174,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         listeners.forEach(MessageListener::onClose);
         listeners.clear();
 
-        executor.get().shutdown();
+        executor.updateAndGet((executorService) -> {
+            if(!executorService.isShutdown()){
+                executorService.shutdown();
+            }
+            return null;
+        });
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
@@ -229,7 +241,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         readinessMonitor.disable();
 
-        executor.get().submit(this::resubscribe);
+        ScheduledExecutorService scheduledExecutorService = executor.get();
+
+        if(scheduledExecutorService != null) {
+            scheduledExecutorService.submit(this::resubscribe);
+        }
+
     }
 
 }
