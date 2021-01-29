@@ -122,12 +122,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 try {
                     start();
                     return false;
-                } catch (ShutdownSignalException e) {
-                    LOGGER.error(e.getMessage());
-                    connectionManager.restoreChannel();
-                    return true;
                 } catch (Exception e) {
                     LOGGER.error(e.getMessage());
+                    connectionManager.restoreChannel();
                     return true;
                 }
             }).get();
