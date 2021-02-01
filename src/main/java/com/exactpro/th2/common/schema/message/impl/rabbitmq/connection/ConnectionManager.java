@@ -240,7 +240,7 @@ public class ConnectionManager implements AutoCloseable {
         return executor;
     }
 
-    private <T> T basicAction(RetriableSupplier<T> supplier, MainMetrics metrics) throws IOException {
+    private <T> T basicAction(RetriableSupplier<T> supplier, MainMetrics metrics) {
         checkConnection();
         int attemptsCount = 0;
         int maxAttempts = configuration.getMaxRecoveryAttempts();
@@ -261,17 +261,21 @@ public class ConnectionManager implements AutoCloseable {
 
                 if (attemptsCount >= maxAttempts) {
                     metrics.getLivenessMonitor().disable();
+
+                    // Infinite loop trying to do basicAction until success. attemptsCount can become more
+                    // than Integer.MAX_VALUE, so making it 0.
+                    attemptsCount = 0;
                 }
             }
         }
     }
 
     @Deprecated
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) {
         basicPublish(exchange, routingKey, props, body, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
     }
 
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MainMetrics metrics) throws IOException {
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MainMetrics metrics) {
         Channel channel = this.channel.get();
 
         basicAction(() -> {
@@ -304,11 +308,11 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     @Deprecated
-    public void basicCancel(Channel channel, String consumerTag) throws IOException {
+    public void basicCancel(Channel channel, String consumerTag) {
         basicCancel(channel, consumerTag, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
     }
 
-    public void basicCancel(Channel channel, String consumerTag, MainMetrics metrics) throws IOException {
+    public void basicCancel(Channel channel, String consumerTag, MainMetrics metrics) {
         basicAction(() -> {
             channel.basicCancel(consumerTag);
             return null;
@@ -320,23 +324,15 @@ public class ConnectionManager implements AutoCloseable {
 
         Channel channel;
 
-        try {
-            channel = basicAction((RetriableSupplier<Channel>) connection::createChannel, metrics);
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not create channel", e);
-        }
+        channel = basicAction(connection::createChannel, metrics);
 
         channel.addReturnListener(ret ->
                 LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
 
-        try {
-            basicAction(() -> {
-                channel.basicQos(configuration.getPrefetchCount());
-                return null;
-            }, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not create channel", e);
-        }
+        basicAction(() -> {
+            channel.basicQos(configuration.getPrefetchCount());
+            return null;
+        }, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
         return channel;
     }
 
@@ -387,7 +383,7 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         @Override
-        public void unsubscribe() throws Exception {
+        public void unsubscribe() {
             basicCancel(channel, tag, new MainMetrics(livenessMonitor, readinessMonitor));
         }
     }
