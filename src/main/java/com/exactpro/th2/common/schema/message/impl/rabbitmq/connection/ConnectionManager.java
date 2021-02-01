@@ -22,11 +22,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.exactpro.th2.common.Main;
 import com.exactpro.th2.common.metrics.MainMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
 import org.apache.commons.lang3.StringUtils;
-import org.checkerframework.checker.units.qual.C;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
