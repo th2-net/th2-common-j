@@ -67,3 +67,15 @@ fun setGRPCReadiness(value: Boolean) {
     GRPC_READINESS.set(value)
     updateCommonReadiness()
 }
+
+class MainMetrics(livenessMonitor: MetricArbiter.MetricMonitor,
+           readinessMonitor: MetricArbiter.MetricMonitor) {
+
+    val livenessMonitor:MetricArbiter.MetricMonitor
+    val readinessMonitor:MetricArbiter.MetricMonitor
+
+    init {
+        this.livenessMonitor = livenessMonitor
+        this.readinessMonitor = readinessMonitor
+    }
+}

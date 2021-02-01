@@ -26,6 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.exactpro.th2.common.metrics.MainMetrics;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -55,11 +56,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
     private final AtomicReference<ScheduledExecutorService> executor = new AtomicReference<>();
 
-    //FIXME: init as in AbstractRabbitPublisher class
-    private MetricArbiter.MetricMonitor livenessMonitor;
-    private MetricArbiter.MetricMonitor readinessMonitor;
-
-    private RabbitMQConfiguration rabbitMQConfiguration;
+    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(getClass().getSimpleName() + "_liveness_" + hashCode());
+    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode());
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
@@ -76,12 +74,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         this.subscribeTarget.set(subscribeTarget);
         this.exchangeName.set(exchangeName);
 
-        livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(subscribeTarget.getQueue() + "_liveness");
-        readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(subscribeTarget.getQueue() + "_readiness");
-
         executor.set(connectionManager.getExecutor());
 
-        rabbitMQConfiguration = connectionManager.getConfiguration();
+        LOGGER.debug("{}:{} initialised with target {}", getClass().getSimpleName(), hashCode(), subscribeTarget);
     }
 
     @Override
@@ -101,7 +96,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             consumerMonitor.updateAndGet(monitor -> {
                 if (monitor == null) {
                     try {
-                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, readinessMonitor);
+                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new MainMetrics(livenessMonitor, readinessMonitor));
                         LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
                     } catch (IOException e) {
                         throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
@@ -121,27 +116,24 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         int timeout = connectionManager.getMinConnectionRecoveryTimeout();
 
         try {
-            //FIXME: `executor.get()` can return null
-            executor.get().submit(() -> {
-                try {
-                    start();
-                    readinessMonitor.unregister(readinessMonitor.getId());
-                    livenessMonitor.unregister(livenessMonitor.getId());
-                } catch (Exception e) {
-                    LOGGER.error(e.getMessage());
-                    connectionManager.restoreChannel();
+            ScheduledExecutorService executorService = executor.get();
 
-                    ///
-                    livenessMonitor.disable();
+            if(executorService != null) {
+                executorService.submit(() -> {
+                    try {
+                        start();
+                        readinessMonitor.unregister(readinessMonitor.getId());
+                        livenessMonitor.unregister(livenessMonitor.getId());
+                    } catch (Exception e) {
+                        LOGGER.error(e.getMessage(), e);
+                        connectionManager.restoreChannel();
 
-                    ScheduledExecutorService scheduledExecutorService = executor.get();
+                        livenessMonitor.disable();
 
-                    if(scheduledExecutorService != null) {
-                        scheduledExecutorService.schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
+                        executorService.schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
                     }
-                    ///
-                }
-            });
+                });
+            }
         } catch (CancellationException e) {
             LOGGER.error(e.getMessage(), e);
         }
@@ -233,7 +225,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         if(scheduledExecutorService != null) {
             scheduledExecutorService.submit(this::resubscribe);
         }
-
     }
 
 }
