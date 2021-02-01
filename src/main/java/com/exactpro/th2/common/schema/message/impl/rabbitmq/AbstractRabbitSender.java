@@ -38,8 +38,8 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
 
-    private MetricArbiter.MetricMonitor livenessMonitor;
-    private MetricArbiter.MetricMonitor readinessMonitor;
+    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(getClass().getSimpleName() + "_liveness_" + hashCode());
+    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode());
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
@@ -55,8 +55,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         this.exchangeName.set(exchangeName);
         this.sendQueue.set(sendQueue);
 
-        livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(sendQueue + "_liveness");
-        readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(sendQueue + "_readiness");
+        LOGGER.debug("{}:{} initialised with queue {}", getClass().getSimpleName(), hashCode(), sendQueue);
     }
 
     protected abstract Counter getDeliveryCounter();

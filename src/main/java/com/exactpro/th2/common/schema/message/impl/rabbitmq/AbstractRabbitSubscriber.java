@@ -19,21 +19,24 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.MetricArbiter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.rabbitmq.client.ShutdownSignalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MetricArbiter;
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Delivery;
@@ -52,6 +55,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
     private final AtomicReference<ScheduledExecutorService> executor = new AtomicReference<>();
 
+    //FIXME: init as in AbstractRabbitPublisher class
     private MetricArbiter.MetricMonitor livenessMonitor;
     private MetricArbiter.MetricMonitor readinessMonitor;
 
@@ -114,39 +118,32 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         consumerMonitor.set(null);
         ConnectionManager connectionManager = this.connectionManager.get();
 
-        boolean doResubsribe;
         int timeout = connectionManager.getMinConnectionRecoveryTimeout();
 
         try {
-            doResubsribe = executor.get().submit(() -> {
+            //FIXME: `executor.get()` can return null
+            executor.get().submit(() -> {
                 try {
                     start();
-                    return false;
+                    readinessMonitor.unregister(readinessMonitor.getId());
+                    livenessMonitor.unregister(livenessMonitor.getId());
                 } catch (Exception e) {
                     LOGGER.error(e.getMessage());
                     connectionManager.restoreChannel();
-                    return true;
+
+                    ///
+                    livenessMonitor.disable();
+
+                    ScheduledExecutorService scheduledExecutorService = executor.get();
+
+                    if(scheduledExecutorService != null) {
+                        scheduledExecutorService.schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
+                    }
+                    ///
                 }
-            }).get();
-        } catch (InterruptedException | CancellationException e) {
-            LOGGER.error(e.getMessage());
-            doResubsribe = false;
-        } catch (ExecutionException e) {
-            LOGGER.error(e.getMessage());
-            doResubsribe = true;
-        }
-
-        if(doResubsribe) {
-            livenessMonitor.disable();
-
-            ScheduledExecutorService scheduledExecutorService = executor.get();
-
-            if(scheduledExecutorService != null) {
-                scheduledExecutorService.schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
-            }
-        } else {
-            readinessMonitor.unregister(readinessMonitor.getId());
-            livenessMonitor.unregister(livenessMonitor.getId());
+            });
+        } catch (CancellationException e) {
+            LOGGER.error(e.getMessage(), e);
         }
     }
 
@@ -158,7 +155,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Override
     public void close() throws Exception {
         ConnectionManager connectionManager = this.connectionManager.get();
-
         if (connectionManager == null) {
             throw new IllegalStateException("Subscriber is not initialized");
         }
@@ -170,13 +166,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         listeners.forEach(MessageListener::onClose);
         listeners.clear();
-
-        executor.updateAndGet((executorService) -> {
-            if(!executorService.isShutdown()){
-                executorService.shutdown();
-            }
-            return null;
-        });
     }
 
     protected abstract List<T> valueFromBytes(byte[] body) throws Exception;

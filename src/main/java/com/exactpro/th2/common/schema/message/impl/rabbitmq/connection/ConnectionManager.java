@@ -56,7 +56,7 @@ public class ConnectionManager implements AutoCloseable {
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
 
-    private ScheduledExecutorService executor;
+    private final ScheduledExecutorService executor;
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
@@ -181,10 +181,10 @@ public class ConnectionManager implements AutoCloseable {
 
                     int recoveryDelay = rabbitMQConfiguration.getMinConnectionRecoveryTimeout()
                             + (rabbitMQConfiguration.getMaxRecoveryAttempts() > 1
-                            ? (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
-                            / (rabbitMQConfiguration.getMaxRecoveryAttempts() - 1)
-                            * tmpCountTriesToRecovery
-                            : 0);
+                                ? (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
+                                    / (rabbitMQConfiguration.getMaxRecoveryAttempts() - 1)
+                                    * tmpCountTriesToRecovery
+                                : 0);
 
                     LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
                     return recoveryDelay;
@@ -237,33 +237,9 @@ public class ConnectionManager implements AutoCloseable {
         return executor;
     }
 
-    private void basicAction(Retriable retriable, MetricArbiter.MetricMonitor metric) throws IOException {
-        checkConnection();
-        IOException exception = new IOException("Recovery attempts expired.");
-        int attemptsCount = 0;
-        int maxAttempts = configuration.getMaxRecoveryAttempts();
-
-        while (true) {
-            attemptsCount++;
-
-            try {
-                retriable.retry();
-                break;
-            } catch (Exception e) {
-                exception.addSuppressed(e);
-                LOGGER.error(e.getMessage());
-
-                if(attemptsCount >= maxAttempts) {
-                    metric.disable();
-                    throw exception;
-                }
-            }
-        }
-    }
-
+    //FIXME: pass blob with livenesess and readiness metrics
     private <T> T basicAction(RetriableSupplier<T> supplier, MetricArbiter.MetricMonitor metric) throws IOException {
         checkConnection();
-        IOException exception = new IOException("Recovery attempts expired.");
         int attemptsCount = 0;
         int maxAttempts = configuration.getMaxRecoveryAttempts();
 
@@ -271,14 +247,18 @@ public class ConnectionManager implements AutoCloseable {
             attemptsCount++;
 
             try {
-                return supplier.retry();
+                try {
+                    return supplier.retry();
+                } finally {
+                    metric.enable();
+                    //TODO: liveness true
+                }
             } catch (Exception e) {
-                exception.addSuppressed(e);
+                metric.disable();
                 LOGGER.error(e.getMessage());
 
-                if(attemptsCount >= maxAttempts) {
-                    metric.disable();
-                    throw exception;
+                if (attemptsCount >= maxAttempts) {
+                    //TODO: liveness false
                 }
             }
         }
@@ -292,7 +272,10 @@ public class ConnectionManager implements AutoCloseable {
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MetricArbiter.MetricMonitor metric) throws IOException {
         Channel channel = this.channel.get();
 
-        basicAction(() -> channel.basicPublish(exchange, routingKey, props, body), metric);
+        basicAction(() -> {
+            channel.basicPublish(exchange, routingKey, props, body);
+            return null;
+        }, metric);
     }
 
     @Deprecated
@@ -324,7 +307,10 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicCancel(Channel channel, String consumerTag, MetricArbiter.MetricMonitor metric) throws IOException {
-        basicAction(() -> channel.basicCancel(consumerTag), metric);
+        basicAction(() -> {
+            channel.basicCancel(consumerTag);
+            return null;
+        }, metric);
     }
 
     private Channel createChannel(MetricArbiter.MetricMonitor metric) {
@@ -342,7 +328,10 @@ public class ConnectionManager implements AutoCloseable {
                 LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
 
         try {
-            basicAction(() -> channel.basicQos(configuration.getPrefetchCount()), CommonMetrics.getREADINESS_MONITOR());
+            basicAction(() -> {
+                channel.basicQos(configuration.getPrefetchCount());
+                return null;
+            }, CommonMetrics.getREADINESS_MONITOR());
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
         }
@@ -373,7 +362,10 @@ public class ConnectionManager implements AutoCloseable {
      * @throws IOException
      */
     private void basicAck(Channel channel, long deliveryTag, MetricArbiter.MetricMonitor metric) throws IOException {
-        basicAction(() -> channel.basicAck(deliveryTag, false), metric);
+        basicAction(() -> {
+            channel.basicAck(deliveryTag, false);
+            return null;
+        }, metric);
     }
 
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
@@ -396,12 +388,7 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    @FunctionalInterface
-    private interface Retriable {
-        void retry() throws IOException;
-    }
-
     private interface RetriableSupplier<T> {
-        T retry() throws IOException;
+        T retry() throws IOException; //FIXME: use specific exception
     }
 }

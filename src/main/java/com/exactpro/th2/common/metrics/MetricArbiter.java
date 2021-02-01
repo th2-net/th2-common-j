@@ -23,7 +23,11 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class MetricArbiter {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MetricArbiter.class);
     private static final AtomicInteger COUNTER = new AtomicInteger(0);
 
     private ConcurrentMap<Integer, AtomicBoolean> map;
@@ -76,7 +80,7 @@ public class MetricArbiter {
             if(value != null) {
                 calculateMetricValue();
             } else {
-                throw new IllegalArgumentException(String.format("No mapping for key %s", id));
+                LOGGER.warn("Metric monitor with id {} is already unregistered", id);
             }
         }
 
