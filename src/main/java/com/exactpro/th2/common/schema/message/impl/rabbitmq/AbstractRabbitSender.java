@@ -21,7 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.MainMetrics;
+import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -76,7 +76,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
         try {
             ConnectionManager connection = this.connectionManager.get();
-            connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value), new MainMetrics(livenessMonitor, readinessMonitor));
+            connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value), new HealthMetrics(livenessMonitor, readinessMonitor));
 
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",

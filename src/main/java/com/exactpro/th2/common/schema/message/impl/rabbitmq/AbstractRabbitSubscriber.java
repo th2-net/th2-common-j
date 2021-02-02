@@ -25,7 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.exactpro.th2.common.metrics.MainMetrics;
+import com.exactpro.th2.common.metrics.HealthMetrics;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -94,7 +94,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             consumerMonitor.updateAndGet(monitor -> {
                 if (monitor == null) {
                     try {
-                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new MainMetrics(livenessMonitor, readinessMonitor));
+                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new HealthMetrics(livenessMonitor, readinessMonitor));
                         LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
                     } catch (IOException e) {
                         throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);

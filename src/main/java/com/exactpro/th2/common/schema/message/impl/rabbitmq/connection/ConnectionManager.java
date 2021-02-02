@@ -22,7 +22,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.exactpro.th2.common.metrics.MainMetrics;
+import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -48,9 +48,12 @@ public class ConnectionManager implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
+    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(getClass().getSimpleName() + "_liveness_" + hashCode());
+    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode());
+
     private final Connection connection;
     private final ThreadLocal<Channel> channel = ThreadLocal.withInitial(() ->
-            createChannel(new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR())));
+            createChannel(new HealthMetrics(livenessMonitor, readinessMonitor)));
     private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final RabbitMQConfiguration configuration;
@@ -58,6 +61,8 @@ public class ConnectionManager implements AutoCloseable {
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
 
     private final ScheduledExecutorService executor;
+
+
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
@@ -238,7 +243,7 @@ public class ConnectionManager implements AutoCloseable {
         return executor;
     }
 
-    private <T> T basicAction(RetriableSupplier<T> supplier, MainMetrics metrics) {
+    private <T> T basicAction(RetriableSupplier<T> supplier, MetricArbiter.MetricMonitor livenessMonitor, MetricArbiter.MetricMonitor readinessMonitor) {
         checkConnection();
         int attemptsCount = 0;
         int maxAttempts = configuration.getMaxRecoveryAttempts();
@@ -250,15 +255,15 @@ public class ConnectionManager implements AutoCloseable {
                 try {
                     return supplier.retry();
                 } finally {
-                    metrics.getReadinessMonitor().enable();
-                    metrics.getLivenessMonitor().enable();
+                    readinessMonitor.enable();
+                    livenessMonitor.enable();
                 }
             } catch (IOException e) {
-                metrics.getReadinessMonitor().disable();
+                readinessMonitor.disable();
                 LOGGER.error(e.getMessage(), e);
 
                 if (attemptsCount >= maxAttempts) {
-                    metrics.getLivenessMonitor().disable();
+                    livenessMonitor.disable();
 
                     // Infinite loop trying to do basicAction until success. attemptsCount can become more
                     // than Integer.MAX_VALUE, so making it 0.
@@ -270,24 +275,24 @@ public class ConnectionManager implements AutoCloseable {
 
     @Deprecated
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) {
-        basicPublish(exchange, routingKey, props, body, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
+        basicPublish(exchange, routingKey, props, body, new HealthMetrics(livenessMonitor, readinessMonitor));
     }
 
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MainMetrics metrics) {
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, HealthMetrics metrics) {
         Channel channel = this.channel.get();
 
         basicAction(() -> {
             channel.basicPublish(exchange, routingKey, props, body);
             return null;
-        }, metrics);
+        }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
     }
 
     @Deprecated
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-        return basicConsume(queue, deliverCallback, cancelCallback, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
+        return basicConsume(queue, deliverCallback, cancelCallback, new HealthMetrics(livenessMonitor, readinessMonitor));
     }
 
-    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, MainMetrics metrics) throws IOException {
+    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, HealthMetrics metrics) throws IOException {
         Channel channel = this.channel.get();
 
         String tag = basicAction(() -> channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
@@ -300,29 +305,29 @@ public class ConnectionManager implements AutoCloseable {
             } catch (IOException | RuntimeException e) {
                 LOGGER.error(e.getMessage(), e);
             }
-        }, cancelCallback), metrics);
+        }, cancelCallback), metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
 
         return new RabbitMqSubscriberMonitor(channel, tag);
     }
 
     @Deprecated
     public void basicCancel(Channel channel, String consumerTag) {
-        basicCancel(channel, consumerTag, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
+        basicCancel(channel, consumerTag, new HealthMetrics(livenessMonitor, readinessMonitor));
     }
 
-    public void basicCancel(Channel channel, String consumerTag, MainMetrics metrics) {
+    public void basicCancel(Channel channel, String consumerTag, HealthMetrics metrics) {
         basicAction(() -> {
             channel.basicCancel(consumerTag);
             return null;
-        }, metrics);
+        }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
     }
 
-    private Channel createChannel(MainMetrics metrics) {
+    private Channel createChannel(HealthMetrics metrics) {
         checkConnection();
 
         Channel channel;
 
-        channel = basicAction(connection::createChannel, metrics);
+        channel = basicAction(connection::createChannel, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
 
         channel.addReturnListener(ret ->
                 LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
@@ -330,7 +335,7 @@ public class ConnectionManager implements AutoCloseable {
         basicAction(() -> {
             channel.basicQos(configuration.getPrefetchCount());
             return null;
-        }, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
+        }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
         return channel;
     }
 
@@ -357,11 +362,11 @@ public class ConnectionManager implements AutoCloseable {
      *                deliveries must be acknowledged on the same channel they were received on.
      * @throws IOException
      */
-    private void basicAck(Channel channel, long deliveryTag, MainMetrics metrics) throws IOException {
+    private void basicAck(Channel channel, long deliveryTag, HealthMetrics metrics) throws IOException {
         basicAction(() -> {
             channel.basicAck(deliveryTag, false);
             return null;
-        }, metrics);
+        }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
     }
 
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
@@ -382,7 +387,7 @@ public class ConnectionManager implements AutoCloseable {
 
         @Override
         public void unsubscribe() {
-            basicCancel(channel, tag, new MainMetrics(livenessMonitor, readinessMonitor));
+            basicCancel(channel, tag, new HealthMetrics(livenessMonitor, readinessMonitor));
         }
     }
 
