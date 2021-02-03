@@ -249,7 +249,9 @@ public class ConnectionManager implements AutoCloseable {
         int maxAttempts = configuration.getMaxRecoveryAttempts();
 
         while (true) {
-            attemptsCount++;
+            if(attemptsCount < maxAttempts) {
+                attemptsCount++;
+            }
 
             try {
                 try {
@@ -262,12 +264,19 @@ public class ConnectionManager implements AutoCloseable {
                 readinessMonitor.disable();
                 LOGGER.error(e.getMessage(), e);
 
+                Channel channel = this.channel.get();
+
+                if(channel != null) {
+                    try {
+                        channel.abort();
+                    } catch (IOException ioException) {
+                        LOGGER.warn("Can not close channel for RabbitMQ");
+                    }
+                    this.channel.remove();
+                }
+
                 if (attemptsCount >= maxAttempts) {
                     livenessMonitor.disable();
-
-                    // Infinite loop trying to do basicAction until success. attemptsCount can become more
-                    // than Integer.MAX_VALUE, so making it 0.
-                    attemptsCount = 0;
                 }
             }
         }
@@ -293,21 +302,31 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, HealthMetrics metrics) throws IOException {
-        Channel channel = this.channel.get();
 
-        String tag = basicAction(() -> channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
+        boolean exists = true;
+        try {
+            channel.get().queueDeclarePassive(queue);
+        } catch (IOException e) {
+            exists = false;
+        }
+
+        if (!exists) {
+            return null;
+        }
+
+        String tag = basicAction(() -> channel.get().basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
             try {
                 try {
                     deliverCallback.handle(tagTmp, delivery);
                 } finally {
-                    basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
+                    basicAck(channel.get(), delivery.getEnvelope().getDeliveryTag(), metrics);
                 }
             } catch (IOException | RuntimeException e) {
                 LOGGER.error(e.getMessage(), e);
             }
         }, cancelCallback), metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
 
-        return new RabbitMqSubscriberMonitor(channel, tag);
+        return new RabbitMqSubscriberMonitor(channel.get(), tag);
     }
 
     @Deprecated
@@ -337,18 +356,6 @@ public class ConnectionManager implements AutoCloseable {
             return null;
         }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
         return channel;
-    }
-
-    public void restoreChannel() {
-        try {
-            channel.get().clearReturnListeners();
-            channel.get().clearConfirmListeners();
-            channel.get().abort(1, "Aborted while trying to restore channel.");
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-        }
-
-        channel.remove();
     }
 
     private void checkConnection() {

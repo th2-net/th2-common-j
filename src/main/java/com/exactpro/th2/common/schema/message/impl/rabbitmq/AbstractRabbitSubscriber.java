@@ -108,6 +108,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     private void resubscribe() {
+        LOGGER.debug("Trying to resub");
         consumerMonitor.set(null);
         ConnectionManager connectionManager = this.connectionManager.get();
 
@@ -119,12 +120,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             if(executorService != null) {
                 executorService.submit(() -> {
                     try {
+                        LOGGER.debug("before start");
                         start();
+                        LOGGER.debug("after start");
                         readinessMonitor.unregister(readinessMonitor.getId());
                         livenessMonitor.unregister(livenessMonitor.getId());
                     } catch (Exception e) {
                         LOGGER.error(e.getMessage(), e);
-                        connectionManager.restoreChannel();
 
                         livenessMonitor.disable();
 
