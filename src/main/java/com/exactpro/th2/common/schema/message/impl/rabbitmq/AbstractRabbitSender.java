@@ -17,7 +17,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.metrics.MainMetrics;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
@@ -43,16 +43,17 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicInteger resendMessages = new AtomicInteger(0);
     private final AtomicBoolean canSend = new AtomicBoolean(true);
 
-    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(getClass().getSimpleName() + "_liveness_" + hashCode());
-    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode());
+    private final MainMetrics metrics = new MainMetrics(
+            CommonMetrics.getLIVENESS_ARBITER().register(getClass().getSimpleName() + "_liveness_" + hashCode()),
+            CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode())
+    );
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
         Objects.requireNonNull(connectionManager, "Connection can not be null");
         Objects.requireNonNull(exchangeName, "Exchange name can not be null");
         Objects.requireNonNull(sendQueue, "Send queue can not be null");
-        ResendMessageConfiguration resendMessageConfiguration = connectionManager.getResendConfiguration();
-        Objects.requireNonNull(resendMessageConfiguration, "Resend message configuration can not be null");
+        Objects.requireNonNull(connectionManager.getResendConfiguration(), "Resend message configuration can not be null");
 
         if (this.connectionManager.get() != null && this.sendQueue.get() != null && this.exchangeName.get() != null && this.resendConfiguration.get() != null) {
             throw new IllegalStateException("Sender is already initialize");
@@ -61,7 +62,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         this.connectionManager.set(connectionManager);
         this.exchangeName.set(exchangeName);
         this.sendQueue.set(sendQueue);
-        this.resendConfiguration.set(resendMessageConfiguration);
+        this.resendConfiguration.set(connectionManager.getResendConfiguration());
 
         LOGGER.debug("{}:{} initialised with queue {}", getClass().getSimpleName(), hashCode(), sendQueue);
     }
@@ -113,7 +114,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
     private void send(ConnectionManager connection, String exchangeName, String routingKey, T message) {
         connection.basicPublish(exchangeName, routingKey, null, valueToBytes(message),
-                new DelayHandler(exchangeName, routingKey, message), new SuccessHandler(exchangeName, routingKey, message));
+                new DelayHandler(exchangeName, routingKey, message), new SuccessHandler(exchangeName, routingKey, message), metrics);
     }
 
     private class DelayHandler implements Supplier<Long> {

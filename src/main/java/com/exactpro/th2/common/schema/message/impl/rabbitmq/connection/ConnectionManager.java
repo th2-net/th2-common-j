@@ -24,6 +24,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Resend
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Consumer;
@@ -32,8 +33,6 @@ import com.rabbitmq.client.ExceptionHandler;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.TopologyRecoveryException;
-import io.netty.util.concurrent.DefaultThreadFactory;
-import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -43,9 +42,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,8 +55,7 @@ public class ConnectionManager implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
     private final Connection connection;
-    private final ThreadLocal<Channel> channel = ThreadLocal.withInitial(() ->
-            createChannel(new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR())));
+    private final ThreadLocal<ChannelContext> channelContext = ThreadLocal.withInitial(this::createChannelContext);
     private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final RabbitMQConfiguration configuration;
@@ -66,6 +64,7 @@ public class ConnectionManager implements AutoCloseable {
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
 
     private final ScheduledExecutorService executor;
+    private final ForkJoinPool taskExecutor;
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
@@ -79,8 +78,7 @@ public class ConnectionManager implements AutoCloseable {
         @Override
         public void handleRecoveryStarted(Recoverable recoverable) {}
     };
-    private final ThreadLocal<Map<Long, PublishData>> rejectHandlers = ThreadLocal.withInitial(ConcurrentHashMap::new);
-    private final ExecutorService resendRejectService;
+
 
     public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection, ScheduledExecutorService scheduledExecutorService) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
@@ -94,11 +92,24 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         var factory = new ConnectionFactory();
-        var virtualHost = rabbitMQConfiguration.getvHost();
+        var virtualHost = rabbitMQConfiguration.getVhost();
         var username = rabbitMQConfiguration.getUsername();
         var password = rabbitMQConfiguration.getPassword();
 
         executor = scheduledExecutorService;
+        taskExecutor = new ForkJoinPool(resendConfiguration.getMaxResendWorkers());
+
+
+//                new ForkJoinPool(Runtime.getRuntime().availableProcessors(),
+//                ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+//                null,
+//                false,
+//                0,
+//                resendConfiguration.getMaxResendWorkers(),
+//                1,
+//                null,
+//                resendConfiguration.getResendWorkersKeepAlive(),
+//                TimeUnit.MILLISECONDS);
 
         factory.setHost(rabbitMQConfiguration.getHost());
         factory.setPort(rabbitMQConfiguration.getPort());
@@ -119,53 +130,7 @@ public class ConnectionManager implements AutoCloseable {
             factory.setConnectionTimeout(rabbitMQConfiguration.getConnectionTimeout());
         }
 
-        factory.setExceptionHandler(new ExceptionHandler() {
-            @Override
-            public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleReturnListenerException(Channel channel, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleConfirmListenerException(Channel channel, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleBlockedListenerException(Connection connection, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleConsumerException(Channel channel, Throwable exception, Consumer consumer, String consumerTag, String methodName) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleConnectionRecoveryException(Connection conn, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleChannelRecoveryException(Channel ch, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleTopologyRecoveryException(Connection conn, Channel ch, TopologyRecoveryException exception) {
-                turnOffReandess(exception);
-            }
-
-            private void turnOffReandess(Throwable exception) {
-                CommonMetrics.setRabbitMQReadiness(false);
-                LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
-            }
-        });
-
+        factory.setExceptionHandler(new ConnectionExceptionHandler());
         factory.setAutomaticRecoveryEnabled(true);
         factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
             if (connectionIsClosed.get()) {
@@ -206,10 +171,9 @@ public class ConnectionManager implements AutoCloseable {
         try {
             this.connection = factory.newConnection();
             CommonMetrics.setRabbitMQReadiness(true);
-            LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
             CommonMetrics.setRabbitMQReadiness(false);
-            LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
+            LOGGER.debug("Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
 
@@ -220,12 +184,6 @@ public class ConnectionManager implements AutoCloseable {
         } else {
             throw new IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
-
-        resendRejectService = Executors.newFixedThreadPool(configuration.getResendMessageConfiguration().getResendWorkers(), new DefaultThreadFactory("th2-resend-thread"));
-    }
-
-    public boolean isOpen() {
-        return connection.isOpen() && !connectionIsClosed.get();
     }
 
     public ResendMessageConfiguration getResendConfiguration() {
@@ -245,6 +203,10 @@ public class ConnectionManager implements AutoCloseable {
                 throw new IllegalStateException("Can not close connection");
             }
         }
+
+        if (!taskExecutor.isShutdown()) {
+            taskExecutor.shutdownNow();
+        }
     }
 
     public RabbitMQConfiguration getConfiguration() {
@@ -255,8 +217,104 @@ public class ConnectionManager implements AutoCloseable {
 
     public int getMinConnectionRecoveryTimeout() { return configuration.getMinConnectionRecoveryTimeout(); }
 
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, Supplier<Long> delayHandler, Runnable ackHandler, MainMetrics metrics) {
+        basicPublish(new PublishData(exchange, routingKey, props, body, delayHandler, ackHandler, metrics));
+    }
+
+    /**
+     * Send data only one time, without resends on reject and using common metrics
+     * @see ConnectionManager#basicPublish(String, String, BasicProperties, byte[], Supplier, Runnable, MainMetrics)
+     */
+    @Deprecated(forRemoval = true)
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) {
+        basicPublish(new PublishData(exchange, routingKey, props, body));
+    }
+
+    /**
+     * Send data only one time, without resends on reject
+     * @see ConnectionManager#basicPublish(String, String, BasicProperties, byte[], Supplier, Runnable, MainMetrics)
+     */
+    @Deprecated(forRemoval = true)
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MainMetrics metrics) {
+        basicPublish(new PublishData(exchange, routingKey, props, body, metrics));
+    }
+
+    /**
+     * Using common metrics.
+     * @see ConnectionManager#basicConsume(String, DeliverCallback, CancelCallback, MainMetrics)
+     */
+    @Deprecated(forRemoval = true)
+    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) {
+        return basicConsume(queue, deliverCallback, cancelCallback, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
+    }
+
+    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, MainMetrics metrics) {
+        Channel channel = this.channelContext.get().getChannel();
+
+        String tag = basicAction(() -> channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
+            try {
+                try {
+                    deliverCallback.handle(tagTmp, delivery);
+                } finally {
+                    basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
+                }
+            } catch (IOException | RuntimeException e) {
+                LOGGER.error(e.getMessage(), e);
+            }
+        }, cancelCallback), metrics);
+
+        return new RabbitMqSubscriberMonitor(channel, tag);
+    }
+
+    /**
+     * Using common metrics.
+     * @see ConnectionManager#basicCancel(Channel, String, MainMetrics)
+     */
+    @Deprecated(forRemoval = true)
+    public void basicCancel(Channel channel, String consumerTag) {
+        basicCancel(channel, consumerTag, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
+    }
+
+    public void basicCancel(Channel channel, String consumerTag, MainMetrics metrics) {
+        basicAction(() -> {
+            channel.basicCancel(consumerTag);
+            return null;
+        }, metrics);
+    }
+
+    public void restoreChannel() {
+        try {
+            Channel channel = channelContext.get().getChannel();
+            channel.clearReturnListeners();
+            channel.clearConfirmListeners();
+            channel.abort(1, "Aborted while trying to restore channel.");
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+
+        channelContext.remove();
+    }
+
     public ScheduledExecutorService getExecutor() {
         return executor;
+    }
+
+    private ChannelContext createChannelContext() {
+        checkConnection();
+
+        MainMetrics metrics = new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR());
+
+        Channel channel = basicAction(connection::createChannel, metrics);
+
+        basicAction(channel::confirmSelect, metrics);
+        channel.addReturnListener(ret ->
+                LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
+
+        basicAction(() -> {
+            channel.basicQos(configuration.getPrefetchCount());
+            return null;
+        }, metrics);
+        return new ChannelContext(channel);
     }
 
     private <T> T basicAction(RetriableSupplier<T> supplier, MainMetrics metrics) {
@@ -289,190 +347,15 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    @Deprecated
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) {
-        basicPublish(exchange, routingKey, props, body, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
-    }
-
-//    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, Supplier<Long> delayHandler, Runnable ackHandler) {
-//        try {
-//            basicPublish(new PublishData(exchange, routingKey, props, body, delayHandler, ackHandler));
-//        } catch (IOException e) {
-//            LOGGER.error("Can not send message with exchange '{}' and routing key '{}'", exchange, routingKey);
-//        }
-//    }
-
-//    private void basicPublish(PublishData data) throws IOException {
-//        Channel channel = this.channel.get();
-//        waitForConnectionRecovery(channel);
-//
-//        long nextSequence = channel.getNextPublishSeqNo();
-//
-//        rejectHandlers.get().put(nextSequence, data);
-//        channel.basicPublish(data.exchange, data.routingKey, data.props, data.body);
-//    }
-
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, MainMetrics metrics) {
-        Channel channel = this.channel.get();
-
+    private void basicPublish(PublishData data) {
+        ChannelContext channelContext = this.channelContext.get();
+        Channel channel = channelContext.getChannel();
         basicAction(() -> {
-            channel.basicPublish(exchange, routingKey, props, body);
+            long nextSequence = channel.getNextPublishSeqNo();
+            channelContext.getRejectHandlers().put(nextSequence, data);
+            channel.basicPublish(data.exchange, data.routingKey, data.props, data.body);
             return null;
-        }, metrics);
-    }
-
-    @Deprecated
-    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-        return basicConsume(queue, deliverCallback, cancelCallback, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
-    }
-
-    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, MainMetrics metrics) throws IOException {
-        Channel channel = this.channel.get();
-
-        String tag = basicAction(() -> channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
-            try {
-                try {
-                    deliverCallback.handle(tagTmp, delivery);
-                } finally {
-                    basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
-                }
-            } catch (IOException | RuntimeException e) {
-                LOGGER.error(e.getMessage(), e);
-            }
-        }, cancelCallback), metrics);
-
-        return new RabbitMqSubscriberMonitor(channel, tag);
-    }
-
-    @Deprecated
-    public void basicCancel(Channel channel, String consumerTag) {
-        basicCancel(channel, consumerTag, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
-    }
-
-    public void basicCancel(Channel channel, String consumerTag, MainMetrics metrics) {
-        basicAction(() -> {
-            channel.basicCancel(consumerTag);
-            return null;
-        }, metrics);
-    }
-
-    private Channel createChannel(MainMetrics metrics) {
-        checkConnection();
-
-        Channel channel;
-
-        channel = basicAction(connection::createChannel, metrics);
-
-        channel.addReturnListener(ret ->
-                LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
-
-        basicAction(() -> {
-            channel.basicQos(configuration.getPrefetchCount());
-            return null;
-        }, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
-        return channel;
-    }
-
-//    private Channel createChannel() {
-//        waitForConnectionRecovery(connection);
-//
-//        try {
-//            Channel channel = connection.createChannel();
-//
-//            channel.basicQos(configuration.getPrefetchCount());
-//            channel.confirmSelect();
-//
-//
-//            Map<Long, PublishData> currentRejectHandlers = rejectHandlers.get();
-//
-//            channel.addConfirmListener(new ConfirmListener() {
-//
-//                private long minSeq = -1l;
-//
-//                @Override
-//                public void handleAck(long deliveryTag, boolean multiple) throws IOException {
-//                    if (multiple) {
-//                        if (minSeq < 0) {
-//                            minSeq = deliveryTag;
-//                        }
-//
-//                        for (; minSeq <= deliveryTag; minSeq++) {
-//                            PublishData data = currentRejectHandlers.remove(minSeq);
-//                            if (data != null) {
-//                                try {
-//                                    data.success();
-//                                } catch (Exception e) {
-//                                    LOGGER.error("Can not execute success handler for exchange '{}', routing key '{}'", data.exchange, data.routingKey, e);
-//                                }
-//                            }
-//                        }
-//
-//                    } else {
-//                        if (minSeq < 0 || minSeq + 1 == deliveryTag) {
-//                            minSeq = deliveryTag;
-//                        }
-//
-//                        PublishData data = currentRejectHandlers.remove(deliveryTag);
-//                        if (data != null) {
-//                            try {
-//                                data.success();
-//                            } catch (Exception e) {
-//                                LOGGER.error("Can not execute success handler for exchange '{}', routing key '{}'", data.exchange, data.routingKey, e);
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                @SneakyThrows
-//                @Override
-//                public void handleNack(long deliveryTag, boolean multiple) throws IOException {
-//
-//                    if (multiple) {
-//                        if (minSeq < 0) {
-//                            minSeq = deliveryTag;
-//                        }
-//
-//                        for (; minSeq <= deliveryTag; minSeq++) {
-//
-//                            LOGGER.trace("Message with delivery tag '{}' is rejected", minSeq);
-//
-//                            PublishData data = currentRejectHandlers.remove(minSeq);
-//
-//                            if (data != null) {
-//                                resendRejectService.submit(data::resend);
-//                            }
-//                        }
-//                    } else {
-//                        if (minSeq < 0 || minSeq + 1 == deliveryTag) {
-//                            minSeq = deliveryTag;
-//                        }
-//
-//                        LOGGER.trace("Message with delivery tag '{}' is rejected", deliveryTag);
-//
-//                        PublishData data = currentRejectHandlers.remove(deliveryTag);
-//
-//                        if (data != null) {
-//                            resendRejectService.submit(data::resend);
-//                        }
-//                    }
-//                }
-//            });
-//            return channel;
-//        } catch (IOException e) {
-//            throw new IllegalStateException("Can not create channel", e);
-//        }
-//    }
-
-    public void restoreChannel() {
-        try {
-            channel.get().clearReturnListeners();
-            channel.get().clearConfirmListeners();
-            channel.get().abort(1, "Aborted while trying to restore channel.");
-        } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
-        }
-
-        channel.remove();
+        }, data.metrics);
     }
 
     private void checkConnection() {
@@ -492,13 +375,13 @@ public class ConnectionManager implements AutoCloseable {
             return null;
         }, metrics);
     }
-
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
 
         private final Channel channel;
-        private final String tag;
 
+        private final String tag;
         private MetricArbiter.MetricMonitor livenessMonitor;
+
         private MetricArbiter.MetricMonitor readinessMonitor;
 
         public RabbitMqSubscriberMonitor(Channel channel, String tag) {
@@ -508,10 +391,83 @@ public class ConnectionManager implements AutoCloseable {
             livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register("channel_" + tag + "_liveness");
             readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register("channel_" + tag + "_readiness");
         }
-
         @Override
         public void unsubscribe() {
             basicCancel(channel, tag, new MainMetrics(livenessMonitor, readinessMonitor));
+        }
+
+    }
+
+    private static class ChannelContext implements ConfirmListener {
+
+        private final Channel channel;
+        private final Map<Long, PublishData> rejectHandlers = new ConcurrentHashMap<>();
+        private long minSeq = -1L;
+
+        private ChannelContext(Channel channel) {
+            this.channel = channel;
+            this.channel.addConfirmListener(this);
+        }
+
+        public Channel getChannel() {
+            return channel;
+        }
+
+        public Map<Long, PublishData> getRejectHandlers() {
+            return rejectHandlers;
+        }
+
+        @Override
+        public void handleAck(long deliveryTag, boolean multiple) {
+            if (multiple) {
+                if (minSeq < 0) {
+                    minSeq = deliveryTag;
+                }
+
+                for (; minSeq <= deliveryTag; minSeq++) {
+                    success(rejectHandlers.remove(minSeq));
+                }
+
+            } else {
+                if (minSeq < 0 || minSeq + 1 == deliveryTag) {
+                    minSeq = deliveryTag;
+                }
+
+                success(rejectHandlers.remove(deliveryTag));
+            }
+        }
+
+        @Override
+        public void handleNack(long deliveryTag, boolean multiple) {
+            if (multiple) {
+                if (minSeq < 0) {
+                    minSeq = deliveryTag;
+                }
+
+                for (; minSeq <= deliveryTag; minSeq++) {
+                    LOGGER.trace("Message with delivery tag '{}' is rejected", minSeq);
+                    resend(rejectHandlers.remove(minSeq));
+                }
+            } else {
+                if (minSeq < 0 || minSeq + 1 == deliveryTag) {
+                    minSeq = deliveryTag;
+                }
+
+                LOGGER.trace("Message with delivery tag '{}' is rejected", deliveryTag);
+                resend(rejectHandlers.remove(deliveryTag));
+            }
+        }
+
+        private void resend(PublishData data) {
+            if (data != null) {
+                data.resend();
+            }
+        }
+
+        private void success(PublishData data) {
+            if (data != null) {
+                data.success();
+            }
         }
     }
 
@@ -519,7 +475,6 @@ public class ConnectionManager implements AutoCloseable {
         T retry() throws IOException;
     }
 
-    @Getter
     private class PublishData {
 
         private final String exchange;
@@ -528,22 +483,28 @@ public class ConnectionManager implements AutoCloseable {
         private final byte[] body;
         private final Supplier<Long> delaySupplier;
         private final Runnable ackHandler;
+        private final MainMetrics metrics;
 
-        public PublishData(String exchange, String routingKey, BasicProperties props, byte[] body, Supplier<Long> delaySupplier, Runnable ackHandler) {
+        public PublishData(String exchange, String routingKey, BasicProperties props, byte[] body, Supplier<Long> delaySupplier, Runnable ackHandler, MainMetrics metrics) {
             this.exchange = exchange;
             this.routingKey = routingKey;
             this.props = props;
             this.body = body;
             this.delaySupplier = delaySupplier;
             this.ackHandler = ackHandler;
+            this.metrics = metrics;
+        }
+
+        public PublishData(String exchange, String routingKey, BasicProperties props, byte[] body, MainMetrics metrics) {
+            this(exchange, routingKey, props, body, null, null, metrics);
+        }
+
+        public PublishData(String exchange, String routingKey, BasicProperties props, byte[] body) {
+            this(exchange, routingKey, props, body, new MainMetrics(CommonMetrics.getLIVENESS_MONITOR(), CommonMetrics.getREADINESS_MONITOR()));
         }
 
         public void send() {
-            try {
-                basicPublish(this);
-            } catch (IOException e) {
-                LOGGER.error("Can not send message to exchange '{}', routing key '{}'", exchange, routingKey);
-            }
+            basicPublish(this);
         }
 
         public void success() {
@@ -562,22 +523,65 @@ public class ConnectionManager implements AutoCloseable {
                 try {
                     delay = delaySupplier.get();
                 } catch (Exception e) {
-                    LOGGER.error("Can not get delay for message to exchange '{}', routing key '{}'", exchange, routingKey, e);
+                    LOGGER.warn("Can not get delay for message to exchange '{}', routing key '{}'", exchange, routingKey, e);
                 }
 
                 if (delay > -1) {
                     if (delay > 0) {
                         LOGGER.trace("Wait for resend message to exchange '{}', routing key '{}' milliseconds = {}", exchange, routingKey, delay);
-                        try {
-                            Thread.sleep(delay);
-                        } catch (InterruptedException e) {
-                            LOGGER.warn("Interrupted resend message to exchange '{}', routing key '{}'", exchange, routingKey, e);
-                        }
+                        executor.schedule(() -> taskExecutor.execute(this::send), delay, TimeUnit.MILLISECONDS);
+                    } else {
+                        taskExecutor.execute(this::send);
                     }
-
-                    send();
                 }
             }
+        }
+    }
+
+    private static class ConnectionExceptionHandler implements ExceptionHandler {
+        @Override
+        public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
+            turnOffReadness(exception);
+        }
+
+        @Override
+        public void handleReturnListenerException(Channel channel, Throwable exception) {
+            turnOffReadness(exception);
+        }
+
+        @Override
+        public void handleConfirmListenerException(Channel channel, Throwable exception) {
+            turnOffReadness(exception);
+        }
+
+        @Override
+        public void handleBlockedListenerException(Connection connection, Throwable exception) {
+            turnOffReadness(exception);
+        }
+
+        @Override
+        public void handleConsumerException(Channel channel, Throwable exception, Consumer consumer, String consumerTag, String methodName) {
+            turnOffReadness(exception);
+        }
+
+        @Override
+        public void handleConnectionRecoveryException(Connection conn, Throwable exception) {
+            turnOffReadness(exception);
+        }
+
+        @Override
+        public void handleChannelRecoveryException(Channel ch, Throwable exception) {
+            turnOffReadness(exception);
+        }
+
+        @Override
+        public void handleTopologyRecoveryException(Connection conn, Channel ch, TopologyRecoveryException exception) {
+            turnOffReadness(exception);
+        }
+
+        private void turnOffReadness(Throwable exception) {
+            CommonMetrics.setRabbitMQReadiness(false);
+            LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
         }
     }
 }

@@ -16,6 +16,23 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MainMetrics;
+import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.schema.message.MessageListener;
+import com.exactpro.th2.common.schema.message.MessageSubscriber;
+import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.rabbitmq.client.Delivery;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Gauge;
+import io.prometheus.client.Gauge.Timer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -24,25 +41,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import com.exactpro.th2.common.metrics.MainMetrics;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.MetricArbiter;
-import com.exactpro.th2.common.schema.message.MessageListener;
-import com.exactpro.th2.common.schema.message.MessageSubscriber;
-import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.rabbitmq.client.Delivery;
-
-import io.prometheus.client.Counter;
-import io.prometheus.client.Gauge;
-import io.prometheus.client.Gauge.Timer;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
@@ -93,12 +91,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
             consumerMonitor.updateAndGet(monitor -> {
                 if (monitor == null) {
-                    try {
-                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new MainMetrics(livenessMonitor, readinessMonitor));
-                        LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    }
+                    monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new MainMetrics(livenessMonitor, readinessMonitor));
+                    LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
                 }
                 return monitor;
             });
@@ -108,7 +102,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     private void resubscribe() {
-        consumerMonitor.set(null);
+        consumerMonitor.getAndSet(null);
         ConnectionManager connectionManager = this.connectionManager.get();
 
         int timeout = connectionManager.getMinConnectionRecoveryTimeout();
