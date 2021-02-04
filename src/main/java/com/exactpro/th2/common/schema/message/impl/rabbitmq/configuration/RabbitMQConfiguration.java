@@ -34,9 +34,7 @@ public class RabbitMQConfiguration {
     private int connectionCloseTimeout = 10_000;
 
     private int maxRecoveryAttempts = 5;
-
     private int minConnectionRecoveryTimeout = 10_000;
-
     private int maxConnectionRecoveryTimeout = 60_000;
 
     private int prefetchCount = 10;

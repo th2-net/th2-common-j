@@ -16,22 +16,8 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
-import com.exactpro.th2.common.metrics.HealthMetrics;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
@@ -39,10 +25,18 @@ import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Delivery;
-
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
 import io.prometheus.client.Gauge.Timer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
@@ -52,7 +46,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
-    private final AtomicReference<ScheduledExecutorService> executor = new AtomicReference<>();
 
     private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(getClass().getSimpleName() + "_liveness_" + hashCode());
     private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode());
@@ -72,13 +65,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         this.subscribeTarget.set(subscribeTarget);
         this.exchangeName.set(exchangeName);
 
-        executor.set(connectionManager.getExecutor());
-
         LOGGER.debug("{}:{} initialised with target {}", getClass().getSimpleName(), hashCode(), subscribeTarget);
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         ConnectionManager connectionManager = this.connectionManager.get();
         SubscribeTarget target = subscribeTarget.get();
         String exchange = exchangeName.get();
@@ -87,56 +78,16 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             throw new IllegalStateException("Subscriber is not initialized");
         }
 
-        try {
-            var queue = target.getQueue();
-            var routingKey = target.getRoutingKey();
+        var queue = target.getQueue();
+        var routingKey = target.getRoutingKey();
 
-            consumerMonitor.updateAndGet(monitor -> {
-                if (monitor == null) {
-                    try {
-                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new HealthMetrics(livenessMonitor, readinessMonitor));
-                        LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    }
-                }
-                return monitor;
-            });
-        }  catch (IllegalStateException e) {
-            throw new IOException("Can not start listening", e);
-        }
-    }
-
-    private void resubscribe() {
-        LOGGER.debug("Trying to resub");
-        consumerMonitor.set(null);
-        ConnectionManager connectionManager = this.connectionManager.get();
-
-        int timeout = connectionManager.getMinConnectionRecoveryTimeout();
-
-        try {
-            ScheduledExecutorService executorService = executor.get();
-
-            if(executorService != null) {
-                executorService.submit(() -> {
-                    try {
-                        LOGGER.debug("before start");
-                        start();
-                        LOGGER.debug("after start");
-                        readinessMonitor.unregister(readinessMonitor.getId());
-                        livenessMonitor.unregister(livenessMonitor.getId());
-                    } catch (Exception e) {
-                        LOGGER.error(e.getMessage(), e);
-
-                        livenessMonitor.disable();
-
-                        executorService.schedule(this::resubscribe, timeout, TimeUnit.MILLISECONDS);
-                    }
-                });
+        consumerMonitor.updateAndGet(monitor -> {
+            if (monitor == null) {
+                monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new HealthMetrics(livenessMonitor, readinessMonitor));
+                LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
             }
-        } catch (CancellationException e) {
-            LOGGER.error(e.getMessage(), e);
-        }
+            return monitor;
+        });
     }
 
     @Override
@@ -215,16 +166,28 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
+    private void resubscribe() {
+        SubscribeTarget target = subscribeTarget.get();
+        var queue = target.getQueue();
+        var routingKey = target.getRoutingKey();
+        LOGGER.info("Try to resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+        if (monitor != null) {
+            try {
+                monitor.unsubscribe();
+            } catch (Exception e) {
+                LOGGER.info("Can not unsubscribe on resubscribe for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+            }
+        }
+
+        start();
+    }
+
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
-
         readinessMonitor.disable();
-
-        ScheduledExecutorService scheduledExecutorService = executor.get();
-
-        if(scheduledExecutorService != null) {
-            scheduledExecutorService.submit(this::resubscribe);
-        }
+        resubscribe();
     }
 
 }

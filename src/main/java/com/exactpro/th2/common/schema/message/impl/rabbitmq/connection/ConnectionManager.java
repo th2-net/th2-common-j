@@ -15,34 +15,36 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import java.io.IOException;
-import java.util.Objects;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.rabbitmq.client.AMQP.BasicProperties;
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.CancelCallback;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+import com.rabbitmq.client.Recoverable;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.rabbitmq.client.AMQP.BasicProperties;
-import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Consumer;
-import com.rabbitmq.client.DeliverCallback;
-import com.rabbitmq.client.ExceptionHandler;
-import com.rabbitmq.client.Recoverable;
-import com.rabbitmq.client.RecoveryListener;
-import com.rabbitmq.client.TopologyRecoveryException;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -52,34 +54,18 @@ public class ConnectionManager implements AutoCloseable {
     private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode());
 
     private final Connection connection;
-    private final ThreadLocal<Channel> channel = ThreadLocal.withInitial(() ->
-            createChannel(new HealthMetrics(livenessMonitor, readinessMonitor)));
-    private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
+    private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
     private final RabbitMQConfiguration configuration;
     private final String subscriberName;
-    private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
 
     private final ScheduledExecutorService executor;
+    private ForkJoinPool tasker = new ForkJoinPool();
 
-
-
-    private final RecoveryListener recoveryListener = new RecoveryListener() {
-        @Override
-        public void handleRecovery(Recoverable recoverable) {
-            LOGGER.debug("Count tries to recovery connection reset to 0");
-            connectionRecoveryAttempts.set(0);
-            CommonMetrics.setRabbitMQReadiness(true);
-            LOGGER.debug("Set RabbitMQ readiness to true");
-        }
-
-        @Override
-        public void handleRecoveryStarted(Recoverable recoverable) {}
-    };
-
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection, ScheduledExecutorService scheduledExecutorService) {
+    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ScheduledExecutorService scheduledExecutorService, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
 
+        ConnectionRecoveryManager recoveryManager = new ConnectionRecoveryManager(rabbitMQConfiguration, onFailedRecoveryConnection, connectionIsClosed);
         if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
             subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
             LOGGER.info("Subscribers will use default name: {}", subscriberName);
@@ -92,7 +78,7 @@ public class ConnectionManager implements AutoCloseable {
         var username = rabbitMQConfiguration.getUsername();
         var password = rabbitMQConfiguration.getPassword();
 
-        executor = scheduledExecutorService;
+        this.executor = Objects.requireNonNull(scheduledExecutorService, "Scheduler can not be null");
 
         factory.setHost(rabbitMQConfiguration.getHost());
         factory.setPort(rabbitMQConfiguration.getPort());
@@ -113,172 +99,27 @@ public class ConnectionManager implements AutoCloseable {
             factory.setConnectionTimeout(rabbitMQConfiguration.getConnectionTimeout());
         }
 
-        factory.setExceptionHandler(new ExceptionHandler() {
-            @Override
-            public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleReturnListenerException(Channel channel, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleConfirmListenerException(Channel channel, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleBlockedListenerException(Connection connection, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleConsumerException(Channel channel, Throwable exception, Consumer consumer, String consumerTag, String methodName) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleConnectionRecoveryException(Connection conn, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleChannelRecoveryException(Channel ch, Throwable exception) {
-                turnOffReandess(exception);
-            }
-
-            @Override
-            public void handleTopologyRecoveryException(Connection conn, Channel ch, TopologyRecoveryException exception) {
-                turnOffReandess(exception);
-            }
-
-            private void turnOffReandess(Throwable exception){
-                CommonMetrics.setRabbitMQReadiness(false);
-                LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
-            }
-        });
-
+        factory.setExceptionHandler(recoveryManager);
         factory.setAutomaticRecoveryEnabled(true);
-        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
-            if (connectionIsClosed.get()) {
-                return false;
-            }
-
-            int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
-
-            if (tmpCountTriesToRecovery < rabbitMQConfiguration.getMaxRecoveryAttempts()) {
-                LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
-                return true;
-            }
-            LOGGER.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
-            if (onFailedRecoveryConnection != null) {
-                onFailedRecoveryConnection.run();
-            } else {
-                // TODO: we should stop the execution of the application. Don't use System.exit!!!
-                throw new IllegalStateException("Cannot recover connection to RabbitMQ");
-            }
-            return false;
-        });
-
-        factory.setRecoveryDelayHandler(recoveryAttempts -> {
-                    int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
-
-                    int recoveryDelay = rabbitMQConfiguration.getMinConnectionRecoveryTimeout()
-                            + (rabbitMQConfiguration.getMaxRecoveryAttempts() > 1
-                                ? (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
-                                    / (rabbitMQConfiguration.getMaxRecoveryAttempts() - 1)
-                                    * tmpCountTriesToRecovery
-                                : 0);
-
-                    LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
-                    return recoveryDelay;
-                }
-        );
+        factory.setConnectionRecoveryTriggeringCondition(recoveryManager);
+        factory.setRecoveryDelayHandler(recoveryManager);
 
         try {
             this.connection = factory.newConnection();
-            CommonMetrics.setRabbitMQReadiness(true);
             LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
-            CommonMetrics.setRabbitMQReadiness(false);
+            readinessMonitor.disable();
+            livenessMonitor.disable();
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
 
         if (this.connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) this.connection;
-            recoverableConnection.addRecoveryListener(recoveryListener);
+            recoverableConnection.addRecoveryListener(recoveryManager);
             LOGGER.debug("Recovery listener was added to connection.");
         } else {
-            throw new IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it");
-        }
-    }
-
-    @Override
-    public void close() throws IllegalStateException {
-        if (connectionIsClosed.getAndSet(true)) {
-            return;
-        }
-
-        if (connection.isOpen()) {
-            try {
-                connection.close(configuration.getConnectionCloseTimeout());
-            } catch (IOException e) {
-                throw new IllegalStateException("Can not close connection");
-            }
-        }
-    }
-
-    public RabbitMQConfiguration getConfiguration() {
-        return configuration;
-    }
-
-    public int getMaxConnectionRecoveryTimeout() { return configuration.getMaxConnectionRecoveryTimeout(); }
-
-    public int getMinConnectionRecoveryTimeout() { return configuration.getMinConnectionRecoveryTimeout(); }
-
-    public ScheduledExecutorService getExecutor() {
-        return executor;
-    }
-
-    private <T> T basicAction(RetriableSupplier<T> supplier, MetricArbiter.MetricMonitor livenessMonitor, MetricArbiter.MetricMonitor readinessMonitor) {
-        checkConnection();
-        int attemptsCount = 0;
-        int maxAttempts = configuration.getMaxRecoveryAttempts();
-
-        while (true) {
-            if(attemptsCount < maxAttempts) {
-                attemptsCount++;
-            }
-
-            try {
-                try {
-                    return supplier.retry();
-                } finally {
-                    readinessMonitor.enable();
-                    livenessMonitor.enable();
-                }
-            } catch (IOException e) {
-                readinessMonitor.disable();
-                LOGGER.error(e.getMessage(), e);
-
-                Channel channel = this.channel.get();
-
-                if(channel != null) {
-                    try {
-                        channel.abort();
-                    } catch (IOException ioException) {
-                        LOGGER.warn("Can not close channel for RabbitMQ");
-                    }
-                    this.channel.remove();
-                }
-
-                if (attemptsCount >= maxAttempts) {
-                    livenessMonitor.disable();
-                }
-            }
+            LOGGER.warn("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
     }
 
@@ -289,7 +130,6 @@ public class ConnectionManager implements AutoCloseable {
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body, HealthMetrics metrics) {
         Channel channel = this.channel.get();
-
         basicAction(() -> {
             channel.basicPublish(exchange, routingKey, props, body);
             return null;
@@ -297,36 +137,35 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     @Deprecated
-    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
+    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) {
         return basicConsume(queue, deliverCallback, cancelCallback, new HealthMetrics(livenessMonitor, readinessMonitor));
     }
 
-    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, HealthMetrics metrics) throws IOException {
-
-        boolean exists = true;
-        try {
-            channel.get().queueDeclarePassive(queue);
-        } catch (IOException e) {
-            exists = false;
-        }
-
-        if (!exists) {
-            return null;
-        }
-
-        String tag = basicAction(() -> channel.get().basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
-            try {
-                try {
-                    deliverCallback.handle(tagTmp, delivery);
-                } finally {
-                    basicAck(channel.get(), delivery.getEnvelope().getDeliveryTag(), metrics);
-                }
-            } catch (IOException | RuntimeException e) {
-                LOGGER.error(e.getMessage(), e);
+    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, HealthMetrics metrics) {
+        Channel channel = this.createChannel();
+        String consumerTag = subscriberName + '_' + nextSubscriberId.getAndIncrement();
+        CompletableFuture<String> future = basicRetry(new RetryAction<>(channel, metrics.getLivenessMonitor(), metrics.getReadinessMonitor()) {
+            @Override
+            protected String action(Channel channel) throws IOException, AlreadyClosedException {
+                return channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
+                    try {
+                        try {
+                            deliverCallback.handle(tag, delivery);
+                        } finally {
+                            try {
+                                channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                            } catch (IOException e) {
+                                LOGGER.error("Can not create ack request", e);
+                            }
+                        }
+                    } catch (IOException e) {
+                        LOGGER.error("Can not handle delivery for consumer with tag '{}'", consumerTag, e);
+                    }
+                }, cancelCallback);
             }
-        }, cancelCallback), metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
+        });
 
-        return new RabbitMqSubscriberMonitor(channel.get(), tag);
+        return new RabbitMqSubscriberMonitor(channel, future, subscriberName);
     }
 
     @Deprecated
@@ -335,26 +174,58 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicCancel(Channel channel, String consumerTag, HealthMetrics metrics) {
-        basicAction(() -> {
-            channel.basicCancel(consumerTag);
-            return null;
-        }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
+        basicRetry(new RetryAction<Void>(channel, metrics.getLivenessMonitor(), metrics.getReadinessMonitor()) {
+            @Override
+            protected Void action(Channel channel) throws IOException, AlreadyClosedException {
+                channel.basicCancel(consumerTag);
+                return null;
+            }
+        });
+        //TODO: Add on exception or cancel callback
     }
 
-    private Channel createChannel(HealthMetrics metrics) {
+    @Override
+    public void close() throws IllegalStateException {
+        if (connectionIsClosed.getAndSet(true)) {
+            return;
+        }
+
+        try {
+            connection.close(configuration.getConnectionCloseTimeout());
+        } catch (IOException e) {
+            LOGGER.warn("Can not close RabbitMQ connection. Try to abort it");
+            connection.abort(configuration.getConnectionCloseTimeout());
+        }
+    }
+
+    private Channel createChannel() {
         checkConnection();
 
-        Channel channel;
+        CompletableFuture<Channel> future = basicRetry(new RetryAction<Channel>(() -> null, livenessMonitor, readinessMonitor) {
+            @Override
+            protected Channel action(Channel channel) throws IOException, AlreadyClosedException {
+                return connection.createChannel();
+            }
+        });
 
-        channel = basicAction(connection::createChannel, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
+        Channel channel;
+        try {
+            channel = future.get();
+        } catch (InterruptedException | ExecutionException | CancellationException e) {
+            readinessMonitor.disable();
+            livenessMonitor.disable();
+            throw new IllegalStateException("Can not create channel from RabbitMQ connection", e);
+        }
 
         channel.addReturnListener(ret ->
                 LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
 
-        basicAction(() -> {
+        try {
             channel.basicQos(configuration.getPrefetchCount());
-            return null;
-        }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
+        } catch (IOException e) {
+            LOGGER.warn("Can not set prefetch number. Wrong number for prefetch. It must be from 0 to 65535", e);
+        }
+
         return channel;
     }
 
@@ -370,35 +241,153 @@ public class ConnectionManager implements AutoCloseable {
      * @throws IOException
      */
     private void basicAck(Channel channel, long deliveryTag, HealthMetrics metrics) throws IOException {
-        basicAction(() -> {
-            channel.basicAck(deliveryTag, false);
-            return null;
-        }, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
+//        try {
+//            channel.basicAck(deliveryTag, true);
+//        } catch (AlreadyClosedException e) {
+//
+//        }
+//        basicAction(chnl -> chnl.basicAck(deliveryTag, true),
+//                channel, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
     }
 
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
 
         private final Channel channel;
-        private final String tag;
+        private final CompletableFuture<String> futureTag;
 
-        private MetricArbiter.MetricMonitor livenessMonitor;
-        private MetricArbiter.MetricMonitor readinessMonitor;
+        private final MetricArbiter.MetricMonitor livenessMonitor;
+        private final MetricArbiter.MetricMonitor readinessMonitor;
 
-        public RabbitMqSubscriberMonitor(Channel channel, String tag) {
+        public RabbitMqSubscriberMonitor(Channel channel, CompletableFuture<String> futureTag, String consumerTag) {
             this.channel = channel;
-            this.tag = tag;
+            this.futureTag = futureTag;
 
-            livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register("channel_" + tag + "_liveness");
-            readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register("channel_" + tag + "_readiness");
+            livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register("subscriber_monitor_consumer_" + consumerTag + "_liveness");
+            readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register("subscriber_monitor_consumer_" + consumerTag + "_readiness");
         }
 
         @Override
         public void unsubscribe() {
-            basicCancel(channel, tag, new HealthMetrics(livenessMonitor, readinessMonitor));
+            try {
+                basicCancel(channel, futureTag.get(), new HealthMetrics(livenessMonitor, readinessMonitor));
+            } catch (InterruptedException | ExecutionException | CancellationException e) {
+                LOGGER.warn("Can not unsubscribe from queue", e);
+            }
         }
     }
 
-    private interface RetriableSupplier<T> {
-        T retry() throws IOException;
+    private <T> CompletableFuture<T> basicRetry(RetryAction<T> action) {
+        tasker.execute(action);
+        return action.getCompletableFuture();
+    }
+
+    private <T> CompletableFuture<T> basicAction(RabbitMQFunction<T> func, Channel channel, MetricArbiter.MetricMonitor livenessMonitor, MetricArbiter.MetricMonitor readinessMonitor) {
+        return basicRetry(new RetryAction<T>(channel, livenessMonitor, readinessMonitor) {
+            @Override
+            protected T action(Channel channel) throws IOException, AlreadyClosedException {
+                return func.apply(channel);
+            }
+        });
+    }
+
+    private <T> CompletableFuture<T> basicAction(RabbitMQFunction<T> func, Supplier<Channel> channelCreator, MetricArbiter.MetricMonitor livenessMonitor, MetricArbiter.MetricMonitor readinessMonitor) {
+        return basicRetry(new RetryAction<T>(channelCreator, livenessMonitor, readinessMonitor) {
+            @Override
+            protected T action(Channel channel) throws IOException, AlreadyClosedException {
+                return func.apply(channel);
+            }
+        });
+    }
+
+    private static interface RabbitMQAction {
+        public void action() throws IOException, AlreadyClosedException;
+    }
+
+    private static interface RabbitMQFunction<T> {
+        T apply(Channel channel) throws IOException, AlreadyClosedException;
+    }
+
+    private abstract class RetryAction<T> implements Runnable {
+        private final CompletableFuture<T> completableFuture = new CompletableFuture<>();
+        private final Supplier<Channel> channelCreator;
+        private final MetricArbiter.MetricMonitor livenessMonitor;
+        private final MetricArbiter.MetricMonitor readinessMonitor;
+
+        private int attemptCount = 0;
+        private Channel prevChannel = null;
+        private Channel channel = null;
+
+        public RetryAction(@NotNull Supplier<Channel> channelCreator, MetricArbiter.MetricMonitor livenessMonitor, MetricArbiter.MetricMonitor readinessMonitor) {
+            this.channelCreator = Objects.requireNonNull(channelCreator, "Channel creator can not be null");
+            this.livenessMonitor = livenessMonitor;
+            this.readinessMonitor = readinessMonitor;
+        }
+
+        public RetryAction(Channel channel, MetricArbiter.MetricMonitor livenessMonitor, MetricArbiter.MetricMonitor readinessMonitor) {
+            this(() -> channel, livenessMonitor, readinessMonitor);
+        }
+
+        @Override
+        public void run() {
+            if (connectionIsClosed.get()) {
+                completableFuture.cancel(true);
+                return;
+            }
+
+            if (channel == null) {
+                Channel newChannel = channelCreator.get();
+                if (newChannel == prevChannel) {
+                    completableFuture.cancel(true);
+                    return;
+                }
+                channel = newChannel;
+            }
+
+            try {
+                try {
+                    T result = action(channel);
+                    completableFuture.complete(result);
+                    return;
+                } finally {
+                    readinessMonitor.enable();
+                    livenessMonitor.enable();
+                }
+            } catch (IOException e) {
+                readinessMonitor.disable();
+                LOGGER.warn("Can not execute basic action for RabbitMQ", e);
+
+                if (attemptCount >= configuration.getMaxRecoveryAttempts()) {
+                    livenessMonitor.disable();
+                }
+            } catch (AlreadyClosedException e) {
+                LOGGER.warn("Channel is closed from basic action for RabbitMQ", e);
+
+                try {
+                    channel.abort();
+                } catch (IOException ex) {
+                    LOGGER.warn("Can not abort channel from basic action for RabbitMQ", ex);
+                }
+
+                prevChannel = channel;
+                channel = null;
+            }
+
+            if (completableFuture.isCancelled()) {
+                executor.schedule(this, getNextDelay(), TimeUnit.MILLISECONDS);
+            }
+        }
+
+        public CompletableFuture<T> getCompletableFuture() {
+            return completableFuture;
+        }
+
+        protected abstract T action(Channel channel) throws IOException, AlreadyClosedException;
+
+        private int getNextDelay() {
+            if (attemptCount < configuration.getMaxRecoveryAttempts()) {
+                attemptCount++;
+            }
+            return 1000 / configuration.getMaxRecoveryAttempts() * attemptCount;
+        }
     }
 }
