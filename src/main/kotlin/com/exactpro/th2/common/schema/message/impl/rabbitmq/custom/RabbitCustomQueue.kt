@@ -97,7 +97,7 @@ class RabbitCustomQueue<T : Any>(
 
         override fun getContentCounter(): Counter = dataCounter
 
-        override fun getProcessingTimer(): Histogram? = timer
+        override fun getProcessingTimer(): Histogram = timer
 
         override fun extractCountFrom(message: T): Int = converter.extractCount(message)
         //endregion
