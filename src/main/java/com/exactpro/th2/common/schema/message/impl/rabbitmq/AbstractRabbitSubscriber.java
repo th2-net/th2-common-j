@@ -35,8 +35,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 import com.rabbitmq.client.Delivery;
 
 import io.prometheus.client.Counter;
-import io.prometheus.client.Gauge;
-import io.prometheus.client.Gauge.Timer;
+import io.prometheus.client.Histogram;
+import io.prometheus.client.Histogram.Timer;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
@@ -126,7 +126,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract Counter getContentCounter();
 
-    protected abstract Gauge getProcessingTimer();
+    protected abstract Histogram getProcessingTimer();
 
     protected abstract int extractCountFrom(T message);
 
@@ -165,7 +165,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
         } finally {
-            processTimer.setDuration();
+            processTimer.observeDuration();
         }
     }
 

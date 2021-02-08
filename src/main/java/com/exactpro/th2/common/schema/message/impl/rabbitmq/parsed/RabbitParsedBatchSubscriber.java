@@ -16,6 +16,10 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+
+import java.util.List;
+
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
@@ -24,16 +28,17 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchS
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 
-import java.util.List;
-
 import io.prometheus.client.Counter;
-import io.prometheus.client.Gauge;
+import io.prometheus.client.Histogram;
 
 public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<Message, MessageBatch> {
 
     private static final Counter INCOMING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_batch_quantity", "Quantity of incoming parsed message batches").register();
     private static final Counter INCOMING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_quantity", "Quantity of incoming parsed messages").register();
-    private static final Gauge PARSED_MSG_PROCESSING_TIME = Gauge.build("th2_mq_parsed_msg_processing_time", "Time of processing parsed messages").register();
+    private static final Histogram PARSED_MSG_PROCESSING_TIME = Histogram.build()
+            .buckets(DEFAULT_BUCKETS)
+            .name("th2_mq_parsed_msg_processing_time")
+            .help("Time of processing parsed messages").register();
 
     @Override
     protected Counter getDeliveryCounter() {
@@ -46,7 +51,7 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
     }
 
     @Override
-    protected Gauge getProcessingTimer() {
+    protected Histogram getProcessingTimer() {
         return PARSED_MSG_PROCESSING_TIME;
     }
 
