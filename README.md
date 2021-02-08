@@ -146,3 +146,7 @@ NOTES:
 
 * in order for the metrics to be exported, you also will need to create an instance of CommonFactory
 * common JVM metrics will also be exported alongside common service metrics
+
+## Release notes
+
+* (3.0.1) - Metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)

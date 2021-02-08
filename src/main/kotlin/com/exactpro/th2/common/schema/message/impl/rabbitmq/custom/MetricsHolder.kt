@@ -16,16 +16,17 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
+import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
 import com.google.common.base.CaseFormat
 import io.prometheus.client.Counter
-import io.prometheus.client.Gauge
+import io.prometheus.client.Histogram
 
 class MetricsHolder(
     customTag: String
 ) {
     val incomingDeliveryCounter: Counter
     val incomingDataCounter: Counter
-    val processingTimer: Gauge
+    val processingTimer: Histogram
     val outgoingDeliveryCounter: Counter
     val outgoingDataCounter: Counter
 
@@ -48,7 +49,8 @@ class MetricsHolder(
             .name("th2_mq_outgoing_${tag}_data_quantity")
             .help("The number of sent messages")
             .register()
-        processingTimer = Gauge.build()
+        processingTimer = Histogram.build()
+            .buckets(*DEFAULT_BUCKETS)
             .name("th2_mq_${tag}_processing_time")
             .help("Time spent to process a single delivery")
             .register()
