@@ -16,6 +16,10 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+
+import java.util.List;
+
 import com.exactpro.th2.common.grpc.RawMessage;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
@@ -24,16 +28,17 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchS
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 
-import java.util.List;
-
 import io.prometheus.client.Counter;
-import io.prometheus.client.Gauge;
+import io.prometheus.client.Histogram;
 
 public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawMessage, RawMessageBatch> {
 
     private static final Counter INCOMING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_raw_msg_batch_quantity", "Quantity of incoming raw message batches").register();
     private static final Counter INCOMING_RAW_MSG_QUANTITY = Counter.build("th2_mq_incoming_raw_msg_quantity", "Quantity of incoming raw messages").register();
-    private static final Gauge RAW_MSG_PROCESSING_TIME = Gauge.build("th2_mq_raw_msg_processing_time", "Time of processing raw messages").register();
+    private static final Histogram RAW_MSG_PROCESSING_TIME = Histogram.build()
+            .buckets(DEFAULT_BUCKETS)
+            .name("th2_mq_raw_msg_processing_time")
+            .help("Time of processing raw messages").register();
 
     private static final String MESSAGE_TYPE = "raw";
 
@@ -56,7 +61,7 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     }
 
     @Override
-    protected Gauge getProcessingTimer() {
+    protected Histogram getProcessingTimer() {
         return RAW_MSG_PROCESSING_TIME;
     }
 
