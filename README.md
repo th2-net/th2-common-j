@@ -149,4 +149,4 @@ NOTES:
 
 ## Release notes
 
-* (2.9.2) - Metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to the Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
+* (2.9.2) - Metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
