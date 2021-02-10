@@ -17,6 +17,7 @@
 package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 
 import io.prometheus.client.Counter;
@@ -44,5 +45,10 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
     @Override
     protected byte[] valueToBytes(EventBatch value) {
         return value.toByteArray();
+    }
+
+    @Override
+    protected String toShortDebugString(EventBatch value) {
+        return MessageRouterUtils.toJson(value);
     }
 }
