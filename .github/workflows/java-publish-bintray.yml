@@ -1,4 +1,4 @@
-name: Build and publish Java distributions to Bintray
+name: Build and publish Java distributions to Github Packages
 
 on:
   push:
