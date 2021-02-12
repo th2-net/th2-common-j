@@ -40,6 +40,10 @@ allprojects {
         }
         mavenCentral()
         maven {
+            name 'Bintray'
+            url 'https://dl.bintray.com/exactpro/th2'
+        }
+        maven {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/th2-net/th2-common-j")
             credentials {
