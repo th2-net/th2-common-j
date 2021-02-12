@@ -19,6 +19,6 @@ jobs:
         with:
           java-version: '11'
       - name: Build with Gradle
-        run: ./gradlew clean build publishGprPublicationToMavenLocal
+        run: ./gradlew clean build publishGprPublicationToGithubPackagesRepository
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

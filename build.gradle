@@ -43,14 +43,6 @@ allprojects {
             name 'Bintray'
             url 'https://dl.bintray.com/exactpro/th2'
         }
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/th2-net/th2-common-j")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
         mavenLocal()
 
         configurations.all {
@@ -91,6 +83,15 @@ allprojects {
             maven {
                 name = 'localRepo'
                 url = sharedDir
+            }
+
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/th2-net/th2-common-j")
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
             }
         }
     }

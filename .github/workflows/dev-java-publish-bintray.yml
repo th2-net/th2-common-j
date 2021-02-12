@@ -35,7 +35,7 @@ jobs:
         with:
           java-version: '11'
       - name: Build with Gradle
-        run: ./gradlew clean build publishGprPublicationToMavenLocal -Prelease_version=${{ steps.release_ver.outputs.value }}
+        run: ./gradlew clean build publishGprPublicationToGithubPackagesRepository -Prelease_version=${{ steps.release_ver.outputs.value }}
         # run: ./gradlew clean build -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }} -Prelease_version=${{ steps.release_ver.outputs.value }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
