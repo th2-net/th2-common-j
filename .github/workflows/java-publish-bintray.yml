@@ -19,4 +19,6 @@ jobs:
         with:
           java-version: '11'
       - name: Build with Gradle
-        run: ./gradlew clean build bintrayUpload -Pbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_key=${{ secrets.BINTRAY_KEY }}
+        run: ./gradlew clean build publishGprPublicationToMavenLocal
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

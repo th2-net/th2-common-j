@@ -15,7 +15,6 @@ buildscript {
 
 plugins {
     id 'com.google.protobuf' version '0.8.8' apply false
-    id "com.jfrog.bintray" version '1.8.5'
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
 }
 
@@ -41,8 +40,12 @@ allprojects {
         }
         mavenCentral()
         maven {
-            name 'Bintray'
-            url 'https://dl.bintray.com/exactpro/th2'
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/th2-net/th2-common-j")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
         }
         mavenLocal()
 
@@ -66,7 +69,8 @@ allprojects {
             mavenJava(MavenPublication) {
                 from components.java
             }
-            bintrayPublication(MavenPublication) {
+
+            gpr(MavenPublication) {
                 from components.java
                 groupId group
                 artifactId rootProject.name
@@ -85,25 +89,6 @@ allprojects {
                 url = sharedDir
             }
         }
-    }
-
-    bintray {
-        user = "${bintray_user}"
-        key = "${bintray_key}"
-        publications = ['bintrayPublication']
-        pkg {
-            repo = 'th2'
-            name = rootProject.name
-            userOrg = 'exactpro'
-            licenses = ['Apache-2.0']
-            vcsUrl = project.vcs_url
-            version {
-                name = project.version
-                desc = project.version
-                released  = new Date()
-            }
-        }
-        publish = true
     }
 }
 
