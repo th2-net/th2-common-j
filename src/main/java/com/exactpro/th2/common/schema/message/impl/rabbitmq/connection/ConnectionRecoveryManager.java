@@ -1,3 +1,18 @@
+/*
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
@@ -28,8 +43,8 @@ public class ConnectionRecoveryManager implements RecoveryListener, ExceptionHan
     private final RabbitMQConfiguration configuration;
     private final AtomicBoolean connectionIsClosed;
 
-    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.getLIVENESS_ARBITER().register(getClass().getSimpleName() + "_liveness_" + hashCode());
-    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.getREADINESS_ARBITER().register(getClass().getSimpleName() + "_readiness_" + hashCode());
+    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
+    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
 
     public ConnectionRecoveryManager(RabbitMQConfiguration configuration, Runnable onFailedRecoveryConnection, AtomicBoolean connectionIsClosed) {
         this.configuration = configuration;

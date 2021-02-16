@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -72,10 +71,10 @@ class RabbitMessageGroupBatchSubscriber(
                 group.messagesList.filter { message ->
                     if (!filterStrategy.verify(message, filters)) {
                         logger.debug { "Skipped message because it didn't match any filters: ${extractMetadata(message)}" }
-                        return@filter false
+                        false
+                    } else {
+                        true
                     }
-
-                    true
                 }
             }
             .filter { it.isNotEmpty() }

@@ -17,108 +17,128 @@
 package com.exactpro.th2.common.metrics;
 
 import io.prometheus.client.Gauge;
-
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MetricArbiter {
     private static final Logger LOGGER = LoggerFactory.getLogger(MetricArbiter.class);
     private static final AtomicInteger COUNTER = new AtomicInteger(0);
+    private static final Path DEFAULT_PATH_TO_METRIC_FOLDER = Path.of("/var/th2/metrics");
 
-    private ConcurrentMap<Integer, AtomicBoolean> map;
+    private final Set<Integer> ids;
     private final Gauge prometheusMetric;
+    private final File metricFile;
 
     public MetricArbiter(Gauge metric) {
-        this.map = new ConcurrentHashMap<>();
+        this.ids = ConcurrentHashMap.newKeySet();
         this.prometheusMetric = metric;
+        this.metricFile = DEFAULT_PATH_TO_METRIC_FOLDER.resolve(metric.describe().get(0).name).toFile();
+        if (this.metricFile.exists() && !this.metricFile.delete()) {
+            throw new IllegalStateException("Can not delete file = " + metricFile);
+        }
     }
 
     private void setMetricValue(boolean value) {
         prometheusMetric.set(value ? 1.0 : 0.0);
+
+        if (value) {
+            try {
+                metricFile.createNewFile();
+            } catch (Exception e) {
+                throw new IllegalStateException("Can not create file = " + metricFile, e);
+            }
+        } else {
+            metricFile.delete();
+        }
     }
 
     private void calculateMetricValue() {
-        for (AtomicBoolean value : map.values()) {
-            if(!value.get()) {
-                setMetricValue(false);
-                return;
-            }
-        }
-
-        setMetricValue(true);
+        setMetricValue(ids.isEmpty());
     }
 
     public boolean getMetricValue() { return prometheusMetric.get() == 1.0; }
 
     public MetricMonitor register(String name) {
         int id = COUNTER.incrementAndGet();
-        AtomicBoolean value = new AtomicBoolean(true);
-        map.put(id, value);
-
-        return new MetricMonitor(id, name, value);
+        return new MetricMonitor(id, name);
     }
 
+    /**
+     * Class for change state of metric
+     */
     public class MetricMonitor {
         private String name;
-        private AtomicBoolean value;
-        private int id;
+        private final int id;
 
-        private MetricMonitor(int id, String name, AtomicBoolean value) {
+        private MetricMonitor(int id, String name) {
             this.name = name;
-            this.value = value;
             this.id = id;
         }
 
-        public void unregister(int id) {
-            AtomicBoolean value = map.remove(id);
-
-            if(value != null) {
+        /**
+         * Unregister this monitor
+         */
+        public void unregister() {
+            if (ids.remove(id)) {
                 calculateMetricValue();
             } else {
                 LOGGER.warn("Metric monitor with id {} is already unregistered", id);
             }
         }
 
+        /**
+         * Enable monitor, that mean all is ok
+         */
         public void enable() {
-            if(!value.getAndSet(true)) {
+            if (ids.remove(id)) {
                 calculateMetricValue();
             }
         }
 
+        /**
+         * Disable monitor, that mean something wrong
+         */
         public void disable() {
-            if(value.getAndSet(false)) {
+            if (ids.add(id)) {
                 setMetricValue(false);
             }
         }
 
+        /**
+         * @return monitors status
+         */
         public boolean isEnabled() {
-            return value.get();
+            return ids.contains(id);
         }
 
+        /**
+         * @return monitors name
+         */
         public String getName() {
             return name;
         }
 
+        /**
+         * Set new monitor name
+         * @param name new name
+         */
         public void setName(String name) {
             this.name = name;
         }
 
-        public int getId() {
-            return id;
-        }
-
         @Override
         public String toString() {
-            return "MetricArbiter{" +
-                    "name='" + name + '\'' +
-                    ", id=" + id +
-                    ", value='" + value + '\'' +
-                    '}';
+            return new ToStringBuilder(this)
+                    .append("name", name)
+                    .append("id", id)
+                    .toString();
         }
     }
 }
