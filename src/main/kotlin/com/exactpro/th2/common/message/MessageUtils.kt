@@ -139,3 +139,66 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
+
+val Message.messageType
+    get(): String = metadata?.messageType ?: ""
+var Message.Builder.messageType
+    get(): String = metadata?.messageType ?: ""
+    set(value: String) {
+        if (messageType != value) {
+            setMetadata(MessageMetadata.newBuilder(metadata).apply {
+                messageType = value
+            })
+        }
+    }
+
+val Message.direction
+    get(): Direction = metadata?.id?.direction ?: Direction.forNumber(0)
+var Message.Builder.direction
+    get(): Direction = metadata?.id?.direction ?: Direction.forNumber(0)
+    set(value: Direction) {
+        if (direction != value) {
+            setMetadata(MessageMetadata.newBuilder(metadata).apply {
+                setId(MessageID.newBuilder(id).apply {
+                    direction = value
+                })
+            })
+        }
+    }
+
+val Message.sessionAlias
+    get(): String = metadata?.id?.connectionId?.sessionAlias ?: ""
+var Message.Builder.sessionAlias
+    get(): String = metadata?.id?.connectionId?.sessionAlias ?: ""
+    set(value: String) {
+        if (sessionAlias != value) {
+            setMetadata(MessageMetadata.newBuilder(metadata).apply {
+                setId(MessageID.newBuilder(id).apply {
+                    setConnectionId(ConnectionID.newBuilder(connectionId).apply {
+                        sessionAlias = value
+                    })
+                })
+            })
+        }
+    }
+
+val Message.sequence
+    get(): Long = metadata?.id?.sequence ?: 0
+var Message.Builder.sequence
+    get(): Long = metadata?.id?.sequence ?: 0
+    set(value: Long) {
+        if (sequence != value) {
+            setMetadata(MessageMetadata.newBuilder(metadata).apply {
+                setId(MessageID.newBuilder(id).apply {
+                    sequence = value
+                })
+            })
+        }
+    }
+
+//fun Message.Builder.getMessageType(): String? = metadata?.messageType
+//
+//fun Message.getDirection(): Direction? = metadata?.id?.direction
+//fun Message.Builder.getDirection(): Direction? = metadata?.id?.direction
+//
+//fun Message.Builder.getSessionAlias(): String? = metadata?.id?.direction

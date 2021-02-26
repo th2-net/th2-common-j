@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
-import org.junit.jupiter.api.Assertions.*
+import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
+import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.get
 import com.exactpro.th2.common.message.message
+import com.exactpro.th2.common.message.messageType
+import com.exactpro.th2.common.message.sequence
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.set
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 const val MESSAGE_TYPE_VALUE = "test message type"
@@ -38,15 +47,9 @@ class TestMessageUtil {
             assertEquals(MESSAGE_TYPE_VALUE, it.metadata.messageType)
         }
         message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).build().also {
-            assertTrue(it.hasMetadata())
-            val metadata = it.metadata
-            assertEquals(MESSAGE_TYPE_VALUE, metadata.messageType)
-            assertTrue(metadata.hasId())
-            val id = metadata.id
-            assertEquals(DIRECTION_VALUE, id.direction)
-            assertTrue(id.hasConnectionId())
-            val connectionId = id.connectionId
-            assertEquals(SESSION_ALIAS_VALUE, connectionId.sessionAlias)
+            assertEquals(MESSAGE_TYPE_VALUE, it.messageType)
+            assertEquals(DIRECTION_VALUE, it.direction)
+            assertEquals(SESSION_ALIAS_VALUE, it.sessionAlias)
         }
     }
 
@@ -63,6 +66,63 @@ class TestMessageUtil {
         builder.build()[FIELD_NAME].also {
             assertNotNull(it)
             assertEquals(FIELD_VALUE, it?.simpleValue)
+        }
+    }
+
+    @Test
+    fun `update message type`() {
+        val newMessageType = "Hello"
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
+            assertNotEquals(newMessageType, it.messageType)
+        }.apply {
+            messageType = newMessageType
+        }.also {
+            assertEquals(newMessageType, it.messageType)
+            assertEquals(DIRECTION_VALUE, it.direction)
+            assertEquals(SESSION_ALIAS_VALUE, it.sessionAlias)
+        }
+    }
+
+    @Test
+    fun `update direction`() {
+        val newDirection = FIRST
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
+            assertNotEquals(newDirection, it.direction)
+        }.apply {
+            direction = newDirection
+        }.also {
+            assertEquals(MESSAGE_TYPE_VALUE, it.messageType)
+            assertEquals(newDirection, it.direction)
+            assertEquals(SESSION_ALIAS_VALUE, it.sessionAlias)
+        }
+    }
+
+    @Test
+    fun `update session alias`() {
+        val newSessionAlias = "Hello"
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
+            assertNotEquals(newSessionAlias, it.sessionAlias)
+        }.apply {
+            sessionAlias = newSessionAlias
+        }.also {
+            assertEquals(MESSAGE_TYPE_VALUE, it.messageType)
+            assertEquals(DIRECTION_VALUE, it.direction)
+            assertEquals(newSessionAlias, it.sessionAlias)
+        }
+    }
+
+    @Test
+    fun `update sequence`() {
+        val newSequence = Long.MAX_VALUE
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
+            assertNotEquals(newSequence, it.sequence)
+        }.apply {
+            sequence = newSequence
+        }.also {
+            assertEquals(MESSAGE_TYPE_VALUE, it.messageType)
+            assertEquals(DIRECTION_VALUE, it.direction)
+            assertEquals(SESSION_ALIAS_VALUE, it.sessionAlias)
+            assertEquals(newSequence, it.sequence)
         }
     }
 }
