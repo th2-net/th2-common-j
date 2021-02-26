@@ -48,7 +48,9 @@ fun message() : Message.Builder = Message.newBuilder()
 fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType)
 fun message(messageType: String, direction: Direction, sessionAlias: String): Message.Builder = Message.newBuilder().setMetadata(messageType, direction, sessionAlias)
 
+operator fun Message.get(key: String): Value? = getField(key)
 fun Message.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
+operator fun Message.Builder.get(key: String): Value? = getField(key)
 fun Message.Builder.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
 
 fun Message.getString(fieldName: String): String? = getField(fieldName)?.getString()
@@ -69,6 +71,8 @@ fun Message.Builder.getBigDecimal(fieldName: String): BigDecimal? = getField(fie
 fun Message.Builder.getMessage(fieldName: String): Message? = getField(fieldName)?.getMessage()
 fun Message.Builder.getList(fieldName: String): List<Value>? = getField(fieldName)?.listValue?.valuesList
 
+
+operator fun Message.Builder.set(key: String, value: Any?): Message.Builder = apply { addField(key, value) }
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 
 fun Message.Builder.copyField(message: Message, key: String) : Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
