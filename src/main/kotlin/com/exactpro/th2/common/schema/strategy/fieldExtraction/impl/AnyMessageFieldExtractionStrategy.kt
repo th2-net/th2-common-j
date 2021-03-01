@@ -28,17 +28,21 @@ class AnyMessageFieldExtractionStrategy : FieldExtractionStrategy {
 
         val result = HashMap<String, String>();
 
-        if (message.hasMessage()) {
-            result.putAll(message.message.fieldsMap.mapValues { it.value.simpleValue })
+        when {
+            message.hasMessage() -> {
+                result.putAll(message.message.fieldsMap.mapValues { it.value.simpleValue })
 
-            val metadata = message.message.metadata
-            result[AbstractTh2MsgFieldExtraction.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
-            result[AbstractTh2MsgFieldExtraction.MESSAGE_TYPE_KEY] = message.message.descriptorForType.name
-            result[AbstractTh2MsgFieldExtraction.DIRECTION_KEY] = metadata.id.direction.name
-        } else {
-            val metadata = message.rawMessage.metadata
-            result[AbstractTh2MsgFieldExtraction.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
-            result[AbstractTh2MsgFieldExtraction.DIRECTION_KEY] = metadata.id.direction.name
+                val metadata = message.message.metadata
+                result[AbstractTh2MsgFieldExtraction.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
+                result[AbstractTh2MsgFieldExtraction.MESSAGE_TYPE_KEY] = message.message.descriptorForType.name
+                result[AbstractTh2MsgFieldExtraction.DIRECTION_KEY] = metadata.id.direction.name
+            }
+            message.hasRawMessage() -> {
+                val metadata = message.rawMessage.metadata
+                result[AbstractTh2MsgFieldExtraction.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
+                result[AbstractTh2MsgFieldExtraction.DIRECTION_KEY] = metadata.id.direction.name
+            }
+            else -> throw IllegalStateException("Message has not messages: ${message.toJson()}")
         }
 
         return result
