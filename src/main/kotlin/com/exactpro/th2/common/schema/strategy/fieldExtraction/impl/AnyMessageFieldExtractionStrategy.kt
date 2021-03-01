@@ -17,14 +17,30 @@
 package com.exactpro.th2.common.schema.strategy.fieldExtraction.impl
 
 import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.schema.message.toJson
 import com.exactpro.th2.common.schema.strategy.fieldExtraction.AbstractTh2MsgFieldExtraction
+import com.exactpro.th2.common.schema.strategy.fieldExtraction.FieldExtractionStrategy
 
-class AnyMessageFieldExtractionStrategy : AbstractTh2MsgFieldExtraction() {
-    override fun parseMessage(message: com.google.protobuf.Message): Message {
+class AnyMessageFieldExtractionStrategy : FieldExtractionStrategy {
+
+    override fun getFields(message: com.google.protobuf.Message): MutableMap<String, String> {
         check(message is AnyMessage) { "Message is not an ${AnyMessage::class.qualifiedName}: ${message.toJson()}" }
-        check(message.hasMessage()) { "Message doesn't contain a parsed message inside: ${message.toJson()}" }
-        return message.message
+
+        val result = HashMap<String, String>();
+
+        if (message.hasMessage()) {
+            result.putAll(message.message.fieldsMap.mapValues { it.value.simpleValue })
+
+            val metadata = message.message.metadata
+            result[AbstractTh2MsgFieldExtraction.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
+            result[AbstractTh2MsgFieldExtraction.MESSAGE_TYPE_KEY] = message.message.descriptorForType.name
+            result[AbstractTh2MsgFieldExtraction.DIRECTION_KEY] = metadata.id.direction.name
+        } else {
+            val metadata = message.rawMessage.metadata
+            result[AbstractTh2MsgFieldExtraction.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
+            result[AbstractTh2MsgFieldExtraction.DIRECTION_KEY] = metadata.id.direction.name
+        }
+
+        return result
     }
 }
