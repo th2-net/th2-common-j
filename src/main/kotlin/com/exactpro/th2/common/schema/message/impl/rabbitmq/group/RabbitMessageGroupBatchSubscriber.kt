@@ -16,9 +16,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
-import com.exactpro.th2.common.grpc.AnyMessage
-import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
-import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
@@ -27,13 +24,14 @@ import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
 import com.exactpro.th2.common.schema.message.toJson
+import com.exactpro.th2.common.schema.strategy.fieldExtraction.impl.AnyMessageFieldExtractionStrategy
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
 
 class RabbitMessageGroupBatchSubscriber(
     private val filters: List<RouterFilter>,
-    private val filterStrategy: FilterStrategy = DefaultFilterStrategy()
+    private val filterStrategy: FilterStrategy = DefaultFilterStrategy(AnyMessageFieldExtractionStrategy())
 ) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters, filterStrategy) {
     private val logger = KotlinLogging.logger {}
 
@@ -48,46 +46,27 @@ class RabbitMessageGroupBatchSubscriber(
 
     override fun extractMetadata(messageGroup: MessageGroup): Metadata = throw UnsupportedOperationException()
 
-    private fun extractMetadata(message: AnyMessage): Metadata {
-        val (messageType, messageId) = when (val kindCase = message.kindCase) {
-            MESSAGE -> message.message.metadata.run { messageType to id }
-            RAW_MESSAGE -> message.rawMessage.metadata.run { RAW_MESSAGE_TYPE to id }
-            else -> error("Unsupported group message kind: $kindCase")
-        }
-
-        return Metadata(
-            messageId.sequence,
-            messageType,
-            messageId.direction,
-            messageId.connectionId.sessionAlias
-        )
-    }
-
     override fun filter(batch: MessageGroupBatch): MessageGroupBatch? {
         if (filters.isEmpty()) {
             return batch
         }
 
         val groups = getMessages(batch).asSequence()
-            .map { group ->
-                group.messagesList.filter { message ->
-                    if (!filterStrategy.verify(message, filters)) {
-                        logger.debug { "Skipped message because it didn't match any filters: ${extractMetadata(message)}" }
-                        return@filter false
+            .filter { group ->
+                group.messagesList.all { message ->
+                    filterStrategy.verify(message, filters)
+                }.also { allMessagesMatch ->
+                    if (!allMessagesMatch) {
+                        logger.debug { "Skipped message group because none or some of its messages didn't match any filters: ${group.toJson()}" }
                     }
-
-                    true
                 }
             }
-            .filter { it.isNotEmpty() }
-            .map { MessageGroup.newBuilder().addAllMessages(it).build() }
             .toList()
 
         return if (groups.isEmpty()) null else createBatch(groups)
     }
 
     companion object {
-        private const val RAW_MESSAGE_TYPE = "raw"
         private val INCOMING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_incoming_msg_group_batch_quantity", "Quantity of incoming message group batches").register()
         private val INCOMING_MSG_GROUP_QUANTITY = Counter.build("th2_mq_incoming_msg_group_quantity", "Quantity of incoming message groups").register()
         private val MSG_GROUP_PROCESSING_TIME = Histogram.build("th2_mq_msg_group_processing_time", "Time of processing message groups").buckets(*DEFAULT_BUCKETS).register()
