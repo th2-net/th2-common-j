@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
 import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.get
@@ -27,17 +26,15 @@ import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.set
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.util.stream.Stream
 
-const val MESSAGE_TYPE_VALUE = "test message type"
-const val SESSION_ALIAS_VALUE = "test session alias"
-const val FIELD_NAME = "test field"
-const val FIELD_VALUE = "test value"
-val DIRECTION_VALUE = SECOND
+private const val MESSAGE_TYPE_VALUE = "test message type"
+private const val SESSION_ALIAS_VALUE = "test session alias"
+private const val FIELD_NAME = "test field"
+private const val FIELD_VALUE = "test value"
+private val DIRECTION_VALUE = SECOND
 
 class TestMessageUtil {
     @Test
