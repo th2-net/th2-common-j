@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
+
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.message.direction
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.stream.Stream
 
 const val MESSAGE_TYPE_VALUE = "test message type"
 const val SESSION_ALIAS_VALUE = "test session alias"
@@ -71,10 +74,10 @@ class TestMessageUtil {
 
     @Test
     fun `update message type`() {
-        val newMessageType = "Hello"
-        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
-            assertNotEquals(newMessageType, it.messageType)
-        }.apply {
+        val builder = message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE)
+        val newMessageType = builder.messageType + "Hello"
+
+        builder.apply {
             messageType = newMessageType
         }.also {
             assertEquals(newMessageType, it.messageType)
@@ -85,10 +88,12 @@ class TestMessageUtil {
 
     @Test
     fun `update direction`() {
-        val newDirection = FIRST
-        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
-            assertNotEquals(newDirection, it.direction)
-        }.apply {
+        val builder = message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE)
+        val newDirection = Direction.values().asSequence()
+            .filter{ item -> item != Direction.UNRECOGNIZED && item != builder.direction }
+            .first()
+
+        builder.apply {
             direction = newDirection
         }.also {
             assertEquals(MESSAGE_TYPE_VALUE, it.messageType)
@@ -99,10 +104,10 @@ class TestMessageUtil {
 
     @Test
     fun `update session alias`() {
-        val newSessionAlias = "Hello"
-        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
-            assertNotEquals(newSessionAlias, it.sessionAlias)
-        }.apply {
+        val builder = message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE)
+        val newSessionAlias = builder.sessionAlias + "Hello"
+
+        builder.apply {
             sessionAlias = newSessionAlias
         }.also {
             assertEquals(MESSAGE_TYPE_VALUE, it.messageType)
@@ -113,10 +118,10 @@ class TestMessageUtil {
 
     @Test
     fun `update sequence`() {
-        val newSequence = Long.MAX_VALUE
-        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).also {
-            assertNotEquals(newSequence, it.sequence)
-        }.apply {
+        val builder = message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE)
+        val newSequence = builder.sequence++
+
+        builder.apply {
             sequence = newSequence
         }.also {
             assertEquals(MESSAGE_TYPE_VALUE, it.messageType)
