@@ -43,7 +43,8 @@ public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMe
 
     @Override
     protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
-        MessageQueue<RawMessageBatch> queue = new RabbitRawBatchQueue();
+        RabbitRawBatchQueue queue = new RabbitRawBatchQueue();
+        queue.setFilterStrategy(filterStrategy.get());
         queue.init(connectionManager, queueConfiguration);
         return queue;
     }
