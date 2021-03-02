@@ -16,7 +16,11 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
@@ -53,6 +58,9 @@ public class ConnectionManager implements AutoCloseable {
     private final RabbitMQConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
+    private final ExecutorService sharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+            .setNameFormat("rabbitmq-shared-pool-%d")
+            .build());
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
@@ -104,45 +112,45 @@ public class ConnectionManager implements AutoCloseable {
         factory.setExceptionHandler(new ExceptionHandler() {
             @Override
             public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
             @Override
             public void handleReturnListenerException(Channel channel, Throwable exception) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
             @Override
             public void handleConfirmListenerException(Channel channel, Throwable exception) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
             @Override
             public void handleBlockedListenerException(Connection connection, Throwable exception) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
             @Override
             public void handleConsumerException(Channel channel, Throwable exception, Consumer consumer, String consumerTag, String methodName) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
             @Override
             public void handleConnectionRecoveryException(Connection conn, Throwable exception) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
             @Override
             public void handleChannelRecoveryException(Channel ch, Throwable exception) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
             @Override
             public void handleTopologyRecoveryException(Connection conn, Channel ch, TopologyRecoveryException exception) {
-                turnOffReandess(exception);
+                turnOffReadiness(exception);
             }
 
-            private void turnOffReandess(Throwable exception){
+            private void turnOffReadiness(Throwable exception){
                 CommonMetrics.setRabbitMQReadiness(false);
                 LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
             }
@@ -184,6 +192,7 @@ public class ConnectionManager implements AutoCloseable {
                     return recoveryDelay;
                 }
         );
+        factory.setSharedExecutor(sharedExecutor);
 
         try {
             this.connection = factory.newConnection();
@@ -209,18 +218,21 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     @Override
-    public void close() throws IllegalStateException {
+    public void close() {
         if (connectionIsClosed.getAndSet(true)) {
             return;
         }
 
+        int closeTimeout = configuration.getConnectionCloseTimeout();
         if (connection.isOpen()) {
             try {
-                connection.close(configuration.getConnectionCloseTimeout());
+                connection.close(closeTimeout);
             } catch (IOException e) {
-                throw new IllegalStateException("Can not close connection");
+                LOGGER.error("Cannot close connection", e);
             }
         }
+
+        shutdownSharedExecutor(closeTimeout);
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
@@ -244,12 +256,25 @@ public class ConnectionManager implements AutoCloseable {
             }
         }, cancelCallback);
 
-        return new RabbitMqSubscriberMonitor(channel, tag);
+        return new RabbitMqSubscriberMonitor(channel, tag, this::basicCancel);
     }
 
     public void basicCancel(Channel channel, String consumerTag) throws IOException {
         waitForConnectionRecovery(channel);
         channel.basicCancel(consumerTag);
+    }
+
+    private void shutdownSharedExecutor(int closeTimeout) {
+        sharedExecutor.shutdown();
+        try {
+            if (!sharedExecutor.awaitTermination(closeTimeout, TimeUnit.MILLISECONDS)) {
+                LOGGER.error("Executor is not terminated during {} millis", closeTimeout);
+                List<Runnable> runnables = sharedExecutor.shutdownNow();
+                LOGGER.error("{} task(s) was(were) not finished", runnables.size());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private Channel createChannel() {
@@ -291,19 +316,26 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicAck(deliveryTag, false);
     }
 
-    private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
+    private static class RabbitMqSubscriberMonitor implements SubscriberMonitor {
 
         private final Channel channel;
         private final String tag;
+        private final CancelAction action;
 
-        public RabbitMqSubscriberMonitor(Channel channel, String tag) {
+        public RabbitMqSubscriberMonitor(Channel channel, String tag,
+                                         CancelAction action) {
             this.channel = channel;
             this.tag = tag;
+            this.action = action;
         }
 
         @Override
         public void unsubscribe() throws Exception {
-            basicCancel(channel, tag);
+            action.execute(channel, tag);
         }
+    }
+
+    private interface CancelAction {
+        void execute(Channel channel, String tag) throws Exception;
     }
 }
