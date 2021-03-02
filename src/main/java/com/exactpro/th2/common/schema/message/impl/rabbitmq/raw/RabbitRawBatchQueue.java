@@ -18,22 +18,25 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.strategy.fieldExtraction.impl.Th2RawMsgFieldExtraction;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 
 public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
-    private final FilterStrategy strategy;
+    private FilterStrategy strategy = new DefaultFilterStrategy(new Th2RawMsgFieldExtraction());
 
-    public RabbitRawBatchQueue(@NotNull FilterStrategy strategy) {
-        this.strategy = Objects.requireNonNull(strategy, "Strategy can not be null");
+
+    public void setFilterStrategy(@NotNull FilterStrategy strategy) {
+        this.strategy = Objects.requireNonNull(strategy, "Strategy can not be null");;
     }
 
     @Override
