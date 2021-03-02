@@ -16,17 +16,25 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.Objects;
 
 public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
+
+    private final FilterStrategy strategy;
+
+    public RabbitRawBatchQueue(@NotNull FilterStrategy strategy) {
+        this.strategy = Objects.requireNonNull(strategy, "Strategy can not be null");
+    }
 
     @Override
     protected MessageSender<RawMessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
@@ -37,7 +45,7 @@ public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     @Override
     protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters());
+        var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters(), strategy);
         var subscribeTarget = new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey());
         result.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
         return result;
