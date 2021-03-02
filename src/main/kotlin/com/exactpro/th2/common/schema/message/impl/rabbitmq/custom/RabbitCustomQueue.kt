@@ -70,6 +70,8 @@ class RabbitCustomQueue<T : Any>(
     ) : AbstractRabbitSender<T>() {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
+        override fun toShortDebugString(value: T): String = converter.toDebugString(value)
+
         //region Prometheus stats
         override fun getDeliveryCounter(): Counter = deliveryCounter
 
@@ -97,7 +99,7 @@ class RabbitCustomQueue<T : Any>(
 
         override fun getContentCounter(): Counter = dataCounter
 
-        override fun getProcessingTimer(): Histogram? = timer
+        override fun getProcessingTimer(): Histogram = timer
 
         override fun extractCountFrom(message: T): Int = converter.extractCount(message)
         //endregion

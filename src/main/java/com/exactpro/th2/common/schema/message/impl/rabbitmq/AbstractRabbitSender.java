@@ -79,9 +79,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         }
     }
 
-    protected String toShortDebugString(T value) {
-        return value.toString();
-    }
+    protected abstract String toShortDebugString(T value);
 
     protected abstract byte[] valueToBytes(T value);
 
