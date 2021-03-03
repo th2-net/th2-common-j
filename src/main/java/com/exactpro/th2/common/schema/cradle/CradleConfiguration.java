@@ -50,13 +50,13 @@ public class CradleConfiguration {
     private long timeout = CassandraStorageSettings.DEFAULT_TIMEOUT;
 
     /**
-     * This is the connection timeout {@link CassandraStorageSettings#DEFAULT_TIMEOUT} set as the default value.
+     * This option defines the size of the result set to fetch at a time.
      */
     @JsonProperty
-    private int pageSize = 0;
+    private int pageSize = 5000;
 
     /**
-     * TThis is the maximum event batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_EVENT_BATCH_SIZE} set as the default value.
+     * This is the maximum event batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_EVENT_BATCH_SIZE} set as the default value.
      * This option is used as an argument of the {@link CradleManager#initStart(String, boolean, long, long)} method
      */
     private long cradleMaxEventBatchSize = CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
