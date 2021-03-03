@@ -42,6 +42,12 @@ public class CradleConfiguration {
 
     @JsonProperty
     private String cradleInstanceName;
+    
+    @JsonProperty
+    private long timeout;
+    
+    @JsonProperty
+    private int pageSize;
 
     /**
      * TThis is the maximum event batch size in bytes with {@link CassandraStorageSettings#DEFAULT_MAX_EVENT_BATCH_SIZE} set as the default value.
@@ -137,5 +143,25 @@ public class CradleConfiguration {
      */
     public void setCradleMaxMessageBatchSize(long cradleMaxMessageBatchSize) {
         this.cradleMaxMessageBatchSize = cradleMaxMessageBatchSize;
+    }
+
+    public long getTimeout()
+    {
+        return timeout;
+    }
+
+    public void setTimeout(long timeout)
+    {
+        this.timeout = timeout;
+    }
+
+    public int getPageSize()
+    {
+        return pageSize;
+    }
+
+    public void setPageSize(int pageSize)
+    {
+        this.pageSize = pageSize;
     }
 }
