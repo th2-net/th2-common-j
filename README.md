@@ -71,6 +71,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
+* timeout - this option defines connection timeout in millisecons. If set to 0 or ommited, the default value 5000 is used.
+* pageSize - this option defines size of result set to fetch at a time. If set to 0 or ommited, the default value from cassandra is used. Usually 5000. It depends on cassandra version.
 
 ```json
 {
@@ -82,7 +84,9 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "password": "<password>",
   "cradleInstanceName": "<cradle instance name>",
   "cradleMaxEventBatchSize": 1048576,
-  "cradleMaxMessageBatchSize": 1048576
+  "cradleMaxMessageBatchSize": 1048576,
+  "timeout": 5000,
+  "pageSize": 0
 }
 ```
 
