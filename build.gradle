@@ -108,7 +108,7 @@ allprojects {
 }
 
 ext {
-    cradleVersion       = '2.6.1'
+    cradleVersion       = '2.8.0'
     junitVersion      = '5.4.2'
 }
 
