@@ -369,6 +369,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                         cassandraConnectionSettings.setPassword(cradleConfiguration.getPassword());
                     }
 
+                    if (cradleConfiguration.getTimeout() > 0) {
+                        cassandraConnectionSettings.setTimeout(cradleConfiguration.getTimeout());
+                    }
+                    
+                    if (cradleConfiguration.getPageSize() > 0) {
+                        cassandraConnectionSettings.setResultPageSize(cradleConfiguration.getPageSize());
+                    }
+
                     manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
                     manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME), true /* FIXME: should be `false` when db manipulations are moved to operator */,
                             cradleConfiguration.getCradleMaxMessageBatchSize() > 0 ? cradleConfiguration.getCradleMaxMessageBatchSize() : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
