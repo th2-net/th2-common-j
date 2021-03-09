@@ -12,26 +12,20 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message;
 
-public enum QueueAttribute {
-    FIRST("first"),
-    SECOND("second"),
-    SUBSCRIBE("subscribe"),
-    PUBLISH("publish"),
-    RAW("raw"),
-    PARSED("parsed"),
-    STORE("store"),
-    EVENT("event");
+import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
+import com.google.protobuf.Message;
 
-    private final String value;
+import java.util.List;
+import java.util.function.BiFunction;
 
-    QueueAttribute(String value) {
-        this.value = value;
-    }
+public interface FilterFunction extends BiFunction<Message, List<? extends RouterFilter>, Boolean> {
 
-    @Override
-    public String toString() {
-       return value;
-    }
+    static final FilterStrategy DEFAULT_FILTER_STRATEGY = new DefaultFilterStrategy();
+    public static final FilterFunction DEFAULT_FILTER_FUNCTION = (msg, filter) -> DEFAULT_FILTER_STRATEGY.verify(msg, filter);
+
 }

@@ -1,28 +1,26 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message;
 
-import java.io.IOException;
-
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import java.io.IOException;
 
 /**
  * Interface for send and receive RabbitMQ messages
@@ -35,7 +33,14 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param connectionManager
      * @param configuration message router configuration
      */
+    @Deprecated(since = "3.2.2", forRemoval = true)
     void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration);
+
+    /**
+     * Initialization message router
+     * @param context router context
+     */
+    void init(@NotNull MessageRouterContext context);
 
     /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes

@@ -12,26 +12,16 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.exactpro.th2.common.schema.message;
 
-public enum QueueAttribute {
-    FIRST("first"),
-    SECOND("second"),
-    SUBSCRIBE("subscribe"),
-    PUBLISH("publish"),
-    RAW("raw"),
-    PARSED("parsed"),
-    STORE("store"),
-    EVENT("event");
+package com.exactpro.th2.common.schema.message.impl.context
 
-    private final String value;
+import com.exactpro.th2.common.schema.message.MessageRouterContext
+import com.exactpro.th2.common.schema.message.MessageRouterMonitor
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 
-    QueueAttribute(String value) {
-        this.value = value;
-    }
-
-    @Override
-    public String toString() {
-       return value;
-    }
-}
+class DefaultMessageRouterContext(
+    override val connectionManager: ConnectionManager,
+    override val routerMonitor: MessageRouterMonitor,
+    override val configuration: MessageRouterConfiguration
+) : MessageRouterContext {}
