@@ -6,11 +6,11 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
@@ -44,13 +44,13 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunc) {
+        if (isInit()) {
+            throw new IllegalStateException("Queue is already initialize");
+        }
+
         Objects.requireNonNull(connectionManager, "Connection can not be null");
         Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
         Objects.requireNonNull(filterFunc, "Filter function can not be null");
-
-        if (this.connectionManager.get() != null && this.queueConfiguration.get() != null && this.filterFunc.get() != null) {
-            throw new IllegalStateException("Queue is already initialize");
-        }
 
         this.connectionManager.set(connectionManager);
         this.queueConfiguration.set(queueConfiguration);
@@ -122,6 +122,10 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
             exceptions.forEach(exception::addSuppressed);
             throw exception;
         }
+    }
+
+    public boolean isInit() {
+        return this.connectionManager.get() != null || this.queueConfiguration.get() != null || this.filterFunc.get() != null;
     }
 
     protected abstract MessageSender<T> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);

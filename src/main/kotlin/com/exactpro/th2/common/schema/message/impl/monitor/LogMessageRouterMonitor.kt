@@ -6,11 +6,11 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.monitor
@@ -19,24 +19,13 @@ import com.exactpro.th2.common.schema.message.MessageRouterMonitor
 import org.slf4j.LoggerFactory
 
 class LogMessageRouterMonitor : MessageRouterMonitor {
-    override fun onInfo(msg: String) {
-        LOGGER.info(msg)
-    }
 
     override fun onInfo(msg: String, vararg args: Any?) {
         LOGGER.info(msg, args)
     }
 
-    override fun onWarn(msg: String) {
-        LOGGER.warn(msg);
-    }
-
     override fun onWarn(msg: String, vararg args: Any?) {
         LOGGER.warn(msg, args);
-    }
-
-    override fun onError(msg: String) {
-        LOGGER.error(msg)
     }
 
     override fun onError(msg: String, vararg args: Any?) {

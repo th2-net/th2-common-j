@@ -6,26 +6,25 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message;
 
-import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
+import static com.exactpro.th2.common.schema.filter.strategy.FilterStrategy.DEFAULT_FILTER_STRATEGY;
+
 public interface FilterFunction extends BiFunction<Message, List<? extends RouterFilter>, Boolean> {
 
-    static final FilterStrategy DEFAULT_FILTER_STRATEGY = new DefaultFilterStrategy();
-    public static final FilterFunction DEFAULT_FILTER_FUNCTION = (msg, filter) -> DEFAULT_FILTER_STRATEGY.verify(msg, filter);
+    public static final FilterFunction DEFAULT_FILTER_FUNCTION = DEFAULT_FILTER_STRATEGY::verify;
 
 }

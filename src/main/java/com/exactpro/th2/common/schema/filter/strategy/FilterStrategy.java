@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,6 +15,7 @@
 
 package com.exactpro.th2.common.schema.filter.strategy;
 
+import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
@@ -23,6 +23,8 @@ import com.google.protobuf.Message;
 import java.util.List;
 
 public interface FilterStrategy {
+
+    public static final FilterStrategy DEFAULT_FILTER_STRATEGY = new DefaultFilterStrategy();
 
     /**
      * Checks the provided message against the provided router filter.

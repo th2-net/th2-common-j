@@ -6,11 +6,11 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
@@ -50,33 +50,30 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitBatchMessageRouter<MessageGr
 
             if (parsedRawPartition.first.size == originalMessages.size || parsedRawPartition.second.size == originalMessages.size) {
                 val forFilter = if (parsedRawPartition.first.isEmpty()) parsedRawPartition.second else parsedRawPartition.first
-                forFilter.groupBy { filter(queues, it) }
-                    .flatMap { entry -> entry.key.map { it to entry.value } }
-                    .toMap()
-                    .forEach {
-                        builders
-                            .getOrPut(it.key, ::createBatchBuilder)
-                            .addGroups(
-                                if (it.value.size == group.messagesCount)
-                                    group
-                                else
-                                    MessageGroup.newBuilder().addAllMessages(it.value).build()
-                            )
+                val groups = hashMapOf<String, MessageGroup.Builder>()
+                forFilter.forEach {
+                    filter(queues, it).forEach { alias ->
+                        groups.getOrPut(alias) {MessageGroup.newBuilder()}.addMessages(it)
                     }
+                }
+
+                groups.forEach { (alias, newGroup) ->
+                    builders.getOrPut(alias, ::createBatchBuilder).addGroups(newGroup)
+                }
             } else {
-                var skipped = false;
+                val skippedAliases = hashSetOf<String>()
                 originalMessages.groupBy { filter(queues, it) }.forEach { (aliases, messages) ->
                     if (aliases.isNotEmpty() && messages.size == group.messagesCount) {
                         aliases.forEach { alias ->
                             builders.getOrPut(alias, ::createBatchBuilder).addGroups(group)
                         }
                     } else {
-                        skipped = true
+                        skippedAliases.addAll(aliases)
                     }
                 }
 
-                if (skipped) {
-                    monitor.onWarn("Group was skipped for some queues = " + group.toJson())
+                if (skippedAliases.isNotEmpty()) {
+                    monitor.onWarn("Group was skipped for aliases '{}' '{}'", skippedAliases, group.toJson())
                 }
             }
         }
