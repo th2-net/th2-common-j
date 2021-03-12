@@ -25,7 +25,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import io.prometheus.client.Counter
-import io.prometheus.client.Gauge
+import io.prometheus.client.Histogram
 
 class RabbitCustomQueue<T : Any>(
     private val converter: MessageConverter<T>,
@@ -70,6 +70,8 @@ class RabbitCustomQueue<T : Any>(
     ) : AbstractRabbitSender<T>() {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
+        override fun toShortDebugString(value: T): String = converter.toDebugString(value)
+
         //region Prometheus stats
         override fun getDeliveryCounter(): Counter = deliveryCounter
 
@@ -82,7 +84,7 @@ class RabbitCustomQueue<T : Any>(
     private class Subscriber<T : Any>(
         private val converter: MessageConverter<T>,
         private val deliveryCounter: Counter,
-        private val timer: Gauge,
+        private val timer: Histogram,
         private val dataCounter: Counter
     ) : AbstractRabbitSubscriber<T>() {
         override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
@@ -97,7 +99,7 @@ class RabbitCustomQueue<T : Any>(
 
         override fun getContentCounter(): Counter = dataCounter
 
-        override fun getProcessingTimer(): Gauge = timer
+        override fun getProcessingTimer(): Histogram = timer
 
         override fun extractCountFrom(message: T): Int = converter.extractCount(message)
         //endregion

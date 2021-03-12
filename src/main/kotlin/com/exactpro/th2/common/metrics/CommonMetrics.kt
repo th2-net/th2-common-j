@@ -20,6 +20,12 @@ import io.prometheus.client.Gauge
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * This is a set of default baskets in millisecond for Prometheus histogram metric.
+ */
+@JvmField
+val DEFAULT_BUCKETS = doubleArrayOf(0.000_25, 0.000_5, 0.001, 0.005, 0.010, 0.015, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0)
+
 private val LIVENESS = Gauge.build("th2_liveness", "Service liveness").register()
 private val READINESS = Gauge.build("th2_readiness", "Service readiness").register()
 

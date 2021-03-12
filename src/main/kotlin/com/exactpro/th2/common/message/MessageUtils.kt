@@ -48,7 +48,9 @@ fun message() : Message.Builder = Message.newBuilder()
 fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType)
 fun message(messageType: String, direction: Direction, sessionAlias: String): Message.Builder = Message.newBuilder().setMetadata(messageType, direction, sessionAlias)
 
+operator fun Message.get(key: String): Value? = getField(key)
 fun Message.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
+operator fun Message.Builder.get(key: String): Value? = getField(key)
 fun Message.Builder.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
 
 fun Message.getString(fieldName: String): String? = getField(fieldName)?.getString()
@@ -69,6 +71,8 @@ fun Message.Builder.getBigDecimal(fieldName: String): BigDecimal? = getField(fie
 fun Message.Builder.getMessage(fieldName: String): Message? = getField(fieldName)?.getMessage()
 fun Message.Builder.getList(fieldName: String): List<Value>? = getField(fieldName)?.listValue?.valuesList
 
+
+operator fun Message.Builder.set(key: String, value: Any?): Message.Builder = apply { addField(key, value) }
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 
 fun Message.Builder.copyField(message: Message, key: String) : Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
@@ -135,3 +139,51 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
+
+val Message.messageType
+    get(): String = metadata.messageType
+var Message.Builder.messageType
+    get(): String = metadata.messageType
+    set(value) {
+        setMetadata(MessageMetadata.newBuilder(metadata).apply {
+            messageType = value
+        })
+    }
+
+val Message.direction
+    get(): Direction = metadata.id.direction
+var Message.Builder.direction
+    get(): Direction = metadata.id.direction
+    set(value) {
+        setMetadata(MessageMetadata.newBuilder(metadata).apply {
+            setId(MessageID.newBuilder(id).apply {
+                direction = value
+            })
+        })
+    }
+
+val Message.sessionAlias
+    get(): String = metadata.id.connectionId.sessionAlias
+var Message.Builder.sessionAlias
+    get(): String = metadata.id.connectionId.sessionAlias
+    set(value) {
+        setMetadata(MessageMetadata.newBuilder(metadata).apply {
+            setId(MessageID.newBuilder(id).apply {
+                setConnectionId(ConnectionID.newBuilder(connectionId).apply {
+                    sessionAlias = value
+                })
+            })
+        })
+    }
+
+val Message.sequence
+    get(): Long = metadata.id.sequence
+var Message.Builder.sequence
+    get(): Long = metadata.id.sequence
+    set(value) {
+        setMetadata(MessageMetadata.newBuilder(metadata).apply {
+            setId(MessageID.newBuilder(id).apply {
+                sequence = value
+            })
+        })
+    }

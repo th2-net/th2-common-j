@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.schema.event;
 
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+
 import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
@@ -25,13 +27,16 @@ import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
 
 import io.prometheus.client.Counter;
-import io.prometheus.client.Gauge;
+import io.prometheus.client.Histogram;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
 
     private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_incoming_event_batch_quantity", "Quantity of incoming event batches").register();
     private static final Counter INCOMING_EVENT_QUANTITY = Counter.build("th2_mq_incoming_event_quantity", "Quantity of incoming events").register();
-    private static final Gauge EVENT_PROCESSING_TIME = Gauge.build("th2_mq_event_processing_time", "Time of processing events").register();
+    private static final Histogram EVENT_PROCESSING_TIME = Histogram.build()
+            .buckets(DEFAULT_BUCKETS)
+            .name("th2_mq_event_processing_time")
+            .help("Time of processing events").register();
 
     @Override
     protected Counter getDeliveryCounter() {
@@ -44,7 +49,7 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected Gauge getProcessingTimer() {
+    protected Histogram getProcessingTimer() {
         return EVENT_PROCESSING_TIME;
     }
 
