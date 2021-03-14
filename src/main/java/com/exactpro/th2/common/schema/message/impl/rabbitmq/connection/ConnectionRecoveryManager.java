@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -43,8 +44,8 @@ public class ConnectionRecoveryManager implements RecoveryListener, ExceptionHan
     private final RabbitMQConfiguration configuration;
     private final AtomicBoolean connectionIsClosed;
 
-    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
-    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
+    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
+    private final MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
 
     public ConnectionRecoveryManager(RabbitMQConfiguration configuration, Runnable onFailedRecoveryConnection, AtomicBoolean connectionIsClosed) {
         this.configuration = configuration;

@@ -29,7 +29,5 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
  */
 @NotThreadSafe
 public interface MessageSender<T> {
-    void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue);
-
     void send(T message) throws IOException;
 }

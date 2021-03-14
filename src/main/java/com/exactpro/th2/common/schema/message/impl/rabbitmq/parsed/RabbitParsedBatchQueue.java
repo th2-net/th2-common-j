@@ -30,9 +30,7 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
 
     @Override
     protected MessageSender<MessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        MessageSender<MessageBatch> result = new RabbitParsedBatchSender();
-        result.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
-        return result;
+        return new RabbitParsedBatchSender(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
     }
 
     @Override

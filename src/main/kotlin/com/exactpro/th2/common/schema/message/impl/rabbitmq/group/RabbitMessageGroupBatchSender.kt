@@ -18,10 +18,15 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.toJson
 import io.prometheus.client.Counter
+import org.jetbrains.annotations.NotNull
 
-class RabbitMessageGroupBatchSender : AbstractRabbitSender<MessageGroupBatch>() {
+class RabbitMessageGroupBatchSender(
+    connectionManager: ConnectionManager, exchangeName: String,
+    sendQueue: String
+) : AbstractRabbitSender<MessageGroupBatch>(connectionManager, exchangeName, sendQueue) {
     override fun getDeliveryCounter(): Counter = OUTGOING_MSG_GROUP_BATCH_QUANTITY
     override fun getContentCounter(): Counter = OUTGOING_MSG_GROUP_QUANTITY
     override fun extractCountFrom(message: MessageGroupBatch): Int = message.groupsCount

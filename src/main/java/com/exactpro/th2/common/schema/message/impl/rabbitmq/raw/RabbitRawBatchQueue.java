@@ -41,9 +41,7 @@ public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     @Override
     protected MessageSender<RawMessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        var result = new RabbitRawBatchSender();
-        result.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
-        return result;
+        return new RabbitRawBatchSender(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
     }
 
     @Override
