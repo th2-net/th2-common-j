@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -34,6 +33,9 @@ public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     private FilterStrategy strategy = new DefaultFilterStrategy(new Th2RawMsgFieldExtraction());
 
+    public RabbitRawBatchQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
+        super(connectionManager, queueConfiguration);
+    }
 
     public void setFilterStrategy(@NotNull FilterStrategy strategy) {
         this.strategy = Objects.requireNonNull(strategy, "Strategy can not be null");;
@@ -46,9 +48,6 @@ public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     @Override
     protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters(), strategy);
-        var subscribeTarget = new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey());
-        result.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
-        return result;
+        return new RabbitRawBatchSubscriber(connectionManager, queueConfiguration.getExchange(), new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey()), queueConfiguration.getFilters(), strategy);
     }
 }

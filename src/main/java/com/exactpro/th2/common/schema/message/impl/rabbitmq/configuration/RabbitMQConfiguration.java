@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -31,7 +30,7 @@ public class RabbitMQConfiguration {
     private String host;
     @JsonProperty
     @JsonAlias("vHost")
-    private String vhost;
+    private String vHost;
     private int port;
     private String username;
     private String password;
@@ -57,11 +56,11 @@ public class RabbitMQConfiguration {
     }
 
     public String getVhost() {
-        return vhost;
+        return vHost;
     }
 
     public void setVhost(String vhost) {
-        this.vhost = vhost;
+        this.vHost = vhost;
     }
 
     public int getPort() {
@@ -168,7 +167,7 @@ public class RabbitMQConfiguration {
     public String toString() {
         return new ToStringBuilder(this)
                 .append("host", host)
-                .append("vhost", vhost)
+                .append("vhost", vHost)
                 .append("port", port)
                 .append("username", username)
                 .append("password", password)

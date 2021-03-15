@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,12 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
-import java.util.List;
-import java.util.Set;
-
-import org.apache.commons.collections4.SetUtils;
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageBatch.Builder;
@@ -30,6 +23,11 @@ import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
+import org.apache.commons.collections4.SetUtils;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.List;
+import java.util.Set;
 
 public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Message, MessageBatch, MessageBatch.Builder> {
 
@@ -38,9 +36,7 @@ public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Me
 
     @Override
     protected MessageQueue<MessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
-        RabbitParsedBatchQueue queue = new RabbitParsedBatchQueue();
-        queue.init(connectionManager, queueConfiguration);
-        return queue;
+        return new RabbitParsedBatchQueue(connectionManager, queueConfiguration);
     }
 
     @Override

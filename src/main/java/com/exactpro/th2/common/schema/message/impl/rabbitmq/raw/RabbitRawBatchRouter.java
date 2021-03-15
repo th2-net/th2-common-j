@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -42,10 +41,9 @@ public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMe
     }
 
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
-        RabbitRawBatchQueue queue = new RabbitRawBatchQueue();
+    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
+        RabbitRawBatchQueue queue = new RabbitRawBatchQueue(connectionManager, queueConfiguration);
         queue.setFilterStrategy(filterStrategy.get());
-        queue.init(connectionManager, queueConfiguration);
         return queue;
     }
 

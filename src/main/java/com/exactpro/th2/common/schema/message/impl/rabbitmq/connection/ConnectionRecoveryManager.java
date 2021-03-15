@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.MetricArbiter;
 import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.rabbitmq.client.Channel;
@@ -112,7 +111,8 @@ public class ConnectionRecoveryManager implements RecoveryListener, ExceptionHan
     public void handleRecovery(Recoverable recoverable) {
         LOGGER.debug("Count tries to recovery connection reset to 0");
         connectionRecoveryAttempts.set(0);
-        CommonMetrics.setRabbitMQReadiness(true);
+        livenessMonitor.enable();
+        readinessMonitor.enable();
         LOGGER.debug("Set RabbitMQ readiness to true");
     }
 
@@ -131,6 +131,7 @@ public class ConnectionRecoveryManager implements RecoveryListener, ExceptionHan
             LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
             return true;
         }
+
         LOGGER.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
         if (onFailedRecoveryConnection != null) {
             onFailedRecoveryConnection.run();

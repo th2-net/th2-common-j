@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,18 +15,19 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.th2.common.grpc.Direction;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> extends AbstractRabbitSubscriber<MB> {
@@ -36,19 +36,22 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
 
     private FilterStrategy filterStrategy;
-
     private List<? extends RouterFilter> filters;
 
-
-    public AbstractRabbitBatchSubscriber(List<? extends RouterFilter> filters) {
-        this(filters, new DefaultFilterStrategy());
+    public AbstractRabbitBatchSubscriber(ConnectionManager connectionManager, String exchangeName,
+                                         SubscribeTarget target, List<? extends RouterFilter> filters) {
+        this(connectionManager, exchangeName, target, filters, new DefaultFilterStrategy());
     }
 
-    public AbstractRabbitBatchSubscriber(List<? extends RouterFilter> filters, FilterStrategy filterStrategy) {
-        this.filters = filters;
+    public AbstractRabbitBatchSubscriber(ConnectionManager connectionManager,
+                                         String exchangeName,
+                                         SubscribeTarget target,
+                                         List<? extends RouterFilter> filters,
+                                         FilterStrategy filterStrategy) {
+        super(connectionManager, exchangeName, target);
         this.filterStrategy = filterStrategy;
+        this.filters = filters;
     }
-
 
     @Override
     protected MB filter(MB batch) {

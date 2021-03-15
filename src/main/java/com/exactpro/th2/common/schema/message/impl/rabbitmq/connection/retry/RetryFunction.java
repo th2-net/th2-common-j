@@ -13,18 +13,16 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry;
 
-/**
- * Message queue
- * @see MessageSubscriber
- * @see MessageSender
- */
-public interface MessageQueue<T> extends AutoCloseable {
-//    void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.Channel;
+import org.jetbrains.annotations.NotNull;
 
-    MessageSubscriber<T> getSubscriber();
+import java.io.IOException;
 
-    MessageSender<T> getSender();
+public interface RetryFunction<T> {
+
+    T apply(@NotNull Channel channel) throws IOException, AlreadyClosedException;
 
 }

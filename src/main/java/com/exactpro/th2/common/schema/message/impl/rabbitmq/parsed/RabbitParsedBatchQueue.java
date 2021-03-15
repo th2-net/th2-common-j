@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,8 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
@@ -25,8 +22,13 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import org.jetbrains.annotations.NotNull;
 
 public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
+
+    public RabbitParsedBatchQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
+        super(connectionManager, queueConfiguration);
+    }
 
     @Override
     protected MessageSender<MessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
@@ -35,9 +37,6 @@ public class RabbitParsedBatchQueue extends AbstractRabbitQueue<MessageBatch> {
 
     @Override
     protected MessageSubscriber<MessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        MessageSubscriber<MessageBatch> result = new RabbitParsedBatchSubscriber(queueConfiguration.getFilters());
-        var subscribeTarget = new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey());
-        result.init(connectionManager, queueConfiguration.getExchange(), subscribeTarget);
-        return result;
+        return new RabbitParsedBatchSubscriber(connectionManager, queueConfiguration.getExchange(),  new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey()), queueConfiguration.getFilters());
     }
 }

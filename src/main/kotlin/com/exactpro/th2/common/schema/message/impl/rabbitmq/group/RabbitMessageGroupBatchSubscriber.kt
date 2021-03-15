@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,6 +22,8 @@ import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
 import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.toJson
 import com.exactpro.th2.common.schema.strategy.fieldExtraction.impl.AnyMessageFieldExtractionStrategy
 import io.prometheus.client.Counter
@@ -30,9 +31,12 @@ import io.prometheus.client.Histogram
 import mu.KotlinLogging
 
 class RabbitMessageGroupBatchSubscriber(
+    connectionManager: ConnectionManager,
+    exchange: String,
+    target: SubscribeTarget,
     private val filters: List<RouterFilter>,
     private val filterStrategy: FilterStrategy = DefaultFilterStrategy(AnyMessageFieldExtractionStrategy())
-) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters, filterStrategy) {
+) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(connectionManager, exchange, target, filters, filterStrategy) {
     private val logger = KotlinLogging.logger {}
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY

@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,11 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.Message;
@@ -30,9 +24,15 @@ import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
-
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 
 public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<Message, MessageBatch> {
 
@@ -63,12 +63,12 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
         return message.getMessagesCount();
     }
 
-    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters) {
-        super(filters);
+    public RabbitParsedBatchSubscriber(ConnectionManager connectionManager, String exchangeName, SubscribeTarget target, List<? extends RouterFilter> filters) {
+        super(connectionManager, exchangeName, target, filters);
     }
 
-    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters, FilterStrategy filterStrategy) {
-        super(filters, filterStrategy);
+    public RabbitParsedBatchSubscriber(ConnectionManager connectionManager, String exchangeName, SubscribeTarget target, List<? extends RouterFilter> filters, FilterStrategy filterStrategy) {
+        super(connectionManager, exchangeName, target, filters, filterStrategy);
     }
 
     @Override

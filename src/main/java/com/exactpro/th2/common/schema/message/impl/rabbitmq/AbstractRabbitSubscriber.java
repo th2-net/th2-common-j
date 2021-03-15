@@ -17,7 +17,6 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.metrics.MetricArbiter;
 import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
@@ -27,7 +26,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,42 +39,25 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
 
     private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
-    private final AtomicReference<String> exchangeName = new AtomicReference<>();
-    private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+    private final String exchangeName;
+    private final SubscribeTarget target;
+    private final ConnectionManager connectionManager;
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
 
     private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
     private final MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
 
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
-        Objects.requireNonNull(connectionManager, "Connection cannot be null");
-        Objects.requireNonNull(subscribeTarget, "Subscriber target is can not be null");
-        Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");
+    public AbstractRabbitSubscriber(ConnectionManager connectionManager,
+                                    String exchangeName, SubscribeTarget target) {
+        this.connectionManager = Objects.requireNonNull(connectionManager, "Connection cannot be null");;
+        this.target = Objects.requireNonNull(target, "Subscriber target is can not be null");;
+        this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");;
 
-
-        if (this.connectionManager.get() != null || this.exchangeName.get() != null || this.subscribeTarget.get() != null) {
-            throw new IllegalStateException("Subscriber is already initialize");
-        }
-
-        this.connectionManager.set(connectionManager);
-        this.subscribeTarget.set(subscribeTarget);
-        this.exchangeName.set(exchangeName);
-
-        LOGGER.debug("{}:{} initialised with target {}", getClass().getSimpleName(), hashCode(), subscribeTarget);
+        LOGGER.debug("{}:{} created with target {}", getClass().getSimpleName(), hashCode(), target);
     }
 
     @Override
     public void start() {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        SubscribeTarget target = subscribeTarget.get();
-        String exchange = exchangeName.get();
-
-        if (connectionManager == null || target == null || exchange == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
         var queue = target.getQueue();
         var routingKey = target.getRoutingKey();
 
@@ -96,11 +77,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void close() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
         SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
         if (monitor != null) {
             monitor.unsubscribe();
@@ -166,7 +142,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     private void resubscribe() {
-        SubscribeTarget target = subscribeTarget.get();
         var queue = target.getQueue();
         var routingKey = target.getRoutingKey();
         LOGGER.info("Try to resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);

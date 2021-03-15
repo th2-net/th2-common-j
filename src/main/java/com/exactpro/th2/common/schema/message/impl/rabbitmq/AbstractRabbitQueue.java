@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,56 +15,40 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.common.schema.message.MessageQueue;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
-    private final AtomicReference<QueueConfiguration> queueConfiguration = new AtomicReference<>();
+    private final ConnectionManager connectionManager;
+    private final QueueConfiguration queueConfiguration;
 
     private final AtomicReference<MessageSender<T>> sender = new AtomicReference<>();
     private final AtomicReference<MessageSubscriber<T>> subscriber = new AtomicReference<>();
 
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        Objects.requireNonNull(connectionManager, "Connection can not be null");
-        Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
-
-        if (this.connectionManager.get() != null && this.queueConfiguration.get() != null) {
-            throw new IllegalStateException("Queue is already initialize");
-        }
-
-        this.connectionManager.set(connectionManager);
-        this.queueConfiguration.set(queueConfiguration);
+    public AbstractRabbitQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
+        this.connectionManager = Objects.requireNonNull(connectionManager, "Connection can not be null");
+        this.queueConfiguration = Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
     }
 
     @Override
     public MessageSubscriber<T> getSubscriber() {
-        ConnectionManager connectionManger = connectionManager.get();
-        QueueConfiguration queueConfiguration = this.queueConfiguration.get();
-
-        if (connectionManger == null || queueConfiguration == null) {
-            throw new IllegalStateException("Queue is not initialized");
-        }
-
         if (!queueConfiguration.isReadable()) {
             throw new IllegalStateException("Queue can not read");
         }
 
         return subscriber.updateAndGet( subscriber -> {
             if (subscriber == null) {
-                return createSubscriber(connectionManger, queueConfiguration);
+                return createSubscriber(connectionManager, queueConfiguration);
             }
             return subscriber;
         });
@@ -73,13 +56,6 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
     @Override
     public MessageSender<T> getSender() {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        QueueConfiguration queueConfiguration = this.queueConfiguration.get();
-
-        if (connectionManager == null || queueConfiguration == null) {
-            throw new IllegalStateException("Queue is not initialized");
-        }
-
         if (!queueConfiguration.isWritable()) {
             throw new IllegalStateException("Queue can not write");
         }

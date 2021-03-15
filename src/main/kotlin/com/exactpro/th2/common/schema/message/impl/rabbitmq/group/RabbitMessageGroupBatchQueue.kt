@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,16 +22,14 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import org.jetbrains.annotations.NotNull
 
-class RabbitMessageGroupBatchQueue : AbstractRabbitQueue<MessageGroupBatch>() {
-    override fun createSender(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSender<MessageGroupBatch> {
-        return RabbitMessageGroupBatchSender(connectionManager, queueConfiguration.exchange, queueConfiguration.routingKey)
-    }
+class RabbitMessageGroupBatchQueue(connectionManager: @NotNull ConnectionManager,
+                                   queueConfiguration: @NotNull QueueConfiguration) : AbstractRabbitQueue<MessageGroupBatch>(connectionManager, queueConfiguration) {
 
-    override fun createSubscriber(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSubscriber<MessageGroupBatch> {
-        return RabbitMessageGroupBatchSubscriber(queueConfiguration.filters).apply {
-            val target = SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey)
-            init(connectionManager, queueConfiguration.exchange, target)
-        }
-    }
+    override fun createSender(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSender<MessageGroupBatch> =
+        RabbitMessageGroupBatchSender(connectionManager, queueConfiguration.exchange, queueConfiguration.routingKey)
+
+    override fun createSubscriber(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSubscriber<MessageGroupBatch> =
+        RabbitMessageGroupBatchSubscriber(connectionManager, queueConfiguration.exchange, SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey), queueConfiguration.filters)
 }

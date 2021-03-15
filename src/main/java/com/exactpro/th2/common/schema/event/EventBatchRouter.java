@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,19 +15,18 @@
 
 package com.exactpro.th2.common.schema.event;
 
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.apache.commons.collections4.SetUtils;
-
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.schema.message.MessageQueue;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import org.apache.commons.collections4.SetUtils;
+
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
@@ -37,9 +35,7 @@ public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
 
     @Override
     protected MessageQueue<EventBatch> createQueue(ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
-        EventBatchQueue eventBatchQueue = new EventBatchQueue();
-        eventBatchQueue.init(connectionManager, queueConfiguration);
-        return eventBatchQueue;
+        return new EventBatchQueue(connectionManager, queueConfiguration);
     }
 
     @Override

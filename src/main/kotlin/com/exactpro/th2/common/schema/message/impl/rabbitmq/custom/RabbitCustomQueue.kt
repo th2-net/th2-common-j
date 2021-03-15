@@ -1,6 +1,5 @@
 /*
  * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -28,9 +27,11 @@ import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 
 class RabbitCustomQueue<T : Any>(
+    connectionManager: ConnectionManager,
+    queueConfiguration: QueueConfiguration,
     private val converter: MessageConverter<T>,
     private val metricsHolder: MetricsHolder
-) : AbstractRabbitQueue<T>() {
+) : AbstractRabbitQueue<T>(connectionManager, queueConfiguration) {
 
     override fun createSender(
         connectionManager: ConnectionManager,
@@ -51,17 +52,14 @@ class RabbitCustomQueue<T : Any>(
         queueConfiguration: QueueConfiguration
     ): MessageSubscriber<T> {
         return Subscriber(
+            connectionManager,
+            queueConfiguration.exchange,
+            SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey),
             converter,
             metricsHolder.incomingDeliveryCounter,
             metricsHolder.processingTimer,
             metricsHolder.incomingDataCounter
-        ).apply {
-            init(
-                connectionManager,
-                queueConfiguration.exchange,
-                SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey)
-            )
-        }
+        )
     }
 
     private class Sender<T : Any>(
@@ -86,11 +84,14 @@ class RabbitCustomQueue<T : Any>(
     }
 
     private class Subscriber<T : Any>(
+        connectionManager: ConnectionManager,
+        exchange: String,
+        target: SubscribeTarget,
         private val converter: MessageConverter<T>,
         private val deliveryCounter: Counter,
         private val timer: Histogram,
         private val dataCounter: Counter
-    ) : AbstractRabbitSubscriber<T>() {
+    ) : AbstractRabbitSubscriber<T>(connectionManager, exchange, target) {
         override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
 
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)

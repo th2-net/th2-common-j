@@ -13,18 +13,19 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry;
 
-/**
- * Message queue
- * @see MessageSubscriber
- * @see MessageSender
- */
-public interface MessageQueue<T> extends AutoCloseable {
-//    void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
+public class CreateChannelException extends RuntimeException {
 
-    MessageSubscriber<T> getSubscriber();
+    public CreateChannelException() {
+        super();
+    }
 
-    MessageSender<T> getSender();
+    public CreateChannelException(String message) {
+        super(message);
+    }
 
+    public CreateChannelException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

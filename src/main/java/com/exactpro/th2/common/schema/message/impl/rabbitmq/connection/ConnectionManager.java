@@ -16,12 +16,11 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.metrics.MetricArbiter;
-import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
-import com.rabbitmq.client.AMQP.BasicProperties;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryBuilder;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryRequest;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
@@ -49,20 +48,21 @@ public class ConnectionManager implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
-    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
-    private final MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
+    private final HealthMetrics managerMetrics = new HealthMetrics(
+            CommonMetrics.registerLiveness(this),
+            CommonMetrics.registerReadiness(this)
+    );
 
     private final Connection connection;
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
     private final RabbitMQConfiguration configuration;
     private final String subscriberName;
-    private final Resender commonResender;
 
     private final ScheduledExecutorService scheduler;
     private final ForkJoinPool tasker;
 
-    private final RetryManager retryManager;
+//    private final RetryManager retryManager;
 
     public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ScheduledExecutorService scheduledExecutorService, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
@@ -83,7 +83,8 @@ public class ConnectionManager implements AutoCloseable {
 
         this.scheduler = Objects.requireNonNull(scheduledExecutorService, "Scheduler can not be null");
         this.tasker = new ForkJoinPool(resendConfiguration.getMaxResendWorkers());
-        this.retryManager = new RetryManager(configuration, this.scheduler, this.tasker, this::createChannel, connectionIsClosed);
+
+//        this.retryManager = new RetryManager(configuration, this.scheduler, this.tasker, this::createChannel, connectionIsClosed);
 
         factory.setHost(rabbitMQConfiguration.getHost());
         factory.setPort(rabbitMQConfiguration.getPort());
@@ -113,8 +114,8 @@ public class ConnectionManager implements AutoCloseable {
             this.connection = factory.newConnection();
             LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
-            readinessMonitor.disable();
-            livenessMonitor.disable();
+            managerMetrics.getLivenessMonitor().disable();
+            managerMetrics.getReadinessMonitor().disable();
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
@@ -126,19 +127,15 @@ public class ConnectionManager implements AutoCloseable {
         } else {
             LOGGER.warn("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
-
-        this.commonResender = createResender(new HealthMetrics(CommonMetrics.LIVENESS_MONITOR, CommonMetrics.READINESS_MONITOR), null);
     }
 
-    /**
-     * Send data only one time, without resends on reject and using common metrics.
-     * @see ConnectionManager#createResender(HealthMetrics, Runnable)
-     * @see Resender#sendAsync(SendData)
-     * @see SendData
-     */
-    @Deprecated(forRemoval = true)
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) {
-        commonResender.sendAsync(new SendData(exchange, routingKey, props, body));
+    public <T> RetryBuilder<T> createRetryBuilder() {
+        RetryBuilder<T> builder = new RetryBuilder<>(configuration, scheduler, tasker, connectionIsClosed);
+        return builder.setChannelCreator(this::createChannel);
+    }
+
+    public RabbitMQConfiguration getConfiguration() {
+        return configuration;
     }
 
     /**
@@ -148,21 +145,23 @@ public class ConnectionManager implements AutoCloseable {
      */
     @Deprecated(forRemoval = true)
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) {
-        return basicConsume(queue, deliverCallback, cancelCallback, new HealthMetrics(livenessMonitor, readinessMonitor));
+        return basicConsume(queue, deliverCallback, cancelCallback, managerMetrics);
     }
 
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, HealthMetrics metrics) {
         String consumerTag = subscriberName + '_' + nextSubscriberId.getAndIncrement();
-        CompletableFuture<String> future = retryManager.withRetry((RetryManager.RetryFunction<String>) (channel) -> channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
-            try {
-                deliverCallback.handle(tag, delivery);
-            } catch (IOException e) {
-                LOGGER.error("Can not handle delivery for consumer with tag '{}'", consumerTag, e);
-            } finally {
-                basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
-            }
-        }, cancelCallback), metrics);
-
+        CompletableFuture<CompletableFuture<String>> future = this.<String>createRetryBuilder()
+                .setFunction(channel -> channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
+                    try {
+                        deliverCallback.handle(tag, delivery);
+                    } catch (IOException e) {
+                        LOGGER.error("Can not handle delivery for consumer with tag '{}'", consumerTag, e);
+                    } finally {
+                        basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
+                    }
+                }, cancelCallback))
+                .setMetrics(metrics)
+                .createWithFunc();
         return new RabbitMqSubscriberMonitor(future, subscriberName);
     }
 
@@ -173,27 +172,32 @@ public class ConnectionManager implements AutoCloseable {
      */
     @Deprecated(forRemoval = true)
     public void basicCancel(Channel channel, String consumerTag) {
-        retryManager.withRetry((RetryManager.RetryAction) channel1 -> channel1.basicCancel(consumerTag), null, () -> channel, livenessMonitor, readinessMonitor).exceptionally(th -> {
-            LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, th);
-            return null;
+        CompletableFuture<CompletableFuture<Void>> tmp = createRetryBuilder()
+                .setAction(channel1 -> channel1.basicCancel(consumerTag))
+                .setChannelCreator(() -> channel)
+                .setMetrics(managerMetrics)
+                .createWithAction();
+
+        tmp.thenAccept(future -> {
+            future.exceptionally(ex -> {
+                LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
+                return null;
+            });
         });
     }
 
     public void basicCancel(String consumerTag, HealthMetrics metrics) {
-        retryManager.withRetry((RetryManager.RetryAction) channel -> channel.basicCancel(consumerTag), metrics).exceptionally(th -> {
-            LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, th);
-            return null;
-        });
-    }
+        CompletableFuture<CompletableFuture<Void>> tmp = createRetryBuilder()
+                .setAction(channel1 -> channel1.basicCancel(consumerTag))
+                .setMetrics(metrics)
+                .createWithAction();
 
-    /**
-     * Create new channel and resender for this channel.
-     * @param metrics Metrics which will used for operations
-     * @return Resender with new channel.
-     * @see Resender
-     */
-    public Resender createResender(HealthMetrics metrics, Runnable unlockSenderFunction) {
-        return new Resender(this::createChannel, unlockSenderFunction, tasker, scheduler, connectionIsClosed, configuration, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
+        tmp.thenAccept(future -> {
+            future.exceptionally(ex -> {
+                LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
+                return null;
+            });
+        });
     }
 
     @Override
@@ -201,6 +205,8 @@ public class ConnectionManager implements AutoCloseable {
         if (connectionIsClosed.getAndSet(true)) {
             return;
         }
+
+        tasker.shutdownNow();
 
         try {
             connection.close(configuration.getConnectionCloseTimeout());
@@ -210,10 +216,10 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private Channel createChannel() {
+    public Channel createChannel() {
         checkConnection();
 
-        RetryRequest<Channel> request = new RetryRequest<>((Channel) null, connectionIsClosed, configuration, scheduler, tasker, livenessMonitor, readinessMonitor) {
+        RetryRequest<Channel> request = new RetryRequest<>((Channel) null, connectionIsClosed, configuration, scheduler, tasker, managerMetrics.getLivenessMonitor(), managerMetrics.getReadinessMonitor()) {
             @Override
             protected Channel action(Channel channel) throws IOException, AlreadyClosedException {
                 return connection.createChannel();
@@ -227,8 +233,8 @@ public class ConnectionManager implements AutoCloseable {
         try {
             channel = future.get();
         } catch (InterruptedException | ExecutionException | CancellationException e) {
-            readinessMonitor.disable();
-            livenessMonitor.disable();
+            managerMetrics.getLivenessMonitor().disable();
+            managerMetrics.getReadinessMonitor().disable();
             throw new IllegalStateException("Can not create channel from RabbitMQ connection", e);
         }
 
@@ -272,10 +278,10 @@ public class ConnectionManager implements AutoCloseable {
 
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
         private static final String PREFIX_METRIC_NAME = "subscriber_monitor_consumer_";
-        private final CompletableFuture<String> futureTag;
+        private final CompletableFuture<CompletableFuture<String>> futureTag;
         private final HealthMetrics healthMetrics;
 
-        public RabbitMqSubscriberMonitor(CompletableFuture<String> futureTag, String consumerTag) {
+        public RabbitMqSubscriberMonitor(CompletableFuture<CompletableFuture<String>> futureTag, String consumerTag) {
             this.futureTag = futureTag;
 
             healthMetrics = new HealthMetrics(
@@ -287,7 +293,7 @@ public class ConnectionManager implements AutoCloseable {
         @Override
         public void unsubscribe() {
             try {
-                basicCancel(futureTag.get(), healthMetrics);
+                basicCancel(futureTag.get().get(), healthMetrics);
             } catch (InterruptedException | ExecutionException | CancellationException e) {
                 LOGGER.warn("Can not unsubscribe from queue", e);
             }

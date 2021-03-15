@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -30,8 +29,6 @@ public class ResendMessageConfiguration {
 
     private long maxDelay = 5000;
 
-    private int countRejectsToBlockSender = 1;
-
     public int getMaxResendWorkers() {
         return maxResendWorkers;
     }
@@ -54,23 +51,11 @@ public class ResendMessageConfiguration {
         this.maxDelay = maxDelay;
     }
 
-    public int getCountRejectsToBlockSender() {
-        return countRejectsToBlockSender;
-    }
-
     public void setMinDelay(long minDelay) {
         if (minDelay > -1) {
             this.minDelay = minDelay;
         } else {
-            LOGGER.warn("Can not set property 'minDelay', because it is must be more than -1, but current value = {}", minDelay);
-        }
-    }
-
-    public void setCountRejectsToBlockSender(int countRejectsToBlockSender) {
-        if (countRejectsToBlockSender > 0) {
-            this.countRejectsToBlockSender = countRejectsToBlockSender;
-        } else {
-            LOGGER.warn("Can not set property 'countRejectsToBlockSender', because it is must be more than 0, but current value = {}", countRejectsToBlockSender);
+            throw new IllegalArgumentException("\"Can not set property 'minDelay', because it is must be more than -1, but current value = " + minDelay);
         }
     }
 
@@ -80,7 +65,6 @@ public class ResendMessageConfiguration {
                 .append("maxResendWorkers", maxResendWorkers)
                 .append("minDelay", minDelay)
                 .append("maxDelay", maxDelay)
-                .append("countRejectsToBlockSender", countRejectsToBlockSender)
                 .toString();
     }
 }

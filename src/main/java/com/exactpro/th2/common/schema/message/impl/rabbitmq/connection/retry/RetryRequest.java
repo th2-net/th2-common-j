@@ -13,7 +13,15 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry;
+
+import com.exactpro.th2.common.metrics.MetricMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.Channel;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -23,15 +31,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.common.metrics.MetricMonitor;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.rabbitmq.client.AlreadyClosedException;
-import com.rabbitmq.client.Channel;
 
 /**
  * Request with ability retry.
