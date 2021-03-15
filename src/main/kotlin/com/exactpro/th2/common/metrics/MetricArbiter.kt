@@ -31,6 +31,7 @@ open class MetricArbiter(name: String, help: String) {
         }
 
     fun register(name: String): MetricMonitor {
+        recalculateStatus()
         return MetricMonitor(this, name)
     }
 
@@ -43,8 +44,9 @@ open class MetricArbiter(name: String, help: String) {
      * Enable monitor, that mean all is ok
      */
     fun enable(monitor: MetricMonitor) {
-        disabledMonitors.remove(monitor)
-        isEnabled = disabledMonitors.isEmpty() // Set value in all cases because the initialised value is false
+        if(disabledMonitors.remove(monitor)) {
+            recalculateStatus()
+        }
     }
 
     /**
@@ -58,5 +60,9 @@ open class MetricArbiter(name: String, help: String) {
 
     protected open fun metricChangedValue(value: Boolean) {
         metric.set(if (value) 1.0 else 0.0)
+    }
+
+    private fun recalculateStatus() {
+        isEnabled = disabledMonitors.isEmpty()
     }
 }
