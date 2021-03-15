@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.metrics
 
 import org.apache.commons.lang3.builder.ToStringBuilder
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Class for change state of metric
@@ -25,8 +24,6 @@ class MetricMonitor(
     private val arbiter: MetricArbiter,
     val name: String
 ) {
-    private val id: Int = COUNTER.incrementAndGet()
-
     /**
      * Status property of the current monitor. Please use the [isMetricEnabled] method to get cumulative metric status
      */
@@ -58,23 +55,6 @@ class MetricMonitor(
     override fun toString(): String {
         return ToStringBuilder(this)
             .append("name", name)
-            .append("id", id)
             .toString()
-    }
-
-    override fun hashCode(): Int {
-        return id.hashCode()
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other?.javaClass != javaClass) return false
-
-        other as MetricMonitor
-        return id == other.id
-    }
-
-    companion object {
-        private val COUNTER = AtomicInteger(0)
     }
 }
