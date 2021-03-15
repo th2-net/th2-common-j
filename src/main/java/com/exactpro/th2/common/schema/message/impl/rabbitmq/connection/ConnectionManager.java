@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
@@ -48,8 +49,8 @@ public class ConnectionManager implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
-    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
-    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
+    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
+    private final MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
 
     private final Connection connection;
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);

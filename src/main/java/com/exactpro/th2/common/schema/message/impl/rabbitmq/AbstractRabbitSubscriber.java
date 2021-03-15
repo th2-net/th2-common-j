@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
@@ -45,8 +46,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
 
-    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
-    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
+    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
+    private final MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {

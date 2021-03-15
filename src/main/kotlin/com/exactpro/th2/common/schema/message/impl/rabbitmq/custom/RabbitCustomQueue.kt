@@ -37,12 +37,13 @@ class RabbitCustomQueue<T : Any>(
         queueConfiguration: QueueConfiguration
     ): MessageSender<T> {
         return Sender(
+            connectionManager,
+            queueConfiguration.exchange,
+            queueConfiguration.routingKey,
             converter,
             metricsHolder.outgoingDeliveryCounter,
             metricsHolder.outgoingDataCounter
-        ).apply {
-            init(connectionManager, queueConfiguration.exchange, queueConfiguration.routingKey)
-        }
+        )
     }
 
     override fun createSubscriber(
@@ -64,10 +65,13 @@ class RabbitCustomQueue<T : Any>(
     }
 
     private class Sender<T : Any>(
+        connectionManager: ConnectionManager,
+        exchange: String,
+        routingKey: String,
         private val converter: MessageConverter<T>,
         private val deliveryCounter: Counter,
         private val dataCounter: Counter
-    ) : AbstractRabbitSender<T>() {
+    ) : AbstractRabbitSender<T>(connectionManager, exchange, routingKey) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)

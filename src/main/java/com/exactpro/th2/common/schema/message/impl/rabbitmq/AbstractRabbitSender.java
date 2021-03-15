@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
@@ -38,30 +39,22 @@ import java.util.function.Function;
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSender.class);
 
-    private final AtomicReference<String> sendQueue = new AtomicReference<>();
-    private final AtomicReference<String> exchangeName = new AtomicReference<>();
-    private final AtomicReference<Resender> resender = new AtomicReference<>();
+    private final String sendQueue;
+    private final String exchangeName;
+    private final Resender resender;
     private final AtomicInteger resendMessages = new AtomicInteger(0);
     private final AtomicBoolean canSend = new AtomicBoolean(true);
 
-    private final MetricArbiter.MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
-    private final MetricArbiter.MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
+    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
+    private final MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
 
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
-        Objects.requireNonNull(connectionManager, "Connection can not be null");
-        Objects.requireNonNull(exchangeName, "Exchange name can not be null");
-        Objects.requireNonNull(sendQueue, "Send queue can not be null");
+    protected AbstractRabbitSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
+        this.resender = Objects.requireNonNull(connectionManager, "Connection can not be null")
+                .createResender(new HealthMetrics(livenessMonitor, readinessMonitor), this::unlock);
+        this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name can not be null");
+        this.sendQueue = Objects.requireNonNull(sendQueue, "Send queue can not be null");
 
-        if (this.resender.get() != null && this.sendQueue.get() != null && this.exchangeName.get() != null) {
-            throw new IllegalStateException("Sender is already initialize");
-        }
-
-        this.resender.set(connectionManager.createResender(new HealthMetrics(livenessMonitor, readinessMonitor), this::unlock));
-        this.exchangeName.set(exchangeName);
-        this.sendQueue.set(sendQueue);
-
-        LOGGER.debug("{}:{} initialised with queue {}", getClass().getSimpleName(), hashCode(), sendQueue);
+        LOGGER.info("{}:{} initialised with queue {}", getClass().getSimpleName(), hashCode(), sendQueue);
     }
 
     protected abstract Counter getDeliveryCounter();
@@ -92,7 +85,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
                     exchangeName, sendQueue, toShortDebugString(value));
         }
 
-        send(exchangeName.get(), sendQueue.get(), value);
+        send(exchangeName, sendQueue, value);
     }
 
     protected abstract String toShortDebugString(T value);
@@ -104,11 +97,6 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     }
 
     private void send(String exchangeName, String routingKey, T message) {
-        Resender resender = this.resender.get();
-        if (resender == null) {
-            throw new IllegalStateException("Not yet init sender");
-        }
-
         resender.sendAsync(new SendData(exchangeName, routingKey, null, valueToBytes(message), new DelayHandler(exchangeName, routingKey, message), new SuccessHandler(exchangeName, routingKey, message)));
     }
 

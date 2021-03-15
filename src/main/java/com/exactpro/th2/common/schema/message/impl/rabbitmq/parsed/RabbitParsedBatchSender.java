@@ -16,12 +16,15 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroup;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 import io.prometheus.client.Counter;
 
@@ -29,6 +32,11 @@ public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> 
 
     private static final Counter OUTGOING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_batch_quantity", "Quantity of outgoing parsed message batches").register();
     private static final Counter OUTGOING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_quantity", "Quantity of outgoing parsed messages").register();
+
+    public RabbitParsedBatchSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName,
+            @NotNull String sendQueue) {
+        super(connectionManager, exchangeName, sendQueue);
+    }
 
     @Override
     protected Counter getDeliveryCounter() {

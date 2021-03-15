@@ -26,9 +26,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 
 class RabbitMessageGroupBatchQueue : AbstractRabbitQueue<MessageGroupBatch>() {
     override fun createSender(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSender<MessageGroupBatch> {
-        return RabbitMessageGroupBatchSender().apply {
-            init(connectionManager, queueConfiguration.exchange, queueConfiguration.routingKey)
-        }
+        return RabbitMessageGroupBatchSender(connectionManager, queueConfiguration.exchange, queueConfiguration.routingKey)
     }
 
     override fun createSubscriber(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSubscriber<MessageGroupBatch> {

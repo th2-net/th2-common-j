@@ -15,15 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import com.exactpro.th2.common.metrics.MetricArbiter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.rabbitmq.client.AlreadyClosedException;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.ConfirmListener;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
@@ -34,6 +25,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.exactpro.th2.common.metrics.MetricMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConfirmListener;
 
 public class Resender implements ConfirmListener, Closeable {
 
@@ -48,8 +49,8 @@ public class Resender implements ConfirmListener, Closeable {
     private final ExecutorService tasker;
     private final Runnable unlockSender;
 
-    private final MetricArbiter.MetricMonitor livenessMonitor;
-    private final MetricArbiter.MetricMonitor readinessMonitor;
+    private final MetricMonitor livenessMonitor;
+    private final MetricMonitor readinessMonitor;
 
     private final Object dataStatusLock = new Object();
     private final Map<Long, SendData> sendedData = new HashMap<>();
@@ -62,8 +63,8 @@ public class Resender implements ConfirmListener, Closeable {
                     @NotNull ScheduledExecutorService scheduler,
                     @NotNull AtomicBoolean connectionChecker,
                     @NotNull RabbitMQConfiguration configuration,
-                    @NotNull MetricArbiter.MetricMonitor livenessMonitor,
-                    @NotNull MetricArbiter.MetricMonitor readinessMonitor) {
+                    @NotNull MetricMonitor livenessMonitor,
+                    @NotNull MetricMonitor readinessMonitor) {
         this.unlockSender = unlockSenderFunction;
         this.channelSupplier = Objects.requireNonNull(channelCreator, "Channel creator can not be null");
         createChannel();

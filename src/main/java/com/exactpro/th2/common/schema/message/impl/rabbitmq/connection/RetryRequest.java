@@ -15,14 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import com.exactpro.th2.common.metrics.MetricArbiter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.rabbitmq.client.AlreadyClosedException;
-import com.rabbitmq.client.Channel;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +23,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.exactpro.th2.common.metrics.MetricMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.Channel;
 
 /**
  * Request with ability retry.
@@ -43,8 +44,8 @@ public abstract class RetryRequest<T> implements Runnable {
 
     private final CompletableFuture<T> completableFuture = new CompletableFuture<>();
     private final Supplier<Channel> channelCreator;
-    private final MetricArbiter.MetricMonitor livenessMonitor;
-    private final MetricArbiter.MetricMonitor readinessMonitor;
+    private final MetricMonitor livenessMonitor;
+    private final MetricMonitor readinessMonitor;
     private final AtomicBoolean connectionIsClosed;
     private final RabbitMQConfiguration configuration;
     private final ScheduledExecutorService scheduler;
@@ -60,8 +61,8 @@ public abstract class RetryRequest<T> implements Runnable {
                         RabbitMQConfiguration configuration,
                         ScheduledExecutorService scheduler,
                         ExecutorService tasker,
-                        MetricArbiter.MetricMonitor livenessMonitor,
-                        MetricArbiter.MetricMonitor readinessMonitor) {
+                        MetricMonitor livenessMonitor,
+                        MetricMonitor readinessMonitor) {
         this.channel = channel;
         this.channelCreator = Objects.requireNonNull(channelCreator, "Channel creator can not be null");
         this.connectionIsClosed = connectionIsClosed;
@@ -77,8 +78,8 @@ public abstract class RetryRequest<T> implements Runnable {
                         RabbitMQConfiguration configuration,
                         ScheduledExecutorService scheduler,
                         ExecutorService tasker,
-                        MetricArbiter.MetricMonitor livenessMonitor,
-                        MetricArbiter.MetricMonitor readinessMonitor) {
+                        MetricMonitor livenessMonitor,
+                        MetricMonitor readinessMonitor) {
         this(null, channelCreator, connectionIsClosed, configuration, scheduler, tasker, livenessMonitor, readinessMonitor);
     }
 
@@ -86,8 +87,8 @@ public abstract class RetryRequest<T> implements Runnable {
                         RabbitMQConfiguration configuration,
                         ScheduledExecutorService scheduler,
                         ExecutorService tasker,
-                        MetricArbiter.MetricMonitor livenessMonitor,
-                        MetricArbiter.MetricMonitor readinessMonitor) {
+                        MetricMonitor livenessMonitor,
+                        MetricMonitor readinessMonitor) {
         this(channel, DEFAULT_CHANNEL_CREATOR, connectionIsClosed, configuration, scheduler, tasker, livenessMonitor, readinessMonitor);
     }
 

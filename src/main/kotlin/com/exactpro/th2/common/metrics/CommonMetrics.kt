@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.common.metrics
 
-import io.prometheus.client.Gauge
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -26,15 +25,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 @JvmField
 val DEFAULT_BUCKETS = doubleArrayOf(0.000_25, 0.000_5, 0.001, 0.005, 0.010, 0.015, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0)
 
-private val LIVENESS = Gauge.build("th2_liveness", "Service liveness").register()
-private val READINESS = Gauge.build("th2_readiness", "Service readiness").register()
-
 private val RABBITMQ_READINESS = AtomicBoolean(true)
 private val GRPC_READINESS = AtomicBoolean(true)
 private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC_READINESS))
 
-private val LIVENESS_ARBITER = MetricArbiter(LIVENESS)
-private val READINESS_ARBITER = MetricArbiter(READINESS)
+private val LIVENESS_ARBITER = FileMetricArbiter("th2_liveness", "Service liveness", "healthy")
+private val READINESS_ARBITER = FileMetricArbiter("th2_readiness", "Service readiness", "ready")
 
 fun registerLiveness(name: String) = LIVENESS_ARBITER.register(name)
 fun registerReadiness(name: String) = READINESS_ARBITER.register(name)
@@ -49,7 +45,7 @@ val READINESS_MONITOR = registerReadiness("user_readiness")
 
 /**
  * @see registerLiveness
- * @see MetricArbiter.MetricMonitor
+ * @see MetricMonitor
  */
 @Deprecated(message = "Please create yours monitor with registerLiveness and use one")
 var liveness: Boolean
@@ -58,7 +54,7 @@ var liveness: Boolean
 
 /**
  * @see registerReadiness
- * @see MetricArbiter.MetricMonitor
+ * @see MetricMonitor
  */
 @Deprecated(message = "Please create yours monitor with registerReadiness and use one")
 var readiness: Boolean
@@ -68,7 +64,7 @@ var readiness: Boolean
 /**
  * @see registerLiveness
  * @see registerReadiness
- * @see MetricArbiter.MetricMonitor
+ * @see MetricMonitor
  */
 @Deprecated(message = "Please create yours monitors with registerLiveness and registerReadiness ans use ones")
 fun updateCommonReadiness() {
@@ -85,7 +81,7 @@ fun updateCommonReadiness() {
 
 /**
  * @see registerReadiness
- * @see MetricArbiter.MetricMonitor
+ * @see MetricMonitor
  */
 @Deprecated(message = "Please create yours monitor with registerReadiness and use one")
 fun addReadinessParameter(parameter: AtomicBoolean) {
@@ -94,7 +90,7 @@ fun addReadinessParameter(parameter: AtomicBoolean) {
 
 /**
  * @see registerReadiness
- * @see MetricArbiter.MetricMonitor
+ * @see MetricMonitor
  */
 @Deprecated(message = "Please create yours monitor with registerReadiness and use one")
 fun setRabbitMQReadiness(value: Boolean) {
@@ -104,7 +100,7 @@ fun setRabbitMQReadiness(value: Boolean) {
 
 /**
  * @see registerReadiness
- * @see MetricArbiter.MetricMonitor
+ * @see MetricMonitor
  */
 @Deprecated(message = "Please create yours monitor with registerReadiness and use one")
 fun setGRPCReadiness(value: Boolean) {
@@ -112,5 +108,5 @@ fun setGRPCReadiness(value: Boolean) {
     updateCommonReadiness()
 }
 
-class HealthMetrics(val livenessMonitor: MetricArbiter.MetricMonitor,
-                    val readinessMonitor: MetricArbiter.MetricMonitor)
+class HealthMetrics(val livenessMonitor: MetricMonitor,
+                    val readinessMonitor: MetricMonitor)

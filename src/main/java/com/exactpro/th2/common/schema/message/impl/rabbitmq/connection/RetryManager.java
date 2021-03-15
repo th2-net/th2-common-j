@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.metrics.MetricArbiter;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
@@ -57,11 +58,11 @@ public class RetryManager {
         return withRetry(func, channel, channelCreator, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
     }
 
-    public <T> CompletableFuture<T> withRetry(RetryFunction<T> func, Channel channel, MetricArbiter.MetricMonitor liveness, MetricArbiter.MetricMonitor readness) {
+    public <T> CompletableFuture<T> withRetry(RetryFunction<T> func, Channel channel, MetricMonitor liveness, MetricMonitor readness) {
         return withRetry(func, channel, channelCreator, liveness, readness);
     }
 
-    public <T> CompletableFuture<T> withRetry(RetryFunction<T> func, Channel channel, @NotNull Supplier<Channel> channelCreator, MetricArbiter.MetricMonitor liveness, MetricArbiter.MetricMonitor readness) {
+    public <T> CompletableFuture<T> withRetry(RetryFunction<T> func, Channel channel, @NotNull Supplier<Channel> channelCreator, MetricMonitor liveness, MetricMonitor readness) {
         RetryRequest<T> retryRequest = new RetryRequest<>(channel, channelCreator, connectionIsClosed, configuration, scheduler, tasker, liveness, readness) {
             @Override
             protected T action(Channel channel) throws IOException, AlreadyClosedException {
@@ -80,11 +81,11 @@ public class RetryManager {
         return withRetry(action, channel, channelCreator, metrics.getLivenessMonitor(), metrics.getReadinessMonitor());
     }
 
-    public CompletableFuture<Void> withRetry(RetryAction action, Channel channel, MetricArbiter.MetricMonitor liveness, MetricArbiter.MetricMonitor readness) {
+    public CompletableFuture<Void> withRetry(RetryAction action, Channel channel, MetricMonitor liveness, MetricMonitor readness) {
         return withRetry(action, channel, channelCreator, liveness, readness);
     }
 
-    public CompletableFuture<Void> withRetry(RetryAction action, Channel channel, @NotNull Supplier<Channel> channelCreator, MetricArbiter.MetricMonitor liveness, MetricArbiter.MetricMonitor readness) {
+    public CompletableFuture<Void> withRetry(RetryAction action, Channel channel, @NotNull Supplier<Channel> channelCreator, MetricMonitor liveness, MetricMonitor readness) {
         RetryRequest<Void> retryRequest = new RetryRequest<Void>(channel, channelCreator, connectionIsClosed, configuration, scheduler, tasker, liveness, readness) {
             @Override
             protected Void action(Channel channel) throws IOException, AlreadyClosedException {
