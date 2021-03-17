@@ -25,7 +25,6 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -97,7 +96,7 @@ public class RetryBuilder<T> {
         return this;
     }
 
-    public CompletableFuture<CompletableFuture<T>> createWithFunc() throws IllegalStateException {
+    public CompletableFuture<T> createWithFunc() throws IllegalStateException {
         if (function == null) {
             throw new IllegalStateException("Function or action should be not null");
         }
@@ -112,19 +111,7 @@ public class RetryBuilder<T> {
         return executeRetry(request);
     }
 
-    public CompletableFuture<T> createWithFuncNow() throws IllegalStateException {
-        if (time > 0 || unit != null) {
-            throw new IllegalStateException("Can not create retry request now, because it has delay");
-        }
-
-        try {
-            return createWithFunc().get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new IllegalStateException("Can not create retry request", e);
-        }
-    }
-
-    public CompletableFuture<CompletableFuture<Void>> createWithAction() throws IllegalStateException {
+    public CompletableFuture<Void> createWithAction() throws IllegalStateException {
         if (action == null) {
             throw new IllegalStateException("Function or action should be not null");
         }
@@ -140,19 +127,7 @@ public class RetryBuilder<T> {
         return executeRetry(request);
     }
 
-    public CompletableFuture<Void> createWithActionNow() throws IllegalStateException {
-        if (time > 0 || unit != null) {
-            throw new IllegalStateException("Can not create retry request now, because it has delay");
-        }
-
-        try {
-            return createWithAction().get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new IllegalStateException("Can not create retry request", e);
-        }
-    }
-
-    public CompletableFuture<CompletableFuture<?>> create() throws IllegalStateException {
+    public CompletableFuture<?> create() throws IllegalStateException {
         if (function == null && action == null) {
             throw new IllegalStateException("Function or action should be not null");
         }
@@ -175,47 +150,37 @@ public class RetryBuilder<T> {
             };
         }
 
-        CompletableFuture<CompletableFuture<?>> future = new CompletableFuture<>();
-
-        if (time > 0 && unit != null) {
-            RetryRequest<?> finalRequest = request;
-            scheduler.schedule(() -> {
-                tasker.execute(finalRequest);
-                future.complete(finalRequest.getCompletableFuture());
-            }, time, unit);
-        } else {
-            tasker.execute(request);
-            future.complete(request.getCompletableFuture());
-        }
-
-        return future;
-    }
-
-    public CompletableFuture<?> createNow() throws IllegalStateException {
-        if (time > 0 || unit != null) {
-            throw new IllegalStateException("Can not create retry request now, because it has delay");
-        }
-
-        try {
-            return create().get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new IllegalStateException("Can not create retry request", e);
-        }
-    }
-
-    private <R> CompletableFuture<CompletableFuture<R>> executeRetry(RetryRequest<R> request) {
-        CompletableFuture<CompletableFuture<R>> future = new CompletableFuture<>();
+        CompletableFuture<Void> future = new CompletableFuture<>();
 
         if (time > 0 && unit != null) {
             scheduler.schedule(() -> {
-                tasker.execute(request);
-                future.complete(request.getCompletableFuture());
+                future.complete(null);
             }, time, unit);
         } else {
-            tasker.execute(request);
-            future.complete(request.getCompletableFuture());
+            future.complete(null);
         }
 
-        return future;
+        RetryRequest<?> finalRequest1 = request;
+        return future.thenCompose(ignore -> {
+            tasker.execute(finalRequest1);
+            return finalRequest1.getCompletableFuture();
+        });
+    }
+
+    private <R> CompletableFuture<R> executeRetry(RetryRequest<R> request) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
+        if (time > 0 && unit != null) {
+            scheduler.schedule(() -> {
+                future.complete(null);
+            }, time, unit);
+        } else {
+            future.complete(null);
+        }
+
+        return future.thenCompose(ignore -> {
+            tasker.execute(request);
+            return request.getCompletableFuture();
+        });
     }
 }

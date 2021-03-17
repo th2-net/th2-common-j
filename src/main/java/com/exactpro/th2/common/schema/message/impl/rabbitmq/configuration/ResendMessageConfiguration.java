@@ -25,9 +25,9 @@ public class ResendMessageConfiguration {
 
     private int maxResendWorkers = Runtime.getRuntime().availableProcessors();
 
-    private long minDelay = 200;
+    private long minDelay = 500;
 
-    private long maxDelay = 5000;
+    private long maxDelay = 10_000;
 
     public int getMaxResendWorkers() {
         return maxResendWorkers;

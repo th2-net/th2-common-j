@@ -21,10 +21,7 @@ package com.exactpro.th2.common.schema.message;
  * @see MessageSender
  */
 public interface MessageQueue<T> extends AutoCloseable {
-//    void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
-
     MessageSubscriber<T> getSubscriber();
 
     MessageSender<T> getSender();
-
 }

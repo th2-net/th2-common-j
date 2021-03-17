@@ -167,9 +167,11 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
                 LOGGER.trace("Message with delivery tag '{}' is rejected", minSeq);
                 T value = sendedData.remove(minSeq);
                 if (value != null) {
-                    resend(value);
+                    final long currentSeq = minSeq;
+                    resended.add(currentSeq);
+                    resend(value).thenRun(() -> resended.remove(currentSeq));
                 }
-                resended.remove(minSeq);
+
             }
         } else {
             if (minSeq < 0 || minSeq + 1 == deliveryTag) {
@@ -179,7 +181,8 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
             LOGGER.trace("Message with delivery tag '{}' is rejected", deliveryTag);
             T value = sendedData.remove(deliveryTag);
             if (value != null) {
-                resend(value);
+                resended.add(deliveryTag);
+                resend(value).thenRun(() -> resended.remove(deliveryTag));
             }
             resended.remove(deliveryTag);
         }
@@ -224,8 +227,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
 
     private boolean sendSync(T value) {
         try {
-            addExecutedHandler(createSendRetryBuilder(value,false).createWithActionNow(), value)
-                    .get();
+            addExecutedHandler(createSendRetryBuilder(value,false).createWithAction(), value).get();
             return true;
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.error("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, sendQueue, toShortDebugString(value), e);
@@ -233,7 +235,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
         }
     }
 
-    private void resend(T value) {
+    private CompletableFuture<?> resend(T value) {
         LOGGER.warn("Retry send message to exchangeName='{}', routing key='{}': '{}'",
                 exchangeName, sendQueue, toShortDebugString(value));
 
@@ -244,7 +246,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
             builder.setDelay(delay, TimeUnit.MILLISECONDS);
         }
 
-        builder.createWithAction().thenAccept(f -> addExecutedHandler(f, value));
+        return addExecutedHandler(builder.createWithAction(), value);
     }
 
     private RetryBuilder<Void> createSendRetryBuilder(T value, boolean addToResended) {

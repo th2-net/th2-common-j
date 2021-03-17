@@ -109,4 +109,14 @@ fun setGRPCReadiness(value: Boolean) {
 }
 
 class HealthMetrics(val livenessMonitor: MetricMonitor,
-                    val readinessMonitor: MetricMonitor)
+                    val readinessMonitor: MetricMonitor) {
+    fun enable() {
+        livenessMonitor.enable()
+        readinessMonitor.enable()
+    }
+
+    fun disable() {
+        livenessMonitor.disable()
+        readinessMonitor.disable()
+    }
+}

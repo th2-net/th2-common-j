@@ -22,8 +22,6 @@ import javax.annotation.concurrent.NotThreadSafe;
  */
 @NotThreadSafe
 public interface MessageSubscriber<T> extends AutoCloseable {
-//    void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets);
-
     void start() throws Exception;
 
     void addListener(MessageListener<T> messageListener);
