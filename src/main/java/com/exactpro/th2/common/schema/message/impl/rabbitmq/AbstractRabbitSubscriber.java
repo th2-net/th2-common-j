@@ -44,8 +44,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final ConnectionManager connectionManager;
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
 
-    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness(this);
-    private final MetricMonitor readinessMonitor = CommonMetrics.registerReadiness(this);
+    private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
     public AbstractRabbitSubscriber(ConnectionManager connectionManager,
                                     String exchangeName, SubscribeTarget target) {
@@ -63,7 +62,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         consumerMonitor.updateAndGet(monitor -> {
             if (monitor == null) {
-                monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, new HealthMetrics(livenessMonitor, readinessMonitor));
+                monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, healthMetrics);
                 LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
             }
             return monitor;
@@ -160,7 +159,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
-        readinessMonitor.disable();
+        healthMetrics.getReadinessMonitor().disable();
         resubscribe();
     }
 

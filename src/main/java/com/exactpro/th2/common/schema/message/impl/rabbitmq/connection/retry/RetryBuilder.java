@@ -15,21 +15,23 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry;
 
-import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.metrics.MetricMonitor;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.rabbitmq.client.AlreadyClosedException;
-import com.rabbitmq.client.Channel;
-import org.jetbrains.annotations.NotNull;
+import static java.util.Objects.requireNonNull;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+
+import org.jetbrains.annotations.NotNull;
+
+import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.metrics.MetricMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.Channel;
 
 public class RetryBuilder<T> {
 
@@ -38,8 +40,6 @@ public class RetryBuilder<T> {
     private final AtomicBoolean connectionIsClosed;
     private final ExecutorService tasker;
 
-    private RetryFunction<T> function = null;
-    private RetryAction action = null;
     private Channel channel = null;
     private MetricMonitor liveness = null;
     private MetricMonitor readness = null;
@@ -48,20 +48,10 @@ public class RetryBuilder<T> {
     private TimeUnit unit;
 
     public RetryBuilder(@NotNull RabbitMQConfiguration configuration, @NotNull ScheduledExecutorService scheduler, @NotNull ExecutorService tasker, @NotNull AtomicBoolean connectionIsClosed) {
-        this.configuration = Objects.requireNonNull(configuration, "Configuration can not be null");
-        this.scheduler = Objects.requireNonNull(scheduler, "Scheduler can not be null");
-        this.tasker = Objects.requireNonNull(tasker, "Tasker can not be null");
-        this.connectionIsClosed = Objects.requireNonNull(connectionIsClosed, "Connection checker can not be null");
-    }
-
-    public RetryBuilder<T> setFunction(RetryFunction<T> function) {
-        this.function = function;
-        return this;
-    }
-
-    public RetryBuilder<T> setAction(RetryAction action) {
-        this.action = action;
-        return this;
+        this.configuration = requireNonNull(configuration, "Configuration can not be null");
+        this.scheduler = requireNonNull(scheduler, "Scheduler can not be null");
+        this.tasker = requireNonNull(tasker, "Tasker can not be null");
+        this.connectionIsClosed = requireNonNull(connectionIsClosed, "Connection checker can not be null");
     }
 
     public RetryBuilder<T> setChannel(Channel channel) {
@@ -96,10 +86,8 @@ public class RetryBuilder<T> {
         return this;
     }
 
-    public CompletableFuture<T> createWithFunc() throws IllegalStateException {
-        if (function == null) {
-            throw new IllegalStateException("Function or action should be not null");
-        }
+    public CompletableFuture<T> build(RetryFunction<T> function) throws IllegalStateException {
+        requireNonNull(function, "Function or action should be not null");
 
         RetryRequest<T> request = new RetryRequest<T>(channel, channelCreator, connectionIsClosed, configuration, scheduler, tasker, liveness, readness) {
             @Override
@@ -111,10 +99,8 @@ public class RetryBuilder<T> {
         return executeRetry(request);
     }
 
-    public CompletableFuture<Void> createWithAction() throws IllegalStateException {
-        if (action == null) {
-            throw new IllegalStateException("Function or action should be not null");
-        }
+    public CompletableFuture<Void> build(RetryAction action) throws IllegalStateException {
+        requireNonNull(action, "Function or action should be not null");
 
         RetryRequest<Void> request = new RetryRequest<Void>(channel, channelCreator, connectionIsClosed, configuration, scheduler, tasker, liveness, readness) {
             @Override
@@ -125,46 +111,6 @@ public class RetryBuilder<T> {
         };
 
         return executeRetry(request);
-    }
-
-    public CompletableFuture<?> create() throws IllegalStateException {
-        if (function == null && action == null) {
-            throw new IllegalStateException("Function or action should be not null");
-        }
-
-        RetryRequest<?> request = null;
-        if (function != null) {
-            request = new RetryRequest<T>(channel, channelCreator, connectionIsClosed, configuration, scheduler, tasker, liveness, readness) {
-                @Override
-                protected T action(Channel channel) throws IOException, AlreadyClosedException {
-                    return function.apply(channel);
-                }
-            };
-        } else {
-            request = new RetryRequest<Void>(channel, channelCreator, connectionIsClosed, configuration, scheduler, tasker, liveness, readness) {
-                @Override
-                protected Void action(Channel channel) throws IOException, AlreadyClosedException {
-                    action.apply(channel);
-                    return null;
-                }
-            };
-        }
-
-        CompletableFuture<Void> future = new CompletableFuture<>();
-
-        if (time > 0 && unit != null) {
-            scheduler.schedule(() -> {
-                future.complete(null);
-            }, time, unit);
-        } else {
-            future.complete(null);
-        }
-
-        RetryRequest<?> finalRequest1 = request;
-        return future.thenCompose(ignore -> {
-            tasker.execute(finalRequest1);
-            return finalRequest1.getCompletableFuture();
-        });
     }
 
     private <R> CompletableFuture<R> executeRetry(RetryRequest<R> request) {

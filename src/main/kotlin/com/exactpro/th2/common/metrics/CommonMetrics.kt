@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.common.metrics
 
+import java.util.Objects
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -110,6 +111,9 @@ fun setGRPCReadiness(value: Boolean) {
 
 class HealthMetrics(val livenessMonitor: MetricMonitor,
                     val readinessMonitor: MetricMonitor) {
+
+    constructor(parent: Object) : this(registerLiveness(parent), registerReadiness(parent))
+
     fun enable() {
         livenessMonitor.enable()
         readinessMonitor.enable()

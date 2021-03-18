@@ -227,7 +227,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
 
     private boolean sendSync(T value) {
         try {
-            addExecutedHandler(createSendRetryBuilder(value,false).createWithAction(), value).get();
+            addExecutedHandler(createSendRetryBuilder(value,false), value).get();
             return true;
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.error("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, sendQueue, toShortDebugString(value), e);
@@ -239,24 +239,23 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
         LOGGER.warn("Retry send message to exchangeName='{}', routing key='{}': '{}'",
                 exchangeName, sendQueue, toShortDebugString(value));
 
-        RetryBuilder<Void> builder = createSendRetryBuilder(value, true);
+        RetryBuilder<Void> builder = connectionManager.createRetryBuilder();
 
         long delay = getNextDelay();
         if (delay > 0) {
             builder.setDelay(delay, TimeUnit.MILLISECONDS);
         }
 
-        return addExecutedHandler(builder.createWithAction(), value);
+        return addExecutedHandler(createSendRetryBuilder(builder, value, true), value);
     }
 
-    private RetryBuilder<Void> createSendRetryBuilder(T value, boolean addToResended) {
+    private CompletableFuture<Void> createSendRetryBuilder(RetryBuilder<Void> builder, T value, boolean addToResended) {
         byte[] bytes = valueToBytes(value);
 
-        return connectionManager.<Void>createRetryBuilder()
-                .setChannelCreator(() -> null)
+        return builder.setChannelCreator(() -> null)
                 .setChannel(null)
                 .setMetrics(metrics)
-                .setAction(ignore -> {
+                .build(ignore -> {
                     long seq;
                     synchronized (channelLock) {
                         seq = channel.getNextPublishSeqNo();
@@ -268,6 +267,10 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
                         resended.add(seq);
                     }
                 });
+    }
+
+    private CompletableFuture<Void> createSendRetryBuilder(T value, boolean addToResended) {
+        return createSendRetryBuilder(connectionManager.createRetryBuilder(), value, addToResended);
     }
 
     private CompletableFuture<?> addExecutedHandler(CompletableFuture<?> future, T value) {

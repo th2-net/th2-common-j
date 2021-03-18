@@ -14,6 +14,23 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
+import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
@@ -28,22 +45,6 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.Recoverable;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.Objects;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -148,17 +149,19 @@ public class ConnectionManager implements AutoCloseable {
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, HealthMetrics metrics) {
         String consumerTag = subscriberName + '_' + nextSubscriberId.getAndIncrement();
         CompletableFuture<String> future = this.<String>createRetryBuilder()
-                .setFunction(channel -> channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
-                    try {
-                        deliverCallback.handle(tag, delivery);
-                    } catch (IOException e) {
-                        LOGGER.error("Can not handle delivery for consumer with tag '{}'", consumerTag, e);
-                    } finally {
-                        basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
-                    }
-                }, cancelCallback))
+//                .setFunction()
                 .setMetrics(metrics)
-                .createWithFunc();
+                .build(channel -> {
+                    return channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
+                        try {
+                            deliverCallback.handle(tag, delivery);
+                        } catch (IOException e) {
+                            LOGGER.error("Can not handle delivery for consumer with tag '{}'", consumerTag, e);
+                        } finally {
+                            basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
+                        }
+                    }, cancelCallback);
+                });
         return new RabbitMqSubscriberMonitor(future, subscriberName);
     }
 
@@ -170,10 +173,9 @@ public class ConnectionManager implements AutoCloseable {
     @Deprecated(forRemoval = true)
     public void basicCancel(Channel channel, String consumerTag) {
         createRetryBuilder()
-                .setAction(channel1 -> channel1.basicCancel(consumerTag))
                 .setChannelCreator(() -> channel)
                 .setMetrics(managerMetrics)
-                .createWithAction()
+                .build(channel1 -> { channel1.basicCancel(consumerTag); })
                 .exceptionally(ex -> {
                     LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
                     return null;
@@ -182,9 +184,8 @@ public class ConnectionManager implements AutoCloseable {
 
     public void basicCancel(String consumerTag, HealthMetrics metrics) {
         createRetryBuilder()
-                .setAction(channel1 -> channel1.basicCancel(consumerTag))
                 .setMetrics(metrics)
-                .createWithAction()
+                .build(channel1 -> { channel1.basicCancel(consumerTag); })
                 .exceptionally(ex -> {
                     LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
                     return null;
@@ -198,9 +199,10 @@ public class ConnectionManager implements AutoCloseable {
         }
 
 
-        tasker.shutdown();
         try {
+            tasker.shutdown();
             if (!tasker.awaitTermination(DEFAULT_CLOSE_TIMEOUT, TimeUnit.MILLISECONDS)) {
+                LOGGER.warn("Thread pool cannot be shutdown for {} milliseconds", DEFAULT_CLOSE_TIMEOUT);
                 tasker.shutdownNow();
             }
         } catch (InterruptedException e) {
