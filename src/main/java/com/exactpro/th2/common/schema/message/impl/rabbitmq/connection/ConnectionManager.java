@@ -206,7 +206,7 @@ public class ConnectionManager implements AutoCloseable {
         this.connection.addBlockedListener(new BlockedListener() {
             @Override
             public void handleBlocked(String reason) throws IOException {
-                LOGGER.error("RabbitMQ blocked connection: {}", reason);
+                LOGGER.warn("RabbitMQ blocked connection: {}", reason);
             }
 
             @Override
@@ -303,21 +303,19 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void waitForConnectionRecovery(ShutdownNotifier notifier) {
-        boolean isClose = isConnectionRecovery(notifier);
+        if (isConnectionRecovery(notifier)) {
+            LOGGER.warn("Start waiting for connection recovery");
 
-        if (isClose) {
-            LOGGER.warn("Start wait for recovery connection");
-        }
-
-        while (isClose) {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                LOGGER.error("Wait for connection recovery was interrupted", e);
-                break;
+            while (isConnectionRecovery(notifier)) {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    LOGGER.error("Wait for connection recovery was interrupted", e);
+                    break;
+                }
             }
 
-            isClose = isConnectionRecovery(notifier);
+            LOGGER.info("Stop waiting for connection recovery");
         }
 
         if (connectionIsClosed.get()) {
