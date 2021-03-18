@@ -19,10 +19,19 @@ package com.exactpro.th2.common.message
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
 import com.exactpro.th2.common.grpc.MessageFilter
+import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
 
+@Deprecated(
+        message = "The message type from MessageFilter will be removed in the future",
+        replaceWith = ReplaceWith(
+                expression = "rootMessageFilter(messageType)"
+        ),
+        level = DeprecationLevel.WARNING
+)
 fun messageFilter(messageType: String): MessageFilter.Builder = MessageFilter.newBuilder().setMessageType(messageType)
 fun messageFilter(): MessageFilter.Builder = MessageFilter.newBuilder()
+fun rootMessageFilter(messageType: String): RootMessageFilter.Builder = RootMessageFilter.newBuilder().setMessageType(messageType)
 
 fun MessageFilter.getField(key: String): ValueFilter? = getFieldsOrDefault(key, null)
 fun MessageFilter.Builder.getField(key: String): ValueFilter? = getFieldsOrDefault(key, null)
