@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,7 +16,6 @@
 package com.exactpro.th2.common.schema.strategy.route.impl;
 
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.common.schema.strategy.route.StrategyName;
@@ -31,7 +29,7 @@ public class FilterRoutingStrategy implements RoutingStrategy<GrpcRawFilterStrat
 
     private GrpcRawFilterStrategy grpcConfiguration;
 
-    private final FilterStrategy filterStrategy = new DefaultFilterStrategy();
+    private final FilterStrategy<Message> filterStrategy = FilterStrategy.DEFAULT_FILTER_STRATEGY;
 
 
     @Override

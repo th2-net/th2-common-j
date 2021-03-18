@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.strategy.fieldExtraction;
+package com.exactpro.th2.common.schema.filter.strategy.impl;
 
 
 import com.exactpro.th2.common.grpc.Message;
@@ -23,13 +22,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 
-public abstract class AbstractTh2MsgFieldExtraction implements FieldExtractionStrategy {
+public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrategy<com.google.protobuf.Message> {
 
     public static final String SESSION_ALIAS_KEY = "session_alias";
     public static final String MESSAGE_TYPE_KEY = "message_type";
     public static final String DIRECTION_KEY = "direction";
 
-
+    @Override
     public Map<String, String> getFields(com.google.protobuf.Message message) {
         var th2Msg = parseMessage(message);
 

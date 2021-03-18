@@ -6,18 +6,17 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.schema.exception.RouterException;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageQueue;
@@ -57,7 +56,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitMessageRouter.class);
 
     private final AtomicReference<MessageRouterContext> context = new AtomicReference<>();
-    private final AtomicReference<FilterStrategy> filterStrategy = new AtomicReference<>(getDefaultFilterStrategy());
+    private final AtomicReference<FilterStrategy<Message>> filterStrategy = new AtomicReference<>(getDefaultFilterStrategy());
     private final ConcurrentMap<String, MessageQueue<T>> queueConnections = new ConcurrentHashMap<>();
 
     @Override
@@ -171,7 +170,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
      * @param filterStrategy filter strategy for filtering message fields
      * @throws NullPointerException if {@code filterStrategy} is null
      */
-    public void setFilterStrategy(@NotNull FilterStrategy filterStrategy) {
+    public void setFilterStrategy(@NotNull FilterStrategy<Message> filterStrategy) {
         this.filterStrategy.set(Objects.requireNonNull(filterStrategy));
     }
 
@@ -218,8 +217,8 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     protected abstract Set<String> requiredSendAttributes();
 
     @NotNull
-    protected DefaultFilterStrategy getDefaultFilterStrategy() {
-        return new DefaultFilterStrategy();
+    protected FilterStrategy<Message> getDefaultFilterStrategy() {
+        return FilterStrategy.DEFAULT_FILTER_STRATEGY;
     }
 
     protected MessageRouterMonitor getMonitor() {
