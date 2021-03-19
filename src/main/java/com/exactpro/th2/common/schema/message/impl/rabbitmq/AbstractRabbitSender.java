@@ -15,7 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
-import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
@@ -25,6 +24,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.Ret
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import io.prometheus.client.Counter;
+
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,12 +37,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class AbstractRabbitSender<T> implements MessageSender<T>, ConfirmListener {
@@ -48,68 +50,59 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
 
     private final ConnectionManager connectionManager;
     private final ResendMessageConfiguration resendMessageConfiguration;
-    private final String sendQueue;
+    private final String routingKey;
     private final String exchangeName;
 
-
-    private final Lock lock = new ReentrantLock();
-    private final Condition notLock = lock.newCondition();
-    private final AtomicBoolean canSend = new AtomicBoolean(true);
+    private final ManualResetEvent semaphore = new ManualResetEvent(true);
     private final AtomicInteger countAttempts = new AtomicInteger(0);
-
 
     private final Object channelLock = new Object();
     private Channel channel;
 
-    private final Map<Long, T> sendedData = new ConcurrentHashMap<>();
+    private final Set<Long> sendData = ConcurrentHashMap.newKeySet();
+
+    private final ConcurrentMap<Long, T> sendedData = new ConcurrentHashMap<>();
     private final Set<Long> resended = ConcurrentHashMap.newKeySet();
 
     private long minSeq = -1L;
 
-    private final HealthMetrics metrics = new HealthMetrics(
-            CommonMetrics.registerLiveness(this),
-            CommonMetrics.registerReadiness(this)
-    );
+    private final HealthMetrics metrics = new HealthMetrics(this);
 
-    protected AbstractRabbitSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
+    protected AbstractRabbitSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String routingKey) {
         this.connectionManager = Objects.requireNonNull(connectionManager, "Connection manager can not be null");
         this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name can not be null");
-        this.sendQueue = Objects.requireNonNull(sendQueue, "Send queue can not be null");
+        this.routingKey = Objects.requireNonNull(routingKey, "Send queue can not be null");
         this.resendMessageConfiguration = connectionManager.getConfiguration().getResendMessageConfiguration();
 
         createChannel();
-        LOGGER.info("{}:{} initialised with queue {}", getClass().getSimpleName(), hashCode(), sendQueue);
+        LOGGER.info("{}:{} initialised with queue {}", getClass().getSimpleName(), hashCode(), routingKey);
+    }
+
+    private void acquireSemaphore() throws InterruptedException {
+        while (!semaphore.waitOne(1, TimeUnit.SECONDS)) {
+            LOGGER.warn("Send operation is blocked, exchangeName='{}', routing key ='{}'", exchangeName, routingKey);
+        }
     }
 
     @Override
     public void send(T value) {
         Objects.requireNonNull(value, "Value for send can not be null");
 
-        while (canSend.get() && !resended.isEmpty()) {
-            try {
-                lock.lock();
-                notLock.await();
-                lock.unlock();
-            } catch (InterruptedException e) {
-                if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, sendQueue, toShortDebugString(value), e);
-                }
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Try to send message to exchangeName='{}', routing key='{}': '{}'",
+                    exchangeName, routingKey, toShortDebugString(value));
+        }
+
+        try {
+            acquireSemaphore();
+            sendSync(value);
+        } catch (InterruptedException | ExecutionException e) {
+            if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-        }
-
-        if (!sendSync(value)) {
-            return;
-        }
-
-        Counter counter = getDeliveryCounter();
-        counter.inc();
-        Counter contentCounter = getContentCounter();
-        contentCounter.inc(extractCountFrom(value));
-
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Message try to send to exchangeName='{}', routing key='{}': '{}'",
-                    exchangeName, sendQueue, toShortDebugString(value));
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, toShortDebugString(value), e);
+            }
         }
     }
 
@@ -129,7 +122,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
 
                 if (LOGGER.isDebugEnabled() && message != null) {
                     LOGGER.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
-                            exchangeName, sendQueue, toShortDebugString(message));
+                            exchangeName, routingKey, toShortDebugString(message));
                 }
             }
 
@@ -147,7 +140,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
 
             if (LOGGER.isDebugEnabled() && message != null) {
                 LOGGER.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
-                        exchangeName, sendQueue, toShortDebugString(message));
+                        exchangeName, routingKey, toShortDebugString(message));
             }
 
             lock.lock();
@@ -208,7 +201,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
                 channel.addConfirmListener(this);
             }
 
-            HashMap<Long, T> dataForSend = new HashMap<>(sendedData);
+            Map<Long, T> dataForSend = new HashMap<>(sendedData);
             sendedData.clear();
             resended.clear(); // Sender will be blocked, because canSend if false
 
@@ -225,19 +218,13 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
         }
     }
 
-    private boolean sendSync(T value) {
-        try {
-            addExecutedHandler(createSendRetryBuilder(value,false), value).get();
-            return true;
-        } catch (InterruptedException | ExecutionException e) {
-            LOGGER.error("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, sendQueue, toShortDebugString(value), e);
-            return false;
-        }
+    private void sendSync(T value) throws ExecutionException, InterruptedException {
+        addExecutedHandler(createSendRetryBuilder(value,false), value).get();
     }
 
     private CompletableFuture<?> resend(T value) {
         LOGGER.warn("Retry send message to exchangeName='{}', routing key='{}': '{}'",
-                exchangeName, sendQueue, toShortDebugString(value));
+                exchangeName, routingKey, toShortDebugString(value));
 
         RetryBuilder<Void> builder = connectionManager.createRetryBuilder();
 
@@ -252,20 +239,19 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
     private CompletableFuture<Void> createSendRetryBuilder(RetryBuilder<Void> builder, T value, boolean addToResended) {
         byte[] bytes = valueToBytes(value);
 
-        return builder.setChannelCreator(() -> null)
-                .setChannel(null)
-                .setMetrics(metrics)
+        return builder.setMetrics(metrics)
                 .build(ignore -> {
                     long seq;
                     synchronized (channelLock) {
                         seq = channel.getNextPublishSeqNo();
                         sendedData.put(seq, value);
-                        channel.basicPublish(exchangeName, sendQueue, null, bytes);
+                        channel.basicPublish(exchangeName, routingKey, null, bytes);
                     }
 
                     if (addToResended) {
                         resended.add(seq);
                     }
+                    return null;
                 });
     }
 
@@ -276,9 +262,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
     private CompletableFuture<?> addExecutedHandler(CompletableFuture<?> future, T value) {
         return future.exceptionally(ex -> {
             if (ex instanceof CreateChannelException) {
-                createChannel();
+                createChannel(); //FIXME: the createChannel method resends all data in sync mode
             } else if (LOGGER.isWarnEnabled()) {
-                LOGGER.warn("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, sendQueue, toShortDebugString(value), ex);
+                LOGGER.warn("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, toShortDebugString(value), ex);
             }
             return null;
         });
@@ -288,5 +274,78 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
         long count = countAttempts.incrementAndGet();
         long delay = (long) (Math.E * count * resendMessageConfiguration.getMinDelay());
         return resendMessageConfiguration.getMaxDelay() > 0 ? Math.min(delay, resendMessageConfiguration.getMaxDelay()) :  delay;
+    }
+
+    private static final AtomicLong SEND_DATA_COUNTER = new AtomicLong(0);
+
+    private static class SendData<T> {
+        private final long id = SEND_DATA_COUNTER.incrementAndGet();
+        private final T data;
+
+        private SendData(T data) {
+            this.data = data;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            SendData<?> sendData = (SendData<?>)o;
+
+            return new EqualsBuilder().append(id, sendData.id).isEquals();
+        }
+
+        @Override
+        public int hashCode() {
+            return new HashCodeBuilder(17, 37).append(id).toHashCode();
+        }
+    }
+
+    private static class ManualResetEvent {
+        private final ReentrantLock lock = new ReentrantLock();
+        private final Condition condition = lock.newCondition();
+        private volatile boolean isOpen;
+
+        public ManualResetEvent(boolean open) {
+            isOpen = open;
+        }
+
+        public boolean waitOne(long time, TimeUnit unit) throws InterruptedException {
+            if (!isOpen) {
+                try {
+                    lock.lock();
+                    if (!isOpen) {
+                        //noinspection ResultOfMethodCallIgnored
+                        condition.await(time, unit);
+                    }
+                } finally {
+                    lock.unlock();
+                }
+            }
+
+            return isOpen;
+        }
+
+        public void set() {
+            if (!isOpen) {
+                try {
+                    lock.lock();
+                    if (!isOpen) {
+                        isOpen = true;
+                        condition.signalAll();
+                    }
+                } finally {
+                    lock.unlock();
+                }
+            }
+        }
+
+        public void reset() {
+            isOpen = false;
+        }
     }
 }

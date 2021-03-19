@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,47 +47,31 @@ public abstract class RetryRequest<T> implements Runnable {
     private final AtomicBoolean connectionIsClosed;
     private final RabbitMQConfiguration configuration;
     private final ScheduledExecutorService scheduler;
-    private final ExecutorService tasker;
 
     private int attemptCount = 0;
     private Channel prevChannel = null;
     private Channel channel;
 
-    public RetryRequest(Channel channel,
-                        @NotNull Supplier<Channel> channelCreator,
-                        AtomicBoolean connectionIsClosed,
-                        RabbitMQConfiguration configuration,
-                        ScheduledExecutorService scheduler,
-                        ExecutorService tasker,
-                        MetricMonitor livenessMonitor,
-                        MetricMonitor readinessMonitor) {
-        this.channel = channel;
+    public RetryRequest(@NotNull Supplier<Channel> channelCreator,
+            AtomicBoolean connectionIsClosed,
+            RabbitMQConfiguration configuration,
+            ScheduledExecutorService scheduler,
+            MetricMonitor livenessMonitor,
+            MetricMonitor readinessMonitor) {
         this.channelCreator = Objects.requireNonNull(channelCreator, "Channel creator can not be null");
         this.connectionIsClosed = connectionIsClosed;
         this.configuration = configuration;
         this.scheduler = scheduler;
-        this.tasker = tasker;
         this.livenessMonitor = livenessMonitor;
         this.readinessMonitor = readinessMonitor;
     }
 
-    public RetryRequest(@NotNull Supplier<Channel> channelCreator,
-                        AtomicBoolean connectionIsClosed,
-                        RabbitMQConfiguration configuration,
-                        ScheduledExecutorService scheduler,
-                        ExecutorService tasker,
-                        MetricMonitor livenessMonitor,
-                        MetricMonitor readinessMonitor) {
-        this(null, channelCreator, connectionIsClosed, configuration, scheduler, tasker, livenessMonitor, readinessMonitor);
-    }
-
-    public RetryRequest(Channel channel, AtomicBoolean connectionIsClosed,
-                        RabbitMQConfiguration configuration,
-                        ScheduledExecutorService scheduler,
-                        ExecutorService tasker,
-                        MetricMonitor livenessMonitor,
-                        MetricMonitor readinessMonitor) {
-        this(channel, DEFAULT_CHANNEL_CREATOR, connectionIsClosed, configuration, scheduler, tasker, livenessMonitor, readinessMonitor);
+    public RetryRequest(AtomicBoolean connectionIsClosed,
+            RabbitMQConfiguration configuration,
+            ScheduledExecutorService scheduler,
+            MetricMonitor livenessMonitor,
+            MetricMonitor readinessMonitor) {
+        this(DEFAULT_CHANNEL_CREATOR, connectionIsClosed, configuration, scheduler, livenessMonitor, readinessMonitor);
     }
 
     @Override
@@ -143,7 +126,7 @@ public abstract class RetryRequest<T> implements Runnable {
         if (!completableFuture.isCancelled()) {
             int nextDelay = getNextDelay();
             LOGGER.debug("Retry RabbitMQ request. Count of try = '{}'. Time for wait = '{}'", attemptCount, nextDelay);
-            scheduler.schedule(() -> tasker.execute(this), nextDelay, TimeUnit.MILLISECONDS);
+            scheduler.schedule(this, nextDelay, TimeUnit.MILLISECONDS);
         }
     }
 

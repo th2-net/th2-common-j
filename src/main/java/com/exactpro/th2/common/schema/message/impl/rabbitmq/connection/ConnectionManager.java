@@ -128,8 +128,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public <T> RetryBuilder<T> createRetryBuilder() {
-        RetryBuilder<T> builder = new RetryBuilder<>(configuration, scheduler, tasker, connectionIsClosed);
-        return builder.setChannelCreator(this::createChannel);
+        return new RetryBuilder<>(configuration, scheduler, connectionIsClosed, this::createChannel);
     }
 
     public RabbitMQConfiguration getConfiguration() {
@@ -151,8 +150,7 @@ public class ConnectionManager implements AutoCloseable {
         CompletableFuture<String> future = this.<String>createRetryBuilder()
 //                .setFunction()
                 .setMetrics(metrics)
-                .build(channel -> {
-                    return channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
+                .build(channel -> channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
                         try {
                             deliverCallback.handle(tag, delivery);
                         } catch (IOException e) {
@@ -160,8 +158,7 @@ public class ConnectionManager implements AutoCloseable {
                         } finally {
                             basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
                         }
-                    }, cancelCallback);
-                });
+                    }, cancelCallback));
         return new RabbitMqSubscriberMonitor(future, subscriberName);
     }
 
@@ -173,9 +170,12 @@ public class ConnectionManager implements AutoCloseable {
     @Deprecated(forRemoval = true)
     public void basicCancel(Channel channel, String consumerTag) {
         createRetryBuilder()
-                .setChannelCreator(() -> channel)
+//                .setChannelCreator(() -> channel)
                 .setMetrics(managerMetrics)
-                .build(channel1 -> { channel1.basicCancel(consumerTag); })
+                .build(channel1 -> {
+                    channel1.basicCancel(consumerTag);
+                    return null;
+                })
                 .exceptionally(ex -> {
                     LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
                     return null;
@@ -185,7 +185,10 @@ public class ConnectionManager implements AutoCloseable {
     public void basicCancel(String consumerTag, HealthMetrics metrics) {
         createRetryBuilder()
                 .setMetrics(metrics)
-                .build(channel1 -> { channel1.basicCancel(consumerTag); })
+                .build(channel1 -> {
+                    channel1.basicCancel(consumerTag);
+                    return null;
+                })
                 .exceptionally(ex -> {
                     LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
                     return null;
@@ -220,7 +223,7 @@ public class ConnectionManager implements AutoCloseable {
     public Channel createChannel() {
         checkConnection();
 
-        RetryRequest<Channel> request = new RetryRequest<>((Channel) null, connectionIsClosed, configuration, scheduler, tasker, managerMetrics.getLivenessMonitor(), managerMetrics.getReadinessMonitor()) {
+        RetryRequest<Channel> request = new RetryRequest<>(connectionIsClosed, configuration, scheduler, managerMetrics.getLivenessMonitor(), managerMetrics.getReadinessMonitor()) {
             @Override
             protected Channel action(Channel channel) throws IOException, AlreadyClosedException {
                 return connection.createChannel();
