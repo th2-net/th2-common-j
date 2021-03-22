@@ -220,6 +220,10 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
+    public Channel createChannelWithoutCheck() throws IOException {
+        return connection.createChannel();
+    }
+
     public Channel createChannel() {
         checkConnection();
 
