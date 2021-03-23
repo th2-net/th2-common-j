@@ -16,8 +16,10 @@
 
 package com.exactpro.th2.common.metrics
 
+import java.util.Objects
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * This is a set of default baskets in millisecond for Prometheus histogram metric.
@@ -108,8 +110,23 @@ fun setGRPCReadiness(value: Boolean) {
     updateCommonReadiness()
 }
 
-class HealthMetrics(val livenessMonitor: MetricMonitor,
-                    val readinessMonitor: MetricMonitor) {
+class HealthMetrics @JvmOverloads constructor(val livenessMonitor: MetricMonitor,
+                    val readinessMonitor: MetricMonitor,
+                    private val maxAttempts: Int = 10) {
+
+    @JvmOverloads
+    constructor(parent: Object, attempts: Int = 10) : this(registerLiveness(parent), registerReadiness(parent), attempts)
+
+    private val attempts = AtomicInteger(0)
+
+    fun notReady() {
+        if (maxAttempts > attempts.incrementAndGet()) {
+            readinessMonitor.disable()
+        } else {
+            disable();
+        }
+    }
+
     fun enable() {
         livenessMonitor.enable()
         readinessMonitor.enable()

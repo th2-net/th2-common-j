@@ -23,12 +23,14 @@ public class ResendMessageConfiguration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ResendMessageConfiguration.class);
 
+    @Deprecated
     private int maxResendWorkers = Runtime.getRuntime().availableProcessors();
 
     private long minDelay = 500;
 
     private long maxDelay = 10_000;
 
+    @Deprecated
     public int getMaxResendWorkers() {
         return maxResendWorkers;
     }
