@@ -165,16 +165,6 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     }
 
     /**
-     * Sets a fields filter strategy
-     *
-     * @param filterStrategy filter strategy for filtering message fields
-     * @throws NullPointerException if {@code filterStrategy} is null
-     */
-    public void setFilterStrategy(@NotNull FilterStrategy<Message> filterStrategy) {
-        this.filterStrategy.set(Objects.requireNonNull(filterStrategy));
-    }
-
-    /**
      * Return a fields filter strategy
      * @return filter strategy for filtering message fields
      */

@@ -26,15 +26,15 @@ class EventMessageRouterMonitor(private val router: MessageRouter<EventBatch>, p
     MessageRouterMonitor {
 
     override fun onInfo(msg: String, vararg args: Any?) {
-        onInfo(msg, args)
+        router.send(createEventBatch("Event in message router", arrayFormat(msg, args).message, Event.Status.PASSED))
     }
 
     override fun onWarn(msg: String, vararg args: Any?) {
-        onWarn(arrayFormat(msg, args).message)
+        router.send(createEventBatch("Warn message in message router", arrayFormat(msg, args).message, Event.Status.FAILED))
     }
 
-    override fun onError(formatMsg: String, vararg args: Any?) {
-        onError(arrayFormat(formatMsg, args).message)
+    override fun onError(msg: String, vararg args: Any?) {
+        router.send(createEventBatch("Error message in message router", arrayFormat(msg, args).message, Event.Status.FAILED))
     }
 
     private fun createEventBatch(name: String, msg: String, status: Event.Status): EventBatch =
