@@ -15,7 +15,19 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
-import static java.util.Objects.requireNonNull;
+import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.message.MessageSender;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConfirmListener;
+import com.rabbitmq.client.ShutdownSignalException;
+import io.prometheus.client.Counter;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -28,29 +40,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.util.Objects.requireNonNull;
 
-import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.schema.message.MessageSender;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.ConfirmListener;
-import com.rabbitmq.client.ShutdownSignalException;
-
-import io.prometheus.client.Counter;
-
-public abstract class AbstractRabbitSender<T> implements MessageSender<T>, ConfirmListener {
+public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSender.class);
     private static final AtomicLong SEND_DATA_REQUEST_COUNTER = new AtomicLong(0);
 
@@ -63,7 +62,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
     /**
      * Scheduled executor service with single thread. It provide ability to write task oriented code without concurrent affects
      */
-    private final ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(1);;
     private final ManualResetEvent manualResetEvent = new ManualResetEvent(true);
     private final Set<SendData> dataToSend = ConcurrentHashMap.newKeySet();
 
@@ -74,7 +73,6 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
     // endregion
 
     protected AbstractRabbitSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String routingKey) {
-        this.scheduler = requireNonNull(null, "Scheduler can not be null"); //FIXME: pass ScheduledExecutorService with single thread
         this.connectionManager = requireNonNull(connectionManager, "Connection manager can not be null");
         this.exchangeName = requireNonNull(exchangeName, "Exchange name can not be null");
         this.routingKey = requireNonNull(routingKey, "Send queue can not be null");
@@ -91,21 +89,25 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
             LOGGER.trace("Try to send message to exchangeName='{}', routing key='{}': '{}'",
                     exchangeName, routingKey, toShortDebugString(value));
         }
-
+        SendData sendData = null;
         try {
             waitOne();
-            SendData sendData = new SendData(valueToBytes(value), extractCountFrom(value));
+            sendData = new SendData(valueToBytes(value), extractCountFrom(value));
             if (!dataToSend.add(sendData)) {
                 throw new IllegalStateException("Send data is already in process " + toShortDebugString(value));
             }
             publish(sendData);
-            sendData.completableFuture.get(); //TODO: add call back to remove the send data from dataToSend at the end of future
+            sendData.completableFuture.get();
         } catch (InterruptedException | ExecutionException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, toShortDebugString(value), e);
+            }
+        } finally {
+            if (sendData != null && !dataToSend.remove(sendData)) {
+                LOGGER.warn("Send request already removed exchangeName='{}', routing key ='{}'", exchangeName, routingKey);
             }
         }
     }
@@ -114,23 +116,23 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
      * Calls passed action and catches exception from it to manage channel.
      * This method should be called from {@link #scheduler} thread only in single thread mode
      */
-    private void callOnChannel(CallChannel callChannel) throws Exception {
+    private void callOnChannel(ChannelAction channelAction) throws Exception {
         try {
             if (channel == null) {
                 LOGGER.info("Try to create new channel");
                 channel = connectionManager.createChannelWithoutCheck();
                 channel.confirmSelect();
-                channel.addConfirmListener(new SenderConfirmListener(channel.getChannelNumber(), this::acknowledge, this::notAcknowledge)); //FIXME: change channel.getChannelNumber() -> channel.hashCode() "+" getChannelNumber
+                channel.addConfirmListener(new SenderConfirmListener(channel.getChannelNumber(), this::acknowledge, this::notAcknowledge));
                 LOGGER.info("Created new channel {}", channel.getChannelNumber());
             }
 
-            callChannel.apply(channel);
+            channelAction.apply(channel);
             healthMetrics.enable();
         } catch (IOException | ShutdownSignalException e) {
             healthMetrics.notReady();
             if (channel != null) {
                 try {
-                    activeSends.remove(channel.getChannelNumber()); //FIXME: change channel.getChannelNumber() -> channel.hashCode() "+" getChannelNumber
+                    activeSends.remove(channel.getChannelNumber());
                     channel.abort();
                 } catch (IOException ex) {
                     LOGGER.warn("Can not abort channel from retry request for RabbitMQ", ex);
@@ -146,28 +148,35 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
     }
 
     private void publish(SendData sendData, int attempt) {
+        if (LOGGER.isTraceEnabled() && attempt > 1) {
+            LOGGER.trace("Try to resend message to exchangeName='{}', routing key ='{}', attempt = {}, data = {}", exchangeName, routingKey, attempt, sendData);
+        }
+
         scheduler.schedule(() -> {
             try {
                 callOnChannel(channel -> {
                     long sequence = channel.getNextPublishSeqNo();
                     SendRequest sendRequest = new SendRequest(sendData, attempt);
-                    Map<Long, SendRequest> sequenceToSendRequest = activeSends.computeIfAbsent(channel.getChannelNumber(), HashMap::new); //FIXME: change channel.getChannelNumber() -> channel.hashCode() "+" getChannelNumber
+                    Map<Long, SendRequest> sequenceToSendRequest = activeSends.computeIfAbsent(channel.getChannelNumber(), k -> new HashMap<>());
                     checkPrevious(null, sequenceToSendRequest.put(sequence, sendRequest));
                     try {
                         channel.basicPublish(exchangeName, routingKey, null, sendRequest.sendData.data);
-                    } catch (IOException | ShutdownSignalException e) {
+                    } catch (IOException | ShutdownSignalException e) { // soft exceptions
                         LOGGER.warn("Can not execute basic publish exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, sendData, e);
                         checkPrevious(sendRequest, sequenceToSendRequest.remove(sequence));
-                        publish(sendData, attempt + 1);
                         throw e;
                     } catch (Exception e) {
                         LOGGER.error("Exception during basic publish exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, sendData, e);
+                        checkPrevious(sendRequest, sequenceToSendRequest.remove(sequence));
                         sendData.completableFuture.completeExceptionally(e);
                         throw e;
                     }
                 });
+            } catch (IOException | ShutdownSignalException e) {
+                LOGGER.error("Can not execute publish exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, sendData, e);
+                publish(sendData, attempt + 1);
             } catch (Exception e) {
-                LOGGER.error("Problem with basic publish exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, sendData, e);
+                LOGGER.error("Problem with publish exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, sendData, e);
             }
         }, getNextDelay(attempt), TimeUnit.MILLISECONDS);
     }
@@ -209,12 +218,11 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
             LOGGER.error("Unexpected acknowledgment exchangeName='{}', routing key ='{}', channel = {} deliveryTag = {}", exchangeName, routingKey, channelNumber, deliveryTag);
             return;
         }
+        
+        getDeliveryCounter().inc();
+        getContentCounter().inc(removedRequest.sendData.size);
 
         try {
-            if (!dataToSend.remove(removedRequest.sendData)) { // TODO: move to call back in the send method
-                LOGGER.warn("Send request already removed exchangeName='{}', routing key ='{}', channel = {} deliveryTag = {}", exchangeName, routingKey, channelNumber, deliveryTag);
-            }
-
             if (rejectedSends.remove(removedRequest.sendData)
                     && rejectedSends.isEmpty()) {
                 LOGGER.info("Send data removed from rejected list exchangeName='{}', routing key ='{}', data = {}", exchangeName, routingKey, removedRequest.sendData);
@@ -268,9 +276,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
         publish(removedRequest.sendData, removedRequest.attempt + 1);
     }
 
-    protected abstract Counter getDeliveryCounter(); //TODO: use
+    protected abstract Counter getDeliveryCounter();
 
-    protected abstract Counter getContentCounter(); //TODO: use
+    protected abstract Counter getContentCounter();
 
     protected abstract int extractCountFrom(T message);
 
@@ -298,23 +306,22 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T>, Confi
         return resendMessageConfiguration.getMaxDelay() > 0 ? Math.min(delay, resendMessageConfiguration.getMaxDelay()) : delay;
     }
 
-    //TODO: rename
     @FunctionalInterface
-    private interface CallChannel {
+    private interface ChannelAction {
         void apply(Channel channel) throws Exception;
     }
 
-    private interface Confirm {
+    private interface ConfirmAction {
         void apply(int channelNumber, long deliveryTag, boolean multiple);
     }
 
     private static class SenderConfirmListener implements ConfirmListener {
 
         private final int channelNumber;
-        private final Confirm ack;
-        private final Confirm nack;
+        private final ConfirmAction ack;
+        private final ConfirmAction nack;
 
-        private SenderConfirmListener(int channelNumber, Confirm ack, Confirm nack) {
+        private SenderConfirmListener(int channelNumber, ConfirmAction ack, ConfirmAction nack) {
             this.channelNumber = channelNumber;
             this.ack = ack;
             this.nack = nack;
