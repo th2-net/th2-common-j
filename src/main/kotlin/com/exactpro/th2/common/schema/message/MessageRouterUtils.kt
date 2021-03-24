@@ -25,6 +25,7 @@ import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
+import com.google.protobuf.Message
 import com.google.protobuf.MessageOrBuilder
 import com.google.protobuf.util.JsonFormat
 
@@ -57,7 +58,15 @@ fun MessageRouter<EventBatch>.storeEvent(
     storeEvent(this, parentId)
 }
 
-fun MessageOrBuilder.toJson(): String = JsonFormat.printer()
-    .omittingInsignificantWhitespace()
-    .includingDefaultValueFields()
-    .print(this)
+// Not using default parameters for java compatibility
+@Deprecated(message = "Only for back compatibility", replaceWith = ReplaceWith("toJson(true)", imports = ["com.exactpro.th2.common.schema.message.toJson"]), level = DeprecationLevel.WARNING)
+fun MessageOrBuilder.toJson() : String = this.toJson(true)
+
+fun MessageOrBuilder.toJson(short: Boolean): String = JsonFormat.printer().includingDefaultValueFields().let {
+    (if (short) it.omittingInsignificantWhitespace() else it).print(this)
+}
+
+fun <T: Message.Builder> T.fromJson(json: String) : T {
+    JsonFormat.parser().ignoringUnknownFields().merge(json, this)
+    return this
+}

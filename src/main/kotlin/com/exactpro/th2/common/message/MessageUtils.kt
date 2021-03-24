@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,16 @@ package com.exactpro.th2.common.message
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.ListValue
+import com.exactpro.th2.common.grpc.ListValueOrBuilder
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
+import com.exactpro.th2.common.grpc.MessageOrBuilder
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.grpc.ValueOrBuilder
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
 import com.exactpro.th2.common.value.getDouble
@@ -34,6 +38,12 @@ import com.exactpro.th2.common.value.getMessage
 import com.exactpro.th2.common.value.getString
 import com.exactpro.th2.common.value.nullValue
 import com.exactpro.th2.common.value.toValue
+import com.exactpro.th2.common.value.updateList
+import com.exactpro.th2.common.value.updateMessage
+import com.exactpro.th2.common.value.updateOrAddList
+import com.exactpro.th2.common.value.updateOrAddMessage
+import com.exactpro.th2.common.value.updateOrAddValue
+import com.exactpro.th2.common.value.updateValue
 import com.google.protobuf.Timestamp
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -73,6 +83,16 @@ fun Message.Builder.getList(fieldName: String): List<Value>? = getField(fieldNam
 
 
 operator fun Message.Builder.set(key: String, value: Any?): Message.Builder = apply { addField(key, value) }
+fun Message.Builder.updateField(key: String, updateFunc: Value.Builder.() -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder() ?: throw NullPointerException("Can not find field with name $key"))) }
+fun Message.Builder.updateList(key: String, updateFunc: ListValue.Builder.() -> ListValueOrBuilder?) : Message.Builder = apply { updateField(key) { updateList(updateFunc) } }
+fun Message.Builder.updateMessage(key: String, updateFunc: Message.Builder.() -> MessageOrBuilder?) : Message.Builder = apply { updateField(key) { updateMessage(updateFunc) } }
+fun Message.Builder.updateValue(key: String, updateFunc: String.() -> String?) : Message.Builder = apply { updateField(key) { updateValue(updateFunc) } }
+
+fun Message.Builder.updateOrAddField(key: String, updateFunc: (Value.Builder?) -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder())) }
+fun Message.Builder.updateOrAddList(key: String, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder?) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddMessage(key: String, updateFunc: (Message.Builder?) -> MessageOrBuilder?) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddValue(key: String, updateFunc:(String?) -> String?) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddValue(updateFunc) ?: updateFunc(null)?.toValue() } }
+
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 
 fun Message.Builder.copyField(message: Message, key: String) : Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
