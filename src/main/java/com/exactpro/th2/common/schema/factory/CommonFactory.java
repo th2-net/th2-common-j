@@ -16,25 +16,12 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Map;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
@@ -44,7 +31,6 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
@@ -53,6 +39,19 @@ import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Map;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -67,6 +66,7 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_FILE_NAME = "cradle.json";
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
+    private static final String BOX_FILE_NAME = "box.json";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -75,6 +75,7 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path cradle;
     private final Path custom;
     private final Path dictionariesDir;
+    private final Path boxConfiguration;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -84,7 +85,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             Class<? extends GrpcRouter> grpcRouterClass,
-            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
@@ -93,9 +94,10 @@ public class CommonFactory extends AbstractCommonFactory {
         this.custom = custom;
         this.dictionariesDir = dictionariesDir;
         this.prometheus = prometheus;
+        this.boxConfiguration = boxConfiguration;
     }
 
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -103,6 +105,7 @@ public class CommonFactory extends AbstractCommonFactory {
         this.custom = custom;
         this.dictionariesDir = dictionariesDir;
         this.prometheus = prometheus;
+        this.boxConfiguration = boxConfiguration;
 
         start();
     }
@@ -119,6 +122,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME),
                 CONFIG_DEFAULT_PATH
         );
     }
@@ -130,6 +134,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
+                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME),
                 CONFIG_DEFAULT_PATH
         );
     }
@@ -169,6 +174,11 @@ public class CommonFactory extends AbstractCommonFactory {
         return prometheus;
     }
 
+    @Override
+    protected Path getPathToBoxConfiguration() {
+        return boxConfiguration;
+    }
+
     /**
      * Create {@link CommonFactory} from command line arguments
      *
@@ -187,6 +197,8 @@ public class CommonFactory extends AbstractCommonFactory {
      *             --dictionariesDir - path to directory which contains files with encoded dictionaries
      *             <p>
      *             --prometheusConfiguration - path to json file with configuration for prometheus metrics server
+     *             <p>
+     *             --boxConfiguration - path to json file with boxes configuration and information
      *             <p>
      *             --namespace - namespace in Kubernetes to find config maps related to the target
      *             <p>
@@ -212,6 +224,7 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "customConfiguration", true, null));
         options.addOption(new Option(null, "dictionariesDir", true, null));
         options.addOption(new Option(null, "prometheusConfiguration", true, null));
+        options.addOption(new Option(null, "boxConfiguration", true, null));
         options.addOption(new Option("c", "configs", true, null));
 
         options.addOption(new Option(null, "namespace", true, null));
@@ -235,7 +248,8 @@ public class CommonFactory extends AbstractCommonFactory {
                         calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
                         calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
                         calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
+                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs),
+                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, PROMETHEUS_FILE_NAME)
                 );
             }
         } catch (ParseException e) {
@@ -270,6 +284,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path customPath = Path.of(userDir, generatedConfigsDir, CUSTOM_FILE_NAME);
         Path prometheusPath = Path.of(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME);
         Path dictionaryPath = Path.of(userDir,generatedConfigsDir, "dictionary.json");
+        Path boxConfiguration = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
 
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
@@ -303,6 +318,8 @@ public class CommonFactory extends AbstractCommonFactory {
             ObjectNode custom = MAPPER.readValue(boxData.get(CUSTOM_FILE_NAME), ObjectNode.class);
             RabbitMQConfiguration rabbitMq = MAPPER.readValue(rabbitMqData.get(RABBIT_MQ_FILE_NAME), RabbitMQConfiguration.class);
             CradleConfiguration cradle = MAPPER.readValue(cradleConfigData.get(CRADLE_FILE_NAME), CradleConfiguration.class);
+            BoxConfiguration box = new BoxConfiguration();
+            box.setBoxName(boxName);
 
             Map<String, GrpcServiceConfiguration> grpcServices = grpc.getServices();
 
@@ -324,7 +341,7 @@ public class CommonFactory extends AbstractCommonFactory {
             if(generatedConfigsDirFile.mkdir()) {
                 LOGGER.info("Directory {} is created at {}", generatedConfigsDir, userDir);
             } else {
-                LOGGER.info("All configuration in the '{}' folder are overridden", generatedConfigsDir);
+                LOGGER.info("All boxConf in the '{}' folder are overridden", generatedConfigsDir);
             }
 
             if(generatedConfigsDirFile.exists()) {
@@ -335,6 +352,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 File customFile = customPath.toFile();
                 File prometheusFile = prometheusPath.toFile();
                 File dictionaryFile = dictionaryPath.toFile();
+                File boxFile = boxConfiguration.toFile();
 
                 writeToJson(grpcFile, grpc);
                 writeToJson(rabbitMqFile, rabbitMq);
@@ -342,6 +360,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 writeToJson(mqFile, mq);
                 writeToJson(customFile, custom);
                 writeToJson(prometheusFile, new PrometheusConfiguration());
+                writeToJson(boxFile, box);
 
                 if(dictionaryConfigMap != null) {
                     writeToJson(dictionaryFile, dictionaryConfigMap.getData());
@@ -352,7 +371,7 @@ public class CommonFactory extends AbstractCommonFactory {
             LOGGER.error(e.getMessage(), e);
         }
 
-        return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath);
+        return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfiguration);
     }
 
     private static ConfigMap getDictionary(String boxName, ConfigMapList configMapList) {
