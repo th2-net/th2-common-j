@@ -20,6 +20,7 @@ import com.exactpro.cradle.cassandra.CassandraCradleManager;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
+import com.exactpro.th2.common.grpc.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -131,6 +132,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
+    private final AtomicReference<String> rootEventId = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
     private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
@@ -492,6 +494,27 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * If not set root event, send event and set it to root
+     * @param event event for send
+     * @return root event id
+     * @throws CommonFactoryException if can not send event
+     */
+    public String createRootEvent(Event event) {
+        MessageRouter<EventBatch> router = getEventBatchRouter();
+        return rootEventId.updateAndGet(rootId -> {
+            if (rootId == null) {
+                try {
+                    router.sendAll(EventBatch.newBuilder().addEvents(event).build());
+                    return event.getId().getId();
+                } catch (IOException e) {
+                    throw new CommonFactoryException("Can not create root event", e);
+                }
+            }
+            return rootId;
+        });
+    }
+
+    /**
      * @return Path to configuration for RabbitMQ connection
      * @see RabbitMQConfiguration
      */
@@ -540,7 +563,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                try {
                    //FIXME: Add possibility to set parentEventID
                    return new DefaultMessageRouterContext(getRabbitMqConnectionManager(),
-                           new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), null)),
+                           new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), rootEventId.get())),
                            getMessageRouterConfiguration());
 
                } catch (Exception e) {
