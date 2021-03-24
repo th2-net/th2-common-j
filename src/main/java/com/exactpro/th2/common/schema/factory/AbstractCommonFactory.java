@@ -58,7 +58,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookupFactory;
@@ -75,6 +74,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
@@ -570,11 +570,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return rootEventId.updateAndGet(id -> {
             if (id == null) {
                 try {
-                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start()
-                            .name(ObjectUtils.defaultIfNull(getBoxConfiguration().getBoxName(), "Unknown box") + System.currentTimeMillis())
+                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start().endTimestamp()
+                            .name(getBoxConfiguration().getBoxName() + " " + Instant.now())
                             .description("Root event")
                             .status(Event.Status.PASSED)
-                            .type("event")
+                            .type("Microservice")
                             .toProtoEvent(null);
 
                     try {

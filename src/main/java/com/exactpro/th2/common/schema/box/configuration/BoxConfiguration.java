@@ -16,17 +16,21 @@
 package com.exactpro.th2.common.schema.box.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.Objects;
 
 public class BoxConfiguration {
 
     @JsonProperty
-    private String boxName;
+    private String boxName = "unknown-box";
 
+    @NotNull
     public String getBoxName() {
         return boxName;
     }
 
-    public void setBoxName(String boxName) {
-        this.boxName = boxName;
+    public void setBoxName(@NotNull String boxName) {
+        this.boxName = Objects.requireNonNull(boxName, "Box name can not be null");
     }
 }
