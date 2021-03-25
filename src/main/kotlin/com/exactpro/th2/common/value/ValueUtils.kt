@@ -30,34 +30,34 @@ import java.math.BigInteger
 fun nullValue(): Value = Value.newBuilder().setNullValue(NULL_VALUE).build()
 fun listValue() : ListValue.Builder = ListValue.newBuilder()
 
-fun Value.getString(): String? = if (this.kindCase == SIMPLE_VALUE) this.simpleValue else null
+fun Value.getString(): String? = takeIf { kindCase == SIMPLE_VALUE }?.simpleValue
 fun Value.getInt(): Int? = this.getString()?.toIntOrNull()
 fun Value.getLong(): Long? = this.getString()?.toLongOrNull()
 fun Value.getDouble(): Double? = this.getString()?.toDoubleOrNull()
 fun Value.getBigInteger(): BigInteger? = this.getString()?.toBigIntegerOrNull()
 fun Value.getBigDecimal(): BigDecimal? = this.getString()?.toBigDecimalOrNull()
-fun Value.getMessage(): Message? = if (hasMessageValue()) this.messageValue else null
-fun Value.getList() : List<Value>? = if (hasListValue()) this.listValue.valuesList else null
+fun Value.getMessage(): Message? = takeIf(Value::hasMessageValue)?.messageValue
+fun Value.getList() : List<Value>? = takeIf(Value::hasListValue)?.listValue?.valuesList
 
-fun Value.Builder.updateList(updateFunc: ListValue.Builder.() -> ListValueOrBuilder?) : Value.Builder = apply { if (hasListValue()) updateOrAddList(updateFunc) else throw NullPointerException("Can not find list value") }
-fun Value.Builder.updateValue(updateFunc: String.() -> String?) : ValueOrBuilder = apply { simpleValue = updateFunc(simpleValue ?: throw NullPointerException("Can not find simple value")) }
-fun Value.Builder.updateMessage(updateFunc: Message.Builder.() -> MessageOrBuilder?) : Value.Builder = apply { if(hasMessageValue()) updateOrAddMessage(updateFunc) else throw NullPointerException("Can not find message value") }
+fun Value.Builder.updateList(updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Value.Builder = apply { check(!hasListValue()) { "Can not find list value" }; updateOrAddList(updateFunc) }
+fun Value.Builder.updateValue(updateFunc: String.() -> String) : ValueOrBuilder = apply { simpleValue = updateFunc(simpleValue ?: throw NullPointerException("Can not find simple value")) }
+fun Value.Builder.updateMessage(updateFunc: Message.Builder.() -> MessageOrBuilder) : Value.Builder = apply { check(!hasMessageValue()) { "Can not find message value" }; updateOrAddMessage(updateFunc) }
 
-fun Value.Builder.updateOrAddList(updateFunc: ListValue.Builder.() -> ListValueOrBuilder?) : Value.Builder = apply { updateFunc(listValueBuilder)?.also {
+fun Value.Builder.updateOrAddList(updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Value.Builder = apply { updateFunc(listValueBuilder).also {
     when (it) {
         is ListValue -> listValue = it
         is ListValue.Builder -> setListValue(it)
-        else -> throw IllegalStateException("Can not set list value")
+        else -> throw IllegalStateException("Can not set list value. Wrong type = ${it.javaClass.typeName}")
     }
 } }
-fun Value.Builder.updateOrAddMessage(updateFunc: Message.Builder.() -> MessageOrBuilder?) : Value.Builder = apply { updateFunc(messageValueBuilder)?.also {
+fun Value.Builder.updateOrAddMessage(updateFunc: Message.Builder.() -> MessageOrBuilder) : Value.Builder = apply { updateFunc(messageValueBuilder).also {
     when(it) {
         is Message -> messageValue = it
         is Message.Builder -> setMessageValue(it)
-        else -> throw IllegalStateException("Can not set message value")
+        else -> throw IllegalStateException("Can not set message value. Wrong type = ${it.javaClass.typeName}")
     }
 } }
-fun Value.Builder.updateOrAddValue(updateFunc: String.() -> String?) : Value.Builder = apply { updateFunc(simpleValue)?.also { simpleValue = it } }
+fun Value.Builder.updateOrAddValue(updateFunc: String.() -> String) : Value.Builder = apply { updateFunc(simpleValue).also { simpleValue = it } }
 
 fun ListValue.Builder.update(i: Int, updateFunc: Value.Builder.() -> ValueOrBuilder?): ListValue.Builder = apply { updateFunc(getValuesBuilder(i))?.let { setValues(i, it.toValue()) } }
 fun ListValue.Builder.updateList(i: Int, updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : ListValue.Builder = apply { getValuesBuilder(i).updateList(updateFunc)}
@@ -72,9 +72,9 @@ fun ListValue.Builder.updateOrAdd(i: Int, updateFunc: (Value.Builder?) -> ValueO
         add(i, it)
     }
 }
-fun ListValue.Builder.updateOrAddList(i: Int, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder?) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() }}
-fun ListValue.Builder.updateOrAddValue(i: Int, updateFunc: (String?) -> String?) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddValue(updateFunc) ?: updateFunc(null)?.toValue() } }
-fun ListValue.Builder.updateOrAddMessage(i: Int, updateFunc: (Message.Builder?) -> MessageOrBuilder?) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() }}
+fun ListValue.Builder.updateOrAddList(i: Int, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() }}
+fun ListValue.Builder.updateOrAddValue(i: Int, updateFunc: (String?) -> String) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddValue(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun ListValue.Builder.updateOrAddMessage(i: Int, updateFunc: (Message.Builder?) -> MessageOrBuilder) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() }}
 
 operator fun ListValueOrBuilder.get(i: Int) : Value = getValues(i)
 operator fun ListValue.Builder.set(i: Int, value: Any?): ListValue.Builder = setValues(i, value?.toValue() ?: nullValue())
@@ -127,7 +127,12 @@ fun FloatArray.toValue(): Value = toTypedArray().toValue()
 fun DoubleArray.toValue(): Value = toTypedArray().toValue()
 
 
-fun Iterator<*>.toListValue() : ListValue = listValue().also { builder -> while(hasNext()) { next()?.also { builder.addValues(it.toValue()) } } }.build()
+fun Iterator<*>.toListValue() : ListValue = listValue().also { list ->
+    forEach {
+        it?.toValue().run(list::addValues)
+    }
+}.build()
+
 fun Iterable<*>.toListValue() : ListValue = iterator().toListValue()
 fun Array<*>.toListValue() : ListValue = iterator().toListValue()
 

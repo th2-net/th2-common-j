@@ -45,6 +45,7 @@ import com.exactpro.th2.common.value.updateOrAddMessage
 import com.exactpro.th2.common.value.updateOrAddValue
 import com.exactpro.th2.common.value.updateValue
 import com.google.protobuf.Timestamp
+import com.google.protobuf.util.JsonFormat
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.time.Instant
@@ -84,14 +85,14 @@ fun Message.Builder.getList(fieldName: String): List<Value>? = getField(fieldNam
 
 operator fun Message.Builder.set(key: String, value: Any?): Message.Builder = apply { addField(key, value) }
 fun Message.Builder.updateField(key: String, updateFunc: Value.Builder.() -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder() ?: throw NullPointerException("Can not find field with name $key"))) }
-fun Message.Builder.updateList(key: String, updateFunc: ListValue.Builder.() -> ListValueOrBuilder?) : Message.Builder = apply { updateField(key) { updateList(updateFunc) } }
-fun Message.Builder.updateMessage(key: String, updateFunc: Message.Builder.() -> MessageOrBuilder?) : Message.Builder = apply { updateField(key) { updateMessage(updateFunc) } }
-fun Message.Builder.updateValue(key: String, updateFunc: String.() -> String?) : Message.Builder = apply { updateField(key) { updateValue(updateFunc) } }
+fun Message.Builder.updateList(key: String, updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Message.Builder = apply { updateField(key) { updateList(updateFunc) } }
+fun Message.Builder.updateMessage(key: String, updateFunc: Message.Builder.() -> MessageOrBuilder) : Message.Builder = apply { updateField(key) { updateMessage(updateFunc) } }
+fun Message.Builder.updateValue(key: String, updateFunc: String.() -> String) : Message.Builder = apply { updateField(key) { updateValue(updateFunc) } }
 
 fun Message.Builder.updateOrAddField(key: String, updateFunc: (Value.Builder?) -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder())) }
-fun Message.Builder.updateOrAddList(key: String, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder?) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() } }
-fun Message.Builder.updateOrAddMessage(key: String, updateFunc: (Message.Builder?) -> MessageOrBuilder?) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() } }
-fun Message.Builder.updateOrAddValue(key: String, updateFunc:(String?) -> String?) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddValue(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddList(key: String, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddMessage(key: String, updateFunc: (Message.Builder?) -> MessageOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddValue(key: String, updateFunc:(String?) -> String) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddValue(updateFunc) ?: updateFunc(null)?.toValue() } }
 
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 
@@ -207,3 +208,13 @@ var Message.Builder.sequence
             })
         })
     }
+
+
+@JvmOverloads
+fun com.google.protobuf.MessageOrBuilder.toJson(short: Boolean = true): String = JsonFormat.printer().includingDefaultValueFields().let {
+    (if (short) it.omittingInsignificantWhitespace() else it).print(this)
+}
+
+fun <T: com.google.protobuf.Message.Builder> T.fromJson(json: String) : T = apply {
+    JsonFormat.parser().ignoringUnknownFields().merge(json, this)
+}
