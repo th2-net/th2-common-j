@@ -6,20 +6,24 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
+import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.MessageQueue
+import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.google.protobuf.Message
 
 class RabbitCustomRouter<T : Any>(
     customTag: String,
@@ -31,11 +35,17 @@ class RabbitCustomRouter<T : Any>(
     private val requiredSendAttributes: Set<String> = hashSetOf(QueueAttribute.PUBLISH.toString()) + defaultSendAttributes
     private val metricsHolder = MetricsHolder(customTag)
 
-    override fun createQueue(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageQueue<T> =
-        RabbitCustomQueue(connectionManager, queueConfiguration, converter, metricsHolder)
+    override fun createQueue(
+        context: MessageRouterContext,
+        queueConfiguration: QueueConfiguration,
+        filterFunction: FilterFunction
+    ): MessageQueue<T> = RabbitCustomQueue(context, queueConfiguration, filterFunction, converter, metricsHolder)
 
     // FIXME: the filtering is not working for custom objects
-    override fun findByFilter(queues: Map<String, QueueConfiguration>, msg: T): Map<String, T> {
+    override fun filterMessage(msg: Message?, filters: MutableList<out RouterFilter>?): Boolean = true
+
+    // FIXME: the filtering is not working for custom objects
+    override fun findQueueByFilter(queues: Map<String, QueueConfiguration>, msg: T): Map<String, T> {
         return queues.keys.associateWithTo(HashMap()) { msg }
     }
 

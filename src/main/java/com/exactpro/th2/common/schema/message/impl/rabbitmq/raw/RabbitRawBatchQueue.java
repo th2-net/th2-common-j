@@ -6,48 +6,41 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.exactpro.th2.common.schema.strategy.fieldExtraction.impl.Th2RawMsgFieldExtraction;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Objects;
+import org.jetbrains.annotations.Nullable;
 
 public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
-    private FilterStrategy strategy = new DefaultFilterStrategy(new Th2RawMsgFieldExtraction());
 
-    public RabbitRawBatchQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        super(connectionManager, queueConfiguration);
-    }
-
-    public void setFilterStrategy(@NotNull FilterStrategy strategy) {
-        this.strategy = Objects.requireNonNull(strategy, "Strategy can not be null");;
+    public RabbitRawBatchQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @Nullable FilterFunction filterFunc) {
+        super(context, queueConfiguration, filterFunc);
     }
 
     @Override
-    protected MessageSender<RawMessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        return new RabbitRawBatchSender(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
+    protected MessageSender<RawMessageBatch> createSender(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration) {
+        return new RabbitRawBatchSender(context, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
     }
 
     @Override
-    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        return new RabbitRawBatchSubscriber(connectionManager, queueConfiguration.getExchange(), new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey()), queueConfiguration.getFilters(), strategy);
+    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
+        return new RabbitRawBatchSubscriber(context, new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()), filterFunction, queueConfiguration.getFilters());
     }
 }

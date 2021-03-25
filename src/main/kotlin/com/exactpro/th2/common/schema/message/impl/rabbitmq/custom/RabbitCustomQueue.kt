@@ -6,15 +6,18 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
+import com.exactpro.th2.common.message.message
+import com.exactpro.th2.common.schema.message.FilterFunction
+import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -27,18 +30,19 @@ import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 
 class RabbitCustomQueue<T : Any>(
-    connectionManager: ConnectionManager,
+    messageRouterContext: MessageRouterContext,
     queueConfiguration: QueueConfiguration,
+    filterFunction: FilterFunction,
     private val converter: MessageConverter<T>,
     private val metricsHolder: MetricsHolder
-) : AbstractRabbitQueue<T>(connectionManager, queueConfiguration) {
+) : AbstractRabbitQueue<T>(messageRouterContext, queueConfiguration, filterFunction) {
 
     override fun createSender(
-        connectionManager: ConnectionManager,
+        messageRouterContext: MessageRouterContext,
         queueConfiguration: QueueConfiguration
     ): MessageSender<T> {
         return Sender(
-            connectionManager,
+            messageRouterContext,
             queueConfiguration.exchange,
             queueConfiguration.routingKey,
             converter,
@@ -48,13 +52,14 @@ class RabbitCustomQueue<T : Any>(
     }
 
     override fun createSubscriber(
-        connectionManager: ConnectionManager,
-        queueConfiguration: QueueConfiguration
+        messageRouterContext: MessageRouterContext,
+        queueConfiguration: QueueConfiguration,
+        filterFunction: FilterFunction
     ): MessageSubscriber<T> {
         return Subscriber(
-            connectionManager,
-            queueConfiguration.exchange,
-            SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey),
+            messageRouterContext,
+            SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey, queueConfiguration.exchange),
+            filterFunction,
             converter,
             metricsHolder.incomingDeliveryCounter,
             metricsHolder.processingTimer,
@@ -63,13 +68,13 @@ class RabbitCustomQueue<T : Any>(
     }
 
     private class Sender<T : Any>(
-        connectionManager: ConnectionManager,
+        messageRouterContext: MessageRouterContext,
         exchange: String,
         routingKey: String,
         private val converter: MessageConverter<T>,
         private val deliveryCounter: Counter,
         private val dataCounter: Counter
-    ) : AbstractRabbitSender<T>(connectionManager, exchange, routingKey) {
+    ) : AbstractRabbitSender<T>(messageRouterContext, exchange, routingKey) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)
@@ -84,14 +89,14 @@ class RabbitCustomQueue<T : Any>(
     }
 
     private class Subscriber<T : Any>(
-        connectionManager: ConnectionManager,
-        exchange: String,
+        messageRouterContext: MessageRouterContext,
         target: SubscribeTarget,
+        filterFunction: FilterFunction,
         private val converter: MessageConverter<T>,
         private val deliveryCounter: Counter,
         private val timer: Histogram,
         private val dataCounter: Counter
-    ) : AbstractRabbitSubscriber<T>(connectionManager, exchange, target) {
+    ) : AbstractRabbitSubscriber<T>(messageRouterContext, target, filterFunction) {
         override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
 
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)

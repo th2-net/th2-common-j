@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
@@ -72,8 +73,8 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private Channel channel;
     // endregion
 
-    protected AbstractRabbitSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String routingKey) {
-        this.connectionManager = requireNonNull(connectionManager, "Connection manager can not be null");
+    protected AbstractRabbitSender(@NotNull MessageRouterContext context, @NotNull String exchangeName, @NotNull String routingKey) {
+        this.connectionManager = requireNonNull(context, "Router context can not be null").getConnectionManager();
         this.exchangeName = requireNonNull(exchangeName, "Exchange name can not be null");
         this.routingKey = requireNonNull(routingKey, "Send queue can not be null");
         this.resendMessageConfiguration = connectionManager.getConfiguration().getResendMessageConfiguration();

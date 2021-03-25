@@ -6,11 +6,11 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
@@ -18,25 +18,23 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
-import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
-import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy
+import com.exactpro.th2.common.schema.message.FilterFunction
+import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.toJson
-import com.exactpro.th2.common.schema.strategy.fieldExtraction.impl.AnyMessageFieldExtractionStrategy
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
 
 class RabbitMessageGroupBatchSubscriber(
-    connectionManager: ConnectionManager,
-    exchange: String,
+    messageRouterContext: MessageRouterContext,
     target: SubscribeTarget,
-    private val filters: List<RouterFilter>,
-    private val filterStrategy: FilterStrategy = DefaultFilterStrategy(AnyMessageFieldExtractionStrategy())
-) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(connectionManager, exchange, target, filters, filterStrategy) {
+    filterFunction: FilterFunction,
+    filters: List<RouterFilter>
+) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(messageRouterContext, target, filterFunction, filters) {
     private val logger = KotlinLogging.logger {}
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
@@ -58,7 +56,7 @@ class RabbitMessageGroupBatchSubscriber(
         val groups = getMessages(batch).asSequence()
             .filter { group ->
                 group.messagesList.all { message ->
-                    filterStrategy.verify(message, filters)
+                    callFilterFunction(message, filters)
                 }.also { allMessagesMatch ->
                     if (!allMessagesMatch) {
                         logger.debug { "Skipped message group because none or some of its messages didn't match any filters: ${group.toJson()}" }

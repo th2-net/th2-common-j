@@ -16,23 +16,20 @@
 
 package com.exactpro.th2.common.schema.event;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-
 import io.prometheus.client.Counter;
+import org.jetbrains.annotations.NotNull;
 
 public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
 
     private static final Counter OUTGOING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_event_batch_quantity", "Quantity of outgoing event batches").register();
     private static final Counter OUTGOING_EVENT_QUANTITY = Counter.build("th2_mq_outgoing_event_quantity", "Quantity of outgoing events").register();
 
-    protected EventBatchSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName,
-            @NotNull String sendQueue) {
-        super(connectionManager, exchangeName, sendQueue);
+    public EventBatchSender(@NotNull MessageRouterContext context, @NotNull String exchangeName, @NotNull String routingKey) {
+        super(context, exchangeName, routingKey);
     }
 
     @Override

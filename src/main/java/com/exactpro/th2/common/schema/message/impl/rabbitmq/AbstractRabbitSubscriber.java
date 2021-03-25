@@ -6,26 +6,30 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
-import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.metrics.MetricMonitor;
+import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageListener;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
+import org.apache.commons.lang3.ObjectUtils;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,19 +42,18 @@ import java.util.concurrent.atomic.AtomicReference;
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
 
-    private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
-    private final String exchangeName;
     private final SubscribeTarget target;
     private final ConnectionManager connectionManager;
+    private final FilterFunction filterFunction;
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
+    private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
 
     private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
-    public AbstractRabbitSubscriber(ConnectionManager connectionManager,
-                                    String exchangeName, SubscribeTarget target) {
-        this.connectionManager = Objects.requireNonNull(connectionManager, "Connection cannot be null");;
+    public AbstractRabbitSubscriber(@NotNull MessageRouterContext context, @NotNull SubscribeTarget target, @Nullable FilterFunction filterFunction) {
         this.target = Objects.requireNonNull(target, "Subscriber target is can not be null");;
-        this.exchangeName = Objects.requireNonNull(exchangeName, "Exchange name in RabbitMQ can not be null");;
+        this.connectionManager = Objects.requireNonNull(context, "Router context can not be null").getConnectionManager();
+        this.filterFunction = ObjectUtils.defaultIfNull(filterFunction, FilterFunction.DEFAULT_FILTER_FUNCTION);
 
         LOGGER.debug("{}:{} created with target {}", getClass().getSimpleName(), hashCode(), target);
     }
@@ -59,6 +62,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     public void start() {
         var queue = target.getQueue();
         var routingKey = target.getRoutingKey();
+        var exchangeName = target.getExchange();
 
         consumerMonitor.updateAndGet(monitor -> {
             if (monitor == null) {
@@ -143,6 +147,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private void resubscribe() {
         var queue = target.getQueue();
         var routingKey = target.getRoutingKey();
+        var exchangeName = target.getExchange();
         LOGGER.info("Try to resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
 
         SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
@@ -155,6 +160,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
 
         start();
+    }
+
+    protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
+        return filterFunction.apply(message, filters);
     }
 
     private void canceled(String consumerTag) {

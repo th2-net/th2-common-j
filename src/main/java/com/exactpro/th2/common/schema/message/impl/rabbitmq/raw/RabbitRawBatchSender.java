@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.grpc.AnyMessage;
@@ -33,9 +34,8 @@ public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> 
     private static final Counter OUTGOING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_batch_quantity", "Quantity of outgoing raw message batches").register();
     private static final Counter OUTGOING_RAW_MSG_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_quantity", "Quantity of outgoing raw messages").register();
 
-    public RabbitRawBatchSender(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName,
-            @NotNull String sendQueue) {
-        super(connectionManager, exchangeName, sendQueue);
+    public RabbitRawBatchSender(@NotNull MessageRouterContext context, @NotNull String exchangeName, @NotNull String routingKey) {
+        super(context, exchangeName, routingKey);
     }
 
     @Override

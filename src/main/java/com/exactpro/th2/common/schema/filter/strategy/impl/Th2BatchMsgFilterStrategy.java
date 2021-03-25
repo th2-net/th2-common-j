@@ -12,30 +12,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.schema.message;
 
-public enum QueueAttribute {
-    FIRST("first"),
-    SECOND("second"),
-    SUBSCRIBE("subscribe"),
-    PUBLISH("publish"),
-    RAW("raw"),
-    PARSED("parsed"),
-    STORE("store"),
-    EVENT("event");
+package com.exactpro.th2.common.schema.filter.strategy.impl;
 
-    private final String value;
+import com.exactpro.th2.common.grpc.Message;
 
-    QueueAttribute(String value) {
-        this.value = value;
-    }
 
-    public String getValue() {
-        return value;
-    }
+public class Th2BatchMsgFilterStrategy extends AbstractTh2MsgFilterStrategy {
 
     @Override
-    public String toString() {
-       return value;
+    public Message parseMessage(com.google.protobuf.Message message) {
+        return (Message) message;
     }
+
 }

@@ -13,15 +13,15 @@
  *  limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message;
+package com.exactpro.th2.common.schema.message
 
-/**
- * Message queue
- * @see MessageSubscriber
- * @see MessageSender
- */
-public interface MessageQueue<T> extends AutoCloseable {
-    MessageSubscriber<T> getSubscriber();
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 
-    MessageSender<T> getSender();
+interface MessageRouterContext {
+
+    val connectionManager: ConnectionManager
+    val routerMonitor: MessageRouterMonitor
+    val configuration: MessageRouterConfiguration
+
 }

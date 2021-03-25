@@ -6,11 +6,11 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
@@ -18,10 +18,14 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageBatch.Builder;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
 import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
@@ -35,8 +39,8 @@ public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Me
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
-    protected MessageQueue<MessageBatch> createQueue(@NotNull ConnectionManager connectionManager, QueueConfiguration queueConfiguration) {
-        return new RabbitParsedBatchQueue(connectionManager, queueConfiguration);
+    protected MessageQueue<MessageBatch> createQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
+        return new RabbitParsedBatchQueue(context, queueConfiguration, filterFunction);
     }
 
     @Override

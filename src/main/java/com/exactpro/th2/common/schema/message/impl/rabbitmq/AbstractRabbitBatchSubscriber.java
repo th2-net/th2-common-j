@@ -6,23 +6,24 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.grpc.Direction;
-import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.common.schema.filter.strategy.impl.DefaultFilterStrategy;
+import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,22 +35,10 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitBatchSubscriber.class);
 
+    protected final List<? extends RouterFilter> filters;
 
-    private FilterStrategy filterStrategy;
-    private List<? extends RouterFilter> filters;
-
-    public AbstractRabbitBatchSubscriber(ConnectionManager connectionManager, String exchangeName,
-                                         SubscribeTarget target, List<? extends RouterFilter> filters) {
-        this(connectionManager, exchangeName, target, filters, new DefaultFilterStrategy());
-    }
-
-    public AbstractRabbitBatchSubscriber(ConnectionManager connectionManager,
-                                         String exchangeName,
-                                         SubscribeTarget target,
-                                         List<? extends RouterFilter> filters,
-                                         FilterStrategy filterStrategy) {
-        super(connectionManager, exchangeName, target);
-        this.filterStrategy = filterStrategy;
+    public AbstractRabbitBatchSubscriber(@NotNull MessageRouterContext context, @NotNull SubscribeTarget target, @NotNull FilterFunction filterFunction, @NotNull List<? extends RouterFilter> filters) {
+        super(context, target, filterFunction);
         this.filters = filters;
     }
 
@@ -65,7 +54,7 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
         while (each.hasNext()) {
             var msg = each.next();
-            if (!filterStrategy.verify(msg, filters)) {
+            if (!callFilterFunction(msg, filters)) {
                 each.remove();
                 LOGGER.debug("Message skipped because it did not satisfy filters: " + extractMetadata(msg));
             }

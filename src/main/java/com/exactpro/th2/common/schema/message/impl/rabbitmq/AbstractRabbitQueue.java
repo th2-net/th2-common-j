@@ -15,12 +15,16 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
+import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import org.apache.commons.lang3.ObjectUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,15 +33,18 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
+    private final MessageRouterContext context;
     private final ConnectionManager connectionManager;
     private final QueueConfiguration queueConfiguration;
-
+    private final FilterFunction filter;
     private final AtomicReference<MessageSender<T>> sender = new AtomicReference<>();
     private final AtomicReference<MessageSubscriber<T>> subscriber = new AtomicReference<>();
 
-    public AbstractRabbitQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        this.connectionManager = Objects.requireNonNull(connectionManager, "Connection can not be null");
+    public AbstractRabbitQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @Nullable FilterFunction filterFunc) {
+        this.context = Objects.requireNonNull(context, "Context can not be null");
+        this.connectionManager = context.getConnectionManager();
         this.queueConfiguration = Objects.requireNonNull(queueConfiguration, "Queue configuration can not be null");
+        this.filter = ObjectUtils.defaultIfNull(filterFunc, FilterFunction.DEFAULT_FILTER_FUNCTION);
     }
 
     @Override
@@ -48,7 +55,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
         return subscriber.updateAndGet( subscriber -> {
             if (subscriber == null) {
-                return createSubscriber(connectionManager, queueConfiguration);
+                return createSubscriber(context, queueConfiguration, filter);
             }
             return subscriber;
         });
@@ -62,7 +69,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
 
         return sender.updateAndGet(sender -> {
             if (sender == null) {
-                return createSender(connectionManager, queueConfiguration);
+                return createSender(context, queueConfiguration);
             }
             return sender;
         });
@@ -91,7 +98,7 @@ public abstract class AbstractRabbitQueue<T> implements MessageQueue<T> {
         }
     }
 
-    protected abstract MessageSender<T> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageSender<T> createSender(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration);
 
-    protected abstract MessageSubscriber<T> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
+    protected abstract MessageSubscriber<T> createSubscriber(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction);
 }

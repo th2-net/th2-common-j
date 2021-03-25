@@ -16,12 +16,15 @@
 package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -37,8 +40,8 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
             .name("th2_mq_event_processing_time")
             .help("Time of processing events").register();
 
-    public EventBatchSubscriber(ConnectionManager connectionManager, String exchangeName, SubscribeTarget target) {
-        super(connectionManager, exchangeName, target);
+    public EventBatchSubscriber(@NotNull MessageRouterContext context, @NotNull SubscribeTarget target, @Nullable FilterFunction filterFunction) {
+        super(context, target, filterFunction);
     }
 
     @Override

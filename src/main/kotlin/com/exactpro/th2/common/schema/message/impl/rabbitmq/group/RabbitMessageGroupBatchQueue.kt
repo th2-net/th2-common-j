@@ -6,16 +6,18 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.message.FilterFunction
+import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -24,12 +26,20 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Subscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import org.jetbrains.annotations.NotNull
 
-class RabbitMessageGroupBatchQueue(connectionManager: @NotNull ConnectionManager,
-                                   queueConfiguration: @NotNull QueueConfiguration) : AbstractRabbitQueue<MessageGroupBatch>(connectionManager, queueConfiguration) {
+class RabbitMessageGroupBatchQueue(messageRouterContext: MessageRouterContext, queueConfiguration: QueueConfiguration, filterFunction: FilterFunction) : AbstractRabbitQueue<MessageGroupBatch>(messageRouterContext, queueConfiguration, filterFunction){
+    override fun createSender(
+        context: MessageRouterContext,
+        queueConfiguration: QueueConfiguration
+    ): MessageSender<MessageGroupBatch> =
+        RabbitMessageGroupBatchSender(context, queueConfiguration.exchange, queueConfiguration.routingKey)
 
-    override fun createSender(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSender<MessageGroupBatch> =
-        RabbitMessageGroupBatchSender(connectionManager, queueConfiguration.exchange, queueConfiguration.routingKey)
-
-    override fun createSubscriber(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration): MessageSubscriber<MessageGroupBatch> =
-        RabbitMessageGroupBatchSubscriber(connectionManager, queueConfiguration.exchange, SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey), queueConfiguration.filters)
+    override fun createSubscriber(
+        context: MessageRouterContext,
+        queueConfiguration: QueueConfiguration,
+        filterFunction: FilterFunction
+    ): MessageSubscriber<MessageGroupBatch> =
+        RabbitMessageGroupBatchSubscriber(context,
+            SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey, queueConfiguration.exchange),
+            filterFunction,
+            queueConfiguration.filters)
 }
