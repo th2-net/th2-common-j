@@ -85,7 +85,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             Class<? extends GrpcRouter> grpcRouterClass,
-            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path boxConfiguration, Path dictionariesDir) {
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
@@ -97,7 +97,7 @@ public class CommonFactory extends AbstractCommonFactory {
         this.boxConfiguration = boxConfiguration;
     }
 
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path boxConfiguration, Path dictionariesDir) {
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -122,9 +122,9 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME),
-                CONFIG_DEFAULT_PATH
-        );
+                CONFIG_DEFAULT_PATH,
+                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
+                );
     }
 
     public CommonFactory() {
@@ -134,8 +134,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME),
-                CONFIG_DEFAULT_PATH
+                CONFIG_DEFAULT_PATH,
+                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
         );
     }
 
@@ -248,9 +248,9 @@ public class CommonFactory extends AbstractCommonFactory {
                         calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
                         calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
                         calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, BOX_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
-                );
+                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs),
+                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, BOX_FILE_NAME)
+                        );
             }
         } catch (ParseException e) {
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
