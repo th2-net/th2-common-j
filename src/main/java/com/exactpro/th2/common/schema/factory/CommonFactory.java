@@ -85,7 +85,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             Class<? extends GrpcRouter> grpcRouterClass,
-            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path boxConfiguration, Path dictionariesDir) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
@@ -97,7 +97,7 @@ public class CommonFactory extends AbstractCommonFactory {
         this.boxConfiguration = boxConfiguration;
     }
 
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path boxConfiguration, Path dictionariesDir) {
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -248,8 +248,8 @@ public class CommonFactory extends AbstractCommonFactory {
                         calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
                         calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
                         calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs),
-                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, PROMETHEUS_FILE_NAME)
+                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, BOX_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
                 );
             }
         } catch (ParseException e) {
