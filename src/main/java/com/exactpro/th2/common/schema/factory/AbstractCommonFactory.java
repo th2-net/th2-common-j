@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,10 +15,56 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
+import com.exactpro.cradle.CradleManager;
+import com.exactpro.cradle.cassandra.CassandraCradleManager;
+import com.exactpro.cradle.cassandra.connection.CassandraConnection;
+import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
+import com.exactpro.cradle.utils.CradleStorageException;
+import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.PrometheusConfiguration;
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
+import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.common.schema.dictionary.DictionaryType;
+import com.exactpro.th2.common.schema.event.EventBatchRouter;
+import com.exactpro.th2.common.schema.exception.CommonFactoryException;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
+import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
+import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.QueueAttribute;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
+import com.exactpro.th2.common.schema.message.impl.monitor.BroadcastMessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.impl.monitor.EventMessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.impl.monitor.LogMessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
+import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
+import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutingStategy;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.hotspot.DefaultExports;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
+import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.log4j.PropertyConfigurator;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -29,6 +74,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
@@ -43,49 +89,10 @@ import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
-import org.apache.commons.text.lookup.StringLookupFactory;
-import org.apache.log4j.PropertyConfigurator;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.cradle.CradleManager;
-import com.exactpro.cradle.cassandra.CassandraCradleManager;
-import com.exactpro.cradle.cassandra.connection.CassandraConnection;
-import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
-import com.exactpro.cradle.utils.CradleStorageException;
-import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.grpc.MessageBatch;
-import com.exactpro.th2.common.grpc.MessageGroupBatch;
-import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.PrometheusConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
-import com.exactpro.th2.common.schema.dictionary.DictionaryType;
-import com.exactpro.th2.common.schema.event.EventBatchRouter;
-import com.exactpro.th2.common.schema.exception.CommonFactoryException;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
-import com.exactpro.th2.common.schema.message.MessageRouter;
-import com.exactpro.th2.common.schema.message.QueueAttribute;
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
-import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
-import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutingStategy;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-
-import io.prometheus.client.exporter.HTTPServer;
-import io.prometheus.client.hotspot.DefaultExports;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -104,6 +111,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<RabbitMQConfiguration> rabbitMqConfiguration = new AtomicReference<>();
     private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
+    private final AtomicReference<BoxConfiguration> boxConfiguration = new AtomicReference<>();
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
         return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
@@ -117,16 +125,22 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return grpcRouterConfiguration.updateAndGet(this::loadGrpcRouterConfiguration);
     }
 
+    public BoxConfiguration getBoxConfiguration() {
+        return boxConfiguration.updateAndGet(this::loadBoxConfiguration);
+    }
+
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
     private final AtomicReference<ConnectionManager> rabbitMqConnectionManager = new AtomicReference<>();
+    private final AtomicReference<MessageRouterContext> routerContext = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
+    private final AtomicReference<String> rootEventId = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
     private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
@@ -192,7 +206,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
+                    router.init(getMessageRouterContext());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
@@ -212,7 +226,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
+                    router.init(getMessageRouterContext());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
@@ -232,7 +246,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterMessageGroupBatchClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
+                    router.init(getMessageRouterContext());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create group message router", e);
                 }
@@ -252,7 +266,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
+                    router.init(new DefaultMessageRouterContext(getRabbitMqConnectionManager(), MessageRouterMonitor.DEFAULT_MONITOR, getMessageRouterConfiguration()));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
@@ -527,6 +541,56 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected abstract Path getPathToPrometheusConfiguration();
 
+    /**
+     * @return Path to boxes configuration and information
+     * @see BoxConfiguration
+     */
+    protected abstract Path getPathToBoxConfiguration();
+
+    /**
+     * @return Context for all routers except event router
+     */
+    protected MessageRouterContext getMessageRouterContext() {
+        return routerContext.updateAndGet(ctx -> {
+           if (ctx == null) {
+               try {
+                   return new DefaultMessageRouterContext(getRabbitMqConnectionManager(),
+                           new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), getRootEventId())),
+                           getMessageRouterConfiguration());
+
+               } catch (Exception e) {
+                   throw new CommonFactoryException("Can not create message router context", e);
+               }
+           }
+           return ctx;
+        });
+    }
+
+    protected String getRootEventId() {
+        return rootEventId.updateAndGet(id -> {
+            if (id == null) {
+                try {
+                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start().endTimestamp()
+                            .name(getBoxConfiguration().getBoxName() + " " + Instant.now())
+                            .description("Root event")
+                            .status(Event.Status.PASSED)
+                            .type("Microservice")
+                            .toProtoEvent(null);
+
+                    try {
+                        getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
+                        return rootEvent.getId().getId();
+                    } catch (IOException e) {
+                        throw new CommonFactoryException("Can not send root event", e);
+                    }
+                } catch (JsonProcessingException e) {
+                    throw new CommonFactoryException("Can not create root event", e);
+                }
+            }
+            return id;
+        });
+    }
+
     protected RabbitMQConfiguration loadRabbitMqConfiguration(RabbitMQConfiguration currentValue) {
         return currentValue == null ? getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER) : currentValue;
 
@@ -556,6 +620,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             LOGGER.warn("Cannot load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
             return new PrometheusConfiguration();
         }
+    }
+
+    private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
+        return currentValue == null ? getConfiguration(getPathToBoxConfiguration(), BoxConfiguration.class, MAPPER) : currentValue;
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {

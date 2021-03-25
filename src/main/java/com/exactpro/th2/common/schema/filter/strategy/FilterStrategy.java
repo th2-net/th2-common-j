@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,13 +15,17 @@
 
 package com.exactpro.th2.common.schema.filter.strategy;
 
+import com.exactpro.th2.common.schema.filter.strategy.impl.Th2BatchMsgFilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 
 import java.util.List;
 
-public interface FilterStrategy {
+public interface FilterStrategy<T extends Message> {
+
+
+    public static final FilterStrategy<Message> DEFAULT_FILTER_STRATEGY = new Th2BatchMsgFilterStrategy();
 
     /**
      * Checks the provided message against the provided router filter.
@@ -34,7 +37,7 @@ public interface FilterStrategy {
      * @return if all field filters are passed successfully then {@code true}, otherwise {@code false}
      * @see #verify(Message, List)
      */
-    boolean verify(Message message, RouterFilter routerFilter);
+    boolean verify(T message, RouterFilter routerFilter);
 
     /**
      * Checks the provided message against the provided router filters.
@@ -46,6 +49,6 @@ public interface FilterStrategy {
      * @return if at least one router filter passed successfully then {@code true}, otherwise {@code false}
      * @see #verify(Message, RouterFilter)
      */
-    boolean verify(Message message, List<? extends RouterFilter> routerFilters);
+    boolean verify(T message, List<? extends RouterFilter> routerFilters);
 
 }

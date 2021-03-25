@@ -12,30 +12,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.schema.message;
 
-public enum QueueAttribute {
-    FIRST("first"),
-    SECOND("second"),
-    SUBSCRIBE("subscribe"),
-    PUBLISH("publish"),
-    RAW("raw"),
-    PARSED("parsed"),
-    STORE("store"),
-    EVENT("event");
+package com.exactpro.th2.common.schema.message
 
-    private final String value;
+import com.exactpro.th2.common.schema.message.impl.monitor.LogMessageRouterMonitor
 
-    QueueAttribute(String value) {
-        this.value = value;
+interface MessageRouterMonitor {
+
+    companion object {
+        @JvmField
+        val DEFAULT_MONITOR = LogMessageRouterMonitor()
     }
 
-    public String getValue() {
-        return value;
-    }
+    fun onInfo(msg: String, vararg args: Any?)
 
-    @Override
-    public String toString() {
-       return value;
-    }
+    fun onWarn(msg: String, vararg args: Any?)
+
+    fun onError(formatMsg: String, vararg args: Any?)
+
 }

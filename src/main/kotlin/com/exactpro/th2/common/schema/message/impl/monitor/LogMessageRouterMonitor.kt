@@ -12,30 +12,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.schema.message;
 
-public enum QueueAttribute {
-    FIRST("first"),
-    SECOND("second"),
-    SUBSCRIBE("subscribe"),
-    PUBLISH("publish"),
-    RAW("raw"),
-    PARSED("parsed"),
-    STORE("store"),
-    EVENT("event");
+package com.exactpro.th2.common.schema.message.impl.monitor
 
-    private final String value;
+import com.exactpro.th2.common.schema.message.MessageRouterMonitor
+import org.slf4j.LoggerFactory
 
-    QueueAttribute(String value) {
-        this.value = value;
+class LogMessageRouterMonitor : MessageRouterMonitor {
+
+    override fun onInfo(msg: String, vararg args: Any?) {
+        LOGGER.info(msg, args)
     }
 
-    public String getValue() {
-        return value;
+    override fun onWarn(msg: String, vararg args: Any?) {
+        LOGGER.warn(msg, args);
     }
 
-    @Override
-    public String toString() {
-       return value;
+    override fun onError(msg: String, vararg args: Any?) {
+        LOGGER.error(msg, args)
+    }
+
+    companion object {
+        private val LOGGER = LoggerFactory.getLogger(LogMessageRouterMonitor::class.java)
     }
 }

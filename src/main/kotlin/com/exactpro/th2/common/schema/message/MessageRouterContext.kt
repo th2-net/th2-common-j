@@ -13,6 +13,15 @@
  *  limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
+package com.exactpro.th2.common.schema.message
 
-data class SubscribeTarget(val queue: String, val routingKey: String, val exchange: String)
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+
+interface MessageRouterContext {
+
+    val connectionManager: ConnectionManager
+    val routerMonitor: MessageRouterMonitor
+    val configuration: MessageRouterConfiguration
+
+}

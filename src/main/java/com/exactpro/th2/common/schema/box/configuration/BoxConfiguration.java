@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,17 +13,24 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.strategy.fieldExtraction.impl;
+package com.exactpro.th2.common.schema.box.configuration;
 
-import com.exactpro.th2.common.grpc.Message;
-import com.exactpro.th2.common.schema.strategy.fieldExtraction.AbstractTh2MsgFieldExtraction;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 
-public class Th2BatchMsgFieldExtraction extends AbstractTh2MsgFieldExtraction {
+public class BoxConfiguration {
 
-    @Override
-    public Message parseMessage(com.google.protobuf.Message message) {
-        return (Message) message;
+    @JsonProperty
+    private String boxName = "unknown-box";
+
+    @NotNull
+    public String getBoxName() {
+        return boxName;
     }
 
+    public void setBoxName(@NotNull String boxName) {
+        this.boxName = Objects.requireNonNull(boxName, "Box name can not be null");
+    }
 }

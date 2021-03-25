@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,8 +18,6 @@ package com.exactpro.th2.common.schema.filter.strategy.impl;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
-import com.exactpro.th2.common.schema.strategy.fieldExtraction.FieldExtractionStrategy;
-import com.exactpro.th2.common.schema.strategy.fieldExtraction.impl.Th2BatchMsgFieldExtraction;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 
@@ -29,32 +26,20 @@ import java.util.List;
 import java.util.Map;
 
 
-public class DefaultFilterStrategy implements FilterStrategy {
-
-    private final FieldExtractionStrategy extractStrategy;
-
-
-    public DefaultFilterStrategy() {
-        this(new Th2BatchMsgFieldExtraction());
-    }
-
-    public DefaultFilterStrategy(FieldExtractionStrategy extractStrategy) {
-        this.extractStrategy = extractStrategy;
-    }
-
+public abstract class AbstractFilterStrategy<T extends Message> implements FilterStrategy<T> {
 
     @Override
-    public boolean verify(Message message, RouterFilter routerFilter) {
+    public boolean verify(T message, RouterFilter routerFilter) {
 
         var msgFieldFilters = new HashMap<>(routerFilter.getMessage());
 
         msgFieldFilters.putAll(routerFilter.getMetadata());
 
-        return checkValues(extractStrategy.getFields(message), msgFieldFilters);
+        return checkValues(getFields(message), msgFieldFilters);
     }
 
     @Override
-    public boolean verify(Message message, List<? extends RouterFilter> routerFilters) {
+    public boolean verify(T message, List<? extends RouterFilter> routerFilters) {
         for (var fieldsFilter : routerFilters) {
             if (verify(message, fieldsFilter)) {
                 return true;
@@ -63,6 +48,8 @@ public class DefaultFilterStrategy implements FilterStrategy {
 
         return false;
     }
+
+    protected abstract Map<String, String> getFields(T message);
 
 
     private boolean checkValues(Map<String, String> messageFields, Map<String, FieldFilterConfiguration> fieldFilters) {
