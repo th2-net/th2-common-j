@@ -129,27 +129,22 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected abstract Counter getDeliveryCounter();
+    protected abstract Histogram getDeliveryProcessingHistogram();
 
-    protected abstract Counter getContentCounter();
+    protected abstract Histogram getDataProcessingHistogram();
 
-    protected abstract Histogram getProcessingTimer();
+    protected abstract Counter getDataProcessingFailureCounter();
 
     protected abstract int extractCountFrom(T message);
 
     private void handle(String consumeTag, Delivery delivery) {
-        Timer processTimer = getProcessingTimer().startTimer();
+        Timer deliveryProcessTimer = getDeliveryProcessingHistogram().startTimer();
 
         try {
             List<T> values = valueFromBytes(delivery.getBody());
 
             for (T value : values) {
                 Objects.requireNonNull(value, "Received value is null");
-
-                Counter counter = getDeliveryCounter();
-                counter.inc();
-                Counter contentCounter = getContentCounter();
-                contentCounter.inc(extractCountFrom(value));
 
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("The received message {}", toShortDebugString(value));
@@ -163,17 +158,21 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 }
 
                 for (MessageListener<T> listener : listeners) {
+                    Timer contentProcessTimer = getDataProcessingHistogram().startTimer();
                     try {
                         listener.handler(consumeTag, filteredValue);
                     } catch (Exception listenerExc) {
-                        LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
+                        LOGGER.error("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
+                        getDataProcessingFailureCounter().inc();
+                    } finally {
+                        contentProcessTimer.observeDuration();
                     }
                 }
             }
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
         } finally {
-            processTimer.observeDuration();
+            deliveryProcessTimer.observeDuration();
         }
     }
 

@@ -52,9 +52,9 @@ class RabbitCustomQueue<T : Any>(
     ): MessageSubscriber<T> {
         return Subscriber(
             converter,
-            metricsHolder.incomingDeliveryCounter,
-            metricsHolder.processingTimer,
-            metricsHolder.incomingDataCounter
+            metricsHolder.processingDeliveryHistogram,
+            metricsHolder.processingDataHistogram,
+            metricsHolder.processingDataFailureCounter
         ).apply {
             init(
                 connectionManager,
@@ -84,9 +84,9 @@ class RabbitCustomQueue<T : Any>(
 
     private class Subscriber<T : Any>(
         private val converter: MessageConverter<T>,
-        private val deliveryCounter: Counter,
-        private val timer: Histogram,
-        private val dataCounter: Counter
+        private val deliveryHistogram: Histogram,
+        private val contentHistogram: Histogram,
+        private val failureCounter: Counter
     ) : AbstractRabbitSubscriber<T>() {
         override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
 
@@ -96,11 +96,12 @@ class RabbitCustomQueue<T : Any>(
         override fun filter(value: T): T = value
 
         //region Prometheus stats
-        override fun getDeliveryCounter(): Counter = deliveryCounter
 
-        override fun getContentCounter(): Counter = dataCounter
+        override fun getDataProcessingFailureCounter(): Counter = failureCounter
 
-        override fun getProcessingTimer(): Histogram = timer
+        override fun getDataProcessingHistogram(): Histogram = contentHistogram
+
+        override fun getDeliveryProcessingHistogram(): Histogram = deliveryHistogram
 
         override fun extractCountFrom(message: T): Int = converter.extractCount(message)
         //endregion

@@ -24,35 +24,31 @@ import io.prometheus.client.Histogram
 class MetricsHolder(
     customTag: String
 ) {
-    val incomingDeliveryCounter: Counter
-    val incomingDataCounter: Counter
-    val processingTimer: Histogram
-    val outgoingDeliveryCounter: Counter
-    val outgoingDataCounter: Counter
+    val processingDeliveryHistogram: Histogram = registerProcessingDescribable("$customTag delivery");
+    val processingDataHistogram: Histogram = registerProcessingDescribable(customTag)
 
-    init {
-        val tag = CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, customTag.decapitalize())
+    val processingDataFailureCounter: Counter = registerProcessingFailureDescribable(customTag)
 
-        incomingDeliveryCounter = Counter.build()
-            .name("th2_mq_incoming_${tag}_delivery_quantity")
-            .help("The received Rabbit MQ delivery quantity")
-            .register()
-        incomingDataCounter = Counter.build()
-            .name("th2_mq_incoming_${tag}_data_quantity")
-            .help("The received data quantity")
-            .register()
-        outgoingDeliveryCounter = Counter.build()
-            .name("th2_mq_outgoing_${tag}_delivery_quantity")
-            .help("The number of sent Rabbit MQ messages")
-            .register()
-        outgoingDataCounter = Counter.build()
-            .name("th2_mq_outgoing_${tag}_data_quantity")
-            .help("The number of sent messages")
-            .register()
-        processingTimer = Histogram.build()
+    val outgoingDeliveryCounter: Counter = registerOutgoingQuantityDescribable("$customTag delivery")
+    val outgoingDataCounter: Counter = registerOutgoingQuantityDescribable(customTag)
+
+    companion object {
+        fun registerProcessingDescribable(customTag: String): Histogram = Histogram.build()
             .buckets(*DEFAULT_BUCKETS)
-            .name("th2_mq_${tag}_processing_time")
-            .help("Time spent to process a single delivery")
+            .name(prepareName("th2_mq_${customTag}_processing_time"))
+            .help("Time spent to process a $customTag")
             .register()
+
+        fun registerProcessingFailureDescribable(customTag: String): Counter = Counter.build()
+            .name(prepareName("th2_mq_${customTag}_processing_failure_quantity"))
+            .help("The number of a $customTag processing failure")
+            .register()
+
+        fun registerOutgoingQuantityDescribable(customTag: String): Counter = Counter.build()
+            .name(prepareName("th2_mq_outgoing_${customTag}_quantity"))
+            .help("The number of a $customTag sent")
+            .register()
+
+        private fun prepareName(name: String): String = CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, name.decapitalize())
     }
 }

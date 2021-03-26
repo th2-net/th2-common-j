@@ -16,8 +16,6 @@
 
 package com.exactpro.th2.common.schema.event;
 
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
-
 import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
@@ -25,32 +23,31 @@ import org.jetbrains.annotations.Nullable;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MetricsHolder;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
 
-    private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_incoming_event_batch_quantity", "Quantity of incoming event batches").register();
-    private static final Counter INCOMING_EVENT_QUANTITY = Counter.build("th2_mq_incoming_event_quantity", "Quantity of incoming events").register();
-    private static final Histogram EVENT_PROCESSING_TIME = Histogram.build()
-            .buckets(DEFAULT_BUCKETS)
-            .name("th2_mq_event_processing_time")
-            .help("Time of processing events").register();
+    private static final String TAG = "event";
+    private static final Counter EVENT_PROCESSING_FAILURE_QUANTITY = MetricsHolder.Companion.registerProcessingFailureDescribable(TAG);
+    private static final Histogram EVENT_BATCH_PROCESSING_TIME = MetricsHolder.Companion.registerProcessingDescribable(TAG + " batch");
+    private static final Histogram EVENT_PROCESSING_TIME = MetricsHolder.Companion.registerProcessingDescribable(TAG);
 
     @Override
-    protected Counter getDeliveryCounter() {
-        return INCOMING_EVENT_BATCH_QUANTITY;
+    protected Histogram getDeliveryProcessingHistogram() {
+        return EVENT_BATCH_PROCESSING_TIME;
     }
 
     @Override
-    protected Counter getContentCounter() {
-        return INCOMING_EVENT_QUANTITY;
-    }
-
-    @Override
-    protected Histogram getProcessingTimer() {
+    protected Histogram getDataProcessingHistogram() {
         return EVENT_PROCESSING_TIME;
+    }
+
+    @Override
+    protected Counter getDataProcessingFailureCounter() {
+        return EVENT_PROCESSING_FAILURE_QUANTITY;
     }
 
     @Override

@@ -23,36 +23,34 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MetricsHolder;
+
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
-
 public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<Message, MessageBatch> {
 
-    private static final Counter INCOMING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_batch_quantity", "Quantity of incoming parsed message batches").register();
-    private static final Counter INCOMING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_quantity", "Quantity of incoming parsed messages").register();
-    private static final Histogram PARSED_MSG_PROCESSING_TIME = Histogram.build()
-            .buckets(DEFAULT_BUCKETS)
-            .name("th2_mq_parsed_msg_processing_time")
-            .help("Time of processing parsed messages").register();
+    private static final String TAG = "parsed msg";
+    private static final Counter MAG_PROCESSING_FAILURE_QUANTITY = MetricsHolder.Companion.registerProcessingFailureDescribable(TAG);
+    private static final Histogram MSG_BATCH_PROCESSING_TIME = MetricsHolder.Companion.registerProcessingDescribable(TAG + " batch");
+    private static final Histogram MSG_PROCESSING_TIME = MetricsHolder.Companion.registerProcessingDescribable(TAG);
 
     @Override
-    protected Counter getDeliveryCounter() {
-        return INCOMING_PARSED_MSG_BATCH_QUANTITY;
+    protected Histogram getDeliveryProcessingHistogram() {
+        return MSG_BATCH_PROCESSING_TIME;
     }
 
     @Override
-    protected Counter getContentCounter() {
-        return INCOMING_PARSED_MSG_QUANTITY;
+    protected Histogram getDataProcessingHistogram() {
+        return MSG_PROCESSING_TIME;
     }
 
     @Override
-    protected Histogram getProcessingTimer() {
-        return PARSED_MSG_PROCESSING_TIME;
+    protected Counter getDataProcessingFailureCounter() {
+        return MAG_PROCESSING_FAILURE_QUANTITY;
     }
 
     @Override
