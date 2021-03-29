@@ -148,5 +148,5 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
-
+* (2.13.0) - Update Cradle version. Introduce async API for storing events
 * (2.9.2) - Metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
