@@ -15,6 +15,42 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Spliterators;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
+import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.log4j.PropertyConfigurator;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
@@ -56,43 +92,9 @@ import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutin
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
-import org.apache.commons.text.lookup.StringLookupFactory;
-import org.apache.log4j.PropertyConfigurator;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Spliterators;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -623,7 +625,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
-        return currentValue == null ? getConfiguration(getPathToBoxConfiguration(), BoxConfiguration.class, MAPPER) : currentValue;
+        if (currentValue != null) {
+            return currentValue;
+        }
+
+        Path pathToBoxConfiguration = getPathToBoxConfiguration();
+        
+        if (Files.exists(pathToBoxConfiguration)) {
+            return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
+        }
+
+        return new BoxConfiguration();
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
