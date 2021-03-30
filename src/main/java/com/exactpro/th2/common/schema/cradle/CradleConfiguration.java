@@ -16,11 +16,10 @@
 
 package com.exactpro.th2.common.schema.cradle;
 
+import com.exactpro.cradle.CradleManager;
+import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import lombok.Data;
-
-@Data
 public class CradleConfiguration {
 
     @JsonProperty(required = true)
@@ -43,4 +42,76 @@ public class CradleConfiguration {
 
     @JsonProperty
     private String cradleInstanceName;
+
+    /**
+     * This is the connection timeout {@link CassandraStorageSettings#DEFAULT_TIMEOUT} set as the default value.
+     */
+    @JsonProperty
+    private long timeout = CassandraStorageSettings.DEFAULT_TIMEOUT;
+
+    public String getDataCenter() {
+        return dataCenter;
+    }
+
+    public void setDataCenter(String dataCenter) {
+        this.dataCenter = dataCenter;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public String getKeyspace() {
+        return keyspace;
+    }
+
+    public void setKeyspace(String keyspace) {
+        this.keyspace = keyspace;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getCradleInstanceName() {
+        return cradleInstanceName;
+    }
+
+    public void setCradleInstanceName(String cradleInstanceName) {
+        this.cradleInstanceName = cradleInstanceName;
+    }
+
+    public long getTimeout()
+    {
+        return timeout;
+    }
+
+    public void setTimeout(long timeout)
+    {
+        this.timeout = timeout;
+    }
 }

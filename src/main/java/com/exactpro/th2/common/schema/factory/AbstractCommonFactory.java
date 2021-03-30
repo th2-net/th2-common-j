@@ -285,6 +285,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                         cassandraConnectionSettings.setPassword(cradleConfiguration.getPassword());
                     }
 
+                    if (cradleConfiguration.getTimeout() > 0) {
+                        cassandraConnectionSettings.setTimeout(cradleConfiguration.getTimeout());
+                    }
+                    
                     manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
                     manager.init(defaultIfBlank(cradleConfiguration.getCradleInstanceName(),DEFAULT_CRADLE_INSTANCE_NAME));
                 } catch (CradleStorageException | RuntimeException e) {
