@@ -29,6 +29,8 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
+    cradleVersion       = '2.8.0'
+    junitVersion      = '5.4.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
 
@@ -148,98 +150,6 @@ signing {
     useInMemoryPgpKeys(signingKey, signingPassword)
     sign publishing.publications.mavenJava
 }
-// allprojects {
-//     apply plugin: 'java'
-//     apply plugin: 'java-library'
-//     apply plugin: 'maven-publish'
-
-//     ext {
-//         sharedDir           = file("${project.rootDir}/shared")
-//     }
-
-//     group = 'com.exactpro.th2'
-//     version = release_version
-
-//     sourceCompatibility = 11
-//     targetCompatibility = 11
-
-//     repositories {
-//         maven {
-//             name 'MavenLocal'
-//             url sharedDir
-//         }
-//         mavenCentral()
-//         maven {
-//             name 'Bintray'
-//             url 'https://dl.bintray.com/exactpro/th2'
-//         }
-//         mavenLocal()
-
-//         configurations.all {
-//             resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-//             resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
-//         }
-//     }
-
-//     java {
-//         withJavadocJar()
-//         withSourcesJar()
-//     }
-
-//     javadoc {
-//         (options as StandardJavadocDocletOptions).addBooleanOption("html5", true)
-//     }
-
-//     publishing {
-//         publications {
-//             mavenJava(MavenPublication) {
-//                 from components.java
-//             }
-//             bintrayPublication(MavenPublication) {
-//                 from components.java
-//                 groupId group
-//                 artifactId rootProject.name
-//                 version project.version
-//                 pom.withXml {
-//                     def root = asNode()
-//                     root.appendNode('name', rootProject.name)
-//                     root.appendNode('url', project.vcs_url)
-//                 }
-//             }
-//         }
-
-//         repositories {
-//             maven {
-//                 name = 'localRepo'
-//                 url = sharedDir
-//             }
-//         }
-//     }
-
-//     bintray {
-//         user = "${bintray_user}"
-//         key = "${bintray_key}"
-//         publications = ['bintrayPublication']
-//         pkg {
-//             repo = 'th2'
-//             name = rootProject.name
-//             userOrg = 'exactpro'
-//             licenses = ['Apache-2.0']
-//             vcsUrl = project.vcs_url
-//             version {
-//                 name = project.version
-//                 desc = project.version
-//                 released  = new Date()
-//             }
-//         }
-//         publish = true
-//     }
-// }
-
-ext {
-    cradleVersion       = '2.8.0'
-    junitVersion      = '5.4.2'
-}
 
 test {
     useJUnitPlatform()
@@ -317,4 +227,8 @@ sourceSets {
 
 compileKotlin {
     kotlinOptions.jvmTarget = "11"
+}
+
+clean {
+    delete sharedDir
 }
