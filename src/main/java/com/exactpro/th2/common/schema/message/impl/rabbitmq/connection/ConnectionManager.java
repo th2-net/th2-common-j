@@ -14,6 +14,26 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryBuilder;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryRequest;
+import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.BlockedListener;
+import com.rabbitmq.client.CancelCallback;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+import com.rabbitmq.client.Recoverable;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
@@ -25,26 +45,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryBuilder;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryRequest;
-import com.rabbitmq.client.AlreadyClosedException;
-import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.DeliverCallback;
-import com.rabbitmq.client.Recoverable;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -117,6 +117,18 @@ public class ConnectionManager implements AutoCloseable {
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
+
+        this.connection.addBlockedListener(new BlockedListener() {
+            @Override
+            public void handleBlocked(String reason) throws IOException {
+                LOGGER.warn("RabbitMQ blocked connection: {}", reason);
+            }
+
+            @Override
+            public void handleUnblocked() throws IOException {
+                LOGGER.warn("RabbitMQ unblocked connection");
+            }
+        });
 
         if (this.connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) this.connection;

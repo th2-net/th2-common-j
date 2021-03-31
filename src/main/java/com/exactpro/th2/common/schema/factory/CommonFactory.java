@@ -122,9 +122,9 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME),
-                CONFIG_DEFAULT_PATH
-        );
+                CONFIG_DEFAULT_PATH,
+                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
+                );
     }
 
     public CommonFactory() {
@@ -134,8 +134,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME),
-                CONFIG_DEFAULT_PATH
+                CONFIG_DEFAULT_PATH,
+                CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
         );
     }
 
@@ -249,8 +249,8 @@ public class CommonFactory extends AbstractCommonFactory {
                         calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
                         calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
                         calculatePath(cmd.getOptionValue("dictionariesDir"), configs),
-                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, PROMETHEUS_FILE_NAME)
-                );
+                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, BOX_FILE_NAME)
+                        );
             }
         } catch (ParseException e) {
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);

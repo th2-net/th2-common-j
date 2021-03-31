@@ -194,7 +194,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         DefaultExports.initialize();
         PrometheusConfiguration prometheusConfiguration = loadPrometheusConfiguration();
 
-        CommonMetrics.setLiveness(true);
+        livenessMonitor.disable();
 
         this.prometheusExporter.updateAndGet(server -> {
             if (server == null && prometheusConfiguration.getEnabled()) {
@@ -634,7 +634,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
-        return currentValue == null ? getConfiguration(getPathToBoxConfiguration(), BoxConfiguration.class, MAPPER) : currentValue;
+        if (currentValue != null) {
+            return currentValue;
+        }
+
+        Path pathToBoxConfiguration = getPathToBoxConfiguration();
+
+        if (Files.exists(pathToBoxConfiguration)) {
+            return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
+        }
+
+        return new BoxConfiguration();
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
