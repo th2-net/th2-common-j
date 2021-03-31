@@ -15,10 +15,57 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
+import com.exactpro.cradle.CradleManager;
+import com.exactpro.cradle.cassandra.CassandraCradleManager;
+import com.exactpro.cradle.cassandra.connection.CassandraConnection;
+import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
+import com.exactpro.cradle.utils.CradleStorageException;
+import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MetricMonitor;
+import com.exactpro.th2.common.metrics.PrometheusConfiguration;
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
+import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.common.schema.dictionary.DictionaryType;
+import com.exactpro.th2.common.schema.event.EventBatchRouter;
+import com.exactpro.th2.common.schema.exception.CommonFactoryException;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
+import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
+import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.QueueAttribute;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
+import com.exactpro.th2.common.schema.message.impl.monitor.BroadcastMessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.impl.monitor.EventMessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.impl.monitor.LogMessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
+import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
+import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutingStategy;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import io.prometheus.client.exporter.HTTPServer;
+import io.prometheus.client.hotspot.DefaultExports;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
+import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.log4j.PropertyConfigurator;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -36,9 +83,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.Spliterators;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
@@ -46,60 +90,10 @@ import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import com.exactpro.th2.common.event.Event;
-import com.exactpro.th2.common.metrics.MetricMonitor;
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
-import com.exactpro.th2.common.schema.message.MessageRouterContext;
-import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
-import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
-import com.exactpro.th2.common.schema.message.impl.monitor.BroadcastMessageRouterMonitor;
-import com.exactpro.th2.common.schema.message.impl.monitor.EventMessageRouterMonitor;
-import com.exactpro.th2.common.schema.message.impl.monitor.LogMessageRouterMonitor;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
-import org.apache.commons.text.lookup.StringLookupFactory;
-import org.apache.log4j.PropertyConfigurator;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.cradle.CradleManager;
-import com.exactpro.cradle.cassandra.CassandraCradleManager;
-import com.exactpro.cradle.cassandra.connection.CassandraConnection;
-import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
-import com.exactpro.cradle.utils.CradleStorageException;
-import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.grpc.MessageBatch;
-import com.exactpro.th2.common.grpc.MessageGroupBatch;
-import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.metrics.CommonMetrics;
-import com.exactpro.th2.common.metrics.PrometheusConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
-import com.exactpro.th2.common.schema.dictionary.DictionaryType;
-import com.exactpro.th2.common.schema.event.EventBatchRouter;
-import com.exactpro.th2.common.schema.exception.CommonFactoryException;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
-import com.exactpro.th2.common.schema.message.MessageRouter;
-import com.exactpro.th2.common.schema.message.QueueAttribute;
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
-import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
-import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutingStategy;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-
-import io.prometheus.client.exporter.HTTPServer;
-import io.prometheus.client.hotspot.DefaultExports;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -119,10 +113,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<BoxConfiguration> boxConfiguration = new AtomicReference<>();
-
-    private final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder()
-            .setNameFormat("th2-common-%d")
-            .build());
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
         return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
@@ -648,7 +638,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
-        return new ConnectionManager(getRabbitMqConfiguration(), scheduler, livenessMonitor::disable);
+        return new ConnectionManager(getRabbitMqConfiguration(), livenessMonitor::disable);
     }
 
     protected ConnectionManager getRabbitMqConnectionManager() {
@@ -753,14 +743,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return null;
         });
-
-        if(!scheduler.isTerminated()) {
-            scheduler.shutdown();
-            if (!scheduler.awaitTermination(1, TimeUnit.SECONDS)) {
-                LOGGER.warn("Common executor didn't shut down gracefully");
-                scheduler.shutdownNow();
-            }
-        }
 
         LOGGER.info("Common factory has been closed");
     }

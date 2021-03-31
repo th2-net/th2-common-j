@@ -19,6 +19,7 @@ import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ChannelAction;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
@@ -41,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
@@ -63,7 +63,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     /**
      * Scheduled executor service with single thread. It provide ability to write task oriented code without concurrent affects
      */
-    private final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(1);;
+    private final ScheduledExecutorService scheduler;
     private final ManualResetEvent manualResetEvent = new ManualResetEvent(true);
     private final Set<SendData> dataToSend = ConcurrentHashMap.newKeySet();
 
@@ -75,6 +75,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
     protected AbstractRabbitSender(@NotNull MessageRouterContext context, @NotNull String exchangeName, @NotNull String routingKey) {
         this.connectionManager = requireNonNull(context, "Router context can not be null").getConnectionManager();
+        this.scheduler = connectionManager.getScheduler();
         this.exchangeName = requireNonNull(exchangeName, "Exchange name can not be null");
         this.routingKey = requireNonNull(routingKey, "Send queue can not be null");
         this.resendMessageConfiguration = connectionManager.getConfiguration().getResendMessageConfiguration();
@@ -105,6 +106,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             }
             if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn("Can not send message to exchangeName='{}', routing key ='{}': '{}'", exchangeName, routingKey, toShortDebugString(value), e);
+            }
+            if (sendData != null) {
+                sendData.completableFuture.cancel(true);
             }
         } finally {
             if (sendData != null && !dataToSend.remove(sendData)) {
@@ -153,7 +157,15 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             LOGGER.trace("Try to resend message to exchangeName='{}', routing key ='{}', attempt = {}, data = {}", exchangeName, routingKey, attempt, sendData);
         }
 
+        if (sendData.completableFuture.isCancelled()) {
+            return;
+        }
+
         scheduler.schedule(() -> {
+            if (sendData.completableFuture.isCancelled()) {
+                return;
+            }
+
             try {
                 callOnChannel(channel -> {
                     long sequence = channel.getNextPublishSeqNo();
@@ -219,7 +231,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             LOGGER.error("Unexpected acknowledgment exchangeName='{}', routing key ='{}', channel = {} deliveryTag = {}", exchangeName, routingKey, channelNumber, deliveryTag);
             return;
         }
-        
+
         getDeliveryCounter().inc();
         getContentCounter().inc(removedRequest.sendData.size);
 
@@ -305,11 +317,6 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         }
         long delay = (long)(Math.E * attempt * resendMessageConfiguration.getMinDelay());
         return resendMessageConfiguration.getMaxDelay() > 0 ? Math.min(delay, resendMessageConfiguration.getMaxDelay()) : delay;
-    }
-
-    @FunctionalInterface
-    private interface ChannelAction {
-        void apply(Channel channel) throws Exception;
     }
 
     private interface ConfirmAction {

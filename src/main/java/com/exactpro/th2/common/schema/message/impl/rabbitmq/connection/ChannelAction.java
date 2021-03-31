@@ -13,16 +13,11 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry;
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
-import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
-
-public interface RetryAction {
-
-    void apply(@NotNull Channel channel) throws IOException, AlreadyClosedException;
-
+@FunctionalInterface
+public interface ChannelAction {
+    void apply(Channel channel) throws Exception;
 }

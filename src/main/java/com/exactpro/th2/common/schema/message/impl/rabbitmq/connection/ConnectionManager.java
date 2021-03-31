@@ -18,9 +18,7 @@ import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ResendMessageConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryBuilder;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.retry.RetryRequest;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.BlockedListener;
 import com.rabbitmq.client.CancelCallback;
@@ -29,6 +27,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.Recoverable;
+import com.rabbitmq.client.ShutdownSignalException;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -36,11 +35,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +47,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ConnectionManager implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
-    private static final long DEFAULT_CLOSE_TIMEOUT = 10_000;
 
     private final HealthMetrics managerMetrics = new HealthMetrics(
             CommonMetrics.registerLiveness(this),
@@ -62,12 +59,14 @@ public class ConnectionManager implements AutoCloseable {
     private final RabbitMQConfiguration configuration;
     private final String subscriberName;
 
-    private final ScheduledExecutorService scheduler;
-    private final ForkJoinPool tasker;
+    private final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(1, new ThreadFactoryBuilder()
+            .setNameFormat("th2-common-retry-%d")
+            .build());
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ScheduledExecutorService scheduledExecutorService, Runnable onFailedRecoveryConnection) {
+    private Channel channel = null;
+
+    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
         this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
-        ResendMessageConfiguration resendConfiguration = Objects.requireNonNull(configuration.getResendMessageConfiguration(), "Resend configuration can not be null");
 
         ConnectionRecoveryManager recoveryManager = new ConnectionRecoveryManager(rabbitMQConfiguration, onFailedRecoveryConnection, connectionIsClosed);
         if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
@@ -81,9 +80,6 @@ public class ConnectionManager implements AutoCloseable {
         var virtualHost = rabbitMQConfiguration.getVhost();
         var username = rabbitMQConfiguration.getUsername();
         var password = rabbitMQConfiguration.getPassword();
-
-        this.scheduler = Objects.requireNonNull(scheduledExecutorService, "Scheduler can not be null");
-        this.tasker = new ForkJoinPool(resendConfiguration.getMaxResendWorkers());
 
         factory.setHost(rabbitMQConfiguration.getHost());
         factory.setPort(rabbitMQConfiguration.getPort());
@@ -139,72 +135,51 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    public <T> RetryBuilder<T> createRetryBuilder() {
-        return new RetryBuilder<>(configuration, scheduler, connectionIsClosed, this::createChannel);
-    }
-
     public RabbitMQConfiguration getConfiguration() {
         return configuration;
     }
 
-    /**
-     * Using common metrics.
-     *
-     * @see ConnectionManager#basicConsume(String, DeliverCallback, CancelCallback, HealthMetrics)
-     */
-    @Deprecated(forRemoval = true)
-    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) {
-        return basicConsume(queue, deliverCallback, cancelCallback, managerMetrics);
+    public ScheduledExecutorService getScheduler() {
+        return scheduler;
+    }
+
+    public Channel createChannelWithoutCheck() throws IOException {
+        return connection.createChannel();
     }
 
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, HealthMetrics metrics) {
-        String consumerTag = subscriberName + '_' + nextSubscriberId.getAndIncrement();
-        CompletableFuture<String> future = this.<String>createRetryBuilder()
-//                .setFunction()
-                .setMetrics(metrics)
-                .build(channel -> channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
-                        try {
-                            deliverCallback.handle(tag, delivery);
-                        } catch (IOException e) {
-                            LOGGER.error("Can not handle delivery for consumer with tag '{}'", consumerTag, e);
-                        } finally {
-                            basicAck(channel, delivery.getEnvelope().getDeliveryTag(), metrics);
-                        }
-                    }, cancelCallback));
-        return new RabbitMqSubscriberMonitor(future, subscriberName);
-    }
+        CompletableFuture<String> future = new CompletableFuture<>();
+        callOnChannelAsync(future, channel -> {
+            String consumerTag = subscriberName + '_' + nextSubscriberId.getAndIncrement();
 
-    /**
-     * Using common metrics.
-     *
-     * @see ConnectionManager#basicCancel(String, HealthMetrics)
-     */
-    @Deprecated(forRemoval = true)
-    public void basicCancel(Channel channel, String consumerTag) {
-        createRetryBuilder()
-//                .setChannelCreator(() -> channel)
-                .setMetrics(managerMetrics)
-                .build(channel1 -> {
-                    channel1.basicCancel(consumerTag);
-                    return null;
-                })
-                .exceptionally(ex -> {
-                    LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
-                    return null;
-                });
+            future.complete(channel.basicConsume(queue, false, consumerTag, (tag, delivery) -> {
+                try {
+                    deliverCallback.handle(tag, delivery);
+                } catch (IOException e) {
+                    LOGGER.error("Can not handle delivery for consumer with tag '{}'", consumerTag, e);
+                } finally {
+                    basicAck(delivery.getEnvelope().getDeliveryTag(), metrics);
+                }
+            }, cancelCallback));
+        }, 1, metrics);
+
+        try {
+            return new RabbitMqSubscriberMonitor(future.get());
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error("Can not subscribe to queue = {}", queue);
+            metrics.disable();
+        }
+        return null;
     }
 
     public void basicCancel(String consumerTag, HealthMetrics metrics) {
-        createRetryBuilder()
-                .setMetrics(metrics)
-                .build(channel1 -> {
-                    channel1.basicCancel(consumerTag);
-                    return null;
-                })
-                .exceptionally(ex -> {
-                    LOGGER.error("Can not cancel consumer with tag '{}'", consumerTag, ex);
-                    return null;
-                });
+        try {
+            callOnChannelAsync(channel -> {
+                channel.basicCancel(consumerTag);
+            }, metrics);
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error("Can not cancel consumer with tag = {}", consumerTag);
+        }
     }
 
     @Override
@@ -213,15 +188,16 @@ public class ConnectionManager implements AutoCloseable {
             return;
         }
 
-
         try {
-            tasker.shutdown();
-            if (!tasker.awaitTermination(DEFAULT_CLOSE_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                LOGGER.warn("Thread pool cannot be shutdown for {} milliseconds", DEFAULT_CLOSE_TIMEOUT);
-                tasker.shutdownNow();
+            if(!scheduler.isTerminated()) {
+                scheduler.shutdown();
+                if (!scheduler.awaitTermination(1, TimeUnit.SECONDS)) {
+                    LOGGER.warn("Connection manager scheduler didn't shut down gracefully");
+                    scheduler.shutdownNow();
+                }
             }
         } catch (InterruptedException e) {
-            LOGGER.error("Can not close thread pool in ConnectionManager", e);
+            LOGGER.error("Can not close scheduler in ConnectionManager", e);
         }
 
         try {
@@ -232,31 +208,7 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    public Channel createChannelWithoutCheck() throws IOException {
-        return connection.createChannel();
-    }
-
-    public Channel createChannel() {
-        checkConnection();
-
-        RetryRequest<Channel> request = new RetryRequest<>(connectionIsClosed, configuration, scheduler, managerMetrics.getLivenessMonitor(), managerMetrics.getReadinessMonitor()) {
-            @Override
-            protected Channel action(Channel channel) throws IOException, AlreadyClosedException {
-                return connection.createChannel();
-            }
-        };
-
-        CompletableFuture<Channel> future = request.getCompletableFuture();
-        tasker.execute(request);
-
-        Channel channel;
-        try {
-            channel = future.get();
-        } catch (InterruptedException | ExecutionException | CancellationException e) {
-            managerMetrics.disable();
-            throw new IllegalStateException("Can not create channel from RabbitMQ connection", e);
-        }
-
+    private void prepareChannel(Channel channel) {
         try {
             channel.confirmSelect();
         } catch (IOException e) {
@@ -271,8 +223,13 @@ public class ConnectionManager implements AutoCloseable {
         } catch (IOException e) {
             LOGGER.warn("Can not set prefetch number. Wrong number for prefetch. It must be from 0 to 65535", e);
         }
+    }
 
-        return channel;
+    private long getNextDelay(int attempts) {
+        long maxDelay = configuration.getResendMessageConfiguration().getMaxDelay();
+        long minDelay = configuration.getResendMessageConfiguration().getMinDelay();
+
+        return Math.min((maxDelay - minDelay) * attempts, maxDelay);
     }
 
     private void checkConnection() {
@@ -281,27 +238,91 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    /**
-     * @param channel pass channel witch used for basicConsume, because delivery tags are scoped per channel,
-     *                deliveries must be acknowledged on the same channel they were received on.
-     */
-    private void basicAck(Channel channel, long deliveryTag, HealthMetrics metrics) {
+    private void basicAck(long deliveryTag, HealthMetrics metrics) {
+        checkConnection();
+
+        // If we get error delivery tag is wrong or channel is close. If channel is close delivery tag is invalidated
+        scheduler.schedule(() -> {
+            try {
+                callOnChannelSync(channel -> {
+                    channel.basicAck(deliveryTag, true);
+                }, metrics);
+            } catch (Exception e) {
+                LOGGER.error("Can not execute basic ack for deliveryTag '{}'", deliveryTag, e);
+            }
+        }, 0, TimeUnit.MILLISECONDS);
+    }
+
+    private void callOnChannelAsync(ChannelAction action, HealthMetrics metrics) throws ExecutionException, InterruptedException {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        callOnChannelAsync(future, channel -> {
+            action.apply(channel);
+            future.complete(null);
+        }, 1, metrics);
+        future.get();
+    }
+
+    private <T> void callOnChannelAsync(CompletableFuture<T> future, ChannelAction action, int attempts, HealthMetrics metrics) {
+
+        checkConnection();
+
+        if (future.isCancelled()) {
+            return;
+        }
+
+        long nextDelay = getNextDelay(attempts);
+        LOGGER.info("Create request with delay '{}'. Current attempt = {}", nextDelay, attempts);
+
+        scheduler.schedule(() -> {
+            if (future.isCancelled()) {
+                return;
+            }
+
+            try {
+                callOnChannelSync(action, metrics);
+            } catch (IOException | ShutdownSignalException e) {
+                LOGGER.warn("Can not execute RabbitMQ request", e);
+                callOnChannelAsync(future, action, attempts + 1, metrics);
+            } catch (Exception e) {
+                LOGGER.warn("Can not execute RabbitMQ request", e);
+                future.completeExceptionally(e);
+            }
+        }, nextDelay, TimeUnit.MILLISECONDS);
+    }
+
+    private void callOnChannelSync(ChannelAction channelAction, HealthMetrics metrics) throws Exception {
         try {
-            channel.basicAck(deliveryTag, true);
+            if (channel == null) {
+                LOGGER.info("Try to create new channel");
+                channel = createChannelWithoutCheck();
+                prepareChannel(channel);
+                LOGGER.info("Created new channel {}", channel.getChannelNumber());
+            }
+
+            channelAction.apply(channel);
+            metrics.enable();
         } catch (IOException | AlreadyClosedException e) {
-            metrics.getLivenessMonitor().disable();
-            metrics.getReadinessMonitor().disable();
-            LOGGER.error("Can not send basic ack for delivery tag = " + deliveryTag);
+            metrics.notReady();
+            if (channel != null) {
+                try {
+                    channel.abort();
+                } catch (IOException ex) {
+                    LOGGER.warn("Can not abort channel from retry request for RabbitMQ", ex);
+                } finally {
+                    channel = null;
+                }
+            }
+            throw e;
         }
     }
 
     private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
         private static final String PREFIX_METRIC_NAME = "subscriber_monitor_consumer_";
-        private final CompletableFuture<String> futureTag;
+        private final String consumerTag;
         private final HealthMetrics healthMetrics;
 
-        public RabbitMqSubscriberMonitor(CompletableFuture<String> futureTag, String consumerTag) {
-            this.futureTag = futureTag;
+        public RabbitMqSubscriberMonitor(String consumerTag) {
+            this.consumerTag = consumerTag;
 
             healthMetrics = new HealthMetrics(
                     CommonMetrics.registerLiveness(PREFIX_METRIC_NAME + consumerTag + "_liveness"),
@@ -311,11 +332,7 @@ public class ConnectionManager implements AutoCloseable {
 
         @Override
         public void unsubscribe() {
-            try {
-                basicCancel(futureTag.get(), healthMetrics);
-            } catch (InterruptedException | ExecutionException | CancellationException e) {
-                LOGGER.warn("Can not unsubscribe from queue", e);
-            }
+            basicCancel(consumerTag, healthMetrics);
         }
     }
 }
