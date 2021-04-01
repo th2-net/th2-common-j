@@ -22,6 +22,7 @@ import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.filter.strategy.impl.Th2RawMsgFilterStrategy;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
@@ -44,10 +45,8 @@ public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMe
     }
 
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        RabbitRawBatchQueue queue = new RabbitRawBatchQueue();
-        queue.init(connectionManager, queueConfiguration, filterFunction);
-        return queue;
+    protected MessageQueue<RawMessageBatch> createQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
+        return new RabbitRawBatchQueue(context, queueConfiguration, filterFunction);
     }
 
     @Override

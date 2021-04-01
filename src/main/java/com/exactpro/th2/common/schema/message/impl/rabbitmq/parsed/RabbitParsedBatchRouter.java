@@ -18,11 +18,14 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageBatch.Builder;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
 import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
@@ -36,10 +39,8 @@ public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Me
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
-    protected MessageQueue<MessageBatch> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        RabbitParsedBatchQueue queue = new RabbitParsedBatchQueue();
-        queue.init(connectionManager, queueConfiguration, filterFunction);
-        return queue;
+    protected MessageQueue<MessageBatch> createQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
+        return new RabbitParsedBatchQueue(context, queueConfiguration, filterFunction);
     }
 
     @Override

@@ -18,11 +18,11 @@ package com.exactpro.th2.common.schema.event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.protobuf.Message;
 import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
@@ -39,10 +39,8 @@ public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
 
     @Override
-    protected MessageQueue<EventBatch> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        EventBatchQueue eventBatchQueue = new EventBatchQueue();
-        eventBatchQueue.init(connectionManager, queueConfiguration, filterFunction);
-        return eventBatchQueue;
+    protected MessageQueue<EventBatch> createQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
+        return new EventBatchQueue(context, queueConfiguration, filterFunction);
     }
 
     @Override

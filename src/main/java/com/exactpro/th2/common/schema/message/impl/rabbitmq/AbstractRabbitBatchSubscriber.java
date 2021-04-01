@@ -16,9 +16,14 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.grpc.Direction;
+import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,9 +35,10 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitBatchSubscriber.class);
 
-    private List<? extends RouterFilter> filters;
+    protected final List<? extends RouterFilter> filters;
 
-    public AbstractRabbitBatchSubscriber(List<? extends RouterFilter> filters) {
+    public AbstractRabbitBatchSubscriber(@NotNull MessageRouterContext context, @NotNull SubscribeTarget target, @NotNull FilterFunction filterFunction, @NotNull List<? extends RouterFilter> filters) {
+        super(context, target, filterFunction);
         this.filters = filters;
     }
 

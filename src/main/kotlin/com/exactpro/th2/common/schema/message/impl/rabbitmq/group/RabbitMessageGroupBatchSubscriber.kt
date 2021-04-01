@@ -18,16 +18,23 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
+import com.exactpro.th2.common.schema.message.FilterFunction
+import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.toJson
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
 
 class RabbitMessageGroupBatchSubscriber(
-    private val filters: List<RouterFilter>
-) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters) {
+    messageRouterContext: MessageRouterContext,
+    target: SubscribeTarget,
+    filterFunction: FilterFunction,
+    filters: List<RouterFilter>
+) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(messageRouterContext, target, filterFunction, filters) {
     private val logger = KotlinLogging.logger {}
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY

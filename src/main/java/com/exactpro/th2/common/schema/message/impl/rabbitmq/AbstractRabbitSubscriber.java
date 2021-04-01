@@ -15,8 +15,10 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
+import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageListener;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
@@ -26,79 +28,49 @@ import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
-import io.prometheus.client.Histogram.Timer;
+import org.apache.commons.lang3.ObjectUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.exactpro.th2.common.schema.message.FilterFunction.DEFAULT_FILTER_FUNCTION;
-
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
 
-    private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
-    private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+    private final SubscribeTarget target;
+    private final ConnectionManager connectionManager;
+    private final FilterFunction filterFunction;
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
-    private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
+    private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
 
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
-        this.init(connectionManager, new SubscribeTarget(subscribeTarget.getQueue(), subscribeTarget.getRoutingKey(), exchangeName), DEFAULT_FILTER_FUNCTION);
+    private final HealthMetrics healthMetrics = new HealthMetrics(this);
+
+    public AbstractRabbitSubscriber(@NotNull MessageRouterContext context, @NotNull SubscribeTarget target, @Nullable FilterFunction filterFunction) {
+        this.target = Objects.requireNonNull(target, "Subscriber target is can not be null");;
+        this.connectionManager = Objects.requireNonNull(context, "Router context can not be null").getConnectionManager();
+        this.filterFunction = ObjectUtils.defaultIfNull(filterFunction, FilterFunction.DEFAULT_FILTER_FUNCTION);
+
+        LOGGER.debug("{}:{} created with target {}", getClass().getSimpleName(), hashCode(), target);
     }
 
     @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull SubscribeTarget subscribeTarget, @NotNull FilterFunction filterFunc) {
-        Objects.requireNonNull(connectionManager, "Connection can not be null");
-        Objects.requireNonNull(subscribeTarget, "Subscriber target can not be null");
-        Objects.requireNonNull(filterFunc, "Filter function can not be null");
+    public void start() {
+        var queue = target.getQueue();
+        var routingKey = target.getRoutingKey();
+        var exchangeName = target.getExchange();
 
-
-        if (this.connectionManager.get() != null || this.subscribeTarget.get() != null || this.filterFunc.get() != null) {
-            throw new IllegalStateException("Subscriber is already initialize");
-        }
-
-        this.connectionManager.set(connectionManager);
-        this.subscribeTarget.set(subscribeTarget);
-        this.filterFunc.set(filterFunc);
-    }
-
-    @Override
-    public void start() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        SubscribeTarget target = subscribeTarget.get();
-
-        if (connectionManager == null || target == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
-        try {
-            var queue = target.getQueue();
-            var routingKey = target.getRoutingKey();
-            var exchangeName = target.getExchange();
-
-            consumerMonitor.updateAndGet(monitor -> {
-                if (monitor == null) {
-                    try {
-                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled);
-                        LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    }
-                }
-
-                return monitor;
-            });
-        } catch (Exception e) {
-            throw new IOException("Can not start listening", e);
-        }
+        consumerMonitor.updateAndGet(monitor -> {
+            if (monitor == null) {
+                monitor = connectionManager.basicConsume(queue, this::handle, this::canceled, healthMetrics);
+                LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+            }
+            return monitor;
+        });
     }
 
     @Override
@@ -108,11 +80,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void close() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
         SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
         if (monitor != null) {
             monitor.unsubscribe();
@@ -138,7 +105,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     protected abstract int extractCountFrom(T message);
 
     private void handle(String consumeTag, Delivery delivery) {
-        Timer processTimer = getProcessingTimer().startTimer();
+        Histogram.Timer processTimer = getProcessingTimer().startTimer();
 
         try {
             List<T> values = valueFromBytes(delivery.getBody());
@@ -177,27 +144,32 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
-    protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
-        FilterFunction filterFunction = this.filterFunc.get();
-        if (filterFunction == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
+    private void resubscribe() {
+        var queue = target.getQueue();
+        var routingKey = target.getRoutingKey();
+        var exchangeName = target.getExchange();
+        LOGGER.info("Try to resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+        if (monitor != null) {
+            try {
+                monitor.unsubscribe();
+            } catch (Exception e) {
+                LOGGER.info("Can not unsubscribe on resubscribe for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+            }
         }
 
+        start();
+    }
+
+    protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
         return filterFunction.apply(message, filters);
     }
 
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
-        try {
-            close();
-        } catch (Exception e) {
-            SubscribeTarget subscribeTarget = this.subscribeTarget.get();
-            if (subscribeTarget != null) {
-                LOGGER.error("Can not close subscriber with exchange name '{}' and queue '{}'", subscribeTarget.getExchange(), subscribeTarget.getQueue(), e);
-            } else {
-                LOGGER.error("Can not close subscriber without subscribe target", e);
-            }
-        }
+        healthMetrics.getReadinessMonitor().disable();
+        resubscribe();
     }
 
 }

@@ -16,28 +16,33 @@
 package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchSender;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchSubscriber;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class EventBatchQueue extends AbstractRabbitQueue<EventBatch> {
 
-    @Override
-    protected MessageSender<EventBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        EventBatchSender eventBatchSender = new EventBatchSender();
-        eventBatchSender.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
-        return eventBatchSender;
+    public EventBatchQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @Nullable FilterFunction filterFunc) {
+        super(context, queueConfiguration, filterFunc);
     }
 
     @Override
-    protected MessageSubscriber<EventBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        EventBatchSubscriber eventBatchSubscriber = new EventBatchSubscriber();
-        eventBatchSubscriber.init(connectionManager, new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()), filterFunction);
-        return eventBatchSubscriber;
+    protected MessageSender<EventBatch> createSender(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration) {
+        return new EventBatchSender(context, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
+    }
+
+    @Override
+    protected MessageSubscriber<EventBatch> createSubscriber(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
+        return new EventBatchSubscriber(context, new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()), filterFunction);
     }
 }

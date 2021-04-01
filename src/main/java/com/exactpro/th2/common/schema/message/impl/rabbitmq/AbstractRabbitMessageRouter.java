@@ -198,7 +198,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
         LOGGER.info("Message router has been successfully closed");
     }
 
-    protected abstract MessageQueue<T> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction);
+    protected abstract MessageQueue<T> createQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction);
 
     protected abstract Map<String, T> findQueueByFilter(Map<String, QueueConfiguration> queues, T msg);
 
@@ -217,14 +217,12 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
     protected MessageQueue<T> getMessageQueue(String queueAlias) {
         return queueConnections.computeIfAbsent(queueAlias, key -> {
-            ConnectionManager connectionManager = getConnectionManager();
-
             QueueConfiguration queueByAlias = getConfiguration().getQueueByAlias(key);
             if (queueByAlias == null) {
                 throw new IllegalStateException("Can not find queue");
             }
 
-            return createQueue(connectionManager, queueByAlias, this::filterMessage);
+            return createQueue(getContext(), queueByAlias, this::filterMessage);
         });
     }
 

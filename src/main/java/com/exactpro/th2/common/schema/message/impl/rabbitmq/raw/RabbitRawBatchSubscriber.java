@@ -20,11 +20,15 @@ import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessage;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,8 +46,8 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
 
     private static final String MESSAGE_TYPE = "raw";
 
-    public RabbitRawBatchSubscriber(List<? extends RouterFilter> filters) {
-        super(filters);
+    public RabbitRawBatchSubscriber(@NotNull MessageRouterContext context, @NotNull SubscribeTarget target, @NotNull FilterFunction filterFunction, @NotNull List<? extends RouterFilter> filters) {
+        super(context, target, filterFunction, filters);
     }
 
     @Override

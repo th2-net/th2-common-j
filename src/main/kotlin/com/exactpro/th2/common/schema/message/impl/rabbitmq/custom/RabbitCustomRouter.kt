@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.MessageQueue
+import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
@@ -34,11 +35,11 @@ class RabbitCustomRouter<T : Any>(
     private val requiredSendAttributes: Set<String> = hashSetOf(QueueAttribute.PUBLISH.toString()) + defaultSendAttributes
     private val metricsHolder = MetricsHolder(customTag)
 
-    override fun createQueue(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration, filterFunction: FilterFunction): MessageQueue<T> {
-        return RabbitCustomQueue(converter, metricsHolder).apply {
-            init(connectionManager, queueConfiguration, filterFunction)
-        }
-    }
+    override fun createQueue(
+        context: MessageRouterContext,
+        queueConfiguration: QueueConfiguration,
+        filterFunction: FilterFunction
+    ): MessageQueue<T> = RabbitCustomQueue(context, queueConfiguration, filterFunction, converter, metricsHolder)
 
     // FIXME: the filtering is not working for custom objects
     override fun filterMessage(msg: Message?, filters: MutableList<out RouterFilter>?): Boolean = true

@@ -22,6 +22,7 @@ import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractFilterStrateg
 import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.MessageQueue
+import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -36,11 +37,11 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitBatchMessageRouter<MessageGr
         return AnyMessageFilterStrategy();
     }
 
-    override fun createQueue(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration, filterFunction: FilterFunction): MessageQueue<MessageGroupBatch> {
-        return RabbitMessageGroupBatchQueue().apply {
-            init(connectionManager, queueConfiguration, filterFunction)
-        }
-    }
+    override fun createQueue(
+        context: MessageRouterContext,
+        queueConfiguration: QueueConfiguration,
+        filterFunction: FilterFunction
+    ): MessageQueue<MessageGroupBatch> = RabbitMessageGroupBatchQueue(context, queueConfiguration,filterFunction)
 
     override fun findQueueByFilter(queues: MutableMap<String, QueueConfiguration>, batch: MessageGroupBatch): MutableMap<String, MessageGroupBatch> {
         val builders = hashMapOf<String, Builder>()

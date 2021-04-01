@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
@@ -24,22 +25,22 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitQueue;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
-    @Override
-    protected MessageSender<RawMessageBatch> createSender(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration) {
-        var result = new RabbitRawBatchSender();
-        result.init(connectionManager, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
-        return result;
+
+    public RabbitRawBatchQueue(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @Nullable FilterFunction filterFunc) {
+        super(context, queueConfiguration, filterFunc);
     }
 
     @Override
-    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters());
-        result.init(connectionManager,
-                new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()),
-                filterFunction);
-        return result;
+    protected MessageSender<RawMessageBatch> createSender(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration) {
+        return new RabbitRawBatchSender(context, queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
+    }
+
+    @Override
+    protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull MessageRouterContext context, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
+        return new RabbitRawBatchSubscriber(context, new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()), filterFunction, queueConfiguration.getFilters());
     }
 }

@@ -15,10 +15,6 @@
 
 package com.exactpro.th2.common.schema.message;
 
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import org.jetbrains.annotations.NotNull;
-
 import javax.annotation.concurrent.NotThreadSafe;
 
 /**
@@ -26,11 +22,6 @@ import javax.annotation.concurrent.NotThreadSafe;
  */
 @NotThreadSafe
 public interface MessageSubscriber<T> extends AutoCloseable {
-
-    @Deprecated(since = "3.3.0", forRemoval = true)
-    void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets);
-
-    void init(@NotNull ConnectionManager connectionManager, @NotNull SubscribeTarget subscribeTarget, @NotNull FilterFunction filterFunc);
 
     void start() throws Exception;
 

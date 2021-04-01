@@ -15,23 +15,13 @@
 
 package com.exactpro.th2.common.schema.message;
 
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import org.jetbrains.annotations.NotNull;
-
 /**
  * Message queue
  * @see MessageSubscriber
  * @see MessageSender
  */
 public interface MessageQueue<T> extends AutoCloseable {
-    @Deprecated(since = "3.3.0", forRemoval = true)
-    void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration);
-
-    void init(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunc);
-
     MessageSubscriber<T> getSubscriber();
 
     MessageSender<T> getSender();
-
 }

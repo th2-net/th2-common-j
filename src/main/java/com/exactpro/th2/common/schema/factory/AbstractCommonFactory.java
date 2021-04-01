@@ -26,6 +26,7 @@ import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
@@ -145,6 +146,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
     private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
     private final Map<Class<?>, MessageRouter<?>> customMessageRouters = new ConcurrentHashMap<>();
+    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness("common_factory_liveness");
 
     static {
         PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
@@ -182,7 +184,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         DefaultExports.initialize();
         PrometheusConfiguration prometheusConfiguration = loadPrometheusConfiguration();
 
-        CommonMetrics.setLiveness(true);
+        livenessMonitor.disable();
 
         this.prometheusExporter.updateAndGet(server -> {
             if (server == null && prometheusConfiguration.getEnabled()) {
@@ -597,7 +599,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected RabbitMQConfiguration loadRabbitMqConfiguration(RabbitMQConfiguration currentValue) {
         return currentValue == null ? getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER) : currentValue;
-
     }
 
     protected MessageRouterConfiguration loadMessageRouterConfiguration(MessageRouterConfiguration currentValue) {
@@ -632,7 +633,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         }
 
         Path pathToBoxConfiguration = getPathToBoxConfiguration();
-        
+
         if (Files.exists(pathToBoxConfiguration)) {
             return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
         }
@@ -641,7 +642,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
-        return new ConnectionManager(getRabbitMqConfiguration(), () -> CommonMetrics.setLiveness(false));
+        return new ConnectionManager(getRabbitMqConfiguration(), livenessMonitor::disable);
     }
 
     protected ConnectionManager getRabbitMqConnectionManager() {
@@ -654,7 +655,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws InterruptedException {
         LOGGER.info("Closing common factory");
 
         messageRouterParsedBatch.getAndUpdate(router -> {
