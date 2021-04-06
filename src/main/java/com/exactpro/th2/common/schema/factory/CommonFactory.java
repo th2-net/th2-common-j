@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
+import io.fabric8.kubernetes.api.model.NamedContext;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -51,6 +52,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Map;
 
 /**
@@ -67,6 +69,9 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
     private static final String BOX_FILE_NAME = "box.json";
+
+    private static String rabbitMqPassword;
+    private static String cassandraPassword;
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -204,6 +209,8 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
      *             <p>
+     *             --contextName - context name to choose the context from Kube config
+     *      *      <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
      *             rabbitMq.json - configuration for RabbitMQ
@@ -235,7 +242,13 @@ public class CommonFactory extends AbstractCommonFactory {
 
             String configs = cmd.getOptionValue("configs");
 
-            if(cmd.hasOption("namespace") && cmd.hasOption("boxName")) {
+            if ((cmd.hasOption("namespace") && cmd.hasOption("boxName")) && cmd.hasOption("contextName")){
+                String namespace = cmd.getOptionValue("namespace");
+                String clusterName = cmd.getOptionValue("clusterName");
+                String boxName = cmd.getOptionValue("boxName");
+
+                return createFromKubernetes(namespace, clusterName, boxName);
+            } else if (cmd.hasOption("namespace") && cmd.hasOption("boxName")) {
                 String namespace = cmd.getOptionValue("namespace");
                 String boxName = cmd.getOptionValue("boxName");
 
@@ -265,7 +278,13 @@ public class CommonFactory extends AbstractCommonFactory {
      * @return CommonFactory with set path
      */
     public static CommonFactory createFromKubernetes(String namespace, String boxName) {
+        KubernetesClient client = new DefaultKubernetesClient();
+        String currentContextName = client.getConfiguration().getCurrentContext().getName();
 
+        return createFromKubernetes(namespace, currentContextName, boxName);
+    }
+
+    public static CommonFactory createFromKubernetes(String namespace, String contextName, String boxName) {
         Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> cradleConfigMapResource;
@@ -288,8 +307,31 @@ public class CommonFactory extends AbstractCommonFactory {
 
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
-            String currentCluster = client.getConfiguration().getCurrentContext().getContext().getCluster();
-            String username = client.getConfiguration().getCurrentContext().getContext().getUser();
+            String encodedRabbitMqPass = client.secrets().withName("rabbitmq-schema").get().getData().get("rabbitmq-password");
+            String encodedCassandraPass = client.secrets().withName("cassandra-schema").get().getData().get("cassandra-password");
+
+            rabbitMqPassword = new String(Base64.getDecoder().decode(encodedRabbitMqPass));
+            cassandraPassword = new String(Base64.getDecoder().decode(encodedCassandraPass));
+
+            NamedContext context = null;
+
+            for (NamedContext c : client.getConfiguration().getContexts()) {
+                if (c.getName().equals(contextName)) {
+                    context = c;
+                    break;
+                }
+            }
+
+            String currentCluster;
+            String username;
+
+            if (context != null) {
+                currentCluster = context.getContext().getCluster();
+                username = context.getContext().getUser();
+            } else {
+                LOGGER.error("Context name "+contextName+" was not found in config file.");
+                return null;
+            }
 
             var configMaps
                     = client.configMaps();
@@ -404,5 +446,13 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static Path calculatePath(String path, String configsPath, String fileName) {
         return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath, fileName) : CONFIG_DEFAULT_PATH.resolve(fileName));
+    }
+
+    public static String getRabbitMqPassword() {
+        return rabbitMqPassword;
+    }
+
+    public static String getCassandraPassword() {
+        return cassandraPassword;
     }
 }
