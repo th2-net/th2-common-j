@@ -502,6 +502,35 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * If root event is not exists create root event with name = box name and timestamp
+     * @return root event id
+     */
+    public String getRootEventId() {
+        return rootEventId.updateAndGet(id -> {
+            if (id == null) {
+                try {
+                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start().endTimestamp()
+                            .name(getBoxConfiguration().getBoxName() + " " + Instant.now())
+                            .description("Root event")
+                            .status(Event.Status.PASSED)
+                            .type("Microservice")
+                            .toProtoEvent(null);
+
+                    try {
+                        getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
+                        return rootEvent.getId().getId();
+                    } catch (IOException e) {
+                        throw new CommonFactoryException("Can not send root event", e);
+                    }
+                } catch (JsonProcessingException e) {
+                    throw new CommonFactoryException("Can not create root event", e);
+                }
+            }
+            return id;
+        });
+    }
+
+    /**
      * @return Path to configuration for RabbitMQ connection
      * @see RabbitMQConfiguration
      */
@@ -566,31 +595,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
     }
 
-    protected String getRootEventId() {
-        return rootEventId.updateAndGet(id -> {
-            if (id == null) {
-                try {
-                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start().endTimestamp()
-                            .name(getBoxConfiguration().getBoxName() + " " + Instant.now())
-                            .description("Root event")
-                            .status(Event.Status.PASSED)
-                            .type("Microservice")
-                            .toProtoEvent(null);
-
-                    try {
-                        getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
-                        return rootEvent.getId().getId();
-                    } catch (IOException e) {
-                        throw new CommonFactoryException("Can not send root event", e);
-                    }
-                } catch (JsonProcessingException e) {
-                    throw new CommonFactoryException("Can not create root event", e);
-                }
-            }
-            return id;
-        });
-    }
-
     protected RabbitMQConfiguration loadRabbitMqConfiguration(RabbitMQConfiguration currentValue) {
         return currentValue == null ? getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER) : currentValue;
 
@@ -623,7 +627,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
-        return currentValue == null ? getConfiguration(getPathToBoxConfiguration(), BoxConfiguration.class, MAPPER) : currentValue;
+        if (currentValue != null) {
+            return currentValue;
+        }
+
+        Path pathToBoxConfiguration = getPathToBoxConfiguration();
+        
+        if (Files.exists(pathToBoxConfiguration)) {
+            return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
+        }
+
+        return new BoxConfiguration();
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {

@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,26 +14,12 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AMQP.BasicProperties;
+import com.rabbitmq.client.BlockedListener;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -46,6 +31,20 @@ import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -204,6 +203,18 @@ public class ConnectionManager implements AutoCloseable {
             throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
         }
 
+        this.connection.addBlockedListener(new BlockedListener() {
+            @Override
+            public void handleBlocked(String reason) throws IOException {
+                LOGGER.warn("RabbitMQ blocked connection: {}", reason);
+            }
+
+            @Override
+            public void handleUnblocked() throws IOException {
+                LOGGER.warn("RabbitMQ unblocked connection");
+            }
+        });
+
         if (this.connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) this.connection;
             recoverableConnection.addRecoveryListener(recoveryListener);
@@ -292,18 +303,28 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void waitForConnectionRecovery(ShutdownNotifier notifier) {
-        while (!notifier.isOpen() && !connectionIsClosed.get()) {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                LOGGER.error("Wait for connection recovery was interrupted", e);
-                break;
+        if (isConnectionRecovery(notifier)) {
+            LOGGER.warn("Start waiting for connection recovery");
+
+            while (isConnectionRecovery(notifier)) {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    LOGGER.error("Wait for connection recovery was interrupted", e);
+                    break;
+                }
             }
+
+            LOGGER.info("Stop waiting for connection recovery");
         }
 
         if (connectionIsClosed.get()) {
             throw new IllegalStateException("Connection is already closed");
         }
+    }
+
+    private boolean isConnectionRecovery(ShutdownNotifier notifier) {
+        return !notifier.isOpen() && !connectionIsClosed.get();
     }
 
     /**
