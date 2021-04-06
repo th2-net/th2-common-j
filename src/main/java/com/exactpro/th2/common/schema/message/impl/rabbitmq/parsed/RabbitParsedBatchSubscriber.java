@@ -20,7 +20,7 @@ import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
-import com.exactpro.th2.common.message.MessageUtilsKt;
+import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
 import io.prometheus.client.Counter;
@@ -75,7 +75,7 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
 
             for (AnyMessage message : group.getMessagesList()) {
                 if (message.getKindCase() != KindCase.MESSAGE) {
-                    throw new IllegalStateException("Message group batch contains raw messages: " + MessageUtilsKt.toJson(groupBatch));
+                    throw new IllegalStateException("Message group batch contains raw messages: " + MessageUtils.toJson(groupBatch));
                 }
 
                 builder.addMessages(message.getMessage());
@@ -99,7 +99,7 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
 
     @Override
     protected String toShortDebugString(MessageBatch value) {
-        return MessageUtilsKt.toJson(value);
+        return MessageUtils.toJson(value);
     }
 
     @Override

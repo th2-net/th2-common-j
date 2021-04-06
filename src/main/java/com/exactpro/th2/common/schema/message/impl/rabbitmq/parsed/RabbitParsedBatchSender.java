@@ -20,7 +20,7 @@ import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroup;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
-import com.exactpro.th2.common.message.MessageUtilsKt;
+import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 import io.prometheus.client.Counter;
 
@@ -61,6 +61,6 @@ public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> 
 
     @Override
     protected String toShortDebugString(MessageBatch value) {
-        return MessageUtilsKt.toJson(value);
+        return MessageUtils.toJson(value);
     }
 }

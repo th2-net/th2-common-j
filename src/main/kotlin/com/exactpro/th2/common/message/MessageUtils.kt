@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:JvmName("MessageUtils")
+
 package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.AnyMessage
@@ -42,8 +44,8 @@ import com.exactpro.th2.common.value.updateList
 import com.exactpro.th2.common.value.updateMessage
 import com.exactpro.th2.common.value.updateOrAddList
 import com.exactpro.th2.common.value.updateOrAddMessage
-import com.exactpro.th2.common.value.updateOrAddValue
-import com.exactpro.th2.common.value.updateValue
+import com.exactpro.th2.common.value.updateOrAddString
+import com.exactpro.th2.common.value.updateString
 import com.google.protobuf.Timestamp
 import com.google.protobuf.util.JsonFormat
 import java.math.BigDecimal
@@ -63,6 +65,9 @@ operator fun Message.get(key: String): Value? = getField(key)
 fun Message.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
 operator fun Message.Builder.get(key: String): Value? = getField(key)
 fun Message.Builder.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
+
+fun Message.hasField(key: String) : Boolean = fieldsMap.containsKey(key)
+fun Message.Builder.hasField(key: String) : Boolean = fieldsMap.containsKey(key);
 
 fun Message.getString(fieldName: String): String? = getField(fieldName)?.getString()
 fun Message.getInt(fieldName: String): Int? = getField(fieldName)?.getInt()
@@ -87,12 +92,12 @@ operator fun Message.Builder.set(key: String, value: Any?): Message.Builder = ap
 fun Message.Builder.updateField(key: String, updateFunc: Value.Builder.() -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder() ?: throw NullPointerException("Can not find field with name $key"))) }
 fun Message.Builder.updateList(key: String, updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Message.Builder = apply { updateField(key) { updateList(updateFunc) } }
 fun Message.Builder.updateMessage(key: String, updateFunc: Message.Builder.() -> MessageOrBuilder) : Message.Builder = apply { updateField(key) { updateMessage(updateFunc) } }
-fun Message.Builder.updateValue(key: String, updateFunc: String.() -> String) : Message.Builder = apply { updateField(key) { updateValue(updateFunc) } }
+fun Message.Builder.updateString(key: String, updateFunc: String.() -> String) : Message.Builder = apply { updateField(key) { updateString(updateFunc) } }
 
 fun Message.Builder.updateOrAddField(key: String, updateFunc: (Value.Builder?) -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder())) }
 fun Message.Builder.updateOrAddList(key: String, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() } }
 fun Message.Builder.updateOrAddMessage(key: String, updateFunc: (Message.Builder?) -> MessageOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() } }
-fun Message.Builder.updateOrAddValue(key: String, updateFunc:(String?) -> String) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddValue(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddString(key: String, updateFunc:(String?) -> String) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddString(updateFunc) ?: updateFunc(null)?.toValue() } }
 
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 

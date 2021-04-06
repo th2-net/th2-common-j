@@ -17,13 +17,24 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Direction.SECOND
+import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.direction
+import com.exactpro.th2.common.message.fromJson
 import com.exactpro.th2.common.message.get
+import com.exactpro.th2.common.message.getList
+import com.exactpro.th2.common.message.getMessage
+import com.exactpro.th2.common.message.getString
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.sequence
 import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.set
+import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.message.updateList
+import com.exactpro.th2.common.message.updateMessage
+import com.exactpro.th2.common.message.updateOrAddString
+import com.exactpro.th2.common.message.updateString
+import com.exactpro.th2.common.value.updateString
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -33,7 +44,9 @@ import org.junit.jupiter.api.Test
 private const val MESSAGE_TYPE_VALUE = "test message type"
 private const val SESSION_ALIAS_VALUE = "test session alias"
 private const val FIELD_NAME = "test field"
+private const val FIELD_NAME_2 = "test field 2"
 private const val FIELD_VALUE = "test value"
+private const val FIELD_VALUE_2 = "test value 2"
 private val DIRECTION_VALUE = SECOND
 
 class TestMessageUtil {
@@ -125,6 +138,89 @@ class TestMessageUtil {
             assertEquals(DIRECTION_VALUE, it.direction)
             assertEquals(SESSION_ALIAS_VALUE, it.sessionAlias)
             assertEquals(newSequence, it.sequence)
+        }
+    }
+
+    @Test
+    fun `from json message test`() {
+        message().fromJson("""
+            {
+                "metadata": {
+                    "id": {
+                        "connectionId": {
+                            "sessionAlias": "$SESSION_ALIAS_VALUE"
+                        }
+                    },
+                    "messageType": "$MESSAGE_TYPE_VALUE"
+                },
+                "fields": {
+                    "$FIELD_NAME": {
+                        "simpleValue": "$FIELD_VALUE"
+                    }
+                }
+            }
+        """.trimIndent()).also {
+            assertEquals(it.messageType, MESSAGE_TYPE_VALUE)
+            assertEquals(it.sessionAlias, SESSION_ALIAS_VALUE)
+            assertEquals(it.getString(FIELD_NAME), FIELD_VALUE)
+        }
+    }
+
+    @Test
+    fun `to json from json message test`() {
+        val json = message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).apply {
+            addField(FIELD_NAME, FIELD_VALUE)
+        }.toJson()
+
+        message().fromJson(json).also {
+            assertEquals(it.messageType, MESSAGE_TYPE_VALUE)
+            assertEquals(it.direction, DIRECTION_VALUE)
+            assertEquals(it.sessionAlias, SESSION_ALIAS_VALUE)
+            assertEquals(it.getString(FIELD_NAME), FIELD_VALUE)
+        }
+    }
+
+    @Test
+    fun `update field`() {
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).apply {
+            addField(FIELD_NAME, FIELD_VALUE)
+        }.updateString(FIELD_NAME) { FIELD_VALUE_2 }.also {
+            assertEquals(it.getString(FIELD_NAME), FIELD_VALUE_2)
+        }
+    }
+
+    @Test
+    fun `update complex field`() {
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).apply {
+            addField(FIELD_NAME, message()
+                .addField(FIELD_NAME, FIELD_VALUE)
+                .addField(FIELD_NAME_2, listOf(FIELD_VALUE, FIELD_VALUE_2))
+            )
+        }.updateMessage(FIELD_NAME) {
+            updateList(FIELD_NAME_2) {
+                updateString(0) { FIELD_VALUE_2 }
+            }
+        }.also {
+            assertEquals(it.getMessage(FIELD_NAME)?.getList(FIELD_NAME_2)?.map { it.simpleValue }, listOf(FIELD_VALUE_2, FIELD_VALUE_2))
+        }
+    }
+
+    @Test
+    fun `update or add field test add`() {
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).apply {
+            updateOrAddString(FIELD_NAME) { it ?: FIELD_VALUE }
+        }.also {
+            assertEquals(it.getString(FIELD_NAME), FIELD_VALUE)
+        }
+    }
+
+    @Test
+    fun `update or add field test update`() {
+        message(MESSAGE_TYPE_VALUE, DIRECTION_VALUE, SESSION_ALIAS_VALUE).apply {
+            addField(FIELD_NAME, FIELD_VALUE)
+            updateOrAddString(FIELD_NAME) { it ?: FIELD_VALUE_2 }
+        }.also {
+            assertEquals(it.getString(FIELD_NAME), FIELD_VALUE)
         }
     }
 }

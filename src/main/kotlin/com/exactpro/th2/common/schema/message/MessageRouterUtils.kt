@@ -23,6 +23,8 @@ import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.MessageOrBuilder
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 
@@ -54,3 +56,6 @@ fun MessageRouter<EventBatch>.storeEvent(
 
     storeEvent(this, parentId)
 }
+
+@Deprecated(message = "Please use MessageUtils.toJson", replaceWith = ReplaceWith("toJson(true)", imports = ["com.exactpro.th2.common.message.toJson"]), level = DeprecationLevel.WARNING)
+fun MessageOrBuilder.toJson() : String = toJson(true)

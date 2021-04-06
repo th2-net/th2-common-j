@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:JvmName("ValueUtils")
+
 package com.exactpro.th2.common.value
 
 import com.exactpro.th2.common.grpc.ListValue
@@ -39,29 +41,29 @@ fun Value.getBigDecimal(): BigDecimal? = this.getString()?.toBigDecimalOrNull()
 fun Value.getMessage(): Message? = takeIf(Value::hasMessageValue)?.messageValue
 fun Value.getList() : List<Value>? = takeIf(Value::hasListValue)?.listValue?.valuesList
 
-fun Value.Builder.updateList(updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Value.Builder = apply { check(!hasListValue()) { "Can not find list value" }; updateOrAddList(updateFunc) }
-fun Value.Builder.updateValue(updateFunc: String.() -> String) : ValueOrBuilder = apply { simpleValue = updateFunc(simpleValue ?: throw NullPointerException("Can not find simple value")) }
-fun Value.Builder.updateMessage(updateFunc: Message.Builder.() -> MessageOrBuilder) : Value.Builder = apply { check(!hasMessageValue()) { "Can not find message value" }; updateOrAddMessage(updateFunc) }
+fun Value.Builder.updateList(updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Value.Builder = apply { check(hasListValue()) { "Can not find list value" }; updateOrAddList(updateFunc) }
+fun Value.Builder.updateString(updateFunc: String.() -> String) : ValueOrBuilder = apply { simpleValue = updateFunc(simpleValue ?: throw NullPointerException("Can not find simple value")) }
+fun Value.Builder.updateMessage(updateFunc: Message.Builder.() -> MessageOrBuilder) : Value.Builder = apply { check(hasMessageValue()) { "Can not find message value" }; updateOrAddMessage(updateFunc) }
 
 fun Value.Builder.updateOrAddList(updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Value.Builder = apply { updateFunc(listValueBuilder).also {
     when (it) {
         is ListValue -> listValue = it
         is ListValue.Builder -> setListValue(it)
-        else -> throw IllegalStateException("Can not set list value. Wrong type = ${it.javaClass.typeName}")
+        else -> error("Can not set list value. Wrong type = ${it::class.java.canonicalName}")
     }
 } }
 fun Value.Builder.updateOrAddMessage(updateFunc: Message.Builder.() -> MessageOrBuilder) : Value.Builder = apply { updateFunc(messageValueBuilder).also {
     when(it) {
         is Message -> messageValue = it
         is Message.Builder -> setMessageValue(it)
-        else -> throw IllegalStateException("Can not set message value. Wrong type = ${it.javaClass.typeName}")
+        else -> error("Can not set message value. Wrong type = ${it::class.java.canonicalName}")
     }
 } }
-fun Value.Builder.updateOrAddValue(updateFunc: String.() -> String) : Value.Builder = apply { updateFunc(simpleValue).also { simpleValue = it } }
+fun Value.Builder.updateOrAddString(updateFunc: String.() -> String) : Value.Builder = apply { updateFunc(simpleValue).also { simpleValue = it } }
 
 fun ListValue.Builder.update(i: Int, updateFunc: Value.Builder.() -> ValueOrBuilder?): ListValue.Builder = apply { updateFunc(getValuesBuilder(i))?.let { setValues(i, it.toValue()) } }
 fun ListValue.Builder.updateList(i: Int, updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : ListValue.Builder = apply { getValuesBuilder(i).updateList(updateFunc)}
-fun ListValue.Builder.updateValue(i: Int, updateFunc: String.() -> String) : ListValue.Builder = apply { getValuesBuilder(i).updateValue(updateFunc) }
+fun ListValue.Builder.updateString(i: Int, updateFunc: String.() -> String) : ListValue.Builder = apply { getValuesBuilder(i).updateString(updateFunc) }
 fun ListValue.Builder.updateMessage(i: Int, updateFunc: Message.Builder.() -> MessageOrBuilder) : ListValue.Builder = apply { getValuesBuilder(i).updateMessage(updateFunc) }
 
 fun ListValue.Builder.updateOrAdd(i: Int, updateFunc: (Value.Builder?) -> ValueOrBuilder?) : ListValue.Builder = apply {
@@ -73,7 +75,7 @@ fun ListValue.Builder.updateOrAdd(i: Int, updateFunc: (Value.Builder?) -> ValueO
     }
 }
 fun ListValue.Builder.updateOrAddList(i: Int, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() }}
-fun ListValue.Builder.updateOrAddValue(i: Int, updateFunc: (String?) -> String) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddValue(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun ListValue.Builder.updateOrAddString(i: Int, updateFunc: (String?) -> String) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddString(updateFunc) ?: updateFunc(null)?.toValue() } }
 fun ListValue.Builder.updateOrAddMessage(i: Int, updateFunc: (Message.Builder?) -> MessageOrBuilder) : ListValue.Builder = apply { updateOrAdd(i) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() }}
 
 operator fun ListValueOrBuilder.get(i: Int) : Value = getValues(i)
