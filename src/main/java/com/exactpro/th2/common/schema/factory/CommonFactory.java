@@ -16,27 +16,21 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.grpc.MessageBatch;
-import com.exactpro.th2.common.grpc.MessageGroupBatch;
-import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.metrics.PrometheusConfiguration;
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
-import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.common.schema.message.MessageRouter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.ConfigMapList;
-import io.fabric8.kubernetes.api.model.DoneableConfigMap;
-import io.fabric8.kubernetes.api.model.NamedContext;
-import io.fabric8.kubernetes.api.model.Secret;
-import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.api.model.ServicePort;
-import io.fabric8.kubernetes.client.DefaultKubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.Resource;
-import kotlin.text.Charsets;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Nullable;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
@@ -46,15 +40,31 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Map;
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.metrics.PrometheusConfiguration;
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
+import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.common.schema.event.EventBatchRouter;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
+import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ConfigMapList;
+import io.fabric8.kubernetes.api.model.DoneableConfigMap;
+import io.fabric8.kubernetes.api.model.NamedContext;
+import io.fabric8.kubernetes.api.model.Secret;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.Resource;
+import kotlin.text.Charsets;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -69,11 +79,16 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_FILE_NAME = "cradle.json";
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
+    private static final String DICTIONARY_FILE_NAME = "dictionary.json";
     private static final String BOX_FILE_NAME = "box.json";
-    public static final String RABBITMQ_SECRET_NAME = "rabbitmq";
-    public static final String CASSANDRA_SECRET_NAME = "cassandra";
-    public static final String RABBITMQ_PASSWORD_KEY = "rabbitmq-password";
-    public static final String CASSANDRA_PASSWORD_KEY = "cassandra-password";
+
+    private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
+    private static final String CASSANDRA_SECRET_NAME = "cassandra";
+    private static final String RABBITMQ_PASSWORD_KEY = "rabbitmq-password";
+    private static final String CASSANDRA_PASSWORD_KEY = "cassandra-password";
+
+    private static final String KEY_RABBITMQ_PASS = "RABBITMQ_PASS";
+    private static final String KEY_CASSANDRA_PASS = "CASSANDRA_PASS";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -87,24 +102,14 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    protected CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             Class<? extends GrpcRouter> grpcRouterClass,
-            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
-        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass);
-        this.rabbitMQ = rabbitMQ;
-        this.routerMQ = routerMQ;
-        this.routerGRPC = routerGRPC;
-        this.cradle = cradle;
-        this.custom = custom;
-        this.dictionariesDir = dictionariesDir;
-        this.prometheus = prometheus;
-        this.boxConfiguration = boxConfiguration;
-    }
-
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration,
+            Map<String, String> environmentVariables) {
+        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
@@ -115,6 +120,26 @@ public class CommonFactory extends AbstractCommonFactory {
         this.boxConfiguration = boxConfiguration;
 
         start();
+    }
+
+    protected CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration, Map<String, String> variables) {
+        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class,
+                rabbitMQ, routerMQ, routerGRPC, cradle, custom, prometheus, dictionariesDir, boxConfiguration, variables);
+    }
+
+    public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass,
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
+        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass,
+                rabbitMQ ,routerMQ ,routerGRPC ,cradle ,custom ,dictionariesDir ,prometheus ,boxConfiguration, emptyMap());
+    }
+
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
+        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class,
+                rabbitMQ ,routerMQ ,routerGRPC ,cradle ,custom ,dictionariesDir ,prometheus ,boxConfiguration);
     }
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
@@ -144,11 +169,6 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH,
                 CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
         );
-    }
-
-    protected CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration, Map<String, String> variables) {
-        this(rabbitMQ, routerMQ, routerGRPC, cradle, custom, prometheus, dictionariesDir, boxConfiguration);
-        DATA_FROM_SECRETS.putAll(variables);
     }
 
     @Override
@@ -324,7 +344,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path mqPath = Path.of(userDir, generatedConfigsDir, ROUTER_MQ_FILE_NAME);
         Path customPath = Path.of(userDir, generatedConfigsDir, CUSTOM_FILE_NAME);
         Path prometheusPath = Path.of(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME);
-        Path dictionaryPath = Path.of(userDir,generatedConfigsDir, "dictionary.json");
+        Path dictionaryPath = Path.of(userDir,generatedConfigsDir, DICTIONARY_FILE_NAME);
         Path boxConfiguration = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
 
         try(KubernetesClient client = new DefaultKubernetesClient()) {
@@ -338,28 +358,24 @@ public class CommonFactory extends AbstractCommonFactory {
                 }
             }
 
-            Secret rabbitMqSecret = client.secrets().inNamespace(namespace).withName(RABBITMQ_SECRET_NAME).get();
-            Secret cassandraSecret = client.secrets().inNamespace(namespace).withName(CASSANDRA_SECRET_NAME).get();
+            Secret rabbitMqSecret = requireNonNull(client.secrets().inNamespace(namespace).withName(RABBITMQ_SECRET_NAME).get(),
+                    "Secret '"+ RABBITMQ_SECRET_NAME +"' isn't found in namespace " + namespace);
+            Secret cassandraSecret = requireNonNull(client.secrets().inNamespace(namespace).withName(CASSANDRA_SECRET_NAME).get(),
+                    "Secret '"+ CASSANDRA_SECRET_NAME +"' isn't found in namespace " + namespace);
 
-            String encodedRabbitMqPass;
-            String encodedCassandraPass;
-
-            if (rabbitMqSecret != null && cassandraSecret != null) {
-                encodedRabbitMqPass = rabbitMqSecret.getData().get(RABBITMQ_PASSWORD_KEY);
-                encodedCassandraPass = cassandraSecret.getData().get(CASSANDRA_PASSWORD_KEY);
-            } else {
-                LOGGER.error("Failed to find secrets");
-                return null;
-            }
+            String encodedRabbitMqPass = requireNonNull(rabbitMqSecret.getData().get(RABBITMQ_PASSWORD_KEY),
+                            "Key '" + RABBITMQ_PASSWORD_KEY + "' not found in secret '" + RABBITMQ_SECRET_NAME + "' in namespace " + namespace);
+            String encodedCassandraPass = requireNonNull(cassandraSecret.getData().get(CASSANDRA_PASSWORD_KEY),
+                            "Key '" + CASSANDRA_PASSWORD_KEY + "' not found in secret '" + CASSANDRA_SECRET_NAME + "' in namespace " + namespace);
 
             String rabbitMqPassword = new String(Base64.getDecoder().decode(encodedRabbitMqPass));
             String cassandraPassword = new String(Base64.getDecoder().decode(encodedCassandraPass));
 
-            DATA_FROM_SECRETS.put("RABBITMQ_PASS", rabbitMqPassword);
-            DATA_FROM_SECRETS.put("CASSANDRA_PASS", cassandraPassword);
+            Map<String, String> environmentVariables = new HashMap<>();
+            environmentVariables.put(KEY_RABBITMQ_PASS, rabbitMqPassword);
+            environmentVariables.put(KEY_CASSANDRA_PASS, cassandraPassword);
 
-            var configMaps
-                    = client.configMaps();
+            var configMaps= client.configMaps();
 
             boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
             rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName("rabbit-mq-external-app-config");
@@ -384,43 +400,24 @@ public class CommonFactory extends AbstractCommonFactory {
             }
 
             if(generatedConfigsDirFile.exists()) {
-                File grpcFile = grpcPath.toFile();
-                File rabbitMqFile = rabbitMqPath.toFile();
-                File cradleFile = cradlePath.toFile();
-                File mqFile = mqPath.toFile();
-                File customFile = customPath.toFile();
-                File prometheusFile = prometheusPath.toFile();
-                File dictionaryFile = dictionaryPath.toFile();
-                File boxFile = boxConfiguration.toFile();
-
                 BoxConfiguration box = new BoxConfiguration();
                 box.setBoxName(boxName);
 
-                OutputStream grpcOutputStream = new FileOutputStream(grpcFile);
-                OutputStream rabbitMqOutputStream = new FileOutputStream(rabbitMqFile);
-                OutputStream cradleOutputStream = new FileOutputStream(cradleFile);
-                OutputStream mqOutputStream = new FileOutputStream(mqFile);
-                OutputStream customOutputStream = new FileOutputStream(customFile);
+                writeFile(grpcPath, boxData.get(ROUTER_GRPC_FILE_NAME));
+                writeFile(rabbitMqPath, rabbitMqData.get(RABBIT_MQ_FILE_NAME));
+                writeFile(cradlePath, cradleConfigData.get(CRADLE_FILE_NAME));
+                writeFile(mqPath, boxData.get(ROUTER_MQ_FILE_NAME));
+                writeFile(customPath, boxData.get(CUSTOM_FILE_NAME));
 
-                IOUtils.write(boxData.get(ROUTER_GRPC_FILE_NAME), grpcOutputStream, Charsets.UTF_8);
-                IOUtils.write(rabbitMqData.get(RABBIT_MQ_FILE_NAME), rabbitMqOutputStream, Charsets.UTF_8);
-                IOUtils.write(cradleConfigData.get(CRADLE_FILE_NAME), cradleOutputStream, Charsets.UTF_8);
-                IOUtils.write(boxData.get(ROUTER_MQ_FILE_NAME), mqOutputStream, Charsets.UTF_8);
-                IOUtils.write(boxData.get(CUSTOM_FILE_NAME), customOutputStream, Charsets.UTF_8);
-
-                writeToJson(prometheusFile, new PrometheusConfiguration());
-                writeToJson(boxFile, box);
+                writeToJson(prometheusPath, new PrometheusConfiguration());
+                writeToJson(boxConfiguration, box);
 
                 if(dictionaryConfigMap != null) {
-                    writeToJson(dictionaryFile, dictionaryConfigMap.getData());
-                }
-
-                if(dictionaryConfigMap != null) {
-                    writeToJson(dictionaryFile, dictionaryConfigMap.getData());
+                    writeToJson(dictionaryPath, dictionaryConfigMap.getData());
                 }
             }
 
-            return new CommonFactory(rabbitMqPath, mqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfiguration, DATA_FROM_SECRETS);
+            return new CommonFactory(rabbitMqPath, mqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfiguration, environmentVariables);
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
             throw new IllegalStateException(e);
@@ -436,16 +433,14 @@ public class CommonFactory extends AbstractCommonFactory {
         return null;
     }
 
-    private static int getExposedPort(int port, Service service) {
-        for(ServicePort servicePort : service.getSpec().getPorts()) {
-            if(servicePort.getPort() == port) {
-                return servicePort.getNodePort();
-            }
+    private static void writeFile(Path path, String data) throws IOException {
+        try (OutputStream outputStream = Files.newOutputStream(path)) {
+            IOUtils.write(data, outputStream, Charsets.UTF_8);
         }
-        throw new IllegalStateException("There is no exposed port for the target port " + port);
     }
 
-    private static void writeToJson(File file, Object object) throws IOException {
+    private static void writeToJson(Path path, Object object) throws IOException {
+        File file = path.toFile();
         if(file.createNewFile() || file.exists()) {
             MAPPER.writeValue(file, object);
         }
