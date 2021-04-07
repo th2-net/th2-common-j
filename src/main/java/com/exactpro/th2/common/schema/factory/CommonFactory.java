@@ -82,8 +82,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String DICTIONARY_FILE_NAME = "dictionary.json";
     private static final String BOX_FILE_NAME = "box.json";
 
-    private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
-    private static final String CASSANDRA_SECRET_NAME = "cassandra";
+    private static final String RABBITMQ_SECRET_NAME = "rabbitmq-schema";
+    private static final String CASSANDRA_SECRET_NAME = "cassandra-schema";
     private static final String RABBITMQ_PASSWORD_KEY = "rabbitmq-password";
     private static final String CASSANDRA_PASSWORD_KEY = "cassandra-password";
 
@@ -286,6 +286,11 @@ public class CommonFactory extends AbstractCommonFactory {
                 String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
                 String boxName = cmd.getOptionValue(boxNameOption.getLongOpt());
 
+                if (cmd.hasOption(contextNameOption.getLongOpt())) {
+                    String contextName = cmd.getOptionValue(contextNameOption.getLongOpt());
+                    return createFromKubernetes(namespace, boxName, contextName);
+                }
+
                 return createFromKubernetes(namespace, boxName, null);
             } else {
                 return new CommonFactory(
@@ -355,6 +360,8 @@ public class CommonFactory extends AbstractCommonFactory {
                         client.getConfiguration().setCurrentContext(context);
                         break;
                     }
+
+                    throw new IllegalArgumentException("Failed to find context "+contextName);
                 }
             }
 
@@ -380,6 +387,9 @@ public class CommonFactory extends AbstractCommonFactory {
             boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
             rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName("rabbit-mq-external-app-config");
             cradleConfigMapResource = configMaps.inNamespace(namespace).withName("cradle-external");
+
+            if (boxConfigMapResource.get() == null)
+                throw new IllegalArgumentException("Failed to find config maps by boxName "+boxName);
 
             boxConfigMap = boxConfigMapResource.require();
             rabbitMqConfigMap = rabbitMqConfigMapResource.require();
