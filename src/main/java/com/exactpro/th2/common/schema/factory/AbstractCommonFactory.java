@@ -93,6 +93,7 @@ import java.util.stream.StreamSupport;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static java.util.Collections.emptyMap;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
@@ -114,7 +115,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<BoxConfiguration> boxConfiguration = new AtomicReference<>();
 
-    protected static final Map<String, String> DATA_FROM_SECRETS = new HashMap<>();
+    private final StringLookup stringLookup;
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
         return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
@@ -163,7 +164,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Create factory with not-default implementations schema classes
-     *
      * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
      * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
      * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
@@ -174,11 +174,31 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass,
+                eventBatchRouterClass, grpcRouterClass, emptyMap());
+    }
+
+    /**
+     * Create factory with not-default implementations schema classes
+     *
+     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
+     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
+     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param grpcRouterClass               Class for {@link GrpcRouter}
+     * @param environmentVariables          map with additional environment variables
+     */
+    protected AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            @NotNull Class<? extends GrpcRouter> grpcRouterClass,
+            @NotNull Map<String, String> environmentVariables) {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
+        this.stringLookup = key -> defaultIfBlank(environmentVariables.get(key), System.getenv(key));
     }
 
     public void start() {
@@ -371,8 +391,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         try {
             String sourceContent = new String(Files.readAllBytes(configPath));
             LOGGER.info("Configuration path {} source content {}", configPath, sourceContent);
-
-            StringLookup stringLookup = key -> StringUtils.defaultIfBlank(DATA_FROM_SECRETS.get(key), System.getenv(key));
 
             StringSubstitutor stringSubstitutor = new StringSubstitutor(stringLookup);
             String content = stringSubstitutor.replace(sourceContent);
