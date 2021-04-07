@@ -82,8 +82,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String DICTIONARY_FILE_NAME = "dictionary.json";
     private static final String BOX_FILE_NAME = "box.json";
 
-    private static final String RABBITMQ_SECRET_NAME = "rabbitmq-schema";
-    private static final String CASSANDRA_SECRET_NAME = "cassandra-schema";
+    private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
+    private static final String CASSANDRA_SECRET_NAME = "cassandra";
     private static final String RABBITMQ_PASSWORD_KEY = "rabbitmq-password";
     private static final String CASSANDRA_PASSWORD_KEY = "cassandra-password";
 
