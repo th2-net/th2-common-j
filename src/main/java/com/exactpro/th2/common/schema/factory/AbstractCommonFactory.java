@@ -60,7 +60,7 @@ import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
-import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.commons.text.lookup.StringLookup;
 import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -76,6 +76,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -112,6 +113,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<BoxConfiguration> boxConfiguration = new AtomicReference<>();
+
+    protected static final Map<String, String> DATA_FROM_SECRETS = new HashMap<>();
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
         return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
@@ -369,7 +372,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             String sourceContent = new String(Files.readAllBytes(configPath));
             LOGGER.info("Configuration path {} source content {}", configPath, sourceContent);
 
-            StringSubstitutor stringSubstitutor = new StringSubstitutor(StringLookupFactory.INSTANCE.environmentVariableStringLookup());
+            StringLookup stringLookup = key -> StringUtils.defaultIfBlank(DATA_FROM_SECRETS.get(key), System.getenv(key));
+
+            StringSubstitutor stringSubstitutor = new StringSubstitutor(stringLookup);
             String content = stringSubstitutor.replace(sourceContent);
             return customObjectMapper.readerFor(configClass).readValue(content);
         } catch (IOException e) {

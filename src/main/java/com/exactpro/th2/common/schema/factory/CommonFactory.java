@@ -24,7 +24,6 @@ import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
@@ -35,21 +34,27 @@ import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
 import io.fabric8.kubernetes.api.model.NamedContext;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
+import kotlin.text.Charsets;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
@@ -69,9 +74,10 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
     private static final String BOX_FILE_NAME = "box.json";
-
-    private static String rabbitMqPassword;
-    private static String cassandraPassword;
+    public static final String RABBITMQ_SECRET_NAME = "rabbitmq-schema";
+    public static final String CASSANDRA_SECRET_NAME = "cassandra-schema";
+    public static final String RABBITMQ_PASSWORD_KEY = "rabbitmq-password";
+    public static final String CASSANDRA_PASSWORD_KEY = "cassandra-password";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -142,6 +148,11 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH,
                 CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
         );
+    }
+
+    protected CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration, Map<String, String> variables) {
+        this(rabbitMQ, routerMQ, routerGRPC, cradle, custom, prometheus, dictionariesDir, boxConfiguration);
+        DATA_FROM_SECRETS.putAll(variables);
     }
 
     @Override
@@ -224,45 +235,52 @@ public class CommonFactory extends AbstractCommonFactory {
     public static CommonFactory createFromArguments(String... args) {
         Options options = new Options();
 
-        options.addOption(new Option(null, "rabbitConfiguration", true, null));
-        options.addOption(new Option(null, "messageRouterConfiguration", true, null));
-        options.addOption(new Option(null, "grpcRouterConfiguration", true, null));
-        options.addOption(new Option(null, "cradleConfiguration", true, null));
-        options.addOption(new Option(null, "customConfiguration", true, null));
-        options.addOption(new Option(null, "dictionariesDir", true, null));
-        options.addOption(new Option(null, "prometheusConfiguration", true, null));
-        options.addOption(new Option(null, "boxConfiguration", true, null));
-        options.addOption(new Option("c", "configs", true, null));
+        Option rabbitConfigurationOption = new Option(null, "rabbitConfiguration", true, null);
+        Option messageRouterConfigurationOption = new Option(null, "messageRouterConfiguration", true, null);
+        Option grpcRouterConfigurationOption = new Option(null, "grpcRouterConfiguration", true, null);
+        Option cradleConfigurationOption = new Option(null, "cradleConfiguration", true, null);
+        Option customConfigurationOption = new Option(null, "customConfiguration", true, null);
+        Option dictionariesDirOption = new Option(null, "dictionariesDir", true, null);
+        Option prometheusConfigurationOption = new Option(null, "prometheusConfiguration", true, null);
+        Option boxConfigurationOption = new Option(null, "boxConfiguration", true, null);
+        Option configOption = new Option("c", "configs", true, null);
+        Option namespaceOption = new Option(null, "namespace", true, null);
+        Option boxNameOption = new Option(null, "boxName", true, null);
+        Option contextNameOption = new Option(null, "contextName", true, null);
 
-        options.addOption(new Option(null, "namespace", true, null));
-        options.addOption(new Option(null, "boxName", true, null));
+        options.addOption(rabbitConfigurationOption);
+        options.addOption(messageRouterConfigurationOption);
+        options.addOption(grpcRouterConfigurationOption);
+        options.addOption(cradleConfigurationOption);
+        options.addOption(customConfigurationOption);
+        options.addOption(dictionariesDirOption);
+        options.addOption(prometheusConfigurationOption);
+        options.addOption(boxConfigurationOption);
+        options.addOption(configOption);
+        options.addOption(namespaceOption);
+        options.addOption(boxNameOption);
+        options.addOption(contextNameOption);
 
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
 
-            String configs = cmd.getOptionValue("configs");
+            String configs = cmd.getOptionValue(configOption.getLongOpt());
 
-            if ((cmd.hasOption("namespace") && cmd.hasOption("boxName")) && cmd.hasOption("contextName")){
-                String namespace = cmd.getOptionValue("namespace");
-                String clusterName = cmd.getOptionValue("clusterName");
-                String boxName = cmd.getOptionValue("boxName");
+            if (cmd.hasOption(namespaceOption.getLongOpt()) && cmd.hasOption(boxNameOption.getLongOpt())) {
+                String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
+                String boxName = cmd.getOptionValue(boxNameOption.getLongOpt());
 
-                return createFromKubernetes(namespace, clusterName, boxName);
-            } else if (cmd.hasOption("namespace") && cmd.hasOption("boxName")) {
-                String namespace = cmd.getOptionValue("namespace");
-                String boxName = cmd.getOptionValue("boxName");
-
-                return createFromKubernetes(namespace, boxName);
+                return createFromKubernetes(namespace, boxName, null);
             } else {
                 return new CommonFactory(
-                        calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, RABBIT_MQ_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs),
-                        calculatePath(cmd.getOptionValue("boxConfiguration"), configs, BOX_FILE_NAME)
+                        calculatePath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt()), configs, RABBIT_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(messageRouterConfigurationOption.getLongOpt()), configs, ROUTER_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(grpcRouterConfigurationOption.getLongOpt()), configs, ROUTER_GRPC_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(cradleConfigurationOption.getLongOpt()), configs, CRADLE_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(customConfigurationOption.getLongOpt()), configs, CUSTOM_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt()), configs, PROMETHEUS_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configs),
+                        calculatePath(cmd.getOptionValue(boxNameOption.getLongOpt()), configs, BOX_FILE_NAME)
                         );
             }
         } catch (ParseException e) {
@@ -281,10 +299,18 @@ public class CommonFactory extends AbstractCommonFactory {
         KubernetesClient client = new DefaultKubernetesClient();
         String currentContextName = client.getConfiguration().getCurrentContext().getName();
 
-        return createFromKubernetes(namespace, currentContextName, boxName);
+        return createFromKubernetes(namespace, boxName, currentContextName);
     }
 
-    public static CommonFactory createFromKubernetes(String namespace, String contextName, String boxName) {
+    /**
+     * Create {@link CommonFactory} via configs map from Kubernetes
+     *
+     * @param namespace - namespace in Kubernetes to find config maps related to the target th2 box
+     * @param boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
+     * @param contextName - context name to choose the context from Kube config
+     * @return CommonFactory with set path
+     */
+    public static CommonFactory createFromKubernetes(String namespace, String boxName, @Nullable String contextName) {
         Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> cradleConfigMapResource;
@@ -307,40 +333,41 @@ public class CommonFactory extends AbstractCommonFactory {
 
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
-            String encodedRabbitMqPass = client.secrets().withName("rabbitmq-schema").get().getData().get("rabbitmq-password");
-            String encodedCassandraPass = client.secrets().withName("cassandra-schema").get().getData().get("cassandra-password");
-
-            rabbitMqPassword = new String(Base64.getDecoder().decode(encodedRabbitMqPass));
-            cassandraPassword = new String(Base64.getDecoder().decode(encodedCassandraPass));
-
-            NamedContext context = null;
-
-            for (NamedContext c : client.getConfiguration().getContexts()) {
-                if (c.getName().equals(contextName)) {
-                    context = c;
-                    break;
+            if (contextName != null) {
+                for (NamedContext context : client.getConfiguration().getContexts()) {
+                    if (context.getName().equals(contextName)) {
+                        client.getConfiguration().setCurrentContext(context);
+                        break;
+                    }
                 }
             }
 
-            String currentCluster;
-            String username;
+            Secret rabbitMqSecret = client.secrets().inNamespace(namespace).withName(RABBITMQ_SECRET_NAME).get();
+            Secret cassandraSecret = client.secrets().inNamespace(namespace).withName(CASSANDRA_SECRET_NAME).get();
 
-            if (context != null) {
-                currentCluster = context.getContext().getCluster();
-                username = context.getContext().getUser();
+            String encodedRabbitMqPass;
+            String encodedCassandraPass;
+
+            if (rabbitMqSecret != null && cassandraSecret != null) {
+                encodedRabbitMqPass = rabbitMqSecret.getData().get(RABBITMQ_PASSWORD_KEY);
+                encodedCassandraPass = cassandraSecret.getData().get(CASSANDRA_PASSWORD_KEY);
             } else {
-                LOGGER.error("Context name "+contextName+" was not found in config file.");
+                LOGGER.error("Failed to find secrets");
                 return null;
             }
 
+            String rabbitMqPassword = new String(Base64.getDecoder().decode(encodedRabbitMqPass));
+            String cassandraPassword = new String(Base64.getDecoder().decode(encodedCassandraPass));
+
+            DATA_FROM_SECRETS.put("RABBITMQ_PASS", rabbitMqPassword);
+            DATA_FROM_SECRETS.put("CASSANDRA_PASS", cassandraPassword);
+
             var configMaps
                     = client.configMaps();
-            var services
-                    = client.services();
 
             boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
-            rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName("rabbit-mq-app-config");
-            cradleConfigMapResource = configMaps.inNamespace(namespace).withName("cradle");
+            rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName("rabbit-mq-external-app-config");
+            cradleConfigMapResource = configMaps.inNamespace(namespace).withName("cradle-external");
 
             boxConfigMap = boxConfigMapResource.require();
             rabbitMqConfigMap = rabbitMqConfigMapResource.require();
@@ -351,32 +378,6 @@ public class CommonFactory extends AbstractCommonFactory {
             Map<String, String> boxData = boxConfigMap.getData();
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
             Map<String, String> cradleConfigData = cradleConfigMap.getData();
-
-            Service rabbitMqService = services.inNamespace("service").withName("rabbitmq-schema").require();
-            Service cassandraService = services.inNamespace("service").withName("cassandra-schema").require();
-
-            GrpcRouterConfiguration grpc = MAPPER.readValue(boxData.get(ROUTER_GRPC_FILE_NAME), GrpcRouterConfiguration.class);
-            MessageRouterConfiguration mq = MAPPER.readValue(boxData.get(ROUTER_MQ_FILE_NAME), MessageRouterConfiguration.class);
-            ObjectNode custom = MAPPER.readValue(boxData.get(CUSTOM_FILE_NAME), ObjectNode.class);
-            RabbitMQConfiguration rabbitMq = MAPPER.readValue(rabbitMqData.get(RABBIT_MQ_FILE_NAME), RabbitMQConfiguration.class);
-            CradleConfiguration cradle = MAPPER.readValue(cradleConfigData.get(CRADLE_FILE_NAME), CradleConfiguration.class);
-            BoxConfiguration box = new BoxConfiguration();
-            box.setBoxName(boxName);
-
-            Map<String, GrpcServiceConfiguration> grpcServices = grpc.getServices();
-
-            grpcServices.values().forEach(serviceConfig -> serviceConfig.getEndpoints().values().forEach(endpoint -> {
-                Service boxService = client.services().inNamespace(namespace).withName(endpoint.getHost()).require();
-                endpoint.setPort(getExposedPort(endpoint.getPort(), boxService));
-                endpoint.setHost(currentCluster);
-            }));
-
-            rabbitMq.setPort(getExposedPort(rabbitMq.getPort(), rabbitMqService));
-            rabbitMq.setHost(currentCluster);
-            rabbitMq.setUsername(username);
-
-            cradle.setPort(getExposedPort(cradle.getPort(), cassandraService));
-            cradle.setHost(currentCluster);
 
             File generatedConfigsDirFile = new File(userDir, generatedConfigsDir);
 
@@ -396,24 +397,38 @@ public class CommonFactory extends AbstractCommonFactory {
                 File dictionaryFile = dictionaryPath.toFile();
                 File boxFile = boxConfiguration.toFile();
 
-                writeToJson(grpcFile, grpc);
-                writeToJson(rabbitMqFile, rabbitMq);
-                writeToJson(cradleFile, cradle);
-                writeToJson(mqFile, mq);
-                writeToJson(customFile, custom);
+                BoxConfiguration box = new BoxConfiguration();
+                box.setBoxName(boxName);
+
+                OutputStream grpcOutputStream = new FileOutputStream(grpcFile);
+                OutputStream rabbitMqOutputStream = new FileOutputStream(rabbitMqFile);
+                OutputStream cradleOutputStream = new FileOutputStream(cradleFile);
+                OutputStream mqOutputStream = new FileOutputStream(mqFile);
+                OutputStream customOutputStream = new FileOutputStream(customFile);
+
+                IOUtils.write(boxData.get(ROUTER_GRPC_FILE_NAME), grpcOutputStream, Charsets.UTF_8);
+                IOUtils.write(rabbitMqData.get(RABBIT_MQ_FILE_NAME), rabbitMqOutputStream, Charsets.UTF_8);
+                IOUtils.write(cradleConfigData.get(CRADLE_FILE_NAME), cradleOutputStream, Charsets.UTF_8);
+                IOUtils.write(boxData.get(ROUTER_MQ_FILE_NAME), mqOutputStream, Charsets.UTF_8);
+                IOUtils.write(boxData.get(CUSTOM_FILE_NAME), customOutputStream, Charsets.UTF_8);
+
                 writeToJson(prometheusFile, new PrometheusConfiguration());
                 writeToJson(boxFile, box);
 
                 if(dictionaryConfigMap != null) {
                     writeToJson(dictionaryFile, dictionaryConfigMap.getData());
                 }
+
+                if(dictionaryConfigMap != null) {
+                    writeToJson(dictionaryFile, dictionaryConfigMap.getData());
+                }
             }
 
+            return new CommonFactory(rabbitMqPath, mqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfiguration, DATA_FROM_SECRETS);
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
+            throw new IllegalStateException(e);
         }
-
-        return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfiguration);
     }
 
     private static ConfigMap getDictionary(String boxName, ConfigMapList configMapList) {
@@ -446,13 +461,5 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static Path calculatePath(String path, String configsPath, String fileName) {
         return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath, fileName) : CONFIG_DEFAULT_PATH.resolve(fileName));
-    }
-
-    public static String getRabbitMqPassword() {
-        return rabbitMqPassword;
-    }
-
-    public static String getCassandraPassword() {
-        return cassandraPassword;
     }
 }
