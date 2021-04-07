@@ -74,8 +74,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
     private static final String BOX_FILE_NAME = "box.json";
-    public static final String RABBITMQ_SECRET_NAME = "rabbitmq-schema";
-    public static final String CASSANDRA_SECRET_NAME = "cassandra-schema";
+    public static final String RABBITMQ_SECRET_NAME = "rabbitmq";
+    public static final String CASSANDRA_SECRET_NAME = "cassandra";
     public static final String RABBITMQ_PASSWORD_KEY = "rabbitmq-password";
     public static final String CASSANDRA_PASSWORD_KEY = "cassandra-password";
 
