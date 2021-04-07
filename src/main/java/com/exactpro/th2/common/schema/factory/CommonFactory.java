@@ -313,10 +313,7 @@ public class CommonFactory extends AbstractCommonFactory {
      * @return CommonFactory with set path
      */
     public static CommonFactory createFromKubernetes(String namespace, String boxName) {
-        KubernetesClient client = new DefaultKubernetesClient();
-        String currentContextName = client.getConfiguration().getCurrentContext().getName();
-
-        return createFromKubernetes(namespace, boxName, currentContextName);
+        return createFromKubernetes(namespace, boxName, null);
     }
 
     /**
@@ -351,14 +348,18 @@ public class CommonFactory extends AbstractCommonFactory {
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
             if (contextName != null) {
+                boolean foundContext = false;
+
                 for (NamedContext context : client.getConfiguration().getContexts()) {
                     if (context.getName().equals(contextName)) {
                         client.getConfiguration().setCurrentContext(context);
+                        foundContext = true;
                         break;
                     }
-
-                    throw new IllegalArgumentException("Failed to find context "+contextName);
                 }
+
+                if (!foundContext)
+                    throw new IllegalArgumentException("Failed to find context "+contextName);
             }
 
             Secret rabbitMqSecret = requireNonNull(client.secrets().inNamespace(namespace).withName(RABBITMQ_SECRET_NAME).get(),
