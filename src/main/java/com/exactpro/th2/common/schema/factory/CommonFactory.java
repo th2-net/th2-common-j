@@ -285,13 +285,9 @@ public class CommonFactory extends AbstractCommonFactory {
             if (cmd.hasOption(namespaceOption.getLongOpt()) && cmd.hasOption(boxNameOption.getLongOpt())) {
                 String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
                 String boxName = cmd.getOptionValue(boxNameOption.getLongOpt());
+                String contextName = cmd.getOptionValue(contextNameOption.getLongOpt());
 
-                if (cmd.hasOption(contextNameOption.getLongOpt())) {
-                    String contextName = cmd.getOptionValue(contextNameOption.getLongOpt());
-                    return createFromKubernetes(namespace, boxName, contextName);
-                }
-
-                return createFromKubernetes(namespace, boxName, null);
+                return createFromKubernetes(namespace, boxName, contextName);
             } else {
                 return new CommonFactory(
                         calculatePath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt()), configs, RABBIT_MQ_FILE_NAME),
