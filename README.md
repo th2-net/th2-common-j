@@ -23,7 +23,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
     ```
-1. Create factory with a namespace in Kubernetes, the name of the target th2 box from Kubernetes and the name of context: 
+1. Create factory with a namespace in Kubernetes, the name of the target th2 box from Kubernetes and the name of context to choose the context from Kube config: 
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
     ```
