@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration;
 
+import static org.apache.commons.lang3.StringUtils.repeat;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -154,7 +156,7 @@ public class RabbitMQConfiguration {
                 ", vHost='" + vHost + '\'' +
                 ", port=" + port +
                 ", username='" + username + '\'' +
-                ", password='" + password + '\'' +
+                ", password='" + repeat('*', 10) + '\'' +
                 ", subscriberName='" + subscriberName + '\'' +
                 ", exchangeName='" + exchangeName + '\'' +
                 ", connectionTimeout=" + connectionTimeout +
