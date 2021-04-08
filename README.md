@@ -23,6 +23,11 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
     ```
+1. Create factory with a namespace in Kubernetes, the name of the target th2 box from Kubernetes and the name of context: 
+    ```
+    var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
+    ```
+    ContextName parameter is `@Nullable`; if null, current context will not be changed.
 
 ### Configuration formats
 
@@ -97,7 +102,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 
 1. It is necessary to have environment variables `CASSANDRA_PASS` and `RABBITMQ_PASS` to use configs from `cradle.json` and `rabbitMQ.json` as the passwords are not stored there explicitly. 
 
-1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` is invoked again. 
+1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again. 
 
 After that you can receive various Routers through factory properties:
 ```
