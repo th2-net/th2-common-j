@@ -60,7 +60,7 @@ import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
-import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.commons.text.lookup.StringLookup;
 import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -77,6 +77,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -93,6 +94,7 @@ import java.util.stream.StreamSupport;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static java.util.Collections.emptyMap;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
@@ -113,6 +115,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
     private final AtomicReference<BoxConfiguration> boxConfiguration = new AtomicReference<>();
+
+    private final StringLookup stringLookup;
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
         return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
@@ -160,8 +164,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Create factory with not-default implementations schema classes
-     *
+     * Create factory with non-default implementations schema classes
      * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
      * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
      * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
@@ -172,11 +175,31 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass,
+                eventBatchRouterClass, grpcRouterClass, emptyMap());
+    }
+
+    /**
+     * Create factory with non-default implementations schema classes
+     *
+     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
+     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
+     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param grpcRouterClass               Class for {@link GrpcRouter}
+     * @param environmentVariables          map with additional environment variables
+     */
+    protected AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            @NotNull Class<? extends GrpcRouter> grpcRouterClass,
+            @NotNull Map<String, String> environmentVariables) {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
+        this.stringLookup = key -> defaultIfBlank(environmentVariables.get(key), System.getenv(key));
     }
 
     public void start() {
@@ -344,7 +367,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Returns previously registered message router for message of {@code messageClass} type.
      *
-     * It the router for that type is not registered yet throws {@link IllegalArgumentException}
+     * If the router for that type is not registered yet ,it throws {@link IllegalArgumentException}
      * @param messageClass custom message class
      * @param <T> custom message type
      * @throws IllegalArgumentException if router for specified type is not registered
@@ -370,7 +393,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             String sourceContent = new String(Files.readAllBytes(configPath));
             LOGGER.info("Configuration path {} source content {}", configPath, sourceContent);
 
-            StringSubstitutor stringSubstitutor = new StringSubstitutor(StringLookupFactory.INSTANCE.environmentVariableStringLookup());
+            StringSubstitutor stringSubstitutor = new StringSubstitutor(stringLookup);
             String content = stringSubstitutor.replace(sourceContent);
             return customObjectMapper.readerFor(configClass).readValue(content);
         } catch (IOException e) {
@@ -503,7 +526,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * If root event is not exists create root event with name = box name and timestamp
+     * If root event does not exist, it creates root event with its name = box name and timestamp
      * @return root event id
      */
     @Nullable
