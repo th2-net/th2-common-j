@@ -19,16 +19,16 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromArguments(args);
     ```
-    If you use arguments `--namespace` and `--boxName` here, `createFromKubernetes(namespace, boxName)` will be invoked.
-    If you use also `--contextName` in addition to `--namespace` and `--boxName`, `createFromKubernetes(namespace, boxName, contextName)` will be invoked
 1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
     ```
+    It also can be called by using `createFromArguments(args)` with arguments `--namespace` and `--boxName`.
 1. Create factory with a namespace in Kubernetes, the name of the target th2 box from Kubernetes and the name of context to choose the context from Kube config: 
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
     ```
+    It also can be called by using `createFromArguments(args)` with arguments `--namespace`, `--boxName` and `--contextName`. 
     ContextName parameter is `@Nullable`; if null, current context will not be changed.
 
 ### Configuration formats
