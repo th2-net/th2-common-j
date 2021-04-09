@@ -366,7 +366,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Returns previously registered message router for message of {@code messageClass} type.
      *
-     * It the router for that type is not registered yet throws {@link IllegalArgumentException}
+     * If the router for that type is not registered yet ,it throws {@link IllegalArgumentException}
      * @param messageClass custom message class
      * @param <T> custom message type
      * @throws IllegalArgumentException if router for specified type is not registered
@@ -525,7 +525,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * If root event is not exists create root event with name = box name and timestamp
+     * If root event does not exist, it creates root event with its name = box name and timestamp
      * @return root event id
      */
     public String getRootEventId() {
