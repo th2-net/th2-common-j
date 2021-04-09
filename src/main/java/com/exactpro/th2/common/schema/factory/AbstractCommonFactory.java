@@ -163,7 +163,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Create factory with not-default implementations schema classes
+     * Create factory with non-default implementations schema classes
      * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
      * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
      * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
@@ -179,7 +179,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Create factory with not-default implementations schema classes
+     * Create factory with non-default implementations schema classes
      *
      * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
      * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
