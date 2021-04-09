@@ -39,9 +39,9 @@ Then you will create an instance of imported class, by choosing one of the follo
     5. custom.json - custom configuration
     
     The second group:
-    * --namespace - namespace in Kubernetes to find config maps related to the target
-    * --boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
-    * --contextName - context name to choose the context from Kube config
+    * --namespace - the namespace in Kubernetes to search config maps
+    * --boxName - the name of the target th2 box placed in the specified Kubernetes namespace
+    * --contextName - the context name to search connect parameters in Kube config
     
     Their usage is discovered further.
     
