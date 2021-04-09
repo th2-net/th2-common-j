@@ -26,7 +26,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     * --rabbitConfiguration - path to json file with RabbitMQ configuration
     * --messageRouterConfiguration - path to json file with configuration for MessageRouter
     * --grpcRouterConfiguration - path to json file with configuration for GrpcRouter
-    * --cradleConfiguration - path to json file with configuration for Cradle. 
+    * --cradleConfiguration - path to json file with configuration for Cradle
     * --customConfiguration - path to json file with custom configuration
     * --dictionariesDir - path to directory which contains files with encoded dictionaries
     * --prometheusConfiguration - path to json file with configuration for prometheus metrics server
@@ -39,9 +39,9 @@ Then you will create an instance of imported class, by choosing one of the follo
     5. custom.json - custom configuration
     
     The second group:
-    * --namespace 
-    * --boxName
-    * --contextName
+    * --namespace - namespace in Kubernetes to find config maps related to the target
+    * --boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
+    * --contextName - context name to choose the context from Kube config
     
     Their usage is discovered further.
     
