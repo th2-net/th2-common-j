@@ -63,6 +63,7 @@ import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookup;
 import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -528,12 +529,18 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * If root event does not exist, it creates root event with its name = box name and timestamp
      * @return root event id
      */
+    @Nullable
     public String getRootEventId() {
         return rootEventId.updateAndGet(id -> {
             if (id == null) {
                 try {
+                    String boxName = getBoxConfiguration().getBoxName();
+                    if (boxName == null) {
+                        return null;
+                    }
+
                     com.exactpro.th2.common.grpc.Event rootEvent = Event.start().endTimestamp()
-                            .name(getBoxConfiguration().getBoxName() + " " + Instant.now())
+                            .name(boxName + " " + Instant.now())
                             .description("Root event")
                             .status(Event.Status.PASSED)
                             .type("Microservice")
@@ -606,10 +613,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return routerContext.updateAndGet(ctx -> {
            if (ctx == null) {
                try {
-                   return new DefaultMessageRouterContext(getRabbitMqConnectionManager(),
-                           new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), getRootEventId())),
-                           getMessageRouterConfiguration());
 
+                   MessageRouterMonitor contextMonitor;
+                   String rootEventId = getRootEventId();
+                   if (rootEventId == null) {
+                       contextMonitor = new LogMessageRouterMonitor();
+                   } else {
+                       contextMonitor = new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), rootEventId));
+                   }
+
+                   return new DefaultMessageRouterContext(getRabbitMqConnectionManager(), contextMonitor, getMessageRouterConfiguration());
                } catch (Exception e) {
                    throw new CommonFactoryException("Can not create message router context", e);
                }
