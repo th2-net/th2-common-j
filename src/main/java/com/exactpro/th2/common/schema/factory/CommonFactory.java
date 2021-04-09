@@ -415,8 +415,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 writeFile(cradlePath, cradleConfigData.get(CRADLE_FILE_NAME));
                 writeFile(mqPath, boxData.get(ROUTER_MQ_FILE_NAME));
                 writeFile(customPath, boxData.get(CUSTOM_FILE_NAME));
+                writeFile(prometheusPath, boxData.get(PROMETHEUS_FILE_NAME));
 
-                writeToJson(prometheusPath, new PrometheusConfiguration());
                 writeToJson(boxConfiguration, box);
 
                 if(dictionaryConfigMap != null) {
