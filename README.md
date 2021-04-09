@@ -19,6 +19,23 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromArguments(args);
     ```
+    Those arguments are:
+    * --rabbitConfiguration - path to json file with RabbitMQ configuration
+    * --messageRouterConfiguration - path to json file with configuration for MessageRouter
+    * --grpcRouterConfiguration - path to json file with configuration for GrpcRouter
+    * --cradleConfiguration - path to json file with configuration for Cradle. 
+    * --customConfiguration - path to json file with custom configuration
+    * --dictionariesDir - path to directory which contains files with encoded dictionaries
+    * --prometheusConfiguration - path to json file with configuration for prometheus metrics server
+    * --boxConfiguration - path to json file with boxes configuration and information
+    * -c/--configs - folder with json files for schemas configurations with special names:
+    1. rabbitMq.json - configuration for RabbitMQ
+    2. mq.json - configuration for MessageRouter
+    3. grpc.json - configuration for GrpcRouter
+    4. cradle.json - configuration for cradle
+    5. custom.json - custom configuration
+    
+    There are also arguments `--namespace`, `--boxName` and `--contextName`. They are discovered further.
 1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
@@ -103,7 +120,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 
 1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again. 
 
-1. User needs to have necessary access to read CRs and secrets from the specified namespace. 
+1. User needs to have authentication with service account token that has necessary access to read CRs and secrets from the specified namespace. 
 
 After that you can receive various Routers through factory properties:
 ```
