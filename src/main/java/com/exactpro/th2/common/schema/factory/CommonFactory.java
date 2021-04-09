@@ -343,7 +343,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path customPath = Path.of(userDir, generatedConfigsDir, CUSTOM_FILE_NAME);
         Path prometheusPath = Path.of(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME);
         Path dictionaryPath = Path.of(userDir,generatedConfigsDir, DICTIONARY_FILE_NAME);
-        Path boxConfiguration = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
+        Path boxConfigurationPath = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
 
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
@@ -417,14 +417,19 @@ public class CommonFactory extends AbstractCommonFactory {
                 writeFile(customPath, boxData.get(CUSTOM_FILE_NAME));
                 writeFile(prometheusPath, boxData.get(PROMETHEUS_FILE_NAME));
 
-                writeToJson(boxConfiguration, box);
+                String boxConfig = boxData.get(BOX_FILE_NAME);
+
+                if (boxConfig != null)
+                    writeFile(boxConfigurationPath, boxConfig);
+                else
+                    writeToJson(boxConfigurationPath, box);
 
                 if(dictionaryConfigMap != null) {
                     writeToJson(dictionaryPath, dictionaryConfigMap.getData());
                 }
             }
 
-            return new CommonFactory(rabbitMqPath, mqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfiguration, environmentVariables);
+            return new CommonFactory(rabbitMqPath, mqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfigurationPath, environmentVariables);
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
             throw new IllegalStateException(e);
