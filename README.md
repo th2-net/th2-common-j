@@ -19,7 +19,10 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromArguments(args);
     ```
-    Those arguments are:
+    You can use one of the following groups of arguments. Arguments from different
+    groups cannot be used together. 
+    
+    The first group:
     * --rabbitConfiguration - path to json file with RabbitMQ configuration
     * --messageRouterConfiguration - path to json file with configuration for MessageRouter
     * --grpcRouterConfiguration - path to json file with configuration for GrpcRouter
@@ -35,7 +38,13 @@ Then you will create an instance of imported class, by choosing one of the follo
     4. cradle.json - configuration for cradle
     5. custom.json - custom configuration
     
-    There are also arguments `--namespace`, `--boxName` and `--contextName`. They are discovered further.
+    The second group:
+    * --namespace 
+    * --boxName
+    * --contextName
+    
+    Their usage is discovered further.
+    
 1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
