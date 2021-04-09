@@ -29,7 +29,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
     ```
     It also can be called by using `createFromArguments(args)` with arguments `--namespace`, `--boxName` and `--contextName`. 
-    ContextName parameter is `@Nullable`; if null, current context will not be changed.
+    ContextName parameter is `@Nullable`; if it is set to null, the current context will not be changed.
 
 ### Configuration formats
 
@@ -74,7 +74,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * port - the required setting defines the Cassandra port.
 * keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
 * username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
-* password - the required setting defines the password that will be used for the connecting to Cassandra.
+* password - the required setting defines the password that will be used for connecting to Cassandra.
 * cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
@@ -103,6 +103,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 
 1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again. 
 
+1. User needs to have necessary access to read CRs and secrets from the specified namespace. 
+
 After that you can receive various Routers through factory properties:
 ```
 var messageRouter = factory.getMessageRouterParsedBatch();
@@ -116,7 +118,7 @@ var eventRouter = factory.getEventBatchRouter();
 
 Please refer to [th2-grpc-common](https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for further details.
 
-With router created, you can subscribe to pins (by specifying the callback function) or to send data that the router works with:
+With the router created, you can subscribe to pins (by specifying the callback function) or to send data that the router works with:
 ```
 router.subscribe(callback)  # subscribe to only one pin 
 router.subscribeAll(callback)  # subscribe to one or several pins
