@@ -16,6 +16,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AMQP.BasicProperties;
@@ -54,7 +55,7 @@ public class ConnectionManager implements AutoCloseable {
     private final ThreadLocal<Channel> channel = ThreadLocal.withInitial(this::createChannel);
     private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
-    private final RabbitMQConfiguration configuration;
+    private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
     private final ExecutorService sharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
@@ -74,8 +75,9 @@ public class ConnectionManager implements AutoCloseable {
         public void handleRecoveryStarted(Recoverable recoverable) {}
     };
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, Runnable onFailedRecoveryConnection) {
-        this.configuration = Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
+    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
+        Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
+        this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
 
         if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
             subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
@@ -85,7 +87,7 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         var factory = new ConnectionFactory();
-        var virtualHost = rabbitMQConfiguration.getvHost();
+        var virtualHost = rabbitMQConfiguration.getVHost();
         var username = rabbitMQConfiguration.getUsername();
         var password = rabbitMQConfiguration.getPassword();
 
@@ -104,8 +106,8 @@ public class ConnectionManager implements AutoCloseable {
             factory.setPassword(password);
         }
 
-        if (rabbitMQConfiguration.getConnectionTimeout() >  0) {
-            factory.setConnectionTimeout(rabbitMQConfiguration.getConnectionTimeout());
+        if (connectionManagerConfiguration.getConnectionTimeout() >  0) {
+            factory.setConnectionTimeout(connectionManagerConfiguration.getConnectionTimeout());
         }
 
         factory.setExceptionHandler(new ExceptionHandler() {
@@ -163,7 +165,7 @@ public class ConnectionManager implements AutoCloseable {
 
             int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
 
-            if (tmpCountTriesToRecovery < rabbitMQConfiguration.getMaxRecoveryAttempts()) {
+            if (tmpCountTriesToRecovery < connectionManagerConfiguration.getMaxRecoveryAttempts()) {
                 LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
                 return true;
             }
@@ -180,10 +182,10 @@ public class ConnectionManager implements AutoCloseable {
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
                     int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
 
-                    int recoveryDelay = rabbitMQConfiguration.getMinConnectionRecoveryTimeout()
-                            + (rabbitMQConfiguration.getMaxRecoveryAttempts() > 1
-                                ? (rabbitMQConfiguration.getMaxConnectionRecoveryTimeout() - rabbitMQConfiguration.getMinConnectionRecoveryTimeout())
-                                    / (rabbitMQConfiguration.getMaxRecoveryAttempts() - 1)
+                    int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
+                            + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
+                                ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
+                                    / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
                                     * tmpCountTriesToRecovery
                                 : 0);
 

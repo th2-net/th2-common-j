@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,23 +13,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.configuration;
+package com.exactpro.th2.common.schema.message.configuration
 
-import java.util.Map;
-
-/**
- * An interface representing a single message filter. Encapsulates many field filters.
- */
-public interface RouterFilter extends Configuration {
-
-    /**
-     * @return field filters for message's metadata fields
-     */
-    Map<String, FieldFilterConfiguration> getMetadata();
-
-    /**
-     * @return field filters for message fields
-     */
-    Map<String, FieldFilterConfiguration> getMessage();
-
+interface Configuration {
 }

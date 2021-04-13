@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,11 +13,9 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.configuration;
+package com.exactpro.th2.common.schema.message.configuration
 
-/**
- * Marker for configuration beans
- */
-public interface Configuration {
-
+interface RouterFilter {
+    val metadata: Map<String, FieldFilterConfiguration>
+    val message: Map<String, FieldFilterConfiguration>
 }
