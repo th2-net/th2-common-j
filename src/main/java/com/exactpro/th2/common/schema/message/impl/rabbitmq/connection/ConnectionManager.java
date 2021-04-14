@@ -200,7 +200,7 @@ public class ConnectionManager implements AutoCloseable {
         } catch (IOException | TimeoutException e) {
             CommonMetrics.setRabbitMQReadiness(false);
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
-            throw new IllegalStateException("Failed to create RabbitMQ connection using following configuration: " + rabbitMQConfiguration, e);
+            throw new IllegalStateException("Failed to create RabbitMQ connection using configuration", e);
         }
 
         this.connection.addBlockedListener(new BlockedListener() {

@@ -19,10 +19,43 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromArguments(args);
     ```
+    You can use one of the following groups of arguments. Arguments from different
+    groups cannot be used together. 
+    
+    The first group:
+    * --rabbitConfiguration - path to json file with RabbitMQ configuration
+    * --messageRouterConfiguration - path to json file with configuration for MessageRouter
+    * --grpcRouterConfiguration - path to json file with configuration for GrpcRouter
+    * --cradleConfiguration - path to json file with configuration for Cradle
+    * --customConfiguration - path to json file with custom configuration
+    * --dictionariesDir - path to directory which contains files with encoded dictionaries
+    * --prometheusConfiguration - path to json file with configuration for prometheus metrics server
+    * --boxConfiguration - path to json file with boxes configuration and information
+    * -c/--configs - folder with json files for schemas configurations with special names:
+    1. rabbitMq.json - configuration for RabbitMQ
+    2. mq.json - configuration for MessageRouter
+    3. grpc.json - configuration for GrpcRouter
+    4. cradle.json - configuration for cradle
+    5. custom.json - custom configuration
+    
+    The second group:
+    * --namespace - the namespace in Kubernetes to search config maps
+    * --boxName - the name of the target th2 box placed in the specified Kubernetes namespace
+    * --contextName - the context name to search connect parameters in Kube config
+    
+    Their usage is discovered further.
+    
 1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
     ```
+    It also can be called by using `createFromArguments(args)` with arguments `--namespace` and `--boxName`.
+1. Create factory with a namespace in Kubernetes, the name of the target th2 box from Kubernetes and the name of context to choose the context from Kube config: 
+    ```
+    var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
+    ```
+    It also can be called by using `createFromArguments(args)` with arguments `--namespace`, `--boxName` and `--contextName`. 
+    ContextName parameter is `@Nullable`; if it is set to null, the current context will not be changed.
 
 ### Configuration formats
 
@@ -67,7 +100,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * port - the required setting defines the Cassandra port.
 * keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
 * username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
-* password - the required setting defines the password that will be used for the connecting to Cassandra.
+* password - the required setting defines the password that will be used for connecting to Cassandra.
 * cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
@@ -94,10 +127,9 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 
 1. It is necessary to have Kubernetes configuration written in ~/.kube/config. See more on kubectl configuration [here](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
 
+1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again. 
 
-1. It is necessary to have environment variables `CASSANDRA_PASS` and `RABBITMQ_PASS` to use configs from `cradle.json` and `rabbitMQ.json` as the passwords are not stored there explicitly. 
-
-1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` is invoked again. 
+1. User needs to have authentication with service account token that has necessary access to read CRs and secrets from the specified namespace. 
 
 After that you can receive various Routers through factory properties:
 ```
@@ -112,7 +144,7 @@ var eventRouter = factory.getEventBatchRouter();
 
 Please refer to [th2-grpc-common](https://github.com/th2-net/th2-grpc-common/blob/master/src/main/proto/th2_grpc_common/common.proto "common.proto") for further details.
 
-With router created, you can subscribe to pins (by specifying the callback function) or to send data that the router works with:
+With the router created, you can subscribe to pins (by specifying the callback function) or to send data that the router works with:
 ```
 router.subscribe(callback)  # subscribe to only one pin 
 router.subscribeAll(callback)  # subscribe to one or several pins
