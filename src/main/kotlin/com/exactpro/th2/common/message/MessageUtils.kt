@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,23 @@
  * limitations under the License.
  */
 
+@file:JvmName("MessageUtils")
+
 package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.ListValue
+import com.exactpro.th2.common.grpc.ListValueOrBuilder
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
+import com.exactpro.th2.common.grpc.MessageOrBuilder
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.grpc.ValueOrBuilder
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
 import com.exactpro.th2.common.value.getDouble
@@ -34,7 +40,14 @@ import com.exactpro.th2.common.value.getMessage
 import com.exactpro.th2.common.value.getString
 import com.exactpro.th2.common.value.nullValue
 import com.exactpro.th2.common.value.toValue
+import com.exactpro.th2.common.value.updateList
+import com.exactpro.th2.common.value.updateMessage
+import com.exactpro.th2.common.value.updateOrAddList
+import com.exactpro.th2.common.value.updateOrAddMessage
+import com.exactpro.th2.common.value.updateOrAddString
+import com.exactpro.th2.common.value.updateString
 import com.google.protobuf.Timestamp
+import com.google.protobuf.util.JsonFormat
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.time.Instant
@@ -52,6 +65,9 @@ operator fun Message.get(key: String): Value? = getField(key)
 fun Message.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
 operator fun Message.Builder.get(key: String): Value? = getField(key)
 fun Message.Builder.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
+
+fun Message.hasField(key: String) : Boolean = fieldsMap.containsKey(key)
+fun Message.Builder.hasField(key: String) : Boolean = fieldsMap.containsKey(key);
 
 fun Message.getString(fieldName: String): String? = getField(fieldName)?.getString()
 fun Message.getInt(fieldName: String): Int? = getField(fieldName)?.getInt()
@@ -73,6 +89,16 @@ fun Message.Builder.getList(fieldName: String): List<Value>? = getField(fieldNam
 
 
 operator fun Message.Builder.set(key: String, value: Any?): Message.Builder = apply { addField(key, value) }
+fun Message.Builder.updateField(key: String, updateFunc: Value.Builder.() -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder() ?: throw NullPointerException("Can not find field with name $key"))) }
+fun Message.Builder.updateList(key: String, updateFunc: ListValue.Builder.() -> ListValueOrBuilder) : Message.Builder = apply { updateField(key) { updateList(updateFunc) } }
+fun Message.Builder.updateMessage(key: String, updateFunc: Message.Builder.() -> MessageOrBuilder) : Message.Builder = apply { updateField(key) { updateMessage(updateFunc) } }
+fun Message.Builder.updateString(key: String, updateFunc: String.() -> String) : Message.Builder = apply { updateField(key) { updateString(updateFunc) } }
+
+fun Message.Builder.updateOrAddField(key: String, updateFunc: (Value.Builder?) -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder())) }
+fun Message.Builder.updateOrAddList(key: String, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddMessage(key: String, updateFunc: (Message.Builder?) -> MessageOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddString(key: String, updateFunc:(String?) -> String) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddString(updateFunc) ?: updateFunc(null)?.toValue() } }
+
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 
 fun Message.Builder.copyField(message: Message, key: String) : Message.Builder = apply { if (message.getField(key) != null) putFields(key, message.getField(key)) }
@@ -187,3 +213,13 @@ var Message.Builder.sequence
             })
         })
     }
+
+
+@JvmOverloads
+fun com.google.protobuf.MessageOrBuilder.toJson(short: Boolean = true): String = JsonFormat.printer().includingDefaultValueFields().let {
+    (if (short) it.omittingInsignificantWhitespace() else it).print(this)
+}
+
+fun <T: com.google.protobuf.Message.Builder> T.fromJson(json: String) : T = apply {
+    JsonFormat.parser().ignoringUnknownFields().merge(json, this)
+}

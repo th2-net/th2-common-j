@@ -16,7 +16,7 @@
 package com.exactpro.th2.common.schema.filter.strategy.impl
 
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.schema.message.toJson
+import com.exactpro.th2.common.message.toJson
 import com.google.protobuf.Message
 
 class Th2RawMsgFilterStrategy : AbstractFilterStrategy<Message>() {
