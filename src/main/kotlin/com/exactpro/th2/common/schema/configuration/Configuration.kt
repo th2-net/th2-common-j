@@ -13,7 +13,18 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.configuration
+package com.exactpro.th2.common.schema.configuration
 
-interface Configuration {
+import com.fasterxml.jackson.annotation.JsonAnySetter
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+open class Configuration {
+
+    protected val logger: Logger = LoggerFactory.getLogger(this::class.java)
+
+    @JsonAnySetter
+    fun setField(name: String, value: Any?) {
+        logger.warn("Ignore unknown field with name '{}' in configuration class '{}'", name, this::class.java.name)
+    }
 }

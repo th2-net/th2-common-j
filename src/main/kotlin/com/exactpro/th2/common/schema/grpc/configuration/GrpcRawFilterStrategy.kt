@@ -17,10 +17,12 @@ package com.exactpro.th2.common.schema.grpc.configuration
 
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 
 data class GrpcRawFilterStrategy(var filters: List<GrpcRouterFilterConfiguration?> = emptyList())
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class GrpcRouterFilterConfiguration(
     @JsonProperty(required = true) var endpoint: String? = null,
     override var metadata: Map<String, FieldFilterConfiguration> = emptyMap(),

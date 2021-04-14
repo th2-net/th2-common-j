@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,6 +15,24 @@
 
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
+import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.AbstractGrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
+import com.exactpro.th2.service.RetryPolicy;
+import com.exactpro.th2.service.StubStorage;
+import com.google.protobuf.Message;
+import io.grpc.CallOptions;
+import io.grpc.Channel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.stub.AbstractStub;
+import io.grpc.stub.StreamObserver;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.List;
@@ -25,26 +42,6 @@ import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
-import com.exactpro.th2.common.schema.grpc.router.AbstractGrpcRouter;
-import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
-import com.exactpro.th2.service.RetryPolicy;
-import com.exactpro.th2.service.StubStorage;
-import com.google.protobuf.Message;
-
-import io.grpc.CallOptions;
-import io.grpc.Channel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.AbstractStub;
-import io.grpc.stub.StreamObserver;
 
 /**
  * Default implementation for {@link GrpcRouter}
@@ -60,7 +57,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     private final Map<Class<?>, StubStorage<?>> stubsStorages = new ConcurrentHashMap<>();
 
     /**
-     * Creates a service instance according to the filters in {@link GrpcRouterConfiguration}
+     * Creates a service instance according to the filters in {@link GrpcConfiguration}
      *
      * @param cls class of service
      * @param <T> type of service

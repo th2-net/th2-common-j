@@ -16,30 +16,37 @@
 package com.exactpro.th2.common.schema.message.configuration
 
 import com.exactpro.th2.common.grpc.FilterOperation
+import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
 
-data class MessageRouterConfiguration(var queues: Map<String, QueueConfiguration> = emptyMap()) : Configuration {
+data class MessageRouterConfiguration(var queues: Map<String, QueueConfiguration> = emptyMap()) : Configuration() {
 
     fun getQueueByAlias(queueAlias: String): QueueConfiguration? {
         return queues[queueAlias]
     }
 
     fun findQueuesByAttr(vararg attrs: String): Map<String, QueueConfiguration> = findQueuesByAttr(attrs.toList())
-    fun findQueuesByAttr(attr: Collection<String>): Map<String, QueueConfiguration> = queues.filter { it.value.attributes.containsAll(attr) }
+    fun findQueuesByAttr(attr: Collection<String>): Map<String, QueueConfiguration> =
+        queues.filter { it.value.attributes.containsAll(attr) }
 }
 
-data class QueueConfiguration(@JsonProperty(required = true) @JsonAlias("name", "sendKey") var routingKey: String,
-                              @JsonProperty(required = true) @JsonAlias("subscribeKey") var queue: String,
-                              @JsonProperty(required = true) var exchange: String,
-                              @JsonProperty(required = true) @JsonAlias("labels", "tags") var attributes: List<String> = emptyList(),
-                              var filters: List<MqRouterFilterConfiguration> = emptyList(),
-                              @JsonProperty(value = "read", defaultValue = "true") var isReadable: Boolean = true,
-                              @JsonProperty(value = "write", defaultValue = "true") var isWritable: Boolean = true) : Configuration
+data class QueueConfiguration(
+    @JsonProperty(required = true) @JsonAlias("name", "sendKey") var routingKey: String,
+    @JsonProperty(required = true) @JsonAlias("subscribeKey") var queue: String,
+    @JsonProperty(required = true) var exchange: String,
+    @JsonProperty(required = true) @JsonAlias("labels", "tags") var attributes: List<String> = emptyList(),
+    var filters: List<MqRouterFilterConfiguration> = emptyList(),
+    @JsonProperty(value = "read", defaultValue = "true") var isReadable: Boolean = true,
+    @JsonProperty(value = "write", defaultValue = "true") var isWritable: Boolean = true
+) : Configuration()
 
-data class MqRouterFilterConfiguration(@JsonProperty override var metadata: Map<String, FieldFilterConfiguration> = emptyMap(),
-                                       @JsonProperty override var message: Map<String, FieldFilterConfiguration> = emptyMap())
-    : Configuration, RouterFilter
+data class MqRouterFilterConfiguration(
+    override var metadata: Map<String, FieldFilterConfiguration> = emptyMap(),
+    override var message: Map<String, FieldFilterConfiguration> = emptyMap()
+) : Configuration(), RouterFilter
 
-data class FieldFilterConfiguration(@JsonProperty var value: String? = null,
-                                    @JsonProperty(required = true) var operation: FilterOperation? = null) : Configuration
+data class FieldFilterConfiguration(
+    var value: String? = null,
+    @JsonProperty(required = true) var operation: FilterOperation? = null
+) : Configuration()

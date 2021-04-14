@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,25 +15,32 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
-
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
+import io.netty.channel.DefaultEventLoop;
+import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.channel.EventLoopGroup;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Abstract implementation for {@link GrpcRouter}
  * <p>
- * Implement {@link GrpcRouter#init(GrpcRouterConfiguration)}
+ * Implement {@link GrpcRouter#init(GrpcConfiguration)}
+ * <p>
+ * Implement {@link GrpcRouter#init(GrpcConfiguration, GrpcRouterConfiguration)}
  * <p>
  * Implement {@link GrpcRouter#startServer(BindableService...)}
  *
@@ -45,11 +51,28 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractGrpcRouter.class);
     protected List<Server> servers = new ArrayList<>();
-    protected GrpcRouterConfiguration configuration;
+    protected GrpcConfiguration configuration;
+    protected EventLoopGroup eventLoop;
 
     @Override
-    public void init(GrpcRouterConfiguration configuration) {
+    public void init(GrpcConfiguration configuration) {
+        if (this.configuration != null && eventLoop != null) {
+            throw new IllegalStateException("Grpc router already init");
+        }
+
         this.configuration = configuration;
+        eventLoop = new DefaultEventLoop(Executors.newSingleThreadExecutor());
+
+    }
+
+    @Override
+    public void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration) {
+        if (this.configuration != null && eventLoop != null) {
+            throw new IllegalStateException("Grpc router already init");
+        }
+
+        this.configuration = Objects.requireNonNull(configuration);
+        eventLoop = new DefaultEventLoopGroup(routerConfiguration.getWorkers(), Executors.newFixedThreadPool(Objects.requireNonNull(routerConfiguration).getWorkers()));
     }
 
     @Override
@@ -66,6 +89,8 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         } else {
             builder = NettyServerBuilder.forAddress(InetSocketAddress.createUnresolved(serverConf.getHost(), serverConf.getPort()));
         }
+
+        builder.workerEventLoopGroup(eventLoop);
 
         for (BindableService service : services) {
             builder.addService(service);

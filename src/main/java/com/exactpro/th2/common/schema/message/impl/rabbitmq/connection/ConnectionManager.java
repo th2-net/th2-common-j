@@ -32,6 +32,7 @@ import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -79,11 +80,12 @@ public class ConnectionManager implements AutoCloseable {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
 
-        if (StringUtils.isBlank(rabbitMQConfiguration.getSubscriberName())) {
+        String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
+        if (StringUtils.isBlank(subscriberNameTmp)) {
             subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
             LOGGER.info("Subscribers will use default name: {}", subscriberName);
         } else {
-            subscriberName = rabbitMQConfiguration.getSubscriberName() + "." + System.currentTimeMillis();
+            subscriberName = subscriberNameTmp + "." + System.currentTimeMillis();
         }
 
         var factory = new ConnectionFactory();

@@ -15,24 +15,24 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.annotation.JsonProperty
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 data class RabbitMQConfiguration(
     var host: String? = null,
     @JsonProperty("vHost") var vHost: String? = null,
     var port: Int = 0,
     var username: String? = null,
     var password: String? = null,
+    @Deprecated(message = "Please use subscriber name from ConnectionManagerConfiguration")
     var subscriberName: String? = null,
-    var exchangeName: String? = null) {}
+    var exchangeName: String? = null) : Configuration()
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 data class ConnectionManagerConfiguration(
+    var subscriberName: String? = null,
     var connectionTimeout: Int = -1,
     var connectionCloseTimeout: Int = 10000,
     var maxRecoveryAttempts: Int = 5,
     var minConnectionRecoveryTimeout: Int = 10000,
     var maxConnectionRecoveryTimeout: Int = 60000,
-    val prefetchCount: Int = 10)
+    val prefetchCount: Int = 10) : Configuration()

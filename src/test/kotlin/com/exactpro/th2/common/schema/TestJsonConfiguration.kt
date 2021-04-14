@@ -18,9 +18,9 @@ package com.exactpro.th2.common.schema
 import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServerConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
@@ -48,7 +48,7 @@ class TestJsonConfiguration {
         init {
             val module = SimpleModule()
             module.addDeserializer(RoutingStrategy::class.java, JsonDeserializerRoutingStategy())
-            module.addSerializer(RoutingStrategy::class.java, JsonSerializerRoutingStrategy())
+            module.addSerializer(RoutingStrategy::class.java, JsonSerializerRoutingStrategy(ObjectMapper().apply { registerModule(KotlinModule()) }))
 
             OBJECT_MAPPER.registerModule(module)
             OBJECT_MAPPER.registerModule(KotlinModule())
@@ -57,17 +57,17 @@ class TestJsonConfiguration {
 
     @Test
     fun `test grpc json configuration`() {
-        testJson(GrpcRouterConfiguration(
+        testJson(GrpcConfiguration(
             mapOf(
                 "test" to GrpcServiceConfiguration(
                     RobinRoutingStrategy().apply {
                         init(GrpcRawRobinStrategy().also { it.endpoints = listOf("endpoint") })
                     },
-                    GrpcRouterConfiguration::class.java,
+                    GrpcConfiguration::class.java,
                     mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr")))
                 )
             ),
-            GrpcServerConfiguration("host123", 1234, 2)
+            GrpcServerConfiguration("host123", 1234)
         ))
     }
 
@@ -84,7 +84,7 @@ class TestJsonConfiguration {
 
     @Test
     fun `test connection manager json configuration`() {
-        testJson(ConnectionManagerConfiguration(10000))
+        testJson(ConnectionManagerConfiguration("subscriberName", 10000))
     }
 
     @Test

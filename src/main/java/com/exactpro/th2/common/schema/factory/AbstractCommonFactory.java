@@ -28,11 +28,14 @@ import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
+import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
+import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
@@ -64,7 +67,6 @@ import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
-import org.apache.commons.text.lookup.StringLookup;
 import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -118,33 +120,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
-    private final AtomicReference<RabbitMQConfiguration> rabbitMqConfiguration = new AtomicReference<>();
-    private final AtomicReference<ConnectionManagerConfiguration> connectionManagerConfiguration = new AtomicReference<>();
-    private final AtomicReference<MessageRouterConfiguration> messageRouterConfiguration = new AtomicReference<>();
-    private final AtomicReference<GrpcRouterConfiguration> grpcRouterConfiguration = new AtomicReference<>();
-    private final AtomicReference<BoxConfiguration> boxConfiguration = new AtomicReference<>();
-
-    private final StringLookup stringLookup;
-
-    public RabbitMQConfiguration getRabbitMqConfiguration() {
-        return rabbitMqConfiguration.updateAndGet(this::loadRabbitMqConfiguration);
-    }
-
-    public ConnectionManagerConfiguration getConnectionManagerConfiguration() {
-        return connectionManagerConfiguration.updateAndGet(this::loadConnectionManagerConfiguration);
-    }
-
-    public MessageRouterConfiguration getMessageRouterConfiguration() {
-        return messageRouterConfiguration.updateAndGet(this::loadMessageRouterConfiguration);
-    }
-
-    public GrpcRouterConfiguration getGrpcRouterConfiguration() {
-        return grpcRouterConfiguration.updateAndGet(this::loadGrpcRouterConfiguration);
-    }
-
-    public BoxConfiguration getBoxConfiguration() {
-        return boxConfiguration.updateAndGet(this::loadBoxConfiguration);
-    }
+    private final StringSubstitutor stringSubstitutor;
 
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
@@ -211,7 +187,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
-        this.stringLookup = key -> defaultIfBlank(environmentVariables.get(key), System.getenv(key));
+        this.stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(environmentVariables.get(key), System.getenv(key)));
     }
 
     public void start() {
@@ -321,7 +297,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = grpcRouterClass.getConstructor().newInstance();
-                    router.init(getGrpcRouterConfiguration());
+                    router.init(getGrpcConfiguration(), getGrpcRouterConfiguration());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create GRPC router", e);
                 }
@@ -401,24 +377,84 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
-        try {
-            String sourceContent = new String(Files.readAllBytes(configPath));
-            LOGGER.info("Configuration path {} source content {}", configPath, sourceContent);
+        return getConfigurationManager().loadConfiguration(configPath, configClass, stringSubstitutor, customObjectMapper);
+    }
 
-            StringSubstitutor stringSubstitutor = new StringSubstitutor(stringLookup);
-            String content = stringSubstitutor.replace(sourceContent);
-            return customObjectMapper.readerFor(configClass).readValue(content);
-        } catch (IOException e) {
-            throw new IllegalStateException(String.format("Cannot read %s configuration", configClass.getName()), e);
+    /**
+     * Load configuration, save and return. If already loaded return saved configuration.
+     * @param configClass configuration class
+     * @param customObjectMapper object mapper for read json file to java's object
+     * @param <T>
+     * @return configuration object
+     */
+    protected <T> T getConfigurationOrLoad(Class<T> configClass, ObjectMapper customObjectMapper) {
+        return getConfigurationManager().getConfigurationOrLoad(configClass, stringSubstitutor, () -> customObjectMapper);
+    }
+
+    /**
+     * Load configuration with default {@link ObjectMapper}, save and return. If already loaded return saved configuration.
+     * @param configClass configuration class
+     * @param <T>
+     * @return configuration object
+     */
+    protected <T> T getConfigurationOrLoadWithMapper(Class<T> configClass) {
+        return getConfigurationOrLoad(configClass, MAPPER);
+    }
+
+    public RabbitMQConfiguration getRabbitMqConfiguration() {
+        return getConfigurationOrLoadWithMapper(RabbitMQConfiguration.class);
+    }
+
+    public ConnectionManagerConfiguration getConnectionManagerConfiguration() {
+        try {
+            return getConfigurationOrLoadWithMapper(ConnectionManagerConfiguration.class);
+        } catch (IllegalStateException e) {
+            LOGGER.warn("Can not read connection manager configuration. Use default configuration", e);
+            return new ConnectionManagerConfiguration();
         }
     }
 
+    public MessageRouterConfiguration getMessageRouterConfiguration() {
+        return getConfigurationOrLoadWithMapper(MessageRouterConfiguration.class);
+    }
+
+    public GrpcConfiguration getGrpcConfiguration() {
+        return getConfigurationManager().getConfigurationOrLoad(GrpcConfiguration.class, stringSubstitutor, () -> {
+            SimpleModule module = new SimpleModule();
+            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+            module.addSerializer(RoutingStrategy.class, new JsonSerializerRoutingStrategy(MAPPER));
+
+            var mapper = new ObjectMapper();
+            mapper.registerModule(module);
+            mapper.registerModule(new KotlinModule());
+            return mapper;
+        });
+    }
+
+    public GrpcRouterConfiguration getGrpcRouterConfiguration() {
+        return getConfigurationOrLoadWithMapper(GrpcRouterConfiguration.class);
+    }
+
+    public BoxConfiguration getBoxConfiguration() {
+        return getConfigurationOrLoadWithMapper(BoxConfiguration.class);
+    }
+
     protected CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
-        return getConfiguration(getPathToCradleConfidentialConfiguration(), CradleConfidentialConfiguration.class, MAPPER);
+        return getConfigurationOrLoadWithMapper(CradleConfidentialConfiguration.class);
     }
 
     protected CradleNonConfidentialConfiguration getCradleNonConfidentialConfiguration() {
-        return getConfiguration(getPathToCradleNonConfidentialConfiguration(), CradleNonConfidentialConfiguration.class, MAPPER);
+        return getConfigurationOrLoadWithMapper(CradleNonConfidentialConfiguration.class);
+    }
+
+    /**
+     * @return Schema cradle configuration
+     * @throws IllegalStateException if cannot read configuration
+     * @deprecated please use {@link #getCradleManager()}
+     */
+    @Deprecated
+    public CradleConfiguration getCradleConfiguration() {
+        return new CradleConfiguration(getCradleConfidentialConfiguration(), getCradleNonConfidentialConfiguration());
     }
 
     /**
@@ -572,35 +608,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
     }
 
-    /**
-     * @return Path to configuration for RabbitMQ connection
-     * @see RabbitMQConfiguration
-     */
-    protected abstract Path getPathToRabbitMQConfiguration();
-
-    /**
-     * @return Path to configuration for {@link MessageRouter}
-     * @see MessageRouterConfiguration
-     */
-    protected abstract Path getPathToMessageRouterConfiguration();
-
-    /**
-     * @return Path to configuration for {@link GrpcRouter}
-     * @see GrpcRouterConfiguration
-     */
-    protected abstract Path getPathToGrpcRouterConfiguration();
-
-    /**
-     * @return Path to confidential configuration for cradle
-     * @see CradleConfidentialConfiguration
-     */
-    protected abstract Path getPathToCradleConfidentialConfiguration();
-
-    /**
-     * @return Path to non confidential configuration for cradle
-     * @see CradleNonConfidentialConfiguration
-     */
-    protected abstract Path getPathToCradleNonConfidentialConfiguration();
+    protected abstract ConfigurationManager getConfigurationManager();
 
     /**
      * @return Path to custom configuration
@@ -611,24 +619,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @return Path to dictionary
      */
     protected abstract Path getPathToDictionariesDir();
-
-    /**
-     * @return Path to configuration for prometheus server
-     * @see PrometheusConfiguration
-     */
-    protected abstract Path getPathToPrometheusConfiguration();
-
-    /**
-     * @return Path to boxes configuration and information
-     * @see BoxConfiguration
-     */
-    protected abstract Path getPathToBoxConfiguration();
-
-    /**
-     * @return Path to connection manager configuration
-     * @see ConnectionManagerConfiguration
-     */
-    protected abstract Path getPathToConnectionManagerConfiguration();
 
     /**
      * @return Context for all routers except event router
@@ -655,54 +645,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
     }
 
-    protected RabbitMQConfiguration loadRabbitMqConfiguration(RabbitMQConfiguration currentValue) {
-        return currentValue == null ? getConfiguration(getPathToRabbitMQConfiguration(), RabbitMQConfiguration.class, MAPPER) : currentValue;
-    }
-
-    protected ConnectionManagerConfiguration loadConnectionManagerConfiguration(ConnectionManagerConfiguration currentValue) {
-        return currentValue == null ? getConfiguration(getPathToConnectionManagerConfiguration(), ConnectionManagerConfiguration.class, MAPPER) : currentValue;
-    }
-
-    protected MessageRouterConfiguration loadMessageRouterConfiguration(MessageRouterConfiguration currentValue) {
-        return currentValue == null ? getConfiguration(getPathToMessageRouterConfiguration(), MessageRouterConfiguration.class, MAPPER) : currentValue;
-    }
-
-    protected GrpcRouterConfiguration loadGrpcRouterConfiguration(GrpcRouterConfiguration currentValue) {
-        if (currentValue == null) {
-            SimpleModule module = new SimpleModule();
-            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
-            module.addSerializer(RoutingStrategy.class, new JsonSerializerRoutingStrategy());
-
-            var mapper = new ObjectMapper();
-            mapper.registerModule(module);
-            mapper.registerModule(new KotlinModule());
-
-            return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
-        }
-        return currentValue;
-    }
-
     protected PrometheusConfiguration loadPrometheusConfiguration() {
         try {
-            return getConfiguration(getPathToPrometheusConfiguration(), PrometheusConfiguration.class, MAPPER);
+            return getConfigurationOrLoadWithMapper(PrometheusConfiguration.class);
         } catch (IllegalStateException e) {
-            LOGGER.warn("Cannot load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
+            LOGGER.warn("Cannot load prometheus configuration. Use default configuration", e);
             return new PrometheusConfiguration();
         }
-    }
-
-    private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
-        if (currentValue != null) {
-            return currentValue;
-        }
-
-        Path pathToBoxConfiguration = getPathToBoxConfiguration();
-        
-        if (Files.exists(pathToBoxConfiguration)) {
-            return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
-        }
-
-        return new BoxConfiguration();
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {

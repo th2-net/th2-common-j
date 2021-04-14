@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,12 +15,11 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
-import org.jetbrains.annotations.NotNull;
-
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
-
 import io.grpc.BindableService;
 import io.grpc.Server;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Interface for create service for manage connections
@@ -31,7 +29,10 @@ public interface GrpcRouter extends AutoCloseable {
     /**
      * Initialization router
      */
-    void init(GrpcRouterConfiguration configuration);
+    @Deprecated(since = "3.9.0", forRemoval = true)
+    void init(GrpcConfiguration configuration);
+
+    void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration);
 
     /**
      * Create grpc service for send message to grpc servers

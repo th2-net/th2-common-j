@@ -29,10 +29,9 @@ public class JsonSerializerRoutingStrategy extends StdSerializer<RoutingStrategy
 
     private ObjectMapper mapper;
 
-    public JsonSerializerRoutingStrategy() {
+    public JsonSerializerRoutingStrategy(ObjectMapper mapper) {
         super(RoutingStrategy.class, false);
-
-        mapper = new ObjectMapper();
+        this.mapper = mapper;
     }
 
     @Override

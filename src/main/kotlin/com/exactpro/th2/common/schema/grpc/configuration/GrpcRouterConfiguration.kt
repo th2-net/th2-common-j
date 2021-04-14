@@ -15,42 +15,8 @@
 
 package com.exactpro.th2.common.schema.grpc.configuration
 
-import com.exactpro.th2.common.schema.message.configuration.Configuration
-import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy
-import com.exactpro.th2.service.RetryPolicy
-import com.fasterxml.jackson.annotation.JsonProperty
+import com.exactpro.th2.common.schema.configuration.Configuration
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
-data class GrpcRouterConfiguration(
-    @JsonProperty var services: Map<String, GrpcServiceConfiguration> = emptyMap(),
-    @JsonProperty(value = "server") var serverConfiguration: GrpcServerConfiguration = GrpcServerConfiguration(),
-    @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration()
-    ) : Configuration
-
-data class GrpcServiceConfiguration(
-    @JsonProperty(required = true) var strategy: RoutingStrategy<*>? = null,
-    @JsonProperty(value = "service-class", required = true) var serviceClass: Class<*>? = null,
-    @JsonProperty(required = true) var endpoints: Map<String, GrpcEndpointConfiguration> = emptyMap()
-) : Configuration
-
-data class GrpcEndpointConfiguration(
-    @JsonProperty(required = true) var host: String? = null,
-    @JsonProperty(required = true) var port: Int? = null,
-    @JsonProperty var attributes: List<String?> = emptyList()
-) : Configuration
-
-data class GrpcRetryConfiguration(
-    @JsonProperty private var maxAttempts: Int = 5,
-    @JsonProperty var minMethodRetriesTimeout: Long = 100,
-    @JsonProperty var maxMethodRetriesTimeout: Long = 2000
-) : Configuration, RetryPolicy {
-    override fun getDelay(index: Int): Long = (minMethodRetriesTimeout + if (maxAttempts > 1) (maxMethodRetriesTimeout - minMethodRetriesTimeout) / (maxAttempts - 1) * index else 0)
-    override fun getMaxAttempts(): Int = maxAttempts
-    fun setMaxAttempts(maxAttempts: Int) {
-        this.maxAttempts = maxAttempts
-    }
-}
-
-data class GrpcServerConfiguration(
-    @JsonProperty(required = true) var host: String? = null,
-    @JsonProperty(required = true) var port: Int = 0,
-    @JsonProperty var workers: Int = 1) : Configuration
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class GrpcRouterConfiguration(var workers: Int = 1) : Configuration()
