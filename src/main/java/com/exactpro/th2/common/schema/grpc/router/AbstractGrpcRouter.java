@@ -56,9 +56,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
     @Override
     public void init(GrpcConfiguration configuration) {
-        if (this.configuration != null && eventLoop != null) {
-            throw new IllegalStateException("Grpc router already init");
-        }
+        throwIsInit();
 
         this.configuration = configuration;
         eventLoop = new DefaultEventLoop(Executors.newSingleThreadExecutor());
@@ -67,9 +65,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
     @Override
     public void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration) {
-        if (this.configuration != null && eventLoop != null) {
-            throw new IllegalStateException("Grpc router already init");
-        }
+        throwIsInit();
 
         this.configuration = Objects.requireNonNull(configuration);
         eventLoop = new DefaultEventLoopGroup(routerConfiguration.getWorkers(), Executors.newFixedThreadPool(Objects.requireNonNull(routerConfiguration).getWorkers()));
@@ -103,6 +99,12 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         return server;
     }
 
+    protected void throwIsInit() {
+        if (this.configuration != null && eventLoop != null) {
+            throw new IllegalStateException("Grpc router already init");
+        }
+    }
+
     @Override
     public void close() {
         for (Server server : servers) {
@@ -119,6 +121,15 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown server: {}", server, e);
             }
+        }
+
+
+        LOGGER.info("Shutting down event loop");
+        try {
+            eventLoop.shutdownGracefully().await(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            LOGGER.warn("Failed to shutdown event loop in {} ms. Forcing shutdown...", SERVER_SHUTDOWN_TIMEOUT_MS);
+            eventLoop.shutdownNow();
         }
     }
 }

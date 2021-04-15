@@ -19,7 +19,6 @@ import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
@@ -30,13 +29,10 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
@@ -53,7 +49,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.ObjectUtils;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +62,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -77,19 +71,19 @@ import static java.util.Objects.requireNonNull;
  */
 public class CommonFactory extends AbstractCommonFactory {
 
-    private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
+    public static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
-    private static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
-    private static final String ROUTER_MQ_FILE_NAME = "mq.json";
-    private static final String GRPC_FILE_NAME = "grpc.json";
-    private static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
-    private static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
-    private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
-    private static final String CUSTOM_FILE_NAME = "custom.json";
-    private static final String DICTIONARY_FILE_NAME = "dictionary.json";
-    private static final String BOX_FILE_NAME = "box.json";
-    private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
-    private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
+    public static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
+    public static final String ROUTER_MQ_FILE_NAME = "mq.json";
+    public static final String GRPC_FILE_NAME = "grpc.json";
+    public static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
+    public static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
+    public static final String PROMETHEUS_FILE_NAME = "prometheus.json";
+    public static final String CUSTOM_FILE_NAME = "custom.json";
+    public static final String DICTIONARY_FILE_NAME = "dictionary.json";
+    public static final String BOX_FILE_NAME = "box.json";
+    public static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
+    public static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
 
     private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
     private static final String CASSANDRA_SECRET_NAME = "cassandra";
@@ -104,7 +98,6 @@ public class CommonFactory extends AbstractCommonFactory {
     private final ConfigurationManager configurationManager;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     protected CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
@@ -124,20 +117,23 @@ public class CommonFactory extends AbstractCommonFactory {
         start();
     }
 
-    public CommonFactory(Settings settings) {
-        this(ObjectUtils.defaultIfNull(settings.messageRouterParsedBatchClass, RabbitParsedBatchRouter.class),
-                ObjectUtils.defaultIfNull(settings.messageRouterRawBatchClass, RabbitRawBatchRouter.class),
-                ObjectUtils.defaultIfNull(settings.messageRouterMessageGroupBatchClass, RabbitMessageGroupBatchRouter.class),
-                ObjectUtils.defaultIfNull(settings.eventBatchRouterClass, EventBatchRouter.class),
-                ObjectUtils.defaultIfNull(settings.grpcRouterClass, DefaultGrpcRouter.class),
-                defaultPathIfNull(settings.custom, CUSTOM_FILE_NAME),
-                ObjectUtils.defaultIfNull(settings.dictionariesDir, CONFIG_DEFAULT_PATH),
-                settings.variables,
+    public CommonFactory(FactorySettings settings) {
+        this(settings.getMessageRouterParsedBatchClass(),
+                settings.getMessageRouterRawBatchClass(),
+                settings.getMessageRouterMessageGroupBatchClass(),
+                settings.getEventBatchRouterClass(),
+                settings.getGrpcRouterClass(),
+                settings.getCustom(),
+                settings.getDictionariesDir(),
+                settings.getVariables(),
                 settings.createConfigurationManager());
     }
 
 
-    @Deprecated
+    /**
+     * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
+     */
+    @Deprecated(since = "3.10.0", forRemoval = true)
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
                          Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
@@ -145,7 +141,7 @@ public class CommonFactory extends AbstractCommonFactory {
                          Class<? extends GrpcRouter> grpcRouterClass,
                          Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
 
-        this(new Settings(messageRouterParsedBatchClass,
+        this(new FactorySettings(messageRouterParsedBatchClass,
                 messageRouterRawBatchClass,
                 messageRouterMessageGroupBatchClass,
                 eventBatchRouterClass,
@@ -164,9 +160,17 @@ public class CommonFactory extends AbstractCommonFactory {
                 emptyMap()));
     }
 
-    @Deprecated
+    /**
+     * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
+     */
+    @Deprecated(since = "3.10.0", forRemoval = true)
     public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
-        this(new Settings(rabbitMQ,
+        this(new FactorySettings(RabbitParsedBatchRouter.class,
+                RabbitRawBatchRouter.class,
+                RabbitMessageGroupBatchRouter.class,
+                EventBatchRouter.class,
+                DefaultGrpcRouter.class,
+                rabbitMQ,
                 routerMQ,
                 null,
                 routerGRPC,
@@ -185,11 +189,11 @@ public class CommonFactory extends AbstractCommonFactory {
                          Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
                          Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
                          Class<? extends GrpcRouter> grpcRouterClass) {
-        this(new Settings(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass));
+        this(new FactorySettings(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass));
     }
 
     public CommonFactory() {
-        this(new Settings());
+        this(new FactorySettings());
     }
 
     @Override
@@ -289,7 +293,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 return createFromKubernetes(namespace, boxName, contextName);
             } else {
 
-                Settings settings = new Settings();
+                FactorySettings settings = new FactorySettings();
                 settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_FILE_NAME));
                 settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_FILE_NAME));
                 settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
@@ -343,7 +347,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path dictionaryPath = Path.of(userDir, generatedConfigsDir, DICTIONARY_FILE_NAME);
         Path boxConfigurationPath = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
         
-        Settings settings = new Settings();
+        FactorySettings settings = new FactorySettings();
 
         try (KubernetesClient client = new DefaultKubernetesClient()) {
 
@@ -478,10 +482,6 @@ public class CommonFactory extends AbstractCommonFactory {
         return option;
     }
 
-    private static Path defaultPathIfNull(Path path, String name) {
-        return path == null ? CONFIG_DEFAULT_PATH.resolve(name) : path;
-    }
-
     private static Path calculatePath(String path, String configsPath) {
         return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath) : CONFIG_DEFAULT_PATH);
     }
@@ -496,225 +496,5 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static Path calculatePath(CommandLine cmd, Option current, Option deprecated, String configs, String fileName) {
         return calculatePath(ObjectUtils.defaultIfNull(cmd.getOptionValue(current.getLongOpt()), cmd.getOptionValue(deprecated.getLongOpt())), configs, fileName);
-    }
-
-    public static class Settings {
-        private Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
-        private Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
-        private Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass;
-        private Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
-        private Class<? extends GrpcRouter> grpcRouterClass;
-        private Path rabbitMQ;
-        private Path routerMQ;
-        private Path connectionManagerSettings;
-        private Path grpc;
-        private Path routerGRPC;
-        private Path cradleConfidential;
-        private Path cradleNonConfidential;
-        private Path prometheus;
-        private Path boxConfiguration;
-
-        private Path custom;
-        private Path dictionariesDir;
-        private Map<String, String> variables = emptyMap();
-
-        public Settings() {}
-
-        private Settings(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                         Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                         Class<? extends GrpcRouter> grpcRouterClass) {
-            this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
-            this.messageRouterRawBatchClass = messageRouterRawBatchClass;
-            this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
-            this.eventBatchRouterClass = eventBatchRouterClass;
-            this.grpcRouterClass = grpcRouterClass;
-        }
-
-        private Settings(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass, Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass, Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass, Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass, Class<? extends GrpcRouter> grpcRouterClass, Path rabbitMQ, Path routerMQ, Path connectionManagerSettings, Path grpc, Path routerGRPC, Path cradleConfidential, Path cradleNonConfidential, Path prometheus, Path boxConfiguration, Path custom, Path dictionariesDir, Map<String, String> variables) {
-            this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
-            this.messageRouterRawBatchClass = messageRouterRawBatchClass;
-            this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
-            this.eventBatchRouterClass = eventBatchRouterClass;
-            this.grpcRouterClass = grpcRouterClass;
-            this.rabbitMQ = rabbitMQ;
-            this.routerMQ = routerMQ;
-            this.connectionManagerSettings = connectionManagerSettings;
-            this.grpc = grpc;
-            this.routerGRPC = routerGRPC;
-            this.cradleConfidential = cradleConfidential;
-            this.cradleNonConfidential = cradleNonConfidential;
-            this.prometheus = prometheus;
-            this.boxConfiguration = boxConfiguration;
-            this.custom = custom;
-            this.dictionariesDir = dictionariesDir;
-            this.variables = ObjectUtils.defaultIfNull(variables, emptyMap());
-        }
-
-        private Settings(Path rabbitMQ, Path routerMQ, Path connectionManagerSettings, Path grpc, Path routerGRPC, Path cradleConfidential, Path cradleNonConfidential, Path prometheus, Path boxConfiguration, Path custom, Path dictionariesDir, Map<String, String> variables) {
-            this.rabbitMQ = rabbitMQ;
-            this.routerMQ = routerMQ;
-            this.connectionManagerSettings = connectionManagerSettings;
-            this.grpc = grpc;
-            this.routerGRPC = routerGRPC;
-            this.cradleConfidential = cradleConfidential;
-            this.cradleNonConfidential = cradleNonConfidential;
-            this.prometheus = prometheus;
-            this.boxConfiguration = boxConfiguration;
-            this.custom = custom;
-            this.dictionariesDir = dictionariesDir;
-            this.variables = variables;
-        }
-
-        public Class<? extends MessageRouter<MessageBatch>> getMessageRouterParsedBatchClass() {
-            return messageRouterParsedBatchClass;
-        }
-
-        public void setMessageRouterParsedBatchClass(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass) {
-            this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
-        }
-
-        public Class<? extends MessageRouter<RawMessageBatch>> getMessageRouterRawBatchClass() {
-            return messageRouterRawBatchClass;
-        }
-
-        public void setMessageRouterRawBatchClass(Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass) {
-            this.messageRouterRawBatchClass = messageRouterRawBatchClass;
-        }
-
-        public Class<? extends MessageRouter<MessageGroupBatch>> getMessageRouterMessageGroupBatchClass() {
-            return messageRouterMessageGroupBatchClass;
-        }
-
-        public void setMessageRouterMessageGroupBatchClass(Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass) {
-            this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
-        }
-
-        public Class<? extends MessageRouter<EventBatch>> getEventBatchRouterClass() {
-            return eventBatchRouterClass;
-        }
-
-        public void setEventBatchRouterClass(Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass) {
-            this.eventBatchRouterClass = eventBatchRouterClass;
-        }
-
-        public Class<? extends GrpcRouter> getGrpcRouterClass() {
-            return grpcRouterClass;
-        }
-
-        public void setGrpcRouterClass(Class<? extends GrpcRouter> grpcRouterClass) {
-            this.grpcRouterClass = grpcRouterClass;
-        }
-
-        public Path getRabbitMQ() {
-            return rabbitMQ;
-        }
-
-        public void setRabbitMQ(Path rabbitMQ) {
-            this.rabbitMQ = rabbitMQ;
-        }
-
-        public Path getRouterMQ() {
-            return routerMQ;
-        }
-
-        public void setRouterMQ(Path routerMQ) {
-            this.routerMQ = routerMQ;
-        }
-
-        public Path getConnectionManagerSettings() {
-            return connectionManagerSettings;
-        }
-
-        public void setConnectionManagerSettings(Path connectionManagerSettings) {
-            this.connectionManagerSettings = connectionManagerSettings;
-        }
-
-        public Path getGrpc() {
-            return grpc;
-        }
-
-        public void setGrpc(Path grpc) {
-            this.grpc = grpc;
-        }
-
-        public Path getRouterGRPC() {
-            return routerGRPC;
-        }
-
-        public void setRouterGRPC(Path routerGRPC) {
-            this.routerGRPC = routerGRPC;
-        }
-
-        public Path getCradleConfidential() {
-            return cradleConfidential;
-        }
-
-        public void setCradleConfidential(Path cradleConfidential) {
-            this.cradleConfidential = cradleConfidential;
-        }
-
-        public Path getCradleNonConfidential() {
-            return cradleNonConfidential;
-        }
-
-        public void setCradleNonConfidential(Path cradleNonConfidential) {
-            this.cradleNonConfidential = cradleNonConfidential;
-        }
-
-        public Path getCustom() {
-            return custom;
-        }
-
-        public void setCustom(Path custom) {
-            this.custom = custom;
-        }
-
-        public Path getPrometheus() {
-            return prometheus;
-        }
-
-        public void setPrometheus(Path prometheus) {
-            this.prometheus = prometheus;
-        }
-
-        public Path getDictionariesDir() {
-            return dictionariesDir;
-        }
-
-        public void setDictionariesDir(Path dictionariesDir) {
-            this.dictionariesDir = dictionariesDir;
-        }
-
-        public Path getBoxConfiguration() {
-            return boxConfiguration;
-        }
-
-        public void setBoxConfiguration(Path boxConfiguration) {
-            this.boxConfiguration = boxConfiguration;
-        }
-
-        public Map<String, String> getVariables() {
-            return variables;
-        }
-
-        public void setVariables(@NotNull Map<String, String> variables) {
-            this.variables = Objects.requireNonNull(variables);
-        }
-
-        public ConfigurationManager createConfigurationManager() {
-            Map<Class<?>, Path> paths = new HashMap<>();
-            paths.put(RabbitMQConfiguration.class, defaultPathIfNull(rabbitMQ, RABBIT_MQ_FILE_NAME));
-            paths.put(MessageRouterConfiguration.class, defaultPathIfNull(routerMQ, ROUTER_MQ_FILE_NAME));
-            paths.put(ConnectionManagerConfiguration.class, defaultPathIfNull(connectionManagerSettings, CONNECTION_MANAGER_CONF_FILE_NAME));
-            paths.put(GrpcConfiguration.class, defaultPathIfNull(grpc, GRPC_FILE_NAME));
-            paths.put(GrpcRouterConfiguration.class, defaultPathIfNull(routerGRPC, ROUTER_GRPC_FILE_NAME));
-            paths.put(CradleConfidentialConfiguration.class, defaultPathIfNull(cradleConfidential, CRADLE_CONFIDENTIAL_FILE_NAME));
-            paths.put(CradleNonConfidentialConfiguration.class, defaultPathIfNull(cradleNonConfidential, CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-            paths.put(PrometheusConfiguration.class, defaultPathIfNull(prometheus, PROMETHEUS_FILE_NAME));
-            paths.put(BoxConfiguration.class, defaultPathIfNull(boxConfiguration, BOX_FILE_NAME));
-            return new ConfigurationManager(paths);
-        }
     }
 }

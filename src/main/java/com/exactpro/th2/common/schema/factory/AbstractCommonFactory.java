@@ -113,10 +113,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    protected static final ObjectMapper MAPPER = new ObjectMapper();
 
     static  {
         MAPPER.registerModule(new KotlinModule());
+
+        SimpleModule routingStrategyModule = new SimpleModule();
+        routingStrategyModule.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+        routingStrategyModule.addSerializer(RoutingStrategy.class, new JsonSerializerRoutingStrategy(MAPPER));
+
+        MAPPER.registerModule(routingStrategyModule);
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
@@ -419,16 +425,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     public GrpcConfiguration getGrpcConfiguration() {
-        return getConfigurationManager().getConfigurationOrLoad(GrpcConfiguration.class, stringSubstitutor, () -> {
-            SimpleModule module = new SimpleModule();
-            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
-            module.addSerializer(RoutingStrategy.class, new JsonSerializerRoutingStrategy(MAPPER));
-
-            var mapper = new ObjectMapper();
-            mapper.registerModule(module);
-            mapper.registerModule(new KotlinModule());
-            return mapper;
-        });
+        return getConfigurationManager().getConfigurationOrLoad(GrpcConfiguration.class, stringSubstitutor, () -> MAPPER);
     }
 
     public GrpcRouterConfiguration getGrpcRouterConfiguration() {
