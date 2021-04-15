@@ -31,6 +31,7 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import io.fabric8.kubernetes.client.Config;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
@@ -44,7 +45,6 @@ import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.event.EventBatchRouter;
@@ -59,7 +59,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
-import io.fabric8.kubernetes.api.model.NamedContext;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -345,22 +344,9 @@ public class CommonFactory extends AbstractCommonFactory {
         Path dictionaryPath = Path.of(userDir,generatedConfigsDir, DICTIONARY_FILE_NAME);
         Path boxConfigurationPath = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
 
-        try(KubernetesClient client = new DefaultKubernetesClient()) {
+        KubernetesClient client = contextName == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(Config.autoConfigure(contextName));
 
-            if (contextName != null) {
-                boolean foundContext = false;
-
-                for (NamedContext context : client.getConfiguration().getContexts()) {
-                    if (context.getName().equals(contextName)) {
-                        client.getConfiguration().setCurrentContext(context);
-                        foundContext = true;
-                        break;
-                    }
-                }
-
-                if (!foundContext)
-                    throw new IllegalArgumentException("Failed to find context "+contextName);
-            }
+        try(client) {
 
             Secret rabbitMqSecret = requireNonNull(client.secrets().inNamespace(namespace).withName(RABBITMQ_SECRET_NAME).get(),
                     "Secret '"+ RABBITMQ_SECRET_NAME +"' isn't found in namespace " + namespace);
