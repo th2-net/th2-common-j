@@ -184,6 +184,10 @@ public class CommonFactory extends AbstractCommonFactory {
                 emptyMap()));
     }
 
+    /**
+     * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
+     */
+    @Deprecated(since = "3.10.0", forRemoval = true)
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                          Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
                          Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
@@ -192,6 +196,10 @@ public class CommonFactory extends AbstractCommonFactory {
         this(new FactorySettings(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass));
     }
 
+    /**
+     * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
+     */
+    @Deprecated(since = "3.10.0", forRemoval = true)
     public CommonFactory() {
         this(new FactorySettings());
     }
