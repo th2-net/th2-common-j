@@ -16,18 +16,16 @@
 
 package com.exactpro.th2.common.schema.event;
 
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Histogram;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-import org.jetbrains.annotations.Nullable;
-
-import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.schema.message.MessageRouterUtils;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
-
-import io.prometheus.client.Counter;
-import io.prometheus.client.Histogram;
+import static com.exactpro.th2.common.message.MessageUtils.toJson;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
 
@@ -65,7 +63,7 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
 
     @Override
     protected String toShortDebugString(EventBatch value) {
-        return MessageRouterUtils.toJson(value);
+        return toJson(value);
     }
 
     @Nullable

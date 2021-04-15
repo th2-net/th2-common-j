@@ -17,10 +17,10 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
-import com.exactpro.th2.common.schema.message.toJson
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 import mu.KotlinLogging

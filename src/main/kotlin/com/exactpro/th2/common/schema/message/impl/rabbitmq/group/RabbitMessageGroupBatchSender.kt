@@ -17,8 +17,8 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
-import com.exactpro.th2.common.schema.message.toJson
 import io.prometheus.client.Counter
 
 class RabbitMessageGroupBatchSender : AbstractRabbitSender<MessageGroupBatch>() {
