@@ -31,6 +31,7 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import io.fabric8.kubernetes.client.Config;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
@@ -345,22 +346,9 @@ public class CommonFactory extends AbstractCommonFactory {
         Path dictionaryPath = Path.of(userDir,generatedConfigsDir, DICTIONARY_FILE_NAME);
         Path boxConfigurationPath = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
 
-        try(KubernetesClient client = new DefaultKubernetesClient()) {
+        KubernetesClient client = contextName == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(Config.autoConfigure(contextName));
 
-            if (contextName != null) {
-                boolean foundContext = false;
-
-                for (NamedContext context : client.getConfiguration().getContexts()) {
-                    if (context.getName().equals(contextName)) {
-                        client.getConfiguration().setCurrentContext(context);
-                        foundContext = true;
-                        break;
-                    }
-                }
-
-                if (!foundContext)
-                    throw new IllegalArgumentException("Failed to find context "+contextName);
-            }
+        try(client) {
 
             Secret rabbitMqSecret = requireNonNull(client.secrets().inNamespace(namespace).withName(RABBITMQ_SECRET_NAME).get(),
                     "Secret '"+ RABBITMQ_SECRET_NAME +"' isn't found in namespace " + namespace);
