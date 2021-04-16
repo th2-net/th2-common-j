@@ -60,6 +60,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -237,7 +238,7 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --contextName - context name to choose the context from Kube config
      *             <p>
-     *             --dictionaries - which dictionaries will be use, and types for it (example: fix-50=main;fix-55=level1)
+     *             --dictionaries - which dictionaries will be use, and types for it (example: fix-50=main fix-55=level1)
      *      *      <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
@@ -265,6 +266,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Option boxNameOption = new Option(null, "boxName", true, null);
         Option contextNameOption = new Option(null, "contextName", true, null);
         Option dictionariesOption = new Option(null, "dictionaries", true, null);
+        dictionariesOption.setArgs(Option.UNLIMITED_VALUES);
 
         options.addOption(rabbitConfigurationOption);
         options.addOption(messageRouterConfigurationOption);
@@ -290,17 +292,22 @@ public class CommonFactory extends AbstractCommonFactory {
                 String contextName = cmd.getOptionValue(contextNameOption.getLongOpt());
 
                 Map<DictionaryType, String> dictionaries = new HashMap<>();
-                for (String singleDictionary : cmd.getOptionValue(dictionariesOption.getLongOpt()).split(";")) {
+                for (String singleDictionary : cmd.getOptionValues(dictionariesOption.getLongOpt())) {
                     String[] keyValue = singleDictionary.split("=");
+
+                    if (keyValue.length != 2 || StringUtils.isEmpty(keyValue[0].trim()) || StringUtils.isEmpty(keyValue[1].trim())) {
+                        LOGGER.error("Skip argument '{}' in '{}' option. Wrong format", singleDictionary, dictionariesOption.getLongOpt());
+                        continue;
+                    }
+
                     String fileName = keyValue[0].trim();
-                    if (StringUtils.isNotEmpty(fileName)) {
-                        String typeStr = keyValue[1].trim();
-                        try {
-                            var type = DictionaryType.valueOf(typeStr);
-                            dictionaries.put(type, fileName);
-                        } catch (IllegalArgumentException e) {
-                            LOGGER.warn("Can not add dictionary '{}' with type '{}'", fileName, typeStr);
-                        }
+                    String typeStr = keyValue[1].trim();
+
+                    try {
+                        var type = DictionaryType.valueOf(typeStr);
+                        dictionaries.put(type, fileName);
+                    } catch (IllegalArgumentException e) {
+                        LOGGER.error("Can not add dictionary '{}' with type '{}'", fileName, typeStr);
                     }
                 }
 
@@ -454,25 +461,27 @@ public class CommonFactory extends AbstractCommonFactory {
             DictionaryType type = entry.getKey();
             String dictionaryName = entry.getValue();
 
-            for (ConfigMap c : configMapList.getItems()) {
-                String configName = c.getMetadata().getName();
+            for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
+                String configName = dictionaryConfigMap.getMetadata().getName();
                 if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
-                    Path dictionaryTypeDir = dictionariesDir.resolve(type.name().toLowerCase());
+                    Path dictionaryTypeDir = type.getDictionary(dictionariesDir);
 
                     if (Files.notExists(dictionaryTypeDir)) {
                         Files.createDirectories(dictionaryTypeDir);
                     } else if (!Files.isDirectory(dictionaryTypeDir)) {
                         LOGGER.warn("Can not save dictionary '{}' with type '{}', because '{}' is not directory", dictionaryName, type, dictionaryTypeDir);
-                        continue;
+                        break;
                     }
 
-                    String fileName = c.getData().keySet().stream().findFirst().orElse(null);
+                    Set<String> fileNameSet = dictionaryConfigMap.getData().keySet();
 
-                    if (StringUtils.isNotEmpty(fileName)) {
-                        writeFile(dictionaryTypeDir.resolve(fileName), c.getData().get(fileName));
-                    } else {
-                        LOGGER.warn("Can not save dictionary '{}' with type '{}', because can not find dictionary data in config map", dictionaryName, type);
+                    if (fileNameSet.size() != 1) {
+                        LOGGER.error("Can not save dictionary '{}' with type '{}', because can not find dictionary data in config map", dictionaryName, type);
+                        break;
                     }
+
+                    String fileName = fileNameSet.stream().findFirst().orElse(null);
+                    writeFile(dictionaryTypeDir.resolve(fileName), dictionaryConfigMap.getData().get(fileName));
 
                     break;
                 }
