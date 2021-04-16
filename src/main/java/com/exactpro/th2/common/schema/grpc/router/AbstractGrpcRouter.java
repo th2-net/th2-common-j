@@ -125,9 +125,14 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
 
         LOGGER.info("Shutting down event loop");
+        boolean needToForce;
         try {
-            eventLoop.shutdownGracefully().await(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            needToForce = !eventLoop.shutdownGracefully().await(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
+            needToForce = true;
+        }
+
+        if (needToForce) {
             LOGGER.warn("Failed to shutdown event loop in {} ms. Forcing shutdown...", SERVER_SHUTDOWN_TIMEOUT_MS);
             eventLoop.shutdownNow();
         }
