@@ -23,7 +23,7 @@ import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.grpc.MessageOrBuilder
+import com.google.protobuf.MessageOrBuilder
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
