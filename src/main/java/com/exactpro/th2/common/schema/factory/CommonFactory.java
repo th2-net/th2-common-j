@@ -284,7 +284,7 @@ public class CommonFactory extends AbstractCommonFactory {
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
 
-            String configs = cmd.getOptionValue(configOption.getLongOpt());
+            String configsPath = cmd.getOptionValue(configOption.getLongOpt());
 
             if (cmd.hasOption(namespaceOption.getLongOpt()) && cmd.hasOption(boxNameOption.getLongOpt())) {
                 String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
@@ -312,15 +312,18 @@ public class CommonFactory extends AbstractCommonFactory {
 
                 return createFromKubernetes(namespace, boxName, contextName, dictionaries);
             } else {
+                if (configsPath != null) {
+                    configureLogger(configsPath);
+                }
                 return new CommonFactory(
-                        calculatePath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt()), configs, RABBIT_MQ_FILE_NAME),
-                        calculatePath(cmd.getOptionValue(messageRouterConfigurationOption.getLongOpt()), configs, ROUTER_MQ_FILE_NAME),
-                        calculatePath(cmd.getOptionValue(grpcRouterConfigurationOption.getLongOpt()), configs, ROUTER_GRPC_FILE_NAME),
-                        calculatePath(cmd.getOptionValue(cradleConfigurationOption.getLongOpt()), configs, CRADLE_FILE_NAME),
-                        calculatePath(cmd.getOptionValue(customConfigurationOption.getLongOpt()), configs, CUSTOM_FILE_NAME),
-                        calculatePath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt()), configs, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configs, DICTIONARY_DIR_NAME),
-                        calculatePath(cmd.getOptionValue(boxNameOption.getLongOpt()), configs, BOX_FILE_NAME)
+                        calculatePath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt()), configsPath, RABBIT_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(messageRouterConfigurationOption.getLongOpt()), configsPath, ROUTER_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(grpcRouterConfigurationOption.getLongOpt()), configsPath, ROUTER_GRPC_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(cradleConfigurationOption.getLongOpt()), configsPath, CRADLE_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(customConfigurationOption.getLongOpt()), configsPath, CUSTOM_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt()), configsPath, PROMETHEUS_FILE_NAME),
+                        calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configsPath, DICTIONARY_DIR_NAME),
+                        calculatePath(cmd.getOptionValue(boxNameOption.getLongOpt()), configsPath, BOX_FILE_NAME)
                         );
             }
         } catch (ParseException e) {
@@ -501,10 +504,6 @@ public class CommonFactory extends AbstractCommonFactory {
         if(file.createNewFile() || file.exists()) {
             MAPPER.writeValue(file, object);
         }
-    }
-
-    private static Path calculatePath(String path, String configsPath) {
-        return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath) : CONFIG_DEFAULT_PATH);
     }
 
     private static Path calculatePath(String path, String configsPath, String fileName) {
