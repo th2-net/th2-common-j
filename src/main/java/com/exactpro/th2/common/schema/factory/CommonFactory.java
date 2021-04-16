@@ -16,11 +16,14 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -217,7 +220,7 @@ public class CommonFactory extends AbstractCommonFactory {
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
 
-            String configs = cmd.getOptionValue("configs");
+            String configsPath = cmd.getOptionValue("configs");
 
             if(cmd.hasOption("namespace") && cmd.hasOption("boxName")) {
                 String namespace = cmd.getOptionValue("namespace");
@@ -225,14 +228,17 @@ public class CommonFactory extends AbstractCommonFactory {
 
                 return createFromKubernetes(namespace, boxName);
             } else {
+                if (configsPath != null) {
+                    configureLogger(configsPath);
+                }
                 return new CommonFactory(
-                        calculatePath(cmd.getOptionValue("rabbitConfiguration"), configs, RABBIT_MQ_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configs, ROUTER_MQ_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configs, ROUTER_GRPC_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("cradleConfiguration"), configs, CRADLE_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("customConfiguration"), configs, CUSTOM_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("prometheusConfiguration"), configs, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("dictionariesDir"), configs)
+                        calculatePath(cmd.getOptionValue("rabbitConfiguration"), configsPath, RABBIT_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configsPath, ROUTER_MQ_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("grpcRouterConfiguration"), configsPath, ROUTER_GRPC_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("cradleConfiguration"), configsPath, CRADLE_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("customConfiguration"), configsPath, CUSTOM_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("prometheusConfiguration"), configsPath, PROMETHEUS_FILE_NAME),
+                        calculatePath(cmd.getOptionValue("dictionariesDir"), configsPath)
                 );
             }
         } catch (ParseException e) {
