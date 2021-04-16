@@ -309,7 +309,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Returns previously registered message router for message of {@code messageClass} type.
      *
-     * It the router for that type is not registered yet throws {@link IllegalArgumentException}
+     * If the router for that type is not registered yet, it throws {@link IllegalArgumentException}
      * @param messageClass custom message class
      * @param <T> custom message type
      * @throws IllegalArgumentException if router for specified type is not registered
@@ -424,7 +424,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * If you need custom setting for deserialization use {@link #getCustomConfiguration(Class, ObjectMapper)} method.
      *
      * @param confClass java bean class
-     * @return Java bean with custom configuration, or <b>NULL</b> if configuration is not exists and can not call default constructor from java bean class
+     * @return Java bean with custom configuration, or <b>NULL</b> if configuration does not exists and cannot call default constructor from java bean class
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getCustomConfiguration(Class<T> confClass) {
