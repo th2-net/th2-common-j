@@ -16,20 +16,25 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import static java.util.Objects.requireNonNull;
+import static java.util.Collections.emptyMap;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +43,7 @@ import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
@@ -55,6 +61,7 @@ import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
+import kotlin.text.Charsets;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -69,6 +76,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_FILE_NAME = "cradle.json";
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
+
+    private static final String DICTIONARY_DIR_NAME = "dictionary";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -119,7 +128,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH
+                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME)
         );
     }
 
@@ -130,7 +139,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH
+                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME)
         );
     }
 
@@ -192,6 +201,8 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
      *             <p>
+     *             --dictionaries - which dictionaries will be use, and types for it (example: fix-50=main;fix-55=level1)
+     *             <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
      *             rabbitMq.json - configuration for RabbitMQ
@@ -213,7 +224,7 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "dictionariesDir", true, null));
         options.addOption(new Option(null, "prometheusConfiguration", true, null));
         options.addOption(new Option("c", "configs", true, null));
-
+        options.addOption(new Option(null, "dictionaries", true, null));
         options.addOption(new Option(null, "namespace", true, null));
         options.addOption(new Option(null, "boxName", true, null));
 
@@ -226,7 +237,22 @@ public class CommonFactory extends AbstractCommonFactory {
                 String namespace = cmd.getOptionValue("namespace");
                 String boxName = cmd.getOptionValue("boxName");
 
-                return createFromKubernetes(namespace, boxName);
+                Map<DictionaryType, String> dictionaries = new HashMap<>();
+                for (String singleDictionary : cmd.getOptionValue("dictionaries").split(";")) {
+                    String[] keyValue = singleDictionary.split("=");
+                    String fileName = keyValue[0].trim();
+                    if (StringUtils.isNotEmpty(fileName)) {
+                        String typeStr = keyValue[1].trim();
+                        try {
+                            var type = DictionaryType.valueOf(typeStr);
+                            dictionaries.put(type, fileName);
+                        } catch (IllegalArgumentException e) {
+                            LOGGER.warn("Can not add dictionary '{}' with type '{}'", fileName, typeStr);
+                        }
+                    }
+                }
+
+                return createFromKubernetes(namespace, boxName, dictionaries);
             } else {
                 if (configsPath != null) {
                     configureLogger(configsPath);
@@ -238,7 +264,7 @@ public class CommonFactory extends AbstractCommonFactory {
                         calculatePath(cmd.getOptionValue("cradleConfiguration"), configsPath, CRADLE_FILE_NAME),
                         calculatePath(cmd.getOptionValue("customConfiguration"), configsPath, CUSTOM_FILE_NAME),
                         calculatePath(cmd.getOptionValue("prometheusConfiguration"), configsPath, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("dictionariesDir"), configsPath)
+                        calculatePath(cmd.getOptionValue("dictionariesDir"), configsPath, DICTIONARY_DIR_NAME)
                 );
             }
         } catch (ParseException e) {
@@ -254,7 +280,18 @@ public class CommonFactory extends AbstractCommonFactory {
      * @return CommonFactory with set path
      */
     public static CommonFactory createFromKubernetes(String namespace, String boxName) {
+        return createFromKubernetes(namespace, boxName, emptyMap());
+    }
 
+    /**
+     * Create {@link CommonFactory} via configs map from Kubernetes
+     *
+     * @param namespace - namespace in Kubernetes to find config maps related to the target th2 box
+     * @param boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
+     * @param dictionaries - which dictionaries should load and type for ones.
+     * @return CommonFactory with set path
+     */
+    public static CommonFactory createFromKubernetes(String namespace, String boxName, @NotNull Map<DictionaryType, String> dictionaries) {
         Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> cradleConfigMapResource;
@@ -272,7 +309,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path mqPath = Path.of(userDir, generatedConfigsDir, ROUTER_MQ_FILE_NAME);
         Path customPath = Path.of(userDir, generatedConfigsDir, CUSTOM_FILE_NAME);
         Path prometheusPath = Path.of(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME);
-        Path dictionaryPath = Path.of(userDir,generatedConfigsDir, "dictionary.json");
+        Path dictionaryPath = Path.of(userDir, generatedConfigsDir, DICTIONARY_DIR_NAME);
 
         try(KubernetesClient client = new DefaultKubernetesClient()) {
 
@@ -291,8 +328,6 @@ public class CommonFactory extends AbstractCommonFactory {
             boxConfigMap = boxConfigMapResource.require();
             rabbitMqConfigMap = rabbitMqConfigMapResource.require();
             cradleConfigMap = cradleConfigMapResource.require();
-
-            ConfigMap dictionaryConfigMap = getDictionary(boxName, client.configMaps().list());
 
             Map<String, String> boxData = boxConfigMap.getData();
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
@@ -346,9 +381,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 writeToJson(customFile, custom);
                 writeToJson(prometheusFile, new PrometheusConfiguration());
 
-                if(dictionaryConfigMap != null) {
-                    writeToJson(dictionaryFile, dictionaryConfigMap.getData());
-                }
+                writeDictionaries(dictionaryPath, dictionaries, configMaps.list());
             }
 
         } catch (IOException e) {
@@ -358,26 +391,54 @@ public class CommonFactory extends AbstractCommonFactory {
         return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath);
     }
 
-    private static ConfigMap getDictionary(String boxName, ConfigMapList configMapList) {
-        for(ConfigMap c : configMapList.getItems()) {
-            if(c.getMetadata().getName().startsWith(boxName) && c.getMetadata().getName().endsWith("-dictionary")) {
-                return c;
+    private static void writeDictionaries(Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+        for (Map.Entry<DictionaryType, String> entry : dictionaries.entrySet()) {
+            DictionaryType type = entry.getKey();
+            String dictionaryName = entry.getValue();
+
+            for (ConfigMap c : configMapList.getItems()) {
+                String configName = c.getMetadata().getName();
+                if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
+                    Path dictionaryTypeDir = dictionariesDir.resolve(type.name().toLowerCase());
+
+                    if (Files.notExists(dictionaryTypeDir)) {
+                        Files.createDirectories(dictionaryTypeDir);
+                    } else if (!Files.isDirectory(dictionaryTypeDir)) {
+                        LOGGER.warn("Can not save dictionary '{}' with type '{}', because '{}' is not directory", dictionaryName, type, dictionaryTypeDir);
+                        continue;
+                    }
+
+                    String fileName = c.getData().keySet().stream().findFirst().orElse(null);
+
+                    if (StringUtils.isNotEmpty(fileName)) {
+                        writeFile(dictionaryTypeDir.resolve(fileName), c.getData().get(fileName));
+                    } else {
+                        LOGGER.warn("Can not save dictionary '{}' with type '{}', because can not find dictionary data in config map", dictionaryName, type);
+                    }
+
+                    break;
+                }
             }
         }
-        return null;
     }
 
     private static int getExposedPort(int port, Service service) {
-        for(ServicePort servicePort : service.getSpec().getPorts()) {
-            if(servicePort.getPort() == port) {
+        for (ServicePort servicePort : service.getSpec().getPorts()) {
+            if (servicePort.getPort() == port) {
                 return servicePort.getNodePort();
             }
         }
         throw new IllegalStateException("There is no exposed port for the target port " + port);
     }
 
+    private static void writeFile(Path path, String data) throws IOException {
+        try (OutputStream outputStream = Files.newOutputStream(path)) {
+            IOUtils.write(data, outputStream, Charsets.UTF_8);
+        }
+    }
+
     private static void writeToJson(File file, Object object) throws IOException {
-        if(file.createNewFile() || file.exists()) {
+        if (file.createNewFile() || file.exists()) {
             MAPPER.writeValue(file, object);
         }
     }

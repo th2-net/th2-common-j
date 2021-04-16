@@ -445,11 +445,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read dictionary
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
-
         try {
-
-            var dictionaries = Files.list(getPathToDictionariesDir())
-                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+            var dictionaries = Files.list(getPathToDictionariesDir().resolve(dictionaryType.name().toLowerCase()))
+                    .filter(Files::isRegularFile)
                     .collect(Collectors.toList());
 
             if (dictionaries.isEmpty()) {
