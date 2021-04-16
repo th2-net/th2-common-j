@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,9 +15,42 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import static java.util.Collections.emptyMap;
-import static java.util.Objects.requireNonNull;
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.MessageBatch;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
+import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
+import com.exactpro.th2.common.schema.dictionary.DictionaryType;
+import com.exactpro.th2.common.schema.event.EventBatchRouter;
+import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
+import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ConfigMapList;
+import io.fabric8.kubernetes.api.model.DoneableConfigMap;
+import io.fabric8.kubernetes.api.model.Secret;
+import io.fabric8.kubernetes.client.Config;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.Resource;
+import kotlin.text.Charsets;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -28,42 +60,10 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
-import javax.annotation.Nullable;
-
-import io.fabric8.kubernetes.client.Config;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.grpc.MessageBatch;
-import com.exactpro.th2.common.grpc.MessageGroupBatch;
-import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
-import com.exactpro.th2.common.schema.event.EventBatchRouter;
-import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
-import com.exactpro.th2.common.schema.message.MessageRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.ConfigMapList;
-import io.fabric8.kubernetes.api.model.DoneableConfigMap;
-import io.fabric8.kubernetes.api.model.Secret;
-import io.fabric8.kubernetes.client.DefaultKubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.Resource;
-import kotlin.text.Charsets;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -78,8 +78,9 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_FILE_NAME = "cradle.json";
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
-    private static final String DICTIONARY_FILE_NAME = "dictionary.json";
     private static final String BOX_FILE_NAME = "box.json";
+
+    private static final String DICTIONARY_DIR_NAME = "dictionary";
 
     private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
     private static final String CASSANDRA_SECRET_NAME = "cassandra";
@@ -153,7 +154,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH,
+                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME),
                 CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
                 );
     }
@@ -165,7 +166,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH,
+                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME),
                 CONFIG_DEFAULT_PATH.resolve(BOX_FILE_NAME)
         );
     }
@@ -236,6 +237,8 @@ public class CommonFactory extends AbstractCommonFactory {
      *             --boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
      *             <p>
      *             --contextName - context name to choose the context from Kube config
+     *             <p>
+     *             --dictionaries - which dictionaries will be use, and types for it (example: fix-50=main fix-55=level1)
      *      *      <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
@@ -262,6 +265,8 @@ public class CommonFactory extends AbstractCommonFactory {
         Option namespaceOption = new Option(null, "namespace", true, null);
         Option boxNameOption = new Option(null, "boxName", true, null);
         Option contextNameOption = new Option(null, "contextName", true, null);
+        Option dictionariesOption = new Option(null, "dictionaries", true, null);
+        dictionariesOption.setArgs(Option.UNLIMITED_VALUES);
 
         options.addOption(rabbitConfigurationOption);
         options.addOption(messageRouterConfigurationOption);
@@ -286,7 +291,26 @@ public class CommonFactory extends AbstractCommonFactory {
                 String boxName = cmd.getOptionValue(boxNameOption.getLongOpt());
                 String contextName = cmd.getOptionValue(contextNameOption.getLongOpt());
 
-                return createFromKubernetes(namespace, boxName, contextName);
+                Map<DictionaryType, String> dictionaries = new HashMap<>();
+                for (String singleDictionary : cmd.getOptionValues(dictionariesOption.getLongOpt())) {
+                    String[] keyValue = singleDictionary.split("=");
+
+                    if (keyValue.length != 2 || StringUtils.isEmpty(keyValue[0].trim()) || StringUtils.isEmpty(keyValue[1].trim())) {
+                        throw new IllegalStateException(String.format("Argument '%s' in '%s' option has wrong format.", singleDictionary, dictionariesOption.getLongOpt()));
+                    }
+
+                    String typeStr = keyValue[1].trim();
+
+                    DictionaryType type;
+                    try {
+                        type = DictionaryType.valueOf(typeStr.toUpperCase());
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalStateException("Can not find dictionary type = " + typeStr, e);
+                    }
+                    dictionaries.put(type, keyValue[0].trim());
+                }
+
+                return createFromKubernetes(namespace, boxName, contextName, dictionaries);
             } else {
                 return new CommonFactory(
                         calculatePath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt()), configs, RABBIT_MQ_FILE_NAME),
@@ -295,7 +319,7 @@ public class CommonFactory extends AbstractCommonFactory {
                         calculatePath(cmd.getOptionValue(cradleConfigurationOption.getLongOpt()), configs, CRADLE_FILE_NAME),
                         calculatePath(cmd.getOptionValue(customConfigurationOption.getLongOpt()), configs, CUSTOM_FILE_NAME),
                         calculatePath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt()), configs, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configs),
+                        calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configs, DICTIONARY_DIR_NAME),
                         calculatePath(cmd.getOptionValue(boxNameOption.getLongOpt()), configs, BOX_FILE_NAME)
                         );
             }
@@ -324,6 +348,19 @@ public class CommonFactory extends AbstractCommonFactory {
      * @return CommonFactory with set path
      */
     public static CommonFactory createFromKubernetes(String namespace, String boxName, @Nullable String contextName) {
+        return createFromKubernetes(namespace, boxName, contextName, emptyMap());
+    }
+
+    /**
+     * Create {@link CommonFactory} via configs map from Kubernetes
+     *
+     * @param namespace - namespace in Kubernetes to find config maps related to the target th2 box
+     * @param boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
+     * @param contextName - context name to choose the context from Kube config
+     * @param dictionaries - which dictionaries should load and type for ones.
+     * @return CommonFactory with set path
+     */
+    public static CommonFactory createFromKubernetes(String namespace, String boxName, @Nullable String contextName, @NotNull Map<DictionaryType, String> dictionaries) {
         Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource;
         Resource<ConfigMap, DoneableConfigMap> cradleConfigMapResource;
@@ -341,7 +378,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path mqPath = Path.of(userDir, generatedConfigsDir, ROUTER_MQ_FILE_NAME);
         Path customPath = Path.of(userDir, generatedConfigsDir, CUSTOM_FILE_NAME);
         Path prometheusPath = Path.of(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME);
-        Path dictionaryPath = Path.of(userDir,generatedConfigsDir, DICTIONARY_FILE_NAME);
+        Path dictionaryPath = Path.of(userDir,generatedConfigsDir, DICTIONARY_DIR_NAME);
         Path boxConfigurationPath = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
 
         KubernetesClient client = contextName == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(Config.autoConfigure(contextName));
@@ -378,8 +415,6 @@ public class CommonFactory extends AbstractCommonFactory {
             rabbitMqConfigMap = rabbitMqConfigMapResource.require();
             cradleConfigMap = cradleConfigMapResource.require();
 
-            ConfigMap dictionaryConfigMap = getDictionary(boxName, client.configMaps().list());
-
             Map<String, String> boxData = boxConfigMap.getData();
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
             Map<String, String> cradleConfigData = cradleConfigMap.getData();
@@ -410,9 +445,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 else
                     writeToJson(boxConfigurationPath, box);
 
-                if(dictionaryConfigMap != null) {
-                    writeToJson(dictionaryPath, dictionaryConfigMap.getData());
-                }
+                writeDictionaries(dictionaryPath, dictionaries, configMaps.list());
             }
 
             return new CommonFactory(rabbitMqPath, mqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, boxConfigurationPath, environmentVariables);
@@ -422,13 +455,39 @@ public class CommonFactory extends AbstractCommonFactory {
         }
     }
 
-    private static ConfigMap getDictionary(String boxName, ConfigMapList configMapList) {
-        for(ConfigMap c : configMapList.getItems()) {
-            if(c.getMetadata().getName().startsWith(boxName) && c.getMetadata().getName().endsWith("-dictionary")) {
-                return c;
+    private static void writeDictionaries(Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+        for (Map.Entry<DictionaryType, String> entry : dictionaries.entrySet()) {
+            DictionaryType type = entry.getKey();
+            String dictionaryName = entry.getValue();
+
+            for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
+                String configName = dictionaryConfigMap.getMetadata().getName();
+                if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
+                    Path dictionaryTypeDir = type.getDictionary(dictionariesDir);
+
+                    if (Files.notExists(dictionaryTypeDir)) {
+                        Files.createDirectories(dictionaryTypeDir);
+                    } else if (!Files.isDirectory(dictionaryTypeDir)) {
+                        throw new IllegalStateException(
+                                String.format("Can not save dictionary '%s' with type '%s', because '%s' is not directory", dictionaryName, type, dictionaryTypeDir)
+                        );
+                    }
+
+                    Set<String> fileNameSet = dictionaryConfigMap.getData().keySet();
+
+                    if (fileNameSet.size() != 1) {
+                        throw new IllegalStateException(
+                                String.format("Can not save dictionary '%s' with type '%s', because can not find dictionary data in config map", dictionaryName, type)
+                        );
+                    }
+
+                    String fileName = fileNameSet.stream().findFirst().orElse(null);
+                    writeFile(dictionaryTypeDir.resolve(fileName), dictionaryConfigMap.getData().get(fileName));
+
+                    break;
+                }
             }
         }
-        return null;
     }
 
     private static void writeFile(Path path, String data) throws IOException {

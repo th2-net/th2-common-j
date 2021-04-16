@@ -77,7 +77,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -503,11 +502,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read dictionary
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
-
         try {
-
-            var dictionaries = Files.list(getPathToDictionariesDir())
-                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+            var dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
+                    .filter(Files::isRegularFile)
                     .collect(Collectors.toList());
 
             if (dictionaries.isEmpty()) {
