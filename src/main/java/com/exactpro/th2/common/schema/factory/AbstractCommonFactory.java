@@ -15,6 +15,48 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Spliterators;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
+import org.apache.commons.text.lookup.StringLookup;
+import org.apache.log4j.PropertyConfigurator;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
@@ -56,45 +98,9 @@ import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutin
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
-import org.apache.commons.text.lookup.StringLookup;
-import org.apache.log4j.PropertyConfigurator;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Spliterators;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static java.util.Collections.emptyMap;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -105,7 +111,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
-    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
+    /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
+    @Deprecated
+    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
+    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
+    protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -151,8 +161,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Map<Class<?>, MessageRouter<?>> customMessageRouters = new ConcurrentHashMap<>();
 
     static {
-        PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
-        loggingManifests();
+        configureLogger();
     }
 
     /**
@@ -436,7 +445,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (cradleConfiguration.getTimeout() > 0) {
                         cassandraConnectionSettings.setTimeout(cradleConfiguration.getTimeout());
                     }
-                    
+
                     if (cradleConfiguration.getPageSize() > 0) {
                         cassandraConnectionSettings.setResultPageSize(cradleConfiguration.getPageSize());
                     }
@@ -651,12 +660,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected PrometheusConfiguration loadPrometheusConfiguration() {
+        Path path = getPathToPrometheusConfiguration();
         try {
-            return getConfiguration(getPathToPrometheusConfiguration(), PrometheusConfiguration.class, MAPPER);
-        } catch (IllegalStateException e) {
-            LOGGER.warn("Cannot load prometheus configuration from file by path = '{}'. Use default configuration", getPathToPrometheusConfiguration(), e);
-            return new PrometheusConfiguration();
+            if (Files.exists(path)) {
+                return getConfiguration(path, PrometheusConfiguration.class, MAPPER);
+            }
+            LOGGER.warn("Prometheus configuration {} file isn't existed. Use default configuration", path);
+        } catch (RuntimeException e) {
+            LOGGER.warn("Cannot load prometheus configuration from file by path = '{}'. Use default configuration", path, e);
         }
+        return new PrometheusConfiguration();
     }
 
     private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
@@ -665,7 +678,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         }
 
         Path pathToBoxConfiguration = getPathToBoxConfiguration();
-        
+
         if (Files.exists(pathToBoxConfiguration)) {
             return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
         }
@@ -781,6 +794,23 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
 
         LOGGER.info("Common factory has been closed");
+    }
+
+    protected static void configureLogger(String... paths) {
+        List<String> listPath = new ArrayList<>();
+        listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH);
+        listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
+        listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
+        listPath.stream()
+                .map(path -> Path.of(path, LOG4J_PROPERTIES_NAME))
+                .filter(Files::exists)
+                .findFirst()
+                .ifPresentOrElse(path -> {
+                            PropertyConfigurator.configure(path.toString());
+                            LOGGER.info("Logger configuration from {} file is applied", path);
+                        },
+                        () -> LOGGER.info("Neither of {} paths contains {} file. Use default configuration", listPath, LOG4J_PROPERTIES_NAME));
+        loggingManifests();
     }
 
     private static void loggingManifests() {

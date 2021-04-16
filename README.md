@@ -1,4 +1,4 @@
-# th2 common library (Java)
+# th2 common library (Java) (3.11.0)
 
 ## Usage
 
@@ -184,5 +184,6 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (3.11.0) - tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
 * (3.6.0) - Update Cradle version. Introduce async API for storing events
 * (3.0.1) - Metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
