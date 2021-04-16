@@ -446,7 +446,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
         try {
-            var dictionaries = Files.list(getPathToDictionariesDir().resolve(dictionaryType.name().toLowerCase()))
+            var dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
                     .filter(Files::isRegularFile)
                     .collect(Collectors.toList());
 
