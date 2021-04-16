@@ -15,6 +15,31 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Nullable;
+
+import io.fabric8.kubernetes.client.Config;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -36,7 +61,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRo
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
-import io.fabric8.kubernetes.api.model.NamedContext;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -267,10 +291,10 @@ public class CommonFactory extends AbstractCommonFactory {
      */
     public static CommonFactory createFromArguments(String... args) {
         Options options = new Options();
-        
+
         Option configOption = new Option("c", "configs", true, null);
         options.addOption(configOption);
-        
+
         Option rabbitConfigurationOption = createLongOption(options, "rabbitConfiguration");
         Option messageRouterConfigurationOption = createLongOption(options, "messageRouterConfiguration");
         Option grpcRouterConfigurationOption = createLongOption(options, "grpcRouterConfiguration");
@@ -354,25 +378,12 @@ public class CommonFactory extends AbstractCommonFactory {
 
         Path dictionaryPath = Path.of(userDir, generatedConfigsDir, DICTIONARY_FILE_NAME);
         Path boxConfigurationPath = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
-        
+
         FactorySettings settings = new FactorySettings();
 
-        try (KubernetesClient client = new DefaultKubernetesClient()) {
+        KubernetesClient client = contextName == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(Config.autoConfigure(contextName));
 
-            if (contextName != null) {
-                boolean foundContext = false;
-
-                for (NamedContext context : client.getConfiguration().getContexts()) {
-                    if (context.getName().equals(contextName)) {
-                        client.getConfiguration().setCurrentContext(context);
-                        foundContext = true;
-                        break;
-                    }
-                }
-
-                if (!foundContext)
-                    throw new IllegalArgumentException("Failed to find context " + contextName);
-            }
+        try(client) {
 
             Secret rabbitMqSecret = requireNonNull(client.secrets().inNamespace(namespace).withName(RABBITMQ_SECRET_NAME).get(),
                     "Secret '" + RABBITMQ_SECRET_NAME + "' isn't found in namespace " + namespace);
@@ -483,7 +494,7 @@ public class CommonFactory extends AbstractCommonFactory {
             MAPPER.writeValue(file, object);
         }
     }
-    
+
     private static Option createLongOption(Options options, String optionName) {
         Option option = new Option(null, optionName, true, null);
         options.addOption(option);
