@@ -296,19 +296,18 @@ public class CommonFactory extends AbstractCommonFactory {
                     String[] keyValue = singleDictionary.split("=");
 
                     if (keyValue.length != 2 || StringUtils.isEmpty(keyValue[0].trim()) || StringUtils.isEmpty(keyValue[1].trim())) {
-                        LOGGER.error("Skip argument '{}' in '{}' option. Wrong format", singleDictionary, dictionariesOption.getLongOpt());
-                        continue;
+                        throw new IllegalStateException(String.format("Argument '%s' in '%s' option has wrong format.", singleDictionary, dictionariesOption.getLongOpt()));
                     }
 
-                    String fileName = keyValue[0].trim();
                     String typeStr = keyValue[1].trim();
 
+                    DictionaryType type;
                     try {
-                        var type = DictionaryType.valueOf(typeStr);
-                        dictionaries.put(type, fileName);
+                        type = DictionaryType.valueOf(typeStr.toUpperCase());
                     } catch (IllegalArgumentException e) {
-                        LOGGER.error("Can not add dictionary '{}' with type '{}'", fileName, typeStr);
+                        throw new IllegalStateException("Can not find dictionary type = " + typeStr, e);
                     }
+                    dictionaries.put(type, keyValue[0].trim());
                 }
 
                 return createFromKubernetes(namespace, boxName, contextName, dictionaries);
@@ -469,15 +468,17 @@ public class CommonFactory extends AbstractCommonFactory {
                     if (Files.notExists(dictionaryTypeDir)) {
                         Files.createDirectories(dictionaryTypeDir);
                     } else if (!Files.isDirectory(dictionaryTypeDir)) {
-                        LOGGER.warn("Can not save dictionary '{}' with type '{}', because '{}' is not directory", dictionaryName, type, dictionaryTypeDir);
-                        break;
+                        throw new IllegalStateException(
+                                String.format("Can not save dictionary '%s' with type '%s', because '%s' is not directory", dictionaryName, type, dictionaryTypeDir)
+                        );
                     }
 
                     Set<String> fileNameSet = dictionaryConfigMap.getData().keySet();
 
                     if (fileNameSet.size() != 1) {
-                        LOGGER.error("Can not save dictionary '{}' with type '{}', because can not find dictionary data in config map", dictionaryName, type);
-                        break;
+                        throw new IllegalStateException(
+                                String.format("Can not save dictionary '%s' with type '%s', because can not find dictionary data in config map", dictionaryName, type)
+                        );
                     }
 
                     String fileName = fileNameSet.stream().findFirst().orElse(null);
