@@ -226,10 +226,14 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private long getNextDelay(int attempts) {
+        if (attempts == 1) {
+            return 0;
+        }
+
         long maxDelay = configuration.getResendMessageConfiguration().getMaxDelay();
         long minDelay = configuration.getResendMessageConfiguration().getMinDelay();
 
-        return Math.min((maxDelay - minDelay) * attempts, maxDelay);
+        return Math.min(minDelay + (int) Math.exp(attempts), maxDelay);
     }
 
     private void checkConnection() {
