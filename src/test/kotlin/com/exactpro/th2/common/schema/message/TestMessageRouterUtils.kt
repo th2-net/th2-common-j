@@ -17,20 +17,33 @@ package com.exactpro.th2.common.schema.message
 
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
+import com.google.protobuf.MessageOrBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import java.util.stream.Stream
 
 class TestMessageRouterUtils {
 
-    @Test
-    fun `MessageOrBuilder to json`() {
-        assertAll(
-            { assertEquals("{\"body\":\"\"}", RawMessage.newBuilder().toJson()) },
-            { assertEquals("{\"body\":\"\"}", RawMessage.newBuilder().build().toJson()) },
-            { assertEquals("{\"fields\":{}}", Message.newBuilder().toJson()) },
-            { assertEquals("{\"fields\":{}}", Message.newBuilder().build().toJson()) }
-        )
+    @ParameterizedTest
+    @MethodSource("messageOrBuilderToJsonDataProvider")
+    fun testMessageOrBuilderToJson(expected: String, data: MessageOrBuilder) {
+        assertEquals(expected, data.toJson())
     }
 
+    companion object {
+        @JvmStatic
+        fun messageOrBuilderToJsonDataProvider(): Stream<Arguments> {
+            val expectedRaw = "{\"body\":\"\"}"
+            val expectedMsg = "{\"fields\":{}}"
+
+            return Stream.of(
+                Arguments.of(expectedRaw, RawMessage.newBuilder()),
+                Arguments.of(expectedRaw, RawMessage.newBuilder().build()),
+                Arguments.of(expectedMsg, Message.newBuilder()),
+                Arguments.of(expectedMsg, Message.newBuilder().build())
+            )
+        }
+    }
 }
