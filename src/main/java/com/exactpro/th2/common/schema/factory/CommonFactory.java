@@ -122,7 +122,7 @@ public class CommonFactory extends AbstractCommonFactory {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
-        this.dictionariesDir = defaultIfNull(dictionariesDir, CONFIG_DEFAULT_PATH);
+        this.dictionariesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_DIR_NAME);
         this.configurationManager = configurationManager;
 
         start();
