@@ -16,14 +16,15 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
 
 import com.exactpro.th2.common.schema.configuration.Configuration
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
 
 data class RabbitMQConfiguration(
-    var host: String? = null,
-    @JsonProperty("vHost") var vHost: String? = null,
-    var port: Int = 0,
-    var username: String? = null,
-    var password: String? = null,
+    @JsonProperty(required = true) var host: String,
+    @JsonProperty(required = true) @get:JsonProperty("vHost") var vHost: String,
+    @JsonProperty(required = true) var port: Int = 5672,
+    @JsonProperty(required = true) var username: String,
+    @JsonProperty(required = true) var password: String,
     @Deprecated(message = "Please use subscriber name from ConnectionManagerConfiguration")
     var subscriberName: String? = null,
     var exchangeName: String? = null) : Configuration()

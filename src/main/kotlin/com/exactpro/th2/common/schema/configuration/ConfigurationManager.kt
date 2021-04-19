@@ -16,33 +16,34 @@
 package com.exactpro.th2.common.schema.configuration
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import mu.KotlinLogging
 import org.apache.commons.text.StringSubstitutor
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
-import java.util.function.Supplier
 
 class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
-
-    companion object {
-        private val LOGGER: Logger = LoggerFactory.getLogger(ConfigurationManager::class.java)
-    }
+    private val logger = KotlinLogging.logger {}
 
     private val configurations: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
 
 
     fun <T> loadConfiguration(
-        configPath: Path,
-        configClass: Class<T>,
+        objectMapper: ObjectMapper,
         stringSubstitutor: StringSubstitutor,
-        objectMapper: ObjectMapper
+        configClass: Class<T>,
+        configPath: Path,
+        optional: Boolean
     ): T {
         try {
+            if (optional && !(Files.exists(configPath) && Files.size(configPath) > 0)) {
+                logger.warn { "Can not read configuration for ${configClass.name}. Use default configuration" }
+                return configClass.getDeclaredConstructor().newInstance();
+            }
+
             val sourceContent = String(Files.readAllBytes(configPath))
-            LOGGER.info("Configuration path {} source content {}", configPath, sourceContent)
+            logger.info("Configuration path {} source content {}", configPath, sourceContent)
             val content: String = stringSubstitutor.replace(sourceContent)
             return objectMapper.readerFor(configClass).readValue(content)
         } catch (e: IOException) {
@@ -50,39 +51,17 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         }
     }
 
-    fun <T> loadConfiguration(
-        configClass: Class<T>,
-        stringSubstitutor: StringSubstitutor,
-        objectMapper: ObjectMapper
-    ): T? = configurationPath[configClass]?.let {
-        loadConfiguration(it, configClass, stringSubstitutor, objectMapper)
-    }
-
     fun <T> getConfigurationOrLoad(
-        configPath: Path,
-        configClass: Class<T>,
+        objectMapper: ObjectMapper,
         stringSubstitutor: StringSubstitutor,
-        objectMapperSupplier: Supplier<ObjectMapper>
+        configClass: Class<T>,
+        optional: Boolean
     ): T {
         return configurations.computeIfAbsent(configClass) {
-            loadConfiguration(configPath, configClass, stringSubstitutor, objectMapperSupplier.get())
-        } as T? ?: throw IllegalStateException("Can not load configuration for class ${configClass.name}")
+            configurationPath[configClass]?.let {
+                loadConfiguration(objectMapper, stringSubstitutor, configClass, it, optional)
+            }
+                ?: throw java.lang.IllegalStateException("Unknown class $configClass")
+        } as T
     }
-
-    fun <T> getConfigurationOrLoad(
-        configClass: Class<T>,
-        stringSubstitutor: StringSubstitutor,
-        objectMapperSupplier: Supplier<ObjectMapper>
-    ): T? {
-        return configurations.computeIfAbsent(configClass) {
-            loadConfiguration(
-                configClass,
-                stringSubstitutor,
-                objectMapperSupplier.get()
-            )
-        } as T?
-    }
-
-    fun <T> getConfiguration(configClass: Class<T>): T? = configurations[configClass] as T?
-
 }

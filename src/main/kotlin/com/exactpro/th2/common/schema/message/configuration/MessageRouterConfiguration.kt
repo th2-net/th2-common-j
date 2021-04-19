@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.schema.message.configuration
 
 import com.exactpro.th2.common.grpc.FilterOperation
+import com.exactpro.th2.common.grpc.FilterOperation.EQUAL
 import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -26,7 +27,6 @@ data class MessageRouterConfiguration(var queues: Map<String, QueueConfiguration
         return queues[queueAlias]
     }
 
-    fun findQueuesByAttr(vararg attrs: String): Map<String, QueueConfiguration> = findQueuesByAttr(attrs.toList())
     fun findQueuesByAttr(attr: Collection<String>): Map<String, QueueConfiguration> =
         queues.filter { it.value.attributes.containsAll(attr) }
 }
@@ -37,8 +37,8 @@ data class QueueConfiguration(
     @JsonProperty(required = true) var exchange: String,
     @JsonProperty(required = true) @JsonAlias("labels", "tags") var attributes: List<String> = emptyList(),
     var filters: List<MqRouterFilterConfiguration> = emptyList(),
-    @JsonProperty(value = "read", defaultValue = "true") var isReadable: Boolean = true,
-    @JsonProperty(value = "write", defaultValue = "true") var isWritable: Boolean = true
+    @JsonProperty(value = "read") var isReadable: Boolean = true,
+    @JsonProperty(value = "write") var isWritable: Boolean = true
 ) : Configuration()
 
 data class MqRouterFilterConfiguration(
@@ -48,5 +48,5 @@ data class MqRouterFilterConfiguration(
 
 data class FieldFilterConfiguration(
     var value: String? = null,
-    @JsonProperty(required = true) var operation: FilterOperation? = null
+    @JsonProperty(required = true) var operation: FilterOperation
 ) : Configuration()

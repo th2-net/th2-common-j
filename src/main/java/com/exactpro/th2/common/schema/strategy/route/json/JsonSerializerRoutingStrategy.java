@@ -15,6 +15,8 @@
 
 package com.exactpro.th2.common.schema.strategy.route.json;
 
+import static java.util.Objects.requireNonNull;
+
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,11 +29,11 @@ import java.io.IOException;
 
 public class JsonSerializerRoutingStrategy extends StdSerializer<RoutingStrategy> {
 
-    private ObjectMapper mapper;
+    private final ObjectMapper mapper;
 
     public JsonSerializerRoutingStrategy(ObjectMapper mapper) {
         super(RoutingStrategy.class, false);
-        this.mapper = mapper;
+        this.mapper = requireNonNull(mapper, "Object mapper can't be null");
     }
 
     @Override

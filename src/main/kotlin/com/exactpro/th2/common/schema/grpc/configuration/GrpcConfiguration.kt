@@ -27,14 +27,14 @@ data class GrpcConfiguration(
 ) : Configuration()
 
 data class GrpcServiceConfiguration(
-    @JsonProperty(required = true) var strategy: RoutingStrategy<*>? = null,
-    @JsonProperty(value = "service-class", required = true) var serviceClass: Class<*>? = null,
+    @JsonProperty(required = true) var strategy: RoutingStrategy<*>,
+    @JsonProperty(required = true, value = "service-class") var serviceClass: Class<*>,
     @JsonProperty(required = true) var endpoints: Map<String, GrpcEndpointConfiguration> = emptyMap()
 ) : Configuration()
 
 data class GrpcEndpointConfiguration(
-    @JsonProperty(required = true) var host: String? = null,
-    @JsonProperty(required = true) var port: Int? = null,
+    @JsonProperty(required = true) var host: String,
+    @JsonProperty(required = true) var port: Int = 8080,
     var attributes: List<String?> = emptyList()
 ) : Configuration()
 
@@ -53,6 +53,6 @@ data class GrpcRetryConfiguration(
 }
 
 data class GrpcServerConfiguration(
-    @JsonProperty(required = true) var host: String? = null,
-    @JsonProperty(required = true) var port: Int = 0
+    var host: String? = "localhost",
+    @JsonProperty(required = true) var port: Int = 8080
 ) : Configuration()

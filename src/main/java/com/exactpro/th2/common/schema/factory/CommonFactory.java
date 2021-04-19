@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.factory;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +38,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -47,6 +47,7 @@ import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
@@ -58,7 +59,9 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
@@ -78,18 +81,18 @@ import kotlin.text.Charsets;
  */
 public class CommonFactory extends AbstractCommonFactory {
 
-    public static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
+    private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
-    public static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
-    public static final String ROUTER_MQ_FILE_NAME = "mq.json";
-    public static final String GRPC_FILE_NAME = "grpc.json";
-    public static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
-    public static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
-    public static final String PROMETHEUS_FILE_NAME = "prometheus.json";
-    public static final String CUSTOM_FILE_NAME = "custom.json";
-    public static final String BOX_FILE_NAME = "box.json";
-    public static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
-    public static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
+    private static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
+    private static final String ROUTER_MQ_FILE_NAME = "mq.json";
+    private static final String GRPC_FILE_NAME = "grpc.json";
+    private static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
+    private static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
+    private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
+    private static final String CUSTOM_FILE_NAME = "custom.json";
+    private static final String BOX_FILE_NAME = "box.json";
+    private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
+    private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
 
     private static final String DICTIONARY_DIR_NAME = "dictionary";
 
@@ -112,14 +115,14 @@ public class CommonFactory extends AbstractCommonFactory {
                             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
                             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
                             Class<? extends GrpcRouter> grpcRouterClass,
-                            Path custom,
-                            Path dictionariesDir,
+                            @Nullable Path custom,
+                            @Nullable Path dictionariesDir,
                             Map<String, String> environmentVariables,
                             ConfigurationManager configurationManager) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
 
-        this.custom = custom;
-        this.dictionariesDir = dictionariesDir;
+        this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
+        this.dictionariesDir = defaultIfNull(dictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
 
         start();
@@ -134,7 +137,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.getCustom(),
                 settings.getDictionariesDir(),
                 settings.getVariables(),
-                settings.createConfigurationManager());
+                createConfigurationManager(settings));
     }
 
 
@@ -173,23 +176,8 @@ public class CommonFactory extends AbstractCommonFactory {
      */
     @Deprecated(since = "3.10.0", forRemoval = true)
     public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
-        this(new FactorySettings(RabbitParsedBatchRouter.class,
-                RabbitRawBatchRouter.class,
-                RabbitMessageGroupBatchRouter.class,
-                EventBatchRouter.class,
-                DefaultGrpcRouter.class,
-                rabbitMQ,
-                routerMQ,
-                null,
-                routerGRPC,
-                null,
-                cradle,
-                null,
-                prometheus,
-                boxConfiguration,
-                custom,
-                dictionariesDir,
-                emptyMap()));
+        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class,
+                rabbitMQ ,routerMQ ,routerGRPC ,cradle ,custom ,dictionariesDir ,prometheus ,boxConfiguration);
     }
 
     /**
@@ -204,10 +192,6 @@ public class CommonFactory extends AbstractCommonFactory {
         this(new FactorySettings(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass));
     }
 
-    /**
-     * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
-     */
-    @Deprecated(since = "3.10.0", forRemoval = true)
     public CommonFactory() {
         this(new FactorySettings());
     }
@@ -220,11 +204,6 @@ public class CommonFactory extends AbstractCommonFactory {
     @Override
     protected Path getPathToDictionariesDir() {
         return dictionariesDir;
-    }
-
-    @Override
-    protected Path getPathToBoxConfiguration() {
-        return null;
     }
 
     @Override
@@ -532,6 +511,24 @@ public class CommonFactory extends AbstractCommonFactory {
         }
     }
 
+    private static ConfigurationManager createConfigurationManager(FactorySettings settings) {
+        Map<Class<?>, Path> paths = new HashMap<>();
+        paths.put(RabbitMQConfiguration.class, defaultPathIfNull(settings.getRabbitMQ(), RABBIT_MQ_FILE_NAME));
+        paths.put(MessageRouterConfiguration.class, defaultPathIfNull(settings.getRouterMQ(), ROUTER_MQ_FILE_NAME));
+        paths.put(ConnectionManagerConfiguration.class, defaultPathIfNull(settings.getConnectionManagerSettings(), CONNECTION_MANAGER_CONF_FILE_NAME));
+        paths.put(GrpcConfiguration.class, defaultPathIfNull(settings.getGrpc(), GRPC_FILE_NAME));
+        paths.put(GrpcRouterConfiguration.class, defaultPathIfNull(settings.getRouterGRPC(), ROUTER_GRPC_FILE_NAME));
+        paths.put(CradleConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleConfidential(), CRADLE_CONFIDENTIAL_FILE_NAME));
+        paths.put(CradleNonConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
+        paths.put(PrometheusConfiguration.class, defaultPathIfNull(settings.getPrometheus(), PROMETHEUS_FILE_NAME));
+        paths.put(BoxConfiguration.class, defaultPathIfNull(settings.getBoxConfiguration(), BOX_FILE_NAME));
+        return new ConfigurationManager(paths);
+    }
+
+    private static Path defaultPathIfNull(Path path, String name) {
+        return path == null ? CONFIG_DEFAULT_PATH.resolve(name) : path;
+    }
+
     private static void writeFile(Path path, String data) throws IOException {
         try (OutputStream outputStream = Files.newOutputStream(path)) {
             IOUtils.write(data, outputStream, Charsets.UTF_8);
@@ -564,6 +561,6 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     private static Path calculatePath(CommandLine cmd, Option current, Option deprecated, String configs, String fileName) {
-        return calculatePath(ObjectUtils.defaultIfNull(cmd.getOptionValue(current.getLongOpt()), cmd.getOptionValue(deprecated.getLongOpt())), configs, fileName);
+        return calculatePath(defaultIfNull(cmd.getOptionValue(current.getLongOpt()), cmd.getOptionValue(deprecated.getLongOpt())), configs, fileName);
     }
 }

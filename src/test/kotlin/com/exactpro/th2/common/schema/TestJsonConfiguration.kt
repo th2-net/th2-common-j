@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.schema
 
 import com.exactpro.th2.common.grpc.FilterOperation
+import com.exactpro.th2.common.metrics.PrometheusConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
@@ -46,12 +47,13 @@ class TestJsonConfiguration {
         private val OBJECT_MAPPER: ObjectMapper = ObjectMapper()
 
         init {
-            val module = SimpleModule()
-            module.addDeserializer(RoutingStrategy::class.java, JsonDeserializerRoutingStategy())
-            module.addSerializer(RoutingStrategy::class.java, JsonSerializerRoutingStrategy(ObjectMapper().apply { registerModule(KotlinModule()) }))
-
-            OBJECT_MAPPER.registerModule(module)
             OBJECT_MAPPER.registerModule(KotlinModule())
+
+            val routingStrategyModule = SimpleModule()
+            routingStrategyModule.addDeserializer(RoutingStrategy::class.java, JsonDeserializerRoutingStategy())
+            routingStrategyModule.addSerializer(RoutingStrategy::class.java, JsonSerializerRoutingStrategy(OBJECT_MAPPER))
+
+            OBJECT_MAPPER.registerModule(routingStrategyModule)
         }
     }
 
@@ -69,6 +71,10 @@ class TestJsonConfiguration {
             ),
             GrpcServerConfiguration("host123", 1234)
         ))
+
+        OBJECT_MAPPER.readValue(
+            "{\"server\":{\"host\":null,\"port\":8080,\"workers\":5},\"services\":{\"check1Service\":{\"endpoints\":{\"th2-qa-endpoint\":{\"host\":\"localhost\",\"port\":31304}},\"service-class\":\"com.exactpro.th2.check1.grpc.Check1Service\",\"strategy\":{\"endpoints\":[\"th2-qa-endpoint\"],\"name\":\"robin\"}}}}",
+            GrpcConfiguration::class.java)
     }
 
     @Test
@@ -80,6 +86,10 @@ class TestJsonConfiguration {
             "pass",
             "subscriberName",
             "exchangeName"))
+
+        OBJECT_MAPPER.readValue(
+            "{\"host\":\"localhost\",\"vHost\":\"schema\",\"port\":\"5672\",\"username\":\"schema\",\"password\":\"RABBITMQ_PASS\",\"exchangeName\":\"exchange\"}",
+            RabbitMQConfiguration::class.java)
     }
 
     @Test
@@ -97,6 +107,10 @@ class TestJsonConfiguration {
             listOf(MqRouterFilterConfiguration(mapOf("session_alias" to FieldFilterConfiguration("test_session_alias", FilterOperation.EQUAL)),
                 mapOf("test_field" to FieldFilterConfiguration("test_value", FilterOperation.EQUAL))))
         ))))
+
+        OBJECT_MAPPER.readValue(
+            "{\"queues\":{\"estore-pin\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"},\"from_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:from_codec]\"},\"some_pin\":{\"attributes\":[],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:some_pin]\"},\"to_send_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{},\"metadata\":{\"session_alias\":{\"operation\":\"EQUAL\",\"value\":\"codec-fix\"}}}],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:to_send_codec]\"}}}",
+            MessageRouterConfiguration::class.java)
     }
 
     @Test
@@ -108,6 +122,11 @@ class TestJsonConfiguration {
             "user",
             "pass",
             "instance"))
+
+        OBJECT_MAPPER.readValue(
+            "{\"dataCenter\":\"datacenter1\",\"host\":\"localhost\",\"port\":\"9042\",\"keyspace\":\"schema_dev\",\"username\":\"th2\",\"password\":\"CASSANDRA_PASS\"}",
+            CradleConfidentialConfiguration::class.java)
+
     }
 
     @Test
@@ -115,7 +134,15 @@ class TestJsonConfiguration {
         testJson(CradleNonConfidentialConfiguration())
     }
 
-    fun testJson(configuration: Any) {
+    @Test
+    fun `test prometheus confidential json configuration`() {
+        testJson(PrometheusConfiguration())
+        OBJECT_MAPPER.readValue(
+            "{\"enabled\":\"true\"}",
+            PrometheusConfiguration::class.java)
+    }
+
+    private fun testJson(configuration: Any) {
         OBJECT_MAPPER.writeValueAsString(configuration).also {
             assertEquals(configuration, OBJECT_MAPPER.readValue(it, configuration::class.java))
         }

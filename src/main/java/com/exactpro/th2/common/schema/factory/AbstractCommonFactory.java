@@ -392,67 +392,49 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
-        return getConfigurationManager().loadConfiguration(configPath, configClass, stringSubstitutor, customObjectMapper);
+        return getConfigurationManager().loadConfiguration(customObjectMapper, stringSubstitutor, configClass, configPath, false);
     }
 
     /**
      * Load configuration, save and return. If already loaded return saved configuration.
      * @param configClass configuration class
+     * @param optional
      * @return configuration object
      */
-    protected <T> T getConfigurationOrLoad(Class<T> configClass) {
-        return getConfigurationManager().getConfigurationOrLoad(configClass, stringSubstitutor, () -> AbstractCommonFactory.MAPPER);
-    }
-
-    /**
-     * Load configuration with default {@link ObjectMapper}, save and return. If already loaded return saved configuration.
-     * @param configClass configuration class
-     * @return configuration object
-     */
-    protected <T> T getConfigurationOrLoadWithMapper(Class<T> configClass) {
-        return getConfigurationOrLoad(configClass);
+    protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
+        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, configClass, optional);
     }
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
-        return getConfigurationOrLoadWithMapper(RabbitMQConfiguration.class);
+        return getConfigurationOrLoad(RabbitMQConfiguration.class, false);
     }
 
     public ConnectionManagerConfiguration getConnectionManagerConfiguration() {
-        try {
-            return getConfigurationOrLoadWithMapper(ConnectionManagerConfiguration.class);
-        } catch (IllegalStateException e) {
-            LOGGER.warn("Can not read connection manager configuration. Use default configuration", e);
-            return new ConnectionManagerConfiguration();
-        }
+        return getConfigurationOrLoad(ConnectionManagerConfiguration.class, true);
     }
 
     public MessageRouterConfiguration getMessageRouterConfiguration() {
-        return getConfigurationOrLoadWithMapper(MessageRouterConfiguration.class);
+        return getConfigurationOrLoad(MessageRouterConfiguration.class, false);
     }
 
     public GrpcConfiguration getGrpcConfiguration() {
-        return getConfigurationManager().getConfigurationOrLoad(GrpcConfiguration.class, stringSubstitutor, () -> MAPPER);
+        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, GrpcConfiguration.class, false);
     }
 
     public GrpcRouterConfiguration getGrpcRouterConfiguration() {
-        try {
-            return getConfigurationOrLoadWithMapper(GrpcRouterConfiguration.class);
-        } catch (IllegalStateException e) {
-            LOGGER.warn("Can not read grpc router configuration. Use default configuration", e);
-            return new GrpcRouterConfiguration();
-        }
+        return getConfigurationOrLoad(GrpcRouterConfiguration.class, true);
     }
 
     public BoxConfiguration getBoxConfiguration() {
-        return getConfigurationOrLoadWithMapper(BoxConfiguration.class);
+        return getConfigurationOrLoad(BoxConfiguration.class, true);
     }
 
     protected CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
-        return getConfigurationOrLoadWithMapper(CradleConfidentialConfiguration.class);
+        return getConfigurationOrLoad(CradleConfidentialConfiguration.class, false);
     }
 
     protected CradleNonConfidentialConfiguration getCradleNonConfidentialConfiguration() {
-        return getConfigurationOrLoadWithMapper(CradleNonConfidentialConfiguration.class);
+        return getConfigurationOrLoad(CradleNonConfidentialConfiguration.class, true);
     }
 
     /**
@@ -627,12 +609,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected abstract Path getPathToDictionariesDir();
 
     /**
-     * @return Path to boxes configuration and information
-     * @see BoxConfiguration
-     */
-    protected abstract Path getPathToBoxConfiguration();
-
-    /**
      * @return Context for all routers except event router
      */
     protected MessageRouterContext getMessageRouterContext() {
@@ -658,26 +634,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected PrometheusConfiguration loadPrometheusConfiguration() {
-        try {
-            return getConfigurationOrLoadWithMapper(PrometheusConfiguration.class);
-        } catch (IllegalStateException e) {
-            LOGGER.warn("Cannot load prometheus configuration. Use default configuration", e);
-            return new PrometheusConfiguration();
-        }
-    }
-
-    private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
-        if (currentValue != null) {
-            return currentValue;
-        }
-
-        Path pathToBoxConfiguration = getPathToBoxConfiguration();
-
-        if (Files.exists(pathToBoxConfiguration)) {
-            return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
-        }
-
-        return new BoxConfiguration();
+        return getConfigurationOrLoad(PrometheusConfiguration.class, true);
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {

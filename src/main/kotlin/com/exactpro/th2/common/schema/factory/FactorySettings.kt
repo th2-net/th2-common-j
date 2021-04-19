@@ -54,32 +54,7 @@ data class FactorySettings @JvmOverloads constructor(
     var cradleNonConfidential: Path? = null,
     var prometheus: Path? = null,
     var boxConfiguration: Path? = null,
-    private var _custom: Path? = null,
-    private var _dictionariesDir: Path? = null,
+    var custom: Path? = null,
+    var dictionariesDir: Path? = null,
     var variables: Map<String, String> = emptyMap()) {
-
-    var custom: Path?
-    get() = _custom ?: CommonFactory.CONFIG_DEFAULT_PATH.resolve(CommonFactory.CUSTOM_FILE_NAME)
-    set(value) { _custom = value }
-
-    var dictionariesDir: Path?
-    get() = _dictionariesDir ?: CommonFactory.CONFIG_DEFAULT_PATH
-    set(value) {_dictionariesDir = value}
-
-    fun createConfigurationManager(): ConfigurationManager = ConfigurationManager(HashMap<Class<*>, Path>().also { paths ->
-        paths[RabbitMQConfiguration::class.java] = defaultPathIfNull(rabbitMQ, CommonFactory.RABBIT_MQ_FILE_NAME)
-        paths[MessageRouterConfiguration::class.java] = defaultPathIfNull(routerMQ, CommonFactory.ROUTER_MQ_FILE_NAME)
-        paths[ConnectionManagerConfiguration::class.java] = defaultPathIfNull(connectionManagerSettings, CommonFactory.CONNECTION_MANAGER_CONF_FILE_NAME)
-        paths[GrpcConfiguration::class.java] = defaultPathIfNull(grpc, CommonFactory.GRPC_FILE_NAME)
-        paths[GrpcRouterConfiguration::class.java] = defaultPathIfNull(routerGRPC, CommonFactory.ROUTER_GRPC_FILE_NAME)
-        paths[CradleConfidentialConfiguration::class.java] = defaultPathIfNull(cradleConfidential, CommonFactory.CRADLE_CONFIDENTIAL_FILE_NAME)
-        paths[CradleNonConfidentialConfiguration::class.java] = defaultPathIfNull(cradleNonConfidential, CommonFactory.CRADLE_NON_CONFIDENTIAL_FILE_NAME)
-        paths[PrometheusConfiguration::class.java] = defaultPathIfNull(prometheus, CommonFactory.PROMETHEUS_FILE_NAME)
-        paths[BoxConfiguration::class.java] = defaultPathIfNull(boxConfiguration, CommonFactory.BOX_FILE_NAME)
-    })
-
-    private fun defaultPathIfNull(path: Path?, name: String): Path {
-        return path ?: CommonFactory.CONFIG_DEFAULT_PATH.resolve(name)
-    }
-
 }
