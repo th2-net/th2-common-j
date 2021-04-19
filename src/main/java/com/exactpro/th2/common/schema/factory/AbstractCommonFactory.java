@@ -435,7 +435,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     public GrpcRouterConfiguration getGrpcRouterConfiguration() {
-        return getConfigurationOrLoadWithMapper(GrpcRouterConfiguration.class);
+        try {
+            return getConfigurationOrLoadWithMapper(GrpcRouterConfiguration.class);
+        } catch (IllegalStateException e) {
+            LOGGER.warn("Can not read grpc router configuration. Use default configuration", e);
+            return new GrpcRouterConfiguration();
+        }
     }
 
     public BoxConfiguration getBoxConfiguration() {

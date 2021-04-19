@@ -32,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -52,15 +53,12 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractGrpcRouter.class);
     protected List<Server> servers = new ArrayList<>();
     protected GrpcConfiguration configuration;
+    protected ExecutorService executor;
     protected EventLoopGroup eventLoop;
 
     @Override
     public void init(GrpcConfiguration configuration) {
-        throwIsInit();
-
-        this.configuration = configuration;
-        eventLoop = new DefaultEventLoop(Executors.newSingleThreadExecutor());
-
+        init(configuration, new GrpcRouterConfiguration());
     }
 
     @Override
@@ -68,7 +66,8 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         throwIsInit();
 
         this.configuration = Objects.requireNonNull(configuration);
-        eventLoop = new DefaultEventLoopGroup(routerConfiguration.getWorkers(), Executors.newFixedThreadPool(Objects.requireNonNull(routerConfiguration).getWorkers()));
+        executor = Executors.newFixedThreadPool(Objects.requireNonNull(routerConfiguration).getWorkers());
+        eventLoop = new DefaultEventLoopGroup(routerConfiguration.getWorkers(), executor);
     }
 
     @Override
@@ -129,12 +128,26 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         try {
             needToForce = !eventLoop.shutdownGracefully().await(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            needToForce = true;
+        }
+        if (needToForce) {
+            LOGGER.warn("Failed to shutdown event loop in {} ms. Forcing shutdown...", SERVER_SHUTDOWN_TIMEOUT_MS);
+            eventLoop.shutdownNow();
+        }
+
+        needToForce = false;
+        try {
+            executor.shutdown();
+            needToForce = !executor.awaitTermination(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             needToForce = true;
         }
 
         if (needToForce) {
-            LOGGER.warn("Failed to shutdown event loop in {} ms. Forcing shutdown...", SERVER_SHUTDOWN_TIMEOUT_MS);
-            eventLoop.shutdownNow();
+            LOGGER.warn("Failed to shutdown executor in {} ms. Forcing shutdown...", SERVER_SHUTDOWN_TIMEOUT_MS);
+            executor.shutdownNow();
         }
     }
 }

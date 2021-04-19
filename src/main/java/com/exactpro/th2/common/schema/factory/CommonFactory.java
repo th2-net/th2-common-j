@@ -316,22 +316,24 @@ public class CommonFactory extends AbstractCommonFactory {
                 String contextName = cmd.getOptionValue(contextNameOption.getLongOpt());
 
                 Map<DictionaryType, String> dictionaries = new HashMap<>();
-                for (String singleDictionary : cmd.getOptionValues(dictionariesOption.getLongOpt())) {
-                    String[] keyValue = singleDictionary.split("=");
+                if (cmd.hasOption(dictionariesOption.getLongOpt())) {
+                    for (String singleDictionary : cmd.getOptionValues(dictionariesOption.getLongOpt())) {
+                        String[] keyValue = singleDictionary.split("=");
 
-                    if (keyValue.length != 2 || StringUtils.isEmpty(keyValue[0].trim()) || StringUtils.isEmpty(keyValue[1].trim())) {
-                        throw new IllegalStateException(String.format("Argument '%s' in '%s' option has wrong format.", singleDictionary, dictionariesOption.getLongOpt()));
+                        if (keyValue.length != 2 || StringUtils.isEmpty(keyValue[0].trim()) || StringUtils.isEmpty(keyValue[1].trim())) {
+                            throw new IllegalStateException(String.format("Argument '%s' in '%s' option has wrong format.", singleDictionary, dictionariesOption.getLongOpt()));
+                        }
+
+                        String typeStr = keyValue[1].trim();
+
+                        DictionaryType type;
+                        try {
+                            type = DictionaryType.valueOf(typeStr.toUpperCase());
+                        } catch (IllegalArgumentException e) {
+                            throw new IllegalStateException("Can not find dictionary type = " + typeStr, e);
+                        }
+                        dictionaries.put(type, keyValue[0].trim());
                     }
-
-                    String typeStr = keyValue[1].trim();
-
-                    DictionaryType type;
-                    try {
-                        type = DictionaryType.valueOf(typeStr.toUpperCase());
-                    } catch (IllegalArgumentException e) {
-                        throw new IllegalStateException("Can not find dictionary type = " + typeStr, e);
-                    }
-                    dictionaries.put(type, keyValue[0].trim());
                 }
 
                 return createFromKubernetes(namespace, boxName, contextName, dictionaries);
@@ -500,7 +502,7 @@ public class CommonFactory extends AbstractCommonFactory {
         for (Map.Entry<DictionaryType, String> entry : dictionaries.entrySet()) {
             DictionaryType type = entry.getKey();
             String dictionaryName = entry.getValue();
-        for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
+            for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
                 String configName = dictionaryConfigMap.getMetadata().getName();
                 if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
                     Path dictionaryTypeDir = type.getDictionary(dictionariesDir);
