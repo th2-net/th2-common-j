@@ -153,7 +153,7 @@ clean {
 }
 
 ext {
-    cradleVersion       = '2.8.0'
+    cradleVersion       = '2.9.0'
     junitVersion      = '5.4.2'
 }
 
