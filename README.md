@@ -1,4 +1,4 @@
-# th2 common library (Java)
+# th2 common library (Java) (3.11.0)
 
 ## Usage
 
@@ -101,7 +101,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
 * username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
 * password - the required setting defines the password that will be used for connecting to Cassandra.
-* cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra as the default value.
+* cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra set as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
 * timeout - this option defines connection timeout in milliseconds. If set to 0 or ommited, the default value of 5000 is used.
@@ -184,5 +184,6 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (3.11.0) - tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
 * (3.6.0) - Update Cradle version. Introduce async API for storing events
 * (3.0.1) - Metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)

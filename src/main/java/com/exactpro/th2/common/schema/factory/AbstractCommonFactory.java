@@ -15,6 +15,47 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Spliterators;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
+import org.apache.log4j.PropertyConfigurator;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
@@ -63,44 +104,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
+
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
-import org.apache.log4j.PropertyConfigurator;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Spliterators;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static java.util.Collections.emptyMap;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -111,7 +117,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
-    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/home/etc/log4j.properties";
+    /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
+    @Deprecated
+    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
+    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
+    protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -146,8 +156,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Map<Class<?>, MessageRouter<?>> customMessageRouters = new ConcurrentHashMap<>();
 
     static {
-        PropertyConfigurator.configure(LOG4J_PROPERTIES_DEFAULT_PATH);
-        loggingManifests();
+        configureLogger();
     }
 
     /**
@@ -389,22 +398,19 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Load configuration, save and return. If already loaded return saved configuration.
      * @param configClass configuration class
-     * @param customObjectMapper object mapper for read json file to java's object
-     * @param <T>
      * @return configuration object
      */
-    protected <T> T getConfigurationOrLoad(Class<T> configClass, ObjectMapper customObjectMapper) {
-        return getConfigurationManager().getConfigurationOrLoad(configClass, stringSubstitutor, () -> customObjectMapper);
+    protected <T> T getConfigurationOrLoad(Class<T> configClass) {
+        return getConfigurationManager().getConfigurationOrLoad(configClass, stringSubstitutor, () -> AbstractCommonFactory.MAPPER);
     }
 
     /**
      * Load configuration with default {@link ObjectMapper}, save and return. If already loaded return saved configuration.
      * @param configClass configuration class
-     * @param <T>
      * @return configuration object
      */
     protected <T> T getConfigurationOrLoadWithMapper(Class<T> configClass) {
-        return getConfigurationOrLoad(configClass, MAPPER);
+        return getConfigurationOrLoad(configClass);
     }
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
@@ -482,7 +488,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (nonConfidentialConfiguration.getTimeout() > 0) {
                         cassandraConnectionSettings.setTimeout(nonConfidentialConfiguration.getTimeout());
                     }
-                    
+
                     if (nonConfidentialConfiguration.getPageSize() > 0) {
                         cassandraConnectionSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
                     }
@@ -527,7 +533,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * If you need custom setting for deserialization use {@link #getCustomConfiguration(Class, ObjectMapper)} method.
      *
      * @param confClass java bean class
-     * @return Java bean with custom configuration, or <b>NULL</b> if configuration is not exists and can not call default constructor from java bean class
+     * @return Java bean with custom configuration, or <b>NULL</b> if configuration does not exists and cannot call default constructor from java bean class
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getCustomConfiguration(Class<T> confClass) {
@@ -548,11 +554,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read dictionary
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
-
         try {
-
-            var dictionaries = Files.list(getPathToDictionariesDir())
-                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+            var dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
+                    .filter(Files::isRegularFile)
                     .collect(Collectors.toList());
 
             if (dictionaries.isEmpty()) {
@@ -618,6 +622,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected abstract Path getPathToDictionariesDir();
 
     /**
+     * @return Path to boxes configuration and information
+     * @see BoxConfiguration
+     */
+    protected abstract Path getPathToBoxConfiguration();
+
+    /**
      * @return Context for all routers except event router
      */
     protected MessageRouterContext getMessageRouterContext() {
@@ -649,6 +659,20 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             LOGGER.warn("Cannot load prometheus configuration. Use default configuration", e);
             return new PrometheusConfiguration();
         }
+    }
+
+    private BoxConfiguration loadBoxConfiguration(BoxConfiguration currentValue) {
+        if (currentValue != null) {
+            return currentValue;
+        }
+
+        Path pathToBoxConfiguration = getPathToBoxConfiguration();
+
+        if (Files.exists(pathToBoxConfiguration)) {
+            return getConfiguration(pathToBoxConfiguration, BoxConfiguration.class, MAPPER);
+        }
+
+        return new BoxConfiguration();
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
@@ -759,6 +783,23 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
 
         LOGGER.info("Common factory has been closed");
+    }
+
+    protected static void configureLogger(String... paths) {
+        List<String> listPath = new ArrayList<>();
+        listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH);
+        listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
+        listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
+        listPath.stream()
+                .map(path -> Path.of(path, LOG4J_PROPERTIES_NAME))
+                .filter(Files::exists)
+                .findFirst()
+                .ifPresentOrElse(path -> {
+                            PropertyConfigurator.configure(path.toString());
+                            LOGGER.info("Logger configuration from {} file is applied", path);
+                        },
+                        () -> LOGGER.info("Neither of {} paths contains {} file. Use default configuration", listPath, LOG4J_PROPERTIES_NAME));
+        loggingManifests();
     }
 
     private static void loggingManifests() {
