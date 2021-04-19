@@ -73,7 +73,7 @@ class TestJsonConfiguration {
         ))
 
         OBJECT_MAPPER.readValue(
-            "{\"server\":{\"host\":null,\"port\":8080,\"workers\":5},\"services\":{\"check1Service\":{\"endpoints\":{\"th2-qa-endpoint\":{\"host\":\"localhost\",\"port\":31304}},\"service-class\":\"com.exactpro.th2.check1.grpc.Check1Service\",\"strategy\":{\"endpoints\":[\"th2-qa-endpoint\"],\"name\":\"robin\"}}}}",
+            "{\"server\":{\"host\":null,\"port\":8080,\"workers\":5},\"services\":{\"check1Service\":{\"endpoints\":{\"th2-qa-endpoint\":{\"host\":\"localhost\",\"port\":31304}},\"service-class\":\"${GrpcServiceConfiguration::class.java.name}\",\"strategy\":{\"endpoints\":[\"th2-qa-endpoint\"],\"name\":\"robin\"}}}}",
             GrpcConfiguration::class.java)
     }
 
