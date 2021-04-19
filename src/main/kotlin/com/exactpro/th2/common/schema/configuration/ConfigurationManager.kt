@@ -28,7 +28,6 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
 
     private val configurations: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
 
-
     fun <T> loadConfiguration(
         objectMapper: ObjectMapper,
         stringSubstitutor: StringSubstitutor,
@@ -39,7 +38,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         try {
             if (optional && !(Files.exists(configPath) && Files.size(configPath) > 0)) {
                 logger.warn { "Can not read configuration for ${configClass.name}. Use default configuration" }
-                return configClass.getDeclaredConstructor().newInstance();
+                return configClass.getDeclaredConstructor().newInstance()
             }
 
             val sourceContent = String(Files.readAllBytes(configPath))

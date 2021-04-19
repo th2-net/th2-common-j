@@ -167,8 +167,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 prometheus,
                 boxConfiguration,
                 custom,
-                dictionariesDir,
-                emptyMap()));
+                dictionariesDir));
     }
 
     /**
@@ -316,25 +315,25 @@ public class CommonFactory extends AbstractCommonFactory {
                 }
 
                 return createFromKubernetes(namespace, boxName, contextName, dictionaries);
-            } else {
-                if (configs != null) {
-                    configureLogger(configs);
-                }
-                FactorySettings settings = new FactorySettings();
-                settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_FILE_NAME));
-                settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_FILE_NAME));
-                settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
-                settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_FILE_NAME));
-                settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_FILE_NAME));
-                settings.setCradleConfidential(calculatePath(cmd, cradleConfidentialConfigurationOption, cradleConfigurationOption, configs, CRADLE_CONFIDENTIAL_FILE_NAME));
-                settings.setCradleNonConfidential(calculatePath(cmd, cradleManagerConfigurationOption, configs, CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-                settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
-                settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
-                settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
-                settings.setDictionariesDir(calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configs));
-
-                return new CommonFactory(settings);
             }
+
+            if (configs != null) {
+                configureLogger(configs);
+            }
+            FactorySettings settings = new FactorySettings();
+            settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_FILE_NAME));
+            settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_FILE_NAME));
+            settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
+            settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_FILE_NAME));
+            settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_FILE_NAME));
+            settings.setCradleConfidential(calculatePath(cmd, cradleConfidentialConfigurationOption, cradleConfigurationOption, configs, CRADLE_CONFIDENTIAL_FILE_NAME));
+            settings.setCradleNonConfidential(calculatePath(cmd, cradleManagerConfigurationOption, configs, CRADLE_NON_CONFIDENTIAL_FILE_NAME));
+            settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
+            settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
+            settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
+            settings.setDictionariesDir(calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configs));
+
+            return new CommonFactory(settings);
         } catch (ParseException e) {
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
         }
@@ -406,11 +405,8 @@ public class CommonFactory extends AbstractCommonFactory {
             String rabbitMqPassword = new String(Base64.getDecoder().decode(encodedRabbitMqPass));
             String cassandraPassword = new String(Base64.getDecoder().decode(encodedCassandraPass));
 
-            Map<String, String> environmentVariables = new HashMap<>();
-            environmentVariables.put(KEY_RABBITMQ_PASS, rabbitMqPassword);
-            environmentVariables.put(KEY_CASSANDRA_PASS, cassandraPassword);
-
-            settings.setVariables(environmentVariables);
+            settings.putVariable(KEY_RABBITMQ_PASS, rabbitMqPassword);
+            settings.putVariable(KEY_CASSANDRA_PASS, cassandraPassword);
 
             var configMaps = client.configMaps();
 

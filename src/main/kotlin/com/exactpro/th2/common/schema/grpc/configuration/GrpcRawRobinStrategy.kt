@@ -17,4 +17,4 @@ package com.exactpro.th2.common.schema.grpc.configuration
 
 import com.fasterxml.jackson.annotation.JsonProperty
 
-data class GrpcRawRobinStrategy(@JsonProperty(required = true) var endpoints: List<String?> = emptyList())
+data class GrpcRawRobinStrategy(@JsonProperty(required = true) var endpoints: List<String> = emptyList())

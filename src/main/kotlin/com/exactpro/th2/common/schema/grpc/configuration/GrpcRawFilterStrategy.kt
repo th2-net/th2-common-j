@@ -24,7 +24,7 @@ data class GrpcRawFilterStrategy(var filters: List<GrpcRouterFilterConfiguration
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class GrpcRouterFilterConfiguration(
-    @JsonProperty(required = true) var endpoint: String? = null,
+    @JsonProperty(required = true) var endpoint: String,
     override var metadata: Map<String, FieldFilterConfiguration> = emptyMap(),
-    override var message: Map<String, FieldFilterConfiguration> = emptyMap())
-    : RouterFilter
+    override var message: Map<String, FieldFilterConfiguration> = emptyMap()
+) : RouterFilter

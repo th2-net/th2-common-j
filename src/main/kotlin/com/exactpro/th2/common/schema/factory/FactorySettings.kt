@@ -55,6 +55,12 @@ data class FactorySettings @JvmOverloads constructor(
     var prometheus: Path? = null,
     var boxConfiguration: Path? = null,
     var custom: Path? = null,
-    var dictionariesDir: Path? = null,
-    var variables: Map<String, String> = emptyMap()) {
+    var dictionariesDir: Path? = null) {
+
+    private val _variables: MutableMap<String, String> = HashMap()
+    val variables: Map<String, String> = _variables
+
+    fun putVariable(key: String, value: String): String? {
+        return _variables.put(key, value)
+    }
 }
