@@ -208,6 +208,7 @@ dependencies {
     implementation 'io.fabric8:kubernetes-client:4.13.0'
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
@@ -230,6 +231,10 @@ sourceSets {
 }
 
 compileKotlin {
+    kotlinOptions.jvmTarget = "11"
+}
+
+compileTestKotlin {
     kotlinOptions.jvmTarget = "11"
 }
 
