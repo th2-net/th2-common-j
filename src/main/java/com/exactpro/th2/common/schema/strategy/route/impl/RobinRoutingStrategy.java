@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,16 +20,14 @@ import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.common.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @StrategyName("robin")
 public class RobinRoutingStrategy implements RoutingStrategy<GrpcRawRobinStrategy> {
 
-    private List<String> endpoints;
-    private AtomicInteger index = new AtomicInteger(0);
-
+    private GrpcRawRobinStrategy configuration = new GrpcRawRobinStrategy();
+    private final AtomicInteger index = new AtomicInteger(0);
 
     @Override
     public Class<? extends GrpcRawRobinStrategy> getConfigurationClass() {
@@ -39,12 +36,36 @@ public class RobinRoutingStrategy implements RoutingStrategy<GrpcRawRobinStrateg
 
     @Override
     public void init(GrpcRawRobinStrategy configuration) {
-        this.endpoints = new ArrayList<>(configuration.getEndpoints());
+        if (configuration != null) {
+            this.configuration = configuration;
+        }
+    }
+
+    @Override
+    public String getName() {
+        return "robin";
+    }
+
+    @Override
+    public GrpcRawRobinStrategy getConfiguration() {
+        return configuration;
     }
 
     @Override
     public String getEndpoint(Message message) {
-        return endpoints.get(index.getAndUpdate(i -> i + 1 >= endpoints.size() ? 0 : i + 1));
+        return configuration.getEndpoints().get(index.getAndUpdate(i -> i + 1 >= configuration.getEndpoints().size() ? 0 : i + 1));
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        RobinRoutingStrategy that = (RobinRoutingStrategy) o;
+        return Objects.equals(configuration, that.configuration);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(configuration);
+    }
 }

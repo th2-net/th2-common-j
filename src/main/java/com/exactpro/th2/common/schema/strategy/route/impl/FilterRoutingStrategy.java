@@ -22,6 +22,7 @@ import com.exactpro.th2.common.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @StrategyName("filter")
@@ -53,6 +54,15 @@ public class FilterRoutingStrategy implements RoutingStrategy<GrpcRawFilterStrat
         return endpoint.iterator().next();
     }
 
+    @Override
+    public GrpcRawFilterStrategy getConfiguration() {
+        return grpcConfiguration;
+    }
+
+    @Override
+    public String getName() {
+        return "filter";
+    }
 
     private Set<String> filter(Message message) {
 
@@ -69,4 +79,16 @@ public class FilterRoutingStrategy implements RoutingStrategy<GrpcRawFilterStrat
         return endpoints;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        FilterRoutingStrategy that = (FilterRoutingStrategy) o;
+        return Objects.equals(grpcConfiguration, that.grpcConfiguration) && Objects.equals(filterStrategy, that.filterStrategy);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(grpcConfiguration, filterStrategy);
+    }
 }
