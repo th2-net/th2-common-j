@@ -22,7 +22,7 @@ import io.grpc.Server;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Interface for create service for manage connections
+ * Interface used for creating services for managing connections
  * @see AbstractGrpcRouter
  */
 public interface GrpcRouter extends AutoCloseable {

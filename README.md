@@ -44,9 +44,9 @@ Then you will create an instance of imported class, by choosing one of the follo
     * --contextName - the context name to search connect parameters in Kube config
     * --dictionaries - the mapping between a dictionary in infra schema and a dictionary type in the format: 
       `--dictionaries <dictionary name>=<dictionary type >[ <dictionary name>=<dictionary type >]`. 
-      It can be useful when you required dictionaries to start box. 
+      It can be useful when you required dictionaries to start a specific box. 
     
-    Their usage is discovered further.
+    Their usage is disclosed further.
     
 1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
     ```
