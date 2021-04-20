@@ -20,7 +20,7 @@ import com.exactpro.th2.common.event.IBodyData;
 public class Message implements IBodyData {
 
     private String data;
-    private String type;
+    private final String type = "message";
 
     public String getData() {
         return data;
@@ -32,9 +32,5 @@ public class Message implements IBodyData {
 
     public String getType() {
         return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
     }
 }

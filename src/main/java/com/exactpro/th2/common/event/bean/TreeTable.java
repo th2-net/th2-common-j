@@ -20,11 +20,10 @@ import com.exactpro.th2.common.event.IBodyData;
 import java.util.Map;
 
 public class TreeTable implements IBodyData {
-    private final String type;
+    private final String type = "treeTable";
     private final Map<String, TreeTableEntry> rows;
 
     public TreeTable(String type, Map<String, TreeTableEntry> rows) {
-        this.type = type;
         this.rows = rows;
     }
 
