@@ -24,7 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class Table implements IBodyData {
     @JsonProperty("rows")
     private List<IRow> fields = new ArrayList<>();
-    private final String type = "table";
+    private String type = "table";
 
     public List<IRow> getFields() {
         return fields;
@@ -36,5 +36,9 @@ public class Table implements IBodyData {
 
     public String getType() {
         return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

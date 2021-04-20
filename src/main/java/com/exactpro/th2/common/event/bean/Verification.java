@@ -20,12 +20,16 @@ import java.util.Map;
 import com.exactpro.th2.common.event.IBodyData;
 
 public class Verification implements IBodyData {
-    private final String type = "verification";
+    private String type = "verification";
     private String status;
     private Map<String, VerificationEntry> fields;
 
     public String getType() {
         return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 
     public String getStatus() {
