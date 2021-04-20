@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Abstract implementation for {@link GrpcRouter}
  * <p>
- * Implement {@link GrpcRouter#init(GrpcConfiguration)}
+ * Implement {@link GrpcRouter#init(GrpcRouterConfiguration)}
  * <p>
  * Implement {@link GrpcRouter#init(GrpcConfiguration, GrpcRouterConfiguration)}
  * <p>
@@ -57,8 +57,8 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected EventLoopGroup eventLoop;
 
     @Override
-    public void init(GrpcConfiguration configuration) {
-        init(configuration, new GrpcRouterConfiguration());
+    public void init(GrpcRouterConfiguration configuration) {
+        init(new GrpcConfiguration(), configuration);
     }
 
     @Override
@@ -108,7 +108,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     public void close() {
         for (Server server : servers) {
             try {
-                LOGGER.info("Shutting down server: {}");
+                LOGGER.info("Shutting down gRPC server");
                 server.shutdown();
 
                 if (!server.awaitTermination(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {

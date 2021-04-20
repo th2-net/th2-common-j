@@ -30,7 +30,7 @@ public interface GrpcRouter extends AutoCloseable {
      * Initialization router
      */
     @Deprecated(since = "3.9.0", forRemoval = true)
-    void init(GrpcConfiguration configuration);
+    void init(GrpcRouterConfiguration configuration);
 
     void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration);
 
