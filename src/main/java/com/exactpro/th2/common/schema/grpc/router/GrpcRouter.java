@@ -35,7 +35,7 @@ public interface GrpcRouter extends AutoCloseable {
     void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration);
 
     /**
-     * Create grpc service for send message to grpc servers
+     * Create grpc service for sending messages to grpc servers
      * @param cls service class
      * @return service
      */
