@@ -16,7 +16,5 @@
 package com.exactpro.th2.common.schema.grpc.configuration
 
 import com.exactpro.th2.common.schema.configuration.Configuration
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 data class GrpcRouterConfiguration(var workers: Int = 1) : Configuration()

@@ -71,10 +71,6 @@ class TestJsonConfiguration {
             ),
             GrpcServerConfiguration("host123", 1234)
         ))
-
-        OBJECT_MAPPER.readValue(
-            "{\"server\":{\"host\":null,\"port\":8080,\"workers\":5},\"services\":{\"check1Service\":{\"endpoints\":{\"th2-qa-endpoint\":{\"host\":\"localhost\",\"port\":31304}},\"service-class\":\"${GrpcServiceConfiguration::class.java.name}\",\"strategy\":{\"endpoints\":[\"th2-qa-endpoint\"],\"name\":\"robin\"}}}}",
-            GrpcConfiguration::class.java)
     }
 
     @Test
@@ -86,10 +82,6 @@ class TestJsonConfiguration {
             "pass",
             "subscriberName",
             "exchangeName"))
-
-        OBJECT_MAPPER.readValue(
-            "{\"host\":\"localhost\",\"vHost\":\"schema\",\"port\":\"5672\",\"username\":\"schema\",\"password\":\"RABBITMQ_PASS\",\"exchangeName\":\"exchange\"}",
-            RabbitMQConfiguration::class.java)
     }
 
     @Test
@@ -107,10 +99,6 @@ class TestJsonConfiguration {
             listOf(MqRouterFilterConfiguration(mapOf("session_alias" to FieldFilterConfiguration("test_session_alias", FilterOperation.EQUAL)),
                 mapOf("test_field" to FieldFilterConfiguration("test_value", FilterOperation.EQUAL))))
         ))))
-
-        OBJECT_MAPPER.readValue(
-            "{\"queues\":{\"estore-pin\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"},\"from_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:from_codec]\"},\"some_pin\":{\"attributes\":[],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:some_pin]\"},\"to_send_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{},\"metadata\":{\"session_alias\":{\"operation\":\"EQUAL\",\"value\":\"codec-fix\"}}}],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:to_send_codec]\"}}}",
-            MessageRouterConfiguration::class.java)
     }
 
     @Test
@@ -122,13 +110,36 @@ class TestJsonConfiguration {
             "user",
             "pass",
             "instance"))
-
-        OBJECT_MAPPER.readValue(
-            "{\"dataCenter\":\"datacenter1\",\"host\":\"localhost\",\"port\":\"9042\",\"keyspace\":\"schema_dev\",\"username\":\"th2\",\"password\":\"CASSANDRA_PASS\"}",
-            CradleConfidentialConfiguration::class.java)
-
     }
 
+    @Test
+    fun `test backward compatibility for grpc json configuration`() {
+        OBJECT_MAPPER.readValue(
+            "{\"server\":{\"host\":null,\"port\":8080,\"workers\":5},\"services\":{\"check1Service\":{\"endpoints\":{\"th2-qa-endpoint\":{\"host\":\"localhost\",\"port\":31304}},\"service-class\":\"${GrpcServiceConfiguration::class.java.name}\",\"strategy\":{\"endpoints\":[\"th2-qa-endpoint\"],\"name\":\"robin\"}}}}",
+            GrpcConfiguration::class.java)
+    }
+
+    @Test
+    fun `test backward compatibility for rabbitmq json configuration`() {
+        OBJECT_MAPPER.readValue(
+            "{\"host\":\"localhost\",\"vHost\":\"schema\",\"port\":\"5672\",\"username\":\"schema\",\"password\":\"RABBITMQ_PASS\",\"exchangeName\":\"exchange\"}",
+            RabbitMQConfiguration::class.java)
+    }
+
+    @Test
+    fun `test backward compatibility for router mq json configuration`() {
+        OBJECT_MAPPER.readValue(
+            "{\"queues\":{\"estore-pin\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"},\"from_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:from_codec]\"},\"some_pin\":{\"attributes\":[],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:some_pin]\"},\"to_send_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{},\"metadata\":{\"session_alias\":{\"operation\":\"EQUAL\",\"value\":\"codec-fix\"}}}],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:to_send_codec]\"}}}",
+            MessageRouterConfiguration::class.java)
+    }
+
+    @Test
+    fun `test backward compatibility for cradle confidential json configuration`() {
+        OBJECT_MAPPER.readValue(
+            "{\"dataCenter\":\"datacenter1\",\"host\":\"localhost\",\"port\":\"9042\",\"keyspace\":\"schema_dev\",\"username\":\"th2\",\"password\":\"CASSANDRA_PASS\"}",
+            CradleConfidentialConfiguration::class.java
+        )
+    }
     @Test
     fun `test cradle non confidential json configuration`() {
         testJson(CradleNonConfidentialConfiguration())

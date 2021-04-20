@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.schema.message.configuration
 
 import com.exactpro.th2.common.grpc.FilterOperation
-import com.exactpro.th2.common.grpc.FilterOperation.EQUAL
 import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty

@@ -398,7 +398,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Load configuration, save and return. If already loaded return saved configuration.
      * @param configClass configuration class
-     * @param optional
+     * @param optional creates an instance of a configuration class via the default constructor if this option is true and the config file doesn't exist or empty
      * @return configuration object
      */
     protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {

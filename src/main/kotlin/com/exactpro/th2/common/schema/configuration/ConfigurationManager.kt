@@ -24,8 +24,6 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
 class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
-    private val logger = KotlinLogging.logger {}
-
     private val configurations: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
 
     fun <T> loadConfiguration(
@@ -37,12 +35,12 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
     ): T {
         try {
             if (optional && !(Files.exists(configPath) && Files.size(configPath) > 0)) {
-                logger.warn { "Can not read configuration for ${configClass.name}. Use default configuration" }
+                LOGGER.warn { "Can not read configuration for ${configClass.name}. Use default configuration" }
                 return configClass.getDeclaredConstructor().newInstance()
             }
 
             val sourceContent = String(Files.readAllBytes(configPath))
-            logger.info("Configuration path {} source content {}", configPath, sourceContent)
+            LOGGER.info("Configuration path {} source content {}", configPath, sourceContent)
             val content: String = stringSubstitutor.replace(sourceContent)
             return objectMapper.readerFor(configClass).readValue(content)
         } catch (e: IOException) {
@@ -57,10 +55,15 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         optional: Boolean
     ): T {
         return configurations.computeIfAbsent(configClass) {
-            configurationPath[configClass]?.let {
+            checkNotNull(configurationPath[configClass]) {
+                "Unknown class $configClass"
+            }.let {
                 loadConfiguration(objectMapper, stringSubstitutor, configClass, it, optional)
             }
-                ?: throw java.lang.IllegalStateException("Unknown class $configClass")
         } as T
+    }
+
+    companion object {
+        val LOGGER = KotlinLogging.logger {}
     }
 }
