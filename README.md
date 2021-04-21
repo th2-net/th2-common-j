@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.0)
+# th2 common library (Java) (3.13.1)
 
 ## Usage
 
@@ -187,6 +187,8 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (3.13.1)
+  - removed event loop handling
 * (3.13.0) 
   - reads dictionaries from the /var/th2/config/dictionary folder.
   - uses mq_router, grpc_router, cradle_manager optional JSON configs from the /var/th2/config folder

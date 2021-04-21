@@ -15,26 +15,23 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
-import io.grpc.BindableService;
-import io.grpc.Server;
-import io.grpc.netty.NettyServerBuilder;
-import io.netty.channel.DefaultEventLoop;
-import io.netty.channel.DefaultEventLoopGroup;
-import io.netty.channel.EventLoopGroup;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
+
+import io.grpc.BindableService;
+import io.grpc.Server;
+import io.grpc.netty.NettyServerBuilder;
 
 /**
  * Abstract implementation for {@link GrpcRouter}
@@ -53,8 +50,6 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractGrpcRouter.class);
     protected List<Server> servers = new ArrayList<>();
     protected GrpcConfiguration configuration;
-    protected ExecutorService executor;
-    protected EventLoopGroup eventLoop;
 
     @Override
     public void init(GrpcRouterConfiguration configuration) {
@@ -66,8 +61,6 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         throwIsInit();
 
         this.configuration = Objects.requireNonNull(configuration);
-        executor = Executors.newFixedThreadPool(Objects.requireNonNull(routerConfiguration).getWorkers());
-        eventLoop = new DefaultEventLoopGroup(routerConfiguration.getWorkers(), executor);
     }
 
     @Override
@@ -85,8 +78,6 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             builder = NettyServerBuilder.forAddress(InetSocketAddress.createUnresolved(serverConf.getHost(), serverConf.getPort()));
         }
 
-        builder.workerEventLoopGroup(eventLoop);
-
         for (BindableService service : services) {
             builder.addService(service);
         }
@@ -99,7 +90,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     }
 
     protected void throwIsInit() {
-        if (this.configuration != null && eventLoop != null) {
+        if (this.configuration != null) {
             throw new IllegalStateException("Grpc router already init");
         }
     }
@@ -120,34 +111,6 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             } catch (Exception e) {
                 LOGGER.error("Failed to shutdown server: {}", server, e);
             }
-        }
-
-
-        LOGGER.info("Shutting down event loop");
-        boolean needToForce;
-        try {
-            needToForce = !eventLoop.shutdownGracefully().await(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            needToForce = true;
-        }
-        if (needToForce) {
-            LOGGER.warn("Failed to shutdown event loop in {} ms. Forcing shutdown...", SERVER_SHUTDOWN_TIMEOUT_MS);
-            eventLoop.shutdownNow();
-        }
-
-        needToForce = false;
-        try {
-            executor.shutdown();
-            needToForce = !executor.awaitTermination(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            needToForce = true;
-        }
-
-        if (needToForce) {
-            LOGGER.warn("Failed to shutdown executor in {} ms. Forcing shutdown...", SERVER_SHUTDOWN_TIMEOUT_MS);
-            executor.shutdownNow();
         }
     }
 }
