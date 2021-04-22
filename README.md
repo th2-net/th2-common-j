@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.11.0)
+# th2 common library (Java) (3.13.0)
 
 ## Usage
 
@@ -42,8 +42,11 @@ Then you will create an instance of imported class, by choosing one of the follo
     * --namespace - the namespace in Kubernetes to search config maps
     * --boxName - the name of the target th2 box placed in the specified Kubernetes namespace
     * --contextName - the context name to search connect parameters in Kube config
+    * --dictionaries - the mapping between a dictionary in infra schema and a dictionary type in the format: 
+      `--dictionaries <dictionary name>=<dictionary type >[ <dictionary name>=<dictionary type >]`. 
+      It can be useful when you required dictionaries to start a specific box. 
     
-    Their usage is discovered further.
+    Their usage is disclosed further.
     
 1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
     ```
@@ -184,6 +187,9 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (3.13.0) 
+  - reads dictionaries from the /var/th2/config/dictionary folder.
+  - uses mq_router, grpc_router, cradle_manager optional JSON configs from the /var/th2/config folder
 * (3.11.0) - tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
-* (3.6.0) - Update Cradle version. Introduce async API for storing events
-* (3.0.1) - Metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
+* (3.6.0) - update Cradle version. Introduce async API for storing events
+* (3.0.1) - metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)

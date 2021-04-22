@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,11 +13,18 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.configuration;
+package com.exactpro.th2.common.schema.configuration
 
-/**
- * Marker for configuration beans
- */
-public interface Configuration {
+import com.fasterxml.jackson.annotation.JsonAnySetter
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
+open class Configuration {
+
+    protected val logger: Logger = LoggerFactory.getLogger(this::class.java)
+
+    @JsonAnySetter
+    fun setField(name: String, value: Any?) {
+        logger.warn("Ignore unknown field with name '{}' in configuration class '{}'", name, this::class.java.name)
+    }
 }
