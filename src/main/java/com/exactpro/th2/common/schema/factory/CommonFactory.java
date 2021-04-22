@@ -331,7 +331,7 @@ public class CommonFactory extends AbstractCommonFactory {
             settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
             settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
             settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
-            settings.setDictionariesDir(calculatePath(cmd.getOptionValue(dictionariesDirOption.getLongOpt()), configs));
+            settings.setDictionariesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_DIR_NAME));
 
             return new CommonFactory(settings);
         } catch (ParseException e) {
@@ -542,10 +542,6 @@ public class CommonFactory extends AbstractCommonFactory {
         Option option = new Option(null, optionName, true, null);
         options.addOption(option);
         return option;
-    }
-
-    private static Path calculatePath(String path, String configsPath) {
-        return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath) : CONFIG_DEFAULT_PATH);
     }
 
     private static Path calculatePath(String path, String configsPath, String fileName) {
