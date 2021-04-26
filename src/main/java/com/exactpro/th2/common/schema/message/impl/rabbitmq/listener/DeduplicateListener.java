@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,10 +14,10 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.listener;
 
+import com.exactpro.th2.common.schema.message.MessageListener;
+
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
-
-import com.exactpro.th2.common.schema.message.MessageListener;
 
 /**
  * Message listener which remove duplicates from subscribers
@@ -27,7 +26,7 @@ import com.exactpro.th2.common.schema.message.MessageListener;
  *
  * @param <T> must override <b>hashCode</b> method
  */
-public final class NoDuplicateListener<T> implements MessageListener<T> {
+public final class DeduplicateListener<T> implements MessageListener<T> {
 
     private static final int DEFAULT_BUFFER_SIZE = 1024;
 
@@ -42,13 +41,11 @@ public final class NoDuplicateListener<T> implements MessageListener<T> {
         }
     };
 
-    private final Object bufferLock = new Object();
-
     /**
      * @param delegate Message listener which get only unique messages
-     * @param bufferSize
+     * @param bufferSize buffer size for check messages
      */
-    public NoDuplicateListener(MessageListener<T> delegate, int bufferSize) {
+    public DeduplicateListener(MessageListener<T> delegate, int bufferSize) {
         this.delegate = delegate;
         this.bufferSize = bufferSize;
     }
@@ -57,7 +54,7 @@ public final class NoDuplicateListener<T> implements MessageListener<T> {
      * Create with default buffer size = 1024
      * @param delegate Message listener which get only unique messages
      */
-    public NoDuplicateListener(MessageListener<T> delegate) {
+    public DeduplicateListener(MessageListener<T> delegate) {
         this(delegate, DEFAULT_BUFFER_SIZE);
     }
 
@@ -65,7 +62,7 @@ public final class NoDuplicateListener<T> implements MessageListener<T> {
     public void handler(String consumerTag, T message) throws Exception {
         int hashCode = message.hashCode();
 
-        synchronized (bufferLock) {
+        synchronized (buffer) {
             if (buffer.containsKey(hashCode)) {
                 return;
             }
