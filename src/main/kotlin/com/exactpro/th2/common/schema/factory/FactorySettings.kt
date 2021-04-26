@@ -19,20 +19,10 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessageBatch
-import com.exactpro.th2.common.metrics.PrometheusConfiguration
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
-import com.exactpro.th2.common.schema.configuration.ConfigurationManager
-import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
-import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
 import com.exactpro.th2.common.schema.event.EventBatchRouter
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter
@@ -55,8 +45,8 @@ data class FactorySettings @JvmOverloads constructor(
     var prometheus: Path? = null,
     var boxConfiguration: Path? = null,
     var custom: Path? = null,
-    var dictionariesDir: Path? = null) {
-
+    var dictionariesDir: Path? = null,
+    var oldDictionariesDir: Path? = null) {
     private val _variables: MutableMap<String, String> = HashMap()
     val variables: Map<String, String> = _variables
 

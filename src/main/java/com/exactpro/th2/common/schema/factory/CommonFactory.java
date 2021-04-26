@@ -15,34 +15,6 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import static java.util.Collections.emptyMap;
-import static java.util.Objects.requireNonNull;
-import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
-import javax.annotation.Nullable;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -65,7 +37,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
-
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
@@ -75,6 +46,32 @@ import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import kotlin.text.Charsets;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -104,8 +101,11 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String KEY_RABBITMQ_PASS = "RABBITMQ_PASS";
     private static final String KEY_CASSANDRA_PASS = "CASSANDRA_PASS";
 
+    private static final String GENERATED_CONFIG_DIR_NAME = "generated_configs";
+
     private final Path custom;
     private final Path dictionariesDir;
+    private final Path oldDictionariesDir;
     private final ConfigurationManager configurationManager;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
@@ -117,12 +117,14 @@ public class CommonFactory extends AbstractCommonFactory {
                             Class<? extends GrpcRouter> grpcRouterClass,
                             @Nullable Path custom,
                             @Nullable Path dictionariesDir,
+                            @Nullable Path oldDictionariesDir,
                             Map<String, String> environmentVariables,
                             ConfigurationManager configurationManager) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
         this.dictionariesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_DIR_NAME);
+        this.oldDictionariesDir = defaultIfNull(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
 
         start();
@@ -136,6 +138,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.getGrpcRouterClass(),
                 settings.getCustom(),
                 settings.getDictionariesDir(),
+                settings.getOldDictionariesDir(),
                 settings.getVariables(),
                 createConfigurationManager(settings));
     }
@@ -203,6 +206,11 @@ public class CommonFactory extends AbstractCommonFactory {
     @Override
     protected Path getPathToDictionariesDir() {
         return dictionariesDir;
+    }
+
+    @Override
+    protected Path getOldPathToDictionariesDir() {
+        return oldDictionariesDir;
     }
 
     @Override
@@ -333,6 +341,9 @@ public class CommonFactory extends AbstractCommonFactory {
             settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
             settings.setDictionariesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_DIR_NAME));
 
+            String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
+            settings.setOldDictionariesDir(oldDictionariesDir == null ? (configs == null ? CONFIG_DEFAULT_PATH : Path.of(configs)) : Path.of(oldDictionariesDir));
+
             return new CommonFactory(settings);
         } catch (ParseException e) {
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
@@ -380,11 +391,10 @@ public class CommonFactory extends AbstractCommonFactory {
         ConfigMap rabbitMqConfigMap;
         ConfigMap cradleConfigMap;
 
-        String userDir = System.getProperty("user.dir");
-        String generatedConfigsDir = "generated_configs";
-
-        Path dictionaryPath = Path.of(userDir, generatedConfigsDir, DICTIONARY_DIR_NAME);
-        Path boxConfigurationPath = Path.of(userDir, generatedConfigsDir, BOX_FILE_NAME);
+        Path configPath = Path.of(System.getProperty("user.dir"), GENERATED_CONFIG_DIR_NAME);
+        
+        Path dictionaryPath = configPath.resolve(DICTIONARY_DIR_NAME);
+        Path boxConfigurationPath = configPath.resolve(BOX_FILE_NAME);
 
         FactorySettings settings = new FactorySettings();
 
@@ -425,27 +435,27 @@ public class CommonFactory extends AbstractCommonFactory {
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
             Map<String, String> cradleConfigData = cradleConfigMap.getData();
 
-            File generatedConfigsDirFile = new File(userDir, generatedConfigsDir);
+            File generatedConfigsDirFile = configPath.toFile();
 
             if (generatedConfigsDirFile.mkdir()) {
-                LOGGER.info("Directory {} is created at {}", generatedConfigsDir, userDir);
+                LOGGER.info("Directory {} is created", configPath);
             } else {
-                LOGGER.info("All boxConf in the '{}' folder are overridden", generatedConfigsDir);
+                LOGGER.info("All boxConf in the '{}' folder are overridden", configPath);
             }
 
             if (generatedConfigsDirFile.exists()) {
                 BoxConfiguration box = new BoxConfiguration();
                 box.setBoxName(boxName);
 
-                settings.setRabbitMQ(writeFile(userDir, generatedConfigsDir, RABBIT_MQ_FILE_NAME, rabbitMqData));
-                settings.setRouterMQ(writeFile(userDir, generatedConfigsDir, ROUTER_MQ_FILE_NAME, boxData));
-                settings.setConnectionManagerSettings(writeFile(userDir, generatedConfigsDir, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
-                settings.setGrpc(writeFile(userDir, generatedConfigsDir, GRPC_FILE_NAME, boxData));
-                settings.setRouterGRPC(writeFile(userDir, generatedConfigsDir, ROUTER_GRPC_FILE_NAME, boxData));
-                settings.setCradleConfidential(writeFile(userDir, generatedConfigsDir, CRADLE_CONFIDENTIAL_FILE_NAME, cradleConfigData));
-                settings.setCradleNonConfidential(writeFile(userDir, generatedConfigsDir, CRADLE_NON_CONFIDENTIAL_FILE_NAME, boxData));
-                settings.setPrometheus(writeFile(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME, boxData));
-                settings.setCustom(writeFile(userDir, generatedConfigsDir, CUSTOM_FILE_NAME, boxData));
+                settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_FILE_NAME, rabbitMqData));
+                settings.setRouterMQ(writeFile(configPath, ROUTER_MQ_FILE_NAME, boxData));
+                settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
+                settings.setGrpc(writeFile(configPath, GRPC_FILE_NAME, boxData));
+                settings.setRouterGRPC(writeFile(configPath, ROUTER_GRPC_FILE_NAME, boxData));
+                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_FILE_NAME, cradleConfigData));
+                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_FILE_NAME, boxData));
+                settings.setPrometheus(writeFile(configPath, PROMETHEUS_FILE_NAME, boxData));
+                settings.setCustom(writeFile(configPath, CUSTOM_FILE_NAME, boxData));
 
                 settings.setBoxConfiguration(boxConfigurationPath);
                 settings.setDictionariesDir(dictionaryPath);
@@ -457,7 +467,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 else
                     writeToJson(boxConfigurationPath, box);
 
-                writeDictionaries(dictionaryPath, dictionaries, configMaps.list());
+                writeDictionaries(boxName, configPath, dictionaryPath, dictionaries, configMaps.list());
             }
 
             return new CommonFactory(settings);
@@ -467,13 +477,26 @@ public class CommonFactory extends AbstractCommonFactory {
         }
     }
 
-    private static Path writeFile(String userDir, String generatedConfigsDir, String fileName, Map<String, String> configMap) throws IOException {
-        Path file = Path.of(userDir, generatedConfigsDir, fileName);
+    private static Path writeFile(Path configPath, String fileName, Map<String, String> configMap) throws IOException {
+        Path file = configPath.resolve(fileName);
         writeFile(file, configMap.get(fileName));
         return file;
     }
 
-    private static void writeDictionaries(Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+    private static void writeDictionaries(String boxName, Path oldDictionariesDir, Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+        for(ConfigMap configMap : configMapList.getItems()) {
+            String configMapName = configMap.getMetadata().getName();
+            if(configMapName.startsWith(boxName) && configMapName.endsWith("-dictionary")) {
+                configMap.getData().forEach((fileName, base64) -> {
+                    try {
+                        writeFile(oldDictionariesDir.resolve(fileName), base64);
+                    } catch (IOException e) {
+                        LOGGER.error("Can not write dictionary '{}' from config map with name '{}'", fileName, configMapName);
+                    }
+                });
+            }
+        }
+
         for (Map.Entry<DictionaryType, String> entry : dictionaries.entrySet()) {
             DictionaryType type = entry.getKey();
             String dictionaryName = entry.getValue();
