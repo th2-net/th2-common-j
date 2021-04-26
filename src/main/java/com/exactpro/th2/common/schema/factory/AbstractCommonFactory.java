@@ -450,6 +450,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     .filter(Files::isRegularFile)
                     .collect(Collectors.toList());
 
+            // Find with old format
+            if (dictionaries.isEmpty()) {
+                dictionaries = Files.list(getOldPathToDictionariesDir())
+                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+                        .collect(Collectors.toList());
+            }
+
             if (dictionaries.isEmpty()) {
                 throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
             } else if (dictionaries.size() > 1) {
@@ -499,6 +506,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected abstract Path getPathToDictionariesDir();
 
+    protected abstract Path getOldPathToDictionariesDir();
+    
     /**
      * @return Path to configuration for prometheus server
      * @see PrometheusConfiguration

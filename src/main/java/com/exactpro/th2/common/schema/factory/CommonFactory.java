@@ -17,6 +17,7 @@
 package com.exactpro.th2.common.schema.factory;
 
 import static java.util.Collections.emptyMap;
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,6 +81,7 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CUSTOM_FILE_NAME = "custom.json";
 
     private static final String DICTIONARY_DIR_NAME = "dictionary";
+    private static final String GENERATED_CONFIG_DIR_NAME = "generated_configs";
 
     private final Path rabbitMQ;
     private final Path routerMQ;
@@ -87,15 +90,16 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path cradle;
     private final Path custom;
     private final Path dictionariesDir;
+    private final Path oldDictionariesDir;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                         Class<? extends GrpcRouter> grpcRouterClass,
-                         Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass,
+            Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, @Nullable Path oldDictionariesDir) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, eventBatchRouterClass, grpcRouterClass);
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
@@ -103,16 +107,18 @@ public class CommonFactory extends AbstractCommonFactory {
         this.cradle = cradle;
         this.custom = custom;
         this.dictionariesDir = dictionariesDir;
+        this.oldDictionariesDir = defaultIfNull(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.prometheus = prometheus;
     }
 
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir) {
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, @Nullable Path oldDictionariesDir) {
         this.rabbitMQ = rabbitMQ;
         this.routerMQ = routerMQ;
         this.routerGRPC = routerGRPC;
         this.cradle = cradle;
         this.custom = custom;
         this.dictionariesDir = dictionariesDir;
+        this.oldDictionariesDir = defaultIfNull(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.prometheus = prometheus;
 
         start();
@@ -129,7 +135,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME)
+                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME),
+                CONFIG_DEFAULT_PATH
         );
     }
 
@@ -140,7 +147,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 CONFIG_DEFAULT_PATH.resolve(CRADLE_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(CUSTOM_FILE_NAME),
                 CONFIG_DEFAULT_PATH.resolve(PROMETHEUS_FILE_NAME),
-                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME)
+                CONFIG_DEFAULT_PATH.resolve(DICTIONARY_DIR_NAME),
+                CONFIG_DEFAULT_PATH
         );
     }
 
@@ -172,6 +180,11 @@ public class CommonFactory extends AbstractCommonFactory {
     @Override
     protected Path getPathToDictionariesDir() {
         return dictionariesDir;
+    }
+
+    @Override
+    protected Path getOldPathToDictionariesDir() {
+        return oldDictionariesDir;
     }
 
     @Override
@@ -217,6 +230,7 @@ public class CommonFactory extends AbstractCommonFactory {
     public static CommonFactory createFromArguments(String... args) {
         Options options = new Options();
 
+        Option dictionariesDirOption = new Option(null, "dictionariesDir", true, null);
         Option dictionariesOption = new Option(null, "dictionaries", true, null);
         dictionariesOption.setArgs(Option.UNLIMITED_VALUES);
 
@@ -225,7 +239,7 @@ public class CommonFactory extends AbstractCommonFactory {
         options.addOption(new Option(null, "grpcRouterConfiguration", true, null));
         options.addOption(new Option(null, "cradleConfiguration", true, null));
         options.addOption(new Option(null, "customConfiguration", true, null));
-        options.addOption(new Option(null, "dictionariesDir", true, null));
+        options.addOption(dictionariesDirOption);
         options.addOption(new Option(null, "prometheusConfiguration", true, null));
         options.addOption(new Option("c", "configs", true, null));
         options.addOption(dictionariesOption);
@@ -265,6 +279,9 @@ public class CommonFactory extends AbstractCommonFactory {
                 if (configsPath != null) {
                     configureLogger(configsPath);
                 }
+
+                String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
+
                 return new CommonFactory(
                         calculatePath(cmd.getOptionValue("rabbitConfiguration"), configsPath, RABBIT_MQ_FILE_NAME),
                         calculatePath(cmd.getOptionValue("messageRouterConfiguration"), configsPath, ROUTER_MQ_FILE_NAME),
@@ -272,7 +289,8 @@ public class CommonFactory extends AbstractCommonFactory {
                         calculatePath(cmd.getOptionValue("cradleConfiguration"), configsPath, CRADLE_FILE_NAME),
                         calculatePath(cmd.getOptionValue("customConfiguration"), configsPath, CUSTOM_FILE_NAME),
                         calculatePath(cmd.getOptionValue("prometheusConfiguration"), configsPath, PROMETHEUS_FILE_NAME),
-                        calculatePath(cmd.getOptionValue("dictionariesDir"), configsPath, DICTIONARY_DIR_NAME)
+                        calculatePath(cmd.getOptionValue("dictionariesDir"), configsPath, DICTIONARY_DIR_NAME),
+                        oldDictionariesDir == null ? (configsPath == null ? CONFIG_DEFAULT_PATH : Path.of(configsPath)) : Path.of(oldDictionariesDir)
                 );
             }
         } catch (ParseException e) {
@@ -308,18 +326,17 @@ public class CommonFactory extends AbstractCommonFactory {
         ConfigMap rabbitMqConfigMap;
         ConfigMap cradleConfigMap;
 
-        String userDir = System.getProperty("user.dir");
-        String generatedConfigsDir = "generated_configs";
+        Path configPath = Path.of(System.getProperty("user.dir"), GENERATED_CONFIG_DIR_NAME);
 
-        Path grpcPath = Path.of(userDir, generatedConfigsDir, ROUTER_GRPC_FILE_NAME);
-        Path rabbitMqPath = Path.of(userDir, generatedConfigsDir, RABBIT_MQ_FILE_NAME);
-        Path cradlePath = Path.of(userDir, generatedConfigsDir, CRADLE_FILE_NAME);
-        Path mqPath = Path.of(userDir, generatedConfigsDir, ROUTER_MQ_FILE_NAME);
-        Path customPath = Path.of(userDir, generatedConfigsDir, CUSTOM_FILE_NAME);
-        Path prometheusPath = Path.of(userDir, generatedConfigsDir, PROMETHEUS_FILE_NAME);
-        Path dictionaryPath = Path.of(userDir, generatedConfigsDir, DICTIONARY_DIR_NAME);
+        Path grpcPath = configPath.resolve(ROUTER_GRPC_FILE_NAME);
+        Path rabbitMqPath = configPath.resolve(RABBIT_MQ_FILE_NAME);
+        Path cradlePath = configPath.resolve(CRADLE_FILE_NAME);
+        Path mqPath = configPath.resolve(ROUTER_MQ_FILE_NAME);
+        Path customPath = configPath.resolve(CUSTOM_FILE_NAME);
+        Path prometheusPath = configPath.resolve(PROMETHEUS_FILE_NAME);
+        Path dictionaryPath = configPath.resolve(DICTIONARY_DIR_NAME);
 
-        try(KubernetesClient client = new DefaultKubernetesClient()) {
+        try (KubernetesClient client = new DefaultKubernetesClient()) {
 
             String currentCluster = client.getConfiguration().getCurrentContext().getContext().getCluster();
             String username = client.getConfiguration().getCurrentContext().getContext().getUser();
@@ -365,15 +382,15 @@ public class CommonFactory extends AbstractCommonFactory {
             cradle.setPort(getExposedPort(cradle.getPort(), cassandraService));
             cradle.setHost(currentCluster);
 
-            File generatedConfigsDirFile = new File(userDir, generatedConfigsDir);
+            File generatedConfigsDirFile = configPath.toFile();
 
-            if(generatedConfigsDirFile.mkdir()) {
-                LOGGER.info("Directory {} is created at {}", generatedConfigsDir, userDir);
+            if (generatedConfigsDirFile.mkdir()) {
+                LOGGER.info("Directory {} is created", configPath);
             } else {
-                LOGGER.info("All configuration in the '{}' folder are overridden", generatedConfigsDir);
+                LOGGER.info("All boxConf in the '{}' folder are overridden", configPath);
             }
 
-            if(generatedConfigsDirFile.exists()) {
+            if (generatedConfigsDirFile.exists()) {
                 File grpcFile = grpcPath.toFile();
                 File rabbitMqFile = rabbitMqPath.toFile();
                 File cradleFile = cradlePath.toFile();
@@ -389,17 +406,30 @@ public class CommonFactory extends AbstractCommonFactory {
                 writeToJson(customFile, custom);
                 writeToJson(prometheusFile, new PrometheusConfiguration());
 
-                writeDictionaries(dictionaryPath, dictionaries, configMaps.list());
+                //FIXME: backport "box name" related changes
+                writeDictionaries("unknown", configPath, dictionaryPath, dictionaries, configMaps.list());
             }
 
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
         }
 
-        return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath);
+        return new CommonFactory(rabbitMqPath, rabbitMqPath, grpcPath, cradlePath, customPath, prometheusPath, dictionaryPath, configPath);
     }
 
-    private static void writeDictionaries(Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+    private static void writeDictionaries(String boxName, Path oldDictionariesDir, Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+        for (ConfigMap configMap : configMapList.getItems()) {
+            String configMapName = configMap.getMetadata().getName();
+            if (configMapName.startsWith(boxName) && configMapName.endsWith("-dictionary")) {
+                configMap.getData().forEach((fileName, base64) -> {
+                    try {
+                        writeFile(oldDictionariesDir.resolve(fileName), base64);
+                    } catch (IOException e) {
+                        LOGGER.error("Can not write dictionary '{}' from config map with name '{}'", fileName, configMapName);
+                    }
+                });
+            }
+        }
         for (Map.Entry<DictionaryType, String> entry : dictionaries.entrySet()) {
             DictionaryType type = entry.getKey();
             String dictionaryName = entry.getValue();
