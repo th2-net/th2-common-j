@@ -29,7 +29,7 @@ import java.util.TreeMap;
 /**
  * Order incoming message from subscribers
  * <p>
- * Using sequence from method {@link SortListener#getSequence(T)} for ordering
+ * Using sequence from method getSequence(T) for ordering
  */
 public abstract class SortListener<T> implements MessageListener<T> {
 
