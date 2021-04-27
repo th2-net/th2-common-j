@@ -30,17 +30,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_LABEL_NAME;
 
 public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<Message, MessageBatch> {
 
     private static final Counter INCOMING_PARSED_MSG_BATCH_QUANTITY = Counter.build()
             .name("th2_mq_incoming_parsed_msg_batch_quantity")
-            .labelNames("session alias")
+            .labelNames(DEFAULT_LABEL_NAME)
             .help("Quantity of incoming parsed message batches")
             .register();
     private static final Counter INCOMING_PARSED_MSG_QUANTITY = Counter.build()
             .name("th2_mq_incoming_parsed_msg_quantity")
-            .labelNames("session alias")
+            .labelNames(DEFAULT_LABEL_NAME)
             .help("Quantity of incoming parsed messages")
             .register();
     private static final Histogram PARSED_MSG_PROCESSING_TIME = Histogram.build()

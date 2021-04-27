@@ -19,6 +19,7 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
+import com.exactpro.th2.common.metrics.DEFAULT_LABEL_NAME
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
 import io.prometheus.client.Counter
@@ -62,8 +63,16 @@ class RabbitMessageGroupBatchSubscriber(
     }
 
     companion object {
-        private val INCOMING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_incoming_msg_group_batch_quantity", "Quantity of incoming message group batches").register()
-        private val INCOMING_MSG_GROUP_QUANTITY = Counter.build("th2_mq_incoming_msg_group_quantity", "Quantity of incoming message groups").register()
+        private val INCOMING_MSG_GROUP_BATCH_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_msg_group_batch_quantity")
+            .labelNames(DEFAULT_LABEL_NAME)
+            .help("Quantity of incoming message group batches")
+            .register()
+        private val INCOMING_MSG_GROUP_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_msg_group_quantity")
+            .labelNames(DEFAULT_LABEL_NAME)
+            .help("Quantity of incoming message groups")
+            .register()
         private val MSG_GROUP_PROCESSING_TIME = Histogram.build("th2_mq_msg_group_processing_time", "Time of processing message groups").buckets(*DEFAULT_BUCKETS).register()
     }
 }
