@@ -446,12 +446,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
         try {
-            var dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
-                    .filter(Files::isRegularFile)
-                    .collect(Collectors.toList());
+            List<Path> dictionaries = null;
+            Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
+            if (Files.exists(dictionaryTypeDictionary)) {
+                dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
+                        .filter(Files::isRegularFile)
+                        .collect(Collectors.toList());
+            }
 
             // Find with old format
-            if (dictionaries.isEmpty()) {
+            if (dictionaries == null || dictionaries.isEmpty()) {
                 dictionaries = Files.list(getOldPathToDictionariesDir())
                         .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
                         .collect(Collectors.toList());
@@ -507,7 +511,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected abstract Path getPathToDictionariesDir();
 
     protected abstract Path getOldPathToDictionariesDir();
-    
+
     /**
      * @return Path to configuration for prometheus server
      * @see PrometheusConfiguration
