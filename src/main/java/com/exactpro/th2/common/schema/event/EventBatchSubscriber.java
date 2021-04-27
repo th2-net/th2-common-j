@@ -29,12 +29,21 @@ import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
 
-    private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_incoming_event_batch_quantity", "Quantity of incoming event batches").register();
-    private static final Counter INCOMING_EVENT_QUANTITY = Counter.build("th2_mq_incoming_event_quantity", "Quantity of incoming events").register();
+    private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_event_batch_quantity")
+            .labelNames("session alias")
+            .help("Quantity of incoming event batches")
+            .register();
+    private static final Counter INCOMING_EVENT_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_event_quantity")
+            .labelNames("session alias")
+            .help("Quantity of incoming events")
+            .register();
     private static final Histogram EVENT_PROCESSING_TIME = Histogram.build()
             .buckets(DEFAULT_BUCKETS)
             .name("th2_mq_event_processing_time")
-            .help("Time of processing events").register();
+            .help("Time of processing events")
+            .register();
 
     @Override
     protected Counter getDeliveryCounter() {

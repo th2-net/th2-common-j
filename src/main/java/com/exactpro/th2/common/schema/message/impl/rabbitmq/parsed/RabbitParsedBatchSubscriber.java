@@ -33,12 +33,21 @@ import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 
 public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<Message, MessageBatch> {
 
-    private static final Counter INCOMING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_batch_quantity", "Quantity of incoming parsed message batches").register();
-    private static final Counter INCOMING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_incoming_parsed_msg_quantity", "Quantity of incoming parsed messages").register();
+    private static final Counter INCOMING_PARSED_MSG_BATCH_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_parsed_msg_batch_quantity")
+            .labelNames("session alias")
+            .help("Quantity of incoming parsed message batches")
+            .register();
+    private static final Counter INCOMING_PARSED_MSG_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_parsed_msg_quantity")
+            .labelNames("session alias")
+            .help("Quantity of incoming parsed messages")
+            .register();
     private static final Histogram PARSED_MSG_PROCESSING_TIME = Histogram.build()
             .buckets(DEFAULT_BUCKETS)
             .name("th2_mq_parsed_msg_processing_time")
-            .help("Time of processing parsed messages").register();
+            .help("Time of processing parsed messages")
+            .register();
 
     @Override
     protected Counter getDeliveryCounter() {

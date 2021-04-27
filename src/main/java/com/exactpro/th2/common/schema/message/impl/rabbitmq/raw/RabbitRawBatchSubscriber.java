@@ -33,12 +33,21 @@ import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 
 public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawMessage, RawMessageBatch> {
 
-    private static final Counter INCOMING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_incoming_raw_msg_batch_quantity", "Quantity of incoming raw message batches").register();
-    private static final Counter INCOMING_RAW_MSG_QUANTITY = Counter.build("th2_mq_incoming_raw_msg_quantity", "Quantity of incoming raw messages").register();
+    private static final Counter INCOMING_RAW_MSG_BATCH_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_raw_msg_batch_quantity")
+            .labelNames("session alias")
+            .help("Quantity of incoming raw message batches")
+            .register();
+    private static final Counter INCOMING_RAW_MSG_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_raw_msg_quantity")
+            .labelNames("session alias")
+            .help("Quantity of incoming raw messages")
+            .register();
     private static final Histogram RAW_MSG_PROCESSING_TIME = Histogram.build()
             .buckets(DEFAULT_BUCKETS)
             .name("th2_mq_raw_msg_processing_time")
-            .help("Time of processing raw messages").register();
+            .help("Time of processing raw messages")
+            .register();
 
     private static final String MESSAGE_TYPE = "raw";
 

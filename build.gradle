@@ -160,9 +160,9 @@ test {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:2.10.1')
+    api platform('com.exactpro.th2:bom:2.10.2')
     api "com.exactpro.th2:cradle-core:${cradleVersion}"
-    api 'com.exactpro.th2:grpc-common:3.1.0'
+    api 'com.exactpro.th2:grpc-common:3.1.1'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.1.2'

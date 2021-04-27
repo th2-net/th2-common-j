@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.1)
+# th2 common library (Java) (3.13.3)
 
 ## Usage
 
@@ -187,11 +187,32 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
-* (3.13.1)
-  - removed event loop handling
-* (3.13.0) 
-  - reads dictionaries from the /var/th2/config/dictionary folder.
-  - uses mq_router, grpc_router, cradle_manager optional JSON configs from the /var/th2/config folder
-* (3.11.0) - tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
-* (3.6.0) - update Cradle version. Introduce async API for storing events
-* (3.0.1) - metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
+
+### 3.13.3 
+
++ add the `session alias` label to incoming metrics
+
+### 3.13.2
+
++ add backward compatibility for loading dictionaries
+
+### 3.13.1
+
++ removed gRPC event loop handling 
++ fixed dictionary reading
+
+### 3.13.0 
++ reads dictionaries from the /var/th2/config/dictionary folder.
++ uses mq_router, grpc_router, cradle_manager optional JSON configs from the /var/th2/config folder
+
+### 3.11.0
+
++ tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
+
+### 3.6.0
+
++ update Cradle version. Introduce async API for storing events
+
+### 3.0.1
+
++ metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
