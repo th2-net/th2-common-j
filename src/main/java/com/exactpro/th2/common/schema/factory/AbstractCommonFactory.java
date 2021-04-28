@@ -540,13 +540,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
         try {
-
-            var dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
-                    .filter(Files::isRegularFile)
-                    .collect(Collectors.toList());
+            List<Path> dictionaries = null;
+            Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
+            if (Files.exists(dictionaryTypeDictionary) && Files.isDirectory(dictionaryTypeDictionary)) {
+                dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
+                        .filter(Files::isRegularFile)
+                        .collect(Collectors.toList());
+            }
 
             // Find with old format
-            if (dictionaries.isEmpty()) {
+            if (dictionaries == null || dictionaries.isEmpty()) {
                 dictionaries = Files.list(getOldPathToDictionariesDir())
                         .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
                         .collect(Collectors.toList());
@@ -561,7 +564,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             var targetDictionary = dictionaries.get(0);
 
             return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-
         } catch (IOException e) {
             throw new IllegalStateException("Can not read dictionary", e);
         }
