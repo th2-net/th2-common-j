@@ -27,7 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 @JvmField
 val DEFAULT_BUCKETS = doubleArrayOf(0.000_25, 0.000_5, 0.001, 0.005, 0.010, 0.015, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0)
 
-const val DEFAULT_LABEL_NAME : String = "session_alias"
+const val DEFAULT_SESSION_ALIAS_LABEL_NAME : String = "session_alias"
+const val DEFAULT_DIRECTION_LABEL_NAME : String = "direction"
 
 private val LIVENESS = Gauge.build("th2_liveness", "Service liveness").register()
 private val READINESS = Gauge.build("th2_readiness", "Service readiness").register()

@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.grpc.RawMessage;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.message.MessageUtils;
@@ -30,18 +31,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_LABEL_NAME;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_DIRECTION_LABEL_NAME;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_SESSION_ALIAS_LABEL_NAME;
 
 public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawMessage, RawMessageBatch> {
 
     private static final Counter INCOMING_RAW_MSG_BATCH_QUANTITY = Counter.build()
             .name("th2_mq_incoming_raw_msg_batch_quantity")
-            .labelNames(DEFAULT_LABEL_NAME)
+            .labelNames(DEFAULT_SESSION_ALIAS_LABEL_NAME, DEFAULT_DIRECTION_LABEL_NAME)
             .help("Quantity of incoming raw message batches")
             .register();
     private static final Counter INCOMING_RAW_MSG_QUANTITY = Counter.build()
             .name("th2_mq_incoming_raw_msg_quantity")
-            .labelNames(DEFAULT_LABEL_NAME)
+            .labelNames(DEFAULT_SESSION_ALIAS_LABEL_NAME, DEFAULT_DIRECTION_LABEL_NAME)
             .help("Quantity of incoming raw messages")
             .register();
     private static final Histogram RAW_MSG_PROCESSING_TIME = Histogram.build()
@@ -72,8 +74,14 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     }
 
     @Override
-    protected int extractCountFrom(RawMessageBatch message) {
-        return message.getMessagesCount();
+    protected String[] extractLabels(RawMessageBatch batch) {
+        MessageID messageID = getMessages(batch).get(0).getMetadata().getId();
+        return new String[]{ messageID.getConnectionId().getSessionAlias(), messageID.getDirection().name() };
+    }
+
+    @Override
+    protected int extractCountFrom(RawMessageBatch batch) {
+        return batch.getMessagesCount();
     }
 
     @Override

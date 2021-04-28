@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.3)
+# th2 common library (Java) (3.13.4)
 
 ## Usage
 
@@ -188,13 +188,17 @@ NOTES:
 
 ## Release notes
 
-### 3.13.3 
+### 3.13.4 
 
-+ add the `session alias` label to incoming metrics
++ add `session alias` and `direction` labels to incoming metrics
+
+### 3.13.3
+
++ additional fixes for dictionary reading
 
 ### 3.13.2
 
-+ add backward compatibility for loading dictionaries
++ add backward compatibility for reading dictionaries
 
 ### 3.13.1
 

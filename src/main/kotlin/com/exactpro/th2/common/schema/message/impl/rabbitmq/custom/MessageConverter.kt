@@ -35,6 +35,11 @@ interface MessageConverter<T : Any> {
      */
     fun extractCount(value: T): Int
 
+    /**
+     * Extracts the labels from the value.
+     */
+    fun getLabels(value: T) : Array<String> = emptyArray()
+
     companion object {
         @JvmStatic
         fun <T : Any> create(
@@ -42,7 +47,7 @@ interface MessageConverter<T : Any> {
             fromBytes: (ByteArray) -> T,
             toDebugString: (T) -> String,
             countFrom: (T) -> Int
-        ): MessageConverter<T> = MessageConverterLambdaDelegate(toBytes, fromBytes, toDebugString, countFrom)
+        ): MessageConverter<T> = create(toBytes, fromBytes, toDebugString, countFrom) { emptyArray() }
 
         // FIXME: when migrate to Kotlin 1.4 should be only one method with a default value for `countFrom` and @JvmOverloads annotation
         // Currently, Kotlin compiler has a bug that produces the method with illegal modifier: https://youtrack.jetbrains.com/issue/KT-35716
@@ -51,7 +56,16 @@ interface MessageConverter<T : Any> {
             toBytes: (T) -> ByteArray,
             fromBytes: (ByteArray) -> T,
             toDebugString: (T) -> String
-        ): MessageConverter<T> = create(toBytes, fromBytes, toDebugString, { 1 })
+        ): MessageConverter<T> = create(toBytes, fromBytes, toDebugString) { 1 }
+
+        @JvmStatic
+        fun <T : Any> create(
+            toBytes: (T) -> ByteArray,
+            fromBytes: (ByteArray) -> T,
+            toDebugString: (T) -> String,
+            countFrom: (T) -> Int,
+            extractLabels: (T) -> Array<String>
+        ): MessageConverter<T> = MessageConverterLambdaDelegate(toBytes, fromBytes, toDebugString, countFrom, extractLabels)
     }
 }
 
@@ -59,7 +73,8 @@ private class MessageConverterLambdaDelegate<T : Any>(
     private val toBytes: (T) -> ByteArray,
     private val fromBytes: (ByteArray) -> T,
     private val toDebugString: (T) -> String,
-    private val countFrom: (T) -> Int
+    private val countFrom: (T) -> Int,
+    private val extractLabels: (T) -> Array<String>
 ) : MessageConverter<T> {
     override fun toByteArray(value: T): ByteArray = toBytes(value)
 
@@ -67,4 +82,5 @@ private class MessageConverterLambdaDelegate<T : Any>(
 
     override fun toDebugString(value: T): String = toDebugString.invoke(value)
     override fun extractCount(value: T): Int = countFrom(value)
+    override fun getLabels(value: T): Array<String> = extractLabels(value)
 }

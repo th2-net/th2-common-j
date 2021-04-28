@@ -102,7 +102,10 @@ class RabbitCustomQueue<T : Any>(
 
         override fun getProcessingTimer(): Histogram = timer
 
-        override fun extractCountFrom(message: T): Int = converter.extractCount(message)
+        override fun extractCountFrom(batch: T): Int = converter.extractCount(batch)
+
+        override fun extractLabels(batch: T): Array<String> = converter.getLabels(batch)
+
         //endregion
     }
 }

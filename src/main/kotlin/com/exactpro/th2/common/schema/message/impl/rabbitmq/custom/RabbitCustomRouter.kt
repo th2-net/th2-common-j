@@ -26,13 +26,14 @@ import com.google.protobuf.Message
 
 class RabbitCustomRouter<T : Any>(
     customTag: String,
+    labels: Array<String>,
     private val converter: MessageConverter<T>,
     defaultSendAttributes: Set<String> = emptySet(),
     defaultSubscribeAttributes: Set<String> = emptySet()
 ) : AbstractRabbitMessageRouter<T>() {
     private val requiredSubscribeAttributes: Set<String> = hashSetOf(QueueAttribute.SUBSCRIBE.toString()) + defaultSubscribeAttributes
     private val requiredSendAttributes: Set<String> = hashSetOf(QueueAttribute.PUBLISH.toString()) + defaultSendAttributes
-    private val metricsHolder = MetricsHolder(customTag)
+    private val metricsHolder = MetricsHolder(customTag, labels)
 
     override fun createQueue(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration, filterFunction: FilterFunction): MessageQueue<T> {
         return RabbitCustomQueue(converter, metricsHolder).apply {

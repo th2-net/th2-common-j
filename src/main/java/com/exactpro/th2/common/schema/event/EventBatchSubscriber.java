@@ -59,8 +59,13 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected int extractCountFrom(EventBatch message) {
-        return message.getEventsCount();
+    protected String[] extractLabels(EventBatch batch) {
+        return new String[] {"", ""};
+    }
+
+    @Override
+    protected int extractCountFrom(EventBatch batch) {
+        return batch.getEventsCount();
     }
 
     @Override

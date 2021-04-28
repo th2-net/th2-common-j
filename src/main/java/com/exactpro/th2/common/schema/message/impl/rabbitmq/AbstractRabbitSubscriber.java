@@ -135,7 +135,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract Histogram getProcessingTimer();
 
-    protected abstract int extractCountFrom(T message);
+    protected abstract String[] extractLabels(T batch);
+
+    protected abstract int extractCountFrom(T batch);
 
     private void handle(String consumeTag, Delivery delivery) {
         Timer processTimer = getProcessingTimer().startTimer();
@@ -147,9 +149,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 Objects.requireNonNull(value, "Received value is null");
 
                 Counter counter = getDeliveryCounter();
-                counter.labels(subscribeTarget.get().getQueue()).inc();
+                counter.labels(extractLabels(value)).inc();
                 Counter contentCounter = getContentCounter();
-                contentCounter.labels(subscribeTarget.get().getQueue()).inc(extractCountFrom(value));
+                contentCounter.labels(extractLabels(value)).inc(extractCountFrom(value));
 
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("The received message {}", toShortDebugString(value));
@@ -158,7 +160,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 var filteredValue = filter(value);
 
                 if (Objects.isNull(filteredValue)) {
-                    LOGGER.debug("Message is filtred");
+                    LOGGER.debug("Message is filtered");
                     return;
                 }
 
