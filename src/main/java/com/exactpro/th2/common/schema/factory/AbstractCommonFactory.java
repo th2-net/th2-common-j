@@ -542,7 +542,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         try {
             List<Path> dictionaries = null;
             Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
-            if (Files.exists(dictionaryTypeDictionary)) {
+            if (Files.exists(dictionaryTypeDictionary) && Files.isDirectory(dictionaryTypeDictionary)) {
                 dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
                         .filter(Files::isRegularFile)
                         .collect(Collectors.toList());
