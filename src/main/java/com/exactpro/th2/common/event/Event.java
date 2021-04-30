@@ -269,6 +269,7 @@ public class Event {
     /**
      * @deprecated prefer to use full object instead of part of them, use the {@link #collectSubEvents(List, EventID)} method
      */
+    @Deprecated
     protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable String parentID) throws JsonProcessingException {
         return collectSubEvents(protoEvents, toEventID(parentID));
     }
