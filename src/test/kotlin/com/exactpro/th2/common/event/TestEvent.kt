@@ -31,8 +31,8 @@ class TestEvent {
         }.build()
 
         assertAll(
-            { assertEquals(parentEventId, event.toProtoEvent(parentEventId).parentId) },
-            { assertFalse(event.toProtoEvent(null as EventID?).hasParentId()) }
+            { assertEquals(parentEventId, event.toProto(parentEventId).parentId) },
+            { assertFalse(event.toProto(null).hasParentId()) }
         )
     }
 }

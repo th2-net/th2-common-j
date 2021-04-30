@@ -220,14 +220,14 @@ public class Event {
     }
 
     /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #toProtoEvent(EventID)} method
+     * @deprecated prefer to use full object instead of part of them, use the {@link #toProto(EventID)} method
      */
     @Deprecated
     public com.exactpro.th2.common.grpc.Event toProtoEvent(@Nullable String parentID) throws JsonProcessingException {
-        return toProtoEvent(toEventID(parentID));
+        return toProto(toEventID(parentID));
     }
 
-    public com.exactpro.th2.common.grpc.Event toProtoEvent(@Nullable EventID parentID) throws JsonProcessingException {
+    public com.exactpro.th2.common.grpc.Event toProto(@Nullable EventID parentID) throws JsonProcessingException {
         if (endTimestamp == null) {
             endTimestamp();
         }
@@ -273,7 +273,7 @@ public class Event {
     }
 
     protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable EventID parentID) throws JsonProcessingException {
-        protoEvents.add(toProtoEvent(parentID)); // collect current level
+        protoEvents.add(toProto(parentID)); // collect current level
         for (Event subEvent : subEvents) {
             subEvent.collectSubEvents(protoEvents, toEventID(id)); // collect sub level
         }
