@@ -15,8 +15,12 @@
  */
 package com.exactpro.th2.common.event;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.Nullable;
+
 import com.exactpro.th2.common.event.bean.Message;
 import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
+import com.exactpro.th2.common.grpc.EventID;
 import com.fasterxml.uuid.Generators;
 import com.fasterxml.uuid.NoArgGenerator;
 
@@ -30,5 +34,15 @@ public class EventUtils {
 
     public static Message createMessageBean(String text) {
         return new MessageBuilder().text(text).build();
+    }
+
+    @Contract("null -> null")
+    public static @Nullable EventID toEventID(@Nullable String id) {
+        if (id == null) {
+            return null;
+        }
+        return EventID.newBuilder()
+                .setId(id)
+                .build();
     }
 }
