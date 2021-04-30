@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event;
 
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
+import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -83,17 +85,11 @@ public class Event {
         return new Event(startTimestamp);
     }
 
-    private static EventID toEventID(@Nullable String id) {
-        if (id == null) {
+    @Contract("null -> null")
+    private static @Nullable Timestamp toTimestamp(@Nullable Instant instant) {
+        if (instant == null) {
             return null;
         }
-        return EventID.newBuilder()
-                .setId(id)
-                .build();
-    }
-
-    // FIXME: move to th2-common
-    private static Timestamp toTimestamp(Instant instant) {
         return Timestamp.newBuilder()
                 .setSeconds(instant.getEpochSecond())
                 .setNanos(instant.getNano())
