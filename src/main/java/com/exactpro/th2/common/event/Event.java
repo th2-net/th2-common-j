@@ -210,6 +210,7 @@ public class Event {
     /**
      * @deprecated prefer to use full object instead of part of them, use the {@link #toListProto(EventID)} method
      */
+    @Deprecated
     public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(@Nullable String parentID) throws JsonProcessingException {
         return toListProto(toEventID(parentID));
     }
