@@ -208,14 +208,14 @@ public class Event {
     }
 
     /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #toProtoEvents(EventID)} method
+     * @deprecated prefer to use full object instead of part of them, use the {@link #toListProto(EventID)} method
      */
     public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(@Nullable String parentID) throws JsonProcessingException {
-        return toProtoEvents(toEventID(parentID));
+        return toListProto(toEventID(parentID));
     }
 
 
-    public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(@Nullable EventID parentID) throws JsonProcessingException {
+    public List<com.exactpro.th2.common.grpc.Event> toListProto(@Nullable EventID parentID) throws JsonProcessingException {
         return collectSubEvents(new ArrayList<>(), parentID);
     }
 

@@ -24,7 +24,7 @@ import org.junit.jupiter.api.assertAll
 class TestEvent {
 
     @Test
-    fun `set parent to the toProtoEvent message`() {
+    fun `set parent to the toProto method`() {
         val event = Event.start()
         val parentEventId = EventID.newBuilder().apply {
             id = "test"
@@ -33,6 +33,23 @@ class TestEvent {
         assertAll(
             { assertEquals(parentEventId, event.toProto(parentEventId).parentId) },
             { assertFalse(event.toProto(null).hasParentId()) }
+        )
+    }
+
+    @Test
+    fun `set parent to the toListProto method`() {
+        val event = Event.start()
+        val parentEventId = EventID.newBuilder().apply {
+            id = "test"
+        }.build()
+
+        val toListProtoWithParent = event.toListProto(parentEventId)
+        val toListProtoWithoutParent = event.toListProto(null)
+        assertAll(
+            { assertEquals(1, toListProtoWithParent.size) },
+            { assertEquals(1, toListProtoWithoutParent.size) },
+            { assertEquals(parentEventId, toListProtoWithParent[0].parentId) },
+            { assertFalse(toListProtoWithoutParent[0].hasParentId()) }
         )
     }
 }
