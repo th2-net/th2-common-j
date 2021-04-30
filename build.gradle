@@ -29,17 +29,13 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '2.9.0'
+    cradleVersion       = '2.9.1'
     junitVersion      = '5.4.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
 
 repositories {
     mavenCentral()
-    maven {
-        name 'Bintray'
-        url 'https://dl.bintray.com/exactpro/th2'
-    }
     maven {
             name 'Sonatype_snapshots'
             url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
@@ -160,12 +156,12 @@ test {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:2.10.1')
+    api platform('com.exactpro.th2:bom:3.0.0')
     api "com.exactpro.th2:cradle-core:${cradleVersion}"
-    api 'com.exactpro.th2:grpc-common:3.1.0'
+    api 'com.exactpro.th2:grpc-common:3.1.2'
 
     implementation 'com.google.protobuf:protobuf-java-util'
-    implementation 'com.exactpro.th2:grpc-service-generator:3.1.2'
+    implementation 'com.exactpro.th2:grpc-service-generator:3.1.8'
     implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     //FIXME: Adde these dependnecies as api to grpc-... artifaccts
