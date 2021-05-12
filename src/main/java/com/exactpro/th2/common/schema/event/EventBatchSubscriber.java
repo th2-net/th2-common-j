@@ -42,6 +42,7 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
             .name("th2_mq_event_processing_time")
             .help("Time of processing events")
             .register();
+    private static final String[] NO_LABELS = {};
 
     @Override
     protected Counter getDeliveryCounter() {
@@ -60,7 +61,7 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
 
     @Override
     protected String[] extractLabels(EventBatch batch) {
-        return new String[] {"", ""};
+        return NO_LABELS;
     }
 
     @Override

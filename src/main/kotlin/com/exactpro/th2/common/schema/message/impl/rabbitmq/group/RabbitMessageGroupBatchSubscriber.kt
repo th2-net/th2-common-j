@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
 import com.exactpro.th2.common.metrics.DEFAULT_DIRECTION_LABEL_NAME
@@ -35,23 +36,21 @@ class RabbitMessageGroupBatchSubscriber(
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
     override fun getContentCounter(): Counter = INCOMING_MSG_GROUP_QUANTITY
     override fun getProcessingTimer(): Histogram = MSG_GROUP_PROCESSING_TIME
+
+    private fun getSessionAliasAndDirection(messageID: MessageID): Array<String> {
+        return arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
+    }
+
     override fun extractLabels(batch: MessageGroupBatch): Array<String> {
         val message = getMessages(batch)[0].messagesList[0]
 
         return when {
-            message.hasMessage() -> {
-                val messageID = message.message.metadata.id
-                arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
-            }
-            message.hasRawMessage() -> {
-                val messageID = message.rawMessage.metadata.id
-                arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
-            }
-            else -> {
-                emptyArray()
-            }
+            message.hasMessage() -> getSessionAliasAndDirection(message.message.metadata.id)
+            message.hasRawMessage() -> getSessionAliasAndDirection(message.rawMessage.metadata.id)
+            else -> arrayOf("unknown", "unknown")
         }
     }
+
     override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
     override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> = listOf(MessageGroupBatch.parseFrom(body))
     override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList

@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.4)
+# th2 common library (Java) (3.13.5)
 
 ## Usage
 
@@ -188,9 +188,13 @@ NOTES:
 
 ## Release notes
 
-### 3.13.4 
+### 3.13.5 
 
 + add `session alias` and `direction` labels to incoming metrics
+
+### 3.13.4
+
++ migration to Sonatype
 
 ### 3.13.3
 
