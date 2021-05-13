@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.6)
+# th2 common library (Java) (3.14.0)
 
 ## Usage
 
@@ -73,9 +73,9 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * exchangeName - the required setting defines the exchange that will be used for sending/subscribing operation in MQ routers. 
   Please see more details about the exchanges in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
 * connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for infinite waiting.
-* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, default value is set to 10000.
+* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, the default value is set to 10000.
 * maxRecoveryAttempts - this option defines the number of reconnection attempts to RabbitMQ, with its default value set to 5. 
-  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set false.
+  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set to false.
 * minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
@@ -187,6 +187,7 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (3.14.0) - added toProtoEvent(EventID) and toProtoEvents(EventID) overloads into the Event class
 * (3.13.6)
   - resets embedded log4j configuration before configuring from a file
 * (3.13.5)
