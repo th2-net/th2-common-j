@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.5)
+# th2 common library (Java) (3.13.6)
 
 ## Usage
 
@@ -187,8 +187,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (3.13.6)
+  - resets embedded log4j configuration before configuring from a file
 * (3.13.5)
-  - resets embedded log4j configuration before configuring from a file 
+  - Fix bug with message filtering by `message_type`
 * (3.13.1)
   - removed event loop handling
 * (3.13.0) 
