@@ -67,6 +67,7 @@ import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
+import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -767,6 +768,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 .filter(Files::exists)
                 .findFirst()
                 .ifPresentOrElse(path -> {
+                            LogManager.resetConfiguration();
                             PropertyConfigurator.configure(path.toString());
                             LOGGER.info("Logger configuration from {} file is applied", path);
                         },
