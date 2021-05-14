@@ -32,7 +32,6 @@ class RabbitMessageGroupBatchSubscriber(
     private val filters: List<RouterFilter>
 ) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters) {
     private val logger = KotlinLogging.logger {}
-    private val unknownLabels = arrayOf("unknown", "unknown")
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
     override fun getContentCounter(): Counter = INCOMING_MSG_GROUP_QUANTITY
@@ -88,5 +87,6 @@ class RabbitMessageGroupBatchSubscriber(
             .help("Quantity of incoming message groups")
             .register()
         private val MSG_GROUP_PROCESSING_TIME = Histogram.build("th2_mq_msg_group_processing_time", "Time of processing message groups").buckets(*DEFAULT_BUCKETS).register()
+        private val unknownLabels = arrayOf("unknown", "unknown")
     }
 }
