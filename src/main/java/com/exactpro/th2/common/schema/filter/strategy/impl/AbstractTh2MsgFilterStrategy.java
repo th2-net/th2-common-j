@@ -17,6 +17,8 @@ package com.exactpro.th2.common.schema.filter.strategy.impl;
 
 
 import com.exactpro.th2.common.grpc.Message;
+import com.exactpro.th2.common.grpc.MessageID;
+import com.exactpro.th2.common.grpc.MessageMetadata;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,9 +32,10 @@ public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrateg
 
     @Override
     public Map<String, String> getFields(com.google.protobuf.Message message) {
-        var th2Msg = parseMessage(message);
+        Message th2Msg = parseMessage(message);
 
-        var messageID = th2Msg.getMetadata().getId();
+        MessageMetadata metadata = th2Msg.getMetadata();
+        MessageID messageID = metadata.getId();
 
         var messageFields = th2Msg.getFieldsMap().entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().getSimpleValue()))
@@ -40,7 +43,7 @@ public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrateg
 
         var metadataMsgFields = Map.of(
                 SESSION_ALIAS_KEY, messageID.getConnectionId().getSessionAlias(),
-                MESSAGE_TYPE_KEY, th2Msg.getDescriptorForType().getName(),
+                MESSAGE_TYPE_KEY, metadata.getMessageType(),
                 DIRECTION_KEY, messageID.getDirection().name()
         );
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event;
 
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
+import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -83,15 +85,11 @@ public class Event {
         return new Event(startTimestamp);
     }
 
-    // FIXME: move to th2-common
-    private static EventID toEventID(String id) {
-        return EventID.newBuilder()
-                .setId(id)
-                .build();
-    }
-
-    // FIXME: move to th2-common
-    private static Timestamp toTimestamp(Instant instant) {
+    @Contract("null -> null")
+    private static @Nullable Timestamp toTimestamp(@Nullable Instant instant) {
+        if (instant == null) {
+            return null;
+        }
         return Timestamp.newBuilder()
                 .setSeconds(instant.getEpochSecond())
                 .setNanos(instant.getNano())
@@ -205,11 +203,28 @@ public class Event {
         return this;
     }
 
-    public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(String parentID) throws JsonProcessingException {
+    /**
+     * @deprecated prefer to use full object instead of part of them, use the {@link #toListProto(EventID)} method
+     */
+    @Deprecated
+    public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(@Nullable String parentID) throws JsonProcessingException {
+        return toListProto(toEventID(parentID));
+    }
+
+
+    public List<com.exactpro.th2.common.grpc.Event> toListProto(@Nullable EventID parentID) throws JsonProcessingException {
         return collectSubEvents(new ArrayList<>(), parentID);
     }
 
+    /**
+     * @deprecated prefer to use full object instead of part of them, use the {@link #toProto(EventID)} method
+     */
+    @Deprecated
     public com.exactpro.th2.common.grpc.Event toProtoEvent(@Nullable String parentID) throws JsonProcessingException {
+        return toProto(toEventID(parentID));
+    }
+
+    public com.exactpro.th2.common.grpc.Event toProto(@Nullable EventID parentID) throws JsonProcessingException {
         if (endTimestamp == null) {
             endTimestamp();
         }
@@ -227,7 +242,7 @@ public class Event {
                 .setStatus(getAggrigatedStatus().eventStatus)
                 .setBody(ByteString.copyFrom(buildBody()));
         if (parentID != null) {
-            eventBuilder. setParentId(toEventID(parentID));
+            eventBuilder. setParentId(parentID);
         }
         for (MessageID messageID : attachedMessageIDS) {
             eventBuilder.addAttachedMessageIds(messageID);
@@ -247,10 +262,18 @@ public class Event {
         return endTimestamp;
     }
 
+    /**
+     * @deprecated prefer to use full object instead of part of them, use the {@link #collectSubEvents(List, EventID)} method
+     */
+    @Deprecated
     protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable String parentID) throws JsonProcessingException {
-        protoEvents.add(toProtoEvent(parentID)); // collect current level
+        return collectSubEvents(protoEvents, toEventID(parentID));
+    }
+
+    protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable EventID parentID) throws JsonProcessingException {
+        protoEvents.add(toProto(parentID)); // collect current level
         for (Event subEvent : subEvents) {
-            subEvent.collectSubEvents(protoEvents, id); // collect sub level
+            subEvent.collectSubEvents(protoEvents, toEventID(id)); // collect sub level
         }
         return protoEvents;
     }
