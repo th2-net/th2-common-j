@@ -17,7 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
 import com.exactpro.th2.common.metrics.DEFAULT_DIRECTION_LABEL_NAME
@@ -32,14 +32,11 @@ class RabbitMessageGroupBatchSubscriber(
     private val filters: List<RouterFilter>
 ) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters) {
     private val logger = KotlinLogging.logger {}
+    private val unknownLabels = arrayOf("unknown", "unknown")
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
     override fun getContentCounter(): Counter = INCOMING_MSG_GROUP_QUANTITY
     override fun getProcessingTimer(): Histogram = MSG_GROUP_PROCESSING_TIME
-
-    private fun getSessionAliasAndDirection(messageID: MessageID): Array<String> {
-        return arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
-    }
 
     override fun extractLabels(batch: MessageGroupBatch): Array<String> {
         val message = getMessages(batch)[0].messagesList[0]
@@ -47,7 +44,7 @@ class RabbitMessageGroupBatchSubscriber(
         return when {
             message.hasMessage() -> getSessionAliasAndDirection(message.message.metadata.id)
             message.hasRawMessage() -> getSessionAliasAndDirection(message.rawMessage.metadata.id)
-            else -> arrayOf("unknown", "unknown")
+            else -> unknownLabels
         }
     }
 

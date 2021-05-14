@@ -30,6 +30,7 @@ import io.prometheus.client.Histogram;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.exactpro.th2.common.message.MessageUtils.getSessionAliasAndDirection;
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_DIRECTION_LABEL_NAME;
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_SESSION_ALIAS_LABEL_NAME;
@@ -76,7 +77,7 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     @Override
     protected String[] extractLabels(RawMessageBatch batch) {
         MessageID messageID = getMessages(batch).get(0).getMetadata().getId();
-        return new String[]{ messageID.getConnectionId().getSessionAlias(), messageID.getDirection().name() };
+        return getSessionAliasAndDirection(messageID);
     }
 
     @Override

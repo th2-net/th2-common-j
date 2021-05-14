@@ -148,10 +148,15 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             for (T value : values) {
                 Objects.requireNonNull(value, "Received value is null");
 
+                String[] labels = extractLabels(value);
+
                 Counter counter = getDeliveryCounter();
-                counter.labels(extractLabels(value)).inc();
                 Counter contentCounter = getContentCounter();
-                contentCounter.labels(extractLabels(value)).inc(extractCountFrom(value));
+
+                if (labels != null && labels.length != 0) {
+                    counter.labels(extractLabels(value)).inc();
+                    contentCounter.labels(extractLabels(value)).inc(extractCountFrom(value));
+                }
 
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("The received message {}", toShortDebugString(value));

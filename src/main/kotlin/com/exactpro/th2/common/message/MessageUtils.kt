@@ -214,6 +214,9 @@ var Message.Builder.sequence
         })
     }
 
+fun getSessionAliasAndDirection(messageID: MessageID): Array<String> {
+    return arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
+}
 
 @JvmOverloads
 fun com.google.protobuf.MessageOrBuilder.toJson(short: Boolean = true): String = JsonFormat.printer().includingDefaultValueFields().let {

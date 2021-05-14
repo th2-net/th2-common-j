@@ -358,6 +358,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (curValue != null) {
                         throw new IllegalStateException("Message router for type " + msgClass.getCanonicalName() + " is already registered");
                     }
+                    if (labels == null) {
+                        throw new IllegalArgumentException("No labels provided for message router with type" + msgClass.getCanonicalName());
+                    }
                     var router = new RabbitCustomRouter<>(msgClass.getSimpleName(), labels, messageConverter, defaultSendAttributes,
                             defaultSubscribeAttributes);
                     router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());

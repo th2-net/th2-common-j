@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.5)
+# th2 common library (Java) (3.15.0)
 
 ## Usage
 
@@ -188,9 +188,21 @@ NOTES:
 
 ## Release notes
 
-### 3.13.5 
+### 3.15.0
 
 + add `session alias` and `direction` labels to incoming metrics
+
+### 3.14.0
+
++ add `toProtoEvent(EventID)` and `toProtoEvents(EventID)` overloads into the Event class
+
+### 3.13.6
+
++ resets embedded `log4j` configuration before configuring from a file
+
+### 3.13.5 
+
++ fix bug with message filtering by `message_type`
 
 ### 3.13.4
 
