@@ -16,11 +16,18 @@
 
 package com.exactpro.th2.common.message
 
+import com.exactpro.th2.common.event.bean.IColumn
+import com.exactpro.th2.common.event.bean.TreeTable
+import com.exactpro.th2.common.event.bean.TreeTableEntry
+import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
+import com.exactpro.th2.common.event.bean.builder.RowBuilder
+import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
+import org.apache.commons.lang3.BooleanUtils
 
 @Deprecated(
         message = "The message type from MessageFilter will be removed in the future",
@@ -56,3 +63,33 @@ fun MessageFilter.Builder.copyField(message: MessageFilter, vararg key: String):
 fun MessageFilter.copy(): MessageFilter.Builder = MessageFilter.newBuilder().putAllFields(fieldsMap)
 
 fun MessageFilter.Builder.copy(): MessageFilter.Builder = MessageFilter.newBuilder().putAllFields(fieldsMap)
+
+fun MessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
+    for ((key, value) in fieldsMap) {
+        row(key, value.toTreeTableEntry())
+    }
+}.build()
+
+private fun ValueFilter.toTreeTableEntry(): TreeTableEntry {
+    if (hasMessageFilter()) {
+        val nestedMessageFilter = messageFilter
+        val collectionBuilder = CollectionBuilder()
+        for ((key, valueFilter) in nestedMessageFilter.fieldsMap) {
+            collectionBuilder.row(key, valueFilter.toTreeTableEntry())
+        }
+        return collectionBuilder.build()
+    }
+    if (hasListFilter()) {
+        val collectionBuilder = CollectionBuilder()
+        for ((index, nestedValue) in listFilter.valuesList.withIndex()) {
+            val nestedName = index.toString()
+            collectionBuilder.row(nestedName, nestedValue.toTreeTableEntry())
+        }
+        return collectionBuilder.build()
+    }
+    return RowBuilder()
+        .column(MessageFilterTableColumn(simpleFilter, operation.toString(), BooleanUtils.toStringYesNo(key)))
+        .build()
+}
+
+internal data class MessageFilterTableColumn(val expected: String, val operation: String, val key: String) : IColumn

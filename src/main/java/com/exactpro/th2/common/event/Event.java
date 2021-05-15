@@ -15,6 +15,7 @@
  */
 package com.exactpro.th2.common.event;
 
+import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
@@ -25,6 +26,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -131,7 +133,7 @@ public class Event {
             if (this.description != null) {
                 throw new IllegalStateException(formatStateException("Description", this.description));
             }
-            body.add(0, EventUtils.createMessageBean(description));
+            body.add(0, createMessageBean(description));
             this.description = description;
         }
         return this;
@@ -191,6 +193,19 @@ public class Event {
      */
     public Event bodyData(IBodyData bodyData) {
         body.add(requireNonNull(bodyData, "Body data can't be null"));
+        return this;
+    }
+
+    /**
+     * Adds exception with all causes to the body data as series of messages
+     * @return current event
+     */
+    public Event exception(@NotNull Throwable throwable) {
+        Throwable error = Objects.requireNonNull(throwable, "Throwable can't be null");
+        do {
+            bodyData(createMessageBean(error.toString()));
+            error = error.getCause();
+        } while (error != null);
         return this;
     }
 

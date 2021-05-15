@@ -16,6 +16,12 @@
 
 package com.exactpro.th2.common.message
 
+import com.exactpro.th2.common.event.bean.IColumn
+import com.exactpro.th2.common.event.bean.TreeTable
+import com.exactpro.th2.common.event.bean.TreeTableEntry
+import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
+import com.exactpro.th2.common.event.bean.builder.RowBuilder
+import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
 import com.exactpro.th2.common.value.getDouble
@@ -116,3 +122,33 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
+
+fun Message.toTreeTable(): TreeTable = TreeTableBuilder().apply {
+    for ((key, value) in fieldsMap) {
+        row(key, value.toTreeTableEntry())
+    }
+}.build()
+
+private fun Value.toTreeTableEntry(): TreeTableEntry {
+    if (hasMessageValue()) {
+        val nestedMessageValue = messageValue
+        val collectionBuilder = CollectionBuilder()
+        for ((key, value) in nestedMessageValue.fieldsMap) {
+            collectionBuilder.row(key, value.toTreeTableEntry())
+        }
+        return collectionBuilder.build()
+    }
+    if (hasListValue()) {
+        val collectionBuilder = CollectionBuilder()
+        for ((index, nestedValue) in listValue.valuesList.withIndex()) {
+            val nestedName = index.toString()
+            collectionBuilder.row(nestedName, nestedValue.toTreeTableEntry())
+        }
+        return collectionBuilder.build()
+    }
+    return RowBuilder()
+        .column(MessageTableColumn(simpleValue))
+        .build()
+}
+
+internal data class MessageTableColumn(val fieldValue: String) : IColumn
