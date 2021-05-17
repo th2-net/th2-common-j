@@ -3,6 +3,7 @@ name: Dev build and publish Java distributions to sonatype snapshot repository
 on:
   push:
     branches-ignore:
+    - th2-1156
     - master
     - version-*
     # paths:
