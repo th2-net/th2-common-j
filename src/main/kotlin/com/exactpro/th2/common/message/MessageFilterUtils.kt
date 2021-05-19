@@ -22,9 +22,14 @@ import com.exactpro.th2.common.event.bean.TreeTableEntry
 import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
 import com.exactpro.th2.common.event.bean.builder.RowBuilder
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
+import com.exactpro.th2.common.grpc.ComparisonSettings
+import com.exactpro.th2.common.grpc.ListValueFilter
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
 import com.exactpro.th2.common.grpc.MessageFilter
+import com.exactpro.th2.common.grpc.MetadataFilter
+import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
+import com.exactpro.th2.common.grpc.RootComparisonSettings
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
 import org.apache.commons.lang3.BooleanUtils
@@ -64,28 +69,59 @@ fun MessageFilter.copy(): MessageFilter.Builder = MessageFilter.newBuilder().put
 
 fun MessageFilter.Builder.copy(): MessageFilter.Builder = MessageFilter.newBuilder().putAllFields(fieldsMap)
 
+fun RootMessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
+    row("Message type", RowBuilder()
+        .column(MessageTypeColumn(messageType))
+        .build())
+    row("Message filter", messageFilter.toTreeTableEntry())
+    row("Metadata filter", metadataFilter.toTreeTableEntry())
+    row("Comparison settings", comparisonSettings.toTreeTableEntry())
+}.build()
+
 fun MessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
     for ((key, value) in fieldsMap) {
         row(key, value.toTreeTableEntry())
     }
 }.build()
 
+private fun MessageFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
+    for ((key, valueFilter) in fieldsMap) {
+        row(key, valueFilter.toTreeTableEntry())
+    }
+}.build()
+
+private fun MetadataFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
+    for ((key, simpleFilter) in propertyFiltersMap) {
+        row(key, simpleFilter.toTreeTableEntry())
+    }
+}.build()
+
+private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
+    for ((index, nestedValue) in ignoreFieldsList.withIndex()) {
+        val nestedName = index.toString()
+        row(nestedName, RowBuilder()
+            .column(IgnoreFieldColumn(nestedValue))
+            .build())
+    }
+}.build()
+
+private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
+    for ((index, nestedValue) in valuesList.withIndex()) {
+        val nestedName = index.toString()
+        row(nestedName, nestedValue.toTreeTableEntry())
+    }
+}.build()
+
+private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = RowBuilder()
+    .column(MessageFilterTableColumn(value, operation.toString(), BooleanUtils.toStringYesNo(key)))
+    .build()
+
 private fun ValueFilter.toTreeTableEntry(): TreeTableEntry {
     if (hasMessageFilter()) {
-        val nestedMessageFilter = messageFilter
-        val collectionBuilder = CollectionBuilder()
-        for ((key, valueFilter) in nestedMessageFilter.fieldsMap) {
-            collectionBuilder.row(key, valueFilter.toTreeTableEntry())
-        }
-        return collectionBuilder.build()
+        return messageFilter.toTreeTableEntry()
     }
     if (hasListFilter()) {
-        val collectionBuilder = CollectionBuilder()
-        for ((index, nestedValue) in listFilter.valuesList.withIndex()) {
-            val nestedName = index.toString()
-            collectionBuilder.row(nestedName, nestedValue.toTreeTableEntry())
-        }
-        return collectionBuilder.build()
+        return listFilter.toTreeTableEntry()
     }
     return RowBuilder()
         .column(MessageFilterTableColumn(simpleFilter, operation.toString(), BooleanUtils.toStringYesNo(key)))
@@ -93,3 +129,5 @@ private fun ValueFilter.toTreeTableEntry(): TreeTableEntry {
 }
 
 internal data class MessageFilterTableColumn(val expected: String, val operation: String, val key: String) : IColumn
+internal data class MessageTypeColumn(val type: String) : IColumn
+internal data class IgnoreFieldColumn(val name: String) : IColumn
