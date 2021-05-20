@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package com.exactpro.th2.common.schema.dictionary;
+
+import java.nio.file.Path;
 
 public enum DictionaryType {
     /**
@@ -40,5 +42,13 @@ public enum DictionaryType {
      * Dictionary for outgoing protocol (used in some very rare cases when incoming and outgoing
      * protocols are different
      */
-    OUTGOING
+    OUTGOING;
+
+    /**
+     * @param parent parent directory
+     * @return Path to a directory which contains dictionaries with this type
+     */
+    public Path getDictionary(Path parent) {
+        return parent.resolve(name().toLowerCase());
+    }
 }
