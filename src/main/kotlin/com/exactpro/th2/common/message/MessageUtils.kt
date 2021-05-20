@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ fun Message.Builder.copyField(message: Message.Builder, key: String): Message.Bu
 
 
 /**
- * Accepts vararg with even size. It split to pair: the first value is used as key, the second value is used as value
+ * It accepts vararg with even size. It splits them to a pair: the first value is used as a key while the second value is used as a value
  */
 fun Message.Builder.addFields(vararg fields: Any?): Message.Builder = apply {
     for (i in fields.indices step 2) {
@@ -129,24 +129,19 @@ fun Message.toTreeTable(): TreeTable = TreeTableBuilder().apply {
     }
 }.build()
 
-private fun Value.toTreeTableEntry(): TreeTableEntry {
-    if (hasMessageValue()) {
-        val nestedMessageValue = messageValue
-        val collectionBuilder = CollectionBuilder()
-        for ((key, value) in nestedMessageValue.fieldsMap) {
-            collectionBuilder.row(key, value.toTreeTableEntry())
+private fun Value.toTreeTableEntry(): TreeTableEntry = when {
+    hasMessageValue() -> CollectionBuilder().apply {
+        for ((key, value) in messageValue.fieldsMap) {
+            row(key, value.toTreeTableEntry())
         }
-        return collectionBuilder.build()
-    }
-    if (hasListValue()) {
-        val collectionBuilder = CollectionBuilder()
+    }.build()
+    hasListValue() -> CollectionBuilder().apply {
         for ((index, nestedValue) in listValue.valuesList.withIndex()) {
             val nestedName = index.toString()
-            collectionBuilder.row(nestedName, nestedValue.toTreeTableEntry())
+            row(nestedName, nestedValue.toTreeTableEntry())
         }
-        return collectionBuilder.build()
-    }
-    return RowBuilder()
+    }.build()
+    else -> RowBuilder()
         .column(MessageTableColumn(simpleValue))
         .build()
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ fun MessageFilter.Builder.getField(key: String): ValueFilter? = getFieldsOrDefau
 fun MessageFilter.Builder.addField(key: String, value: Any?): MessageFilter.Builder = apply { putFields(key, value?.toValueFilter() ?: emptyValueFilter()) }
 
 /**
- * Accepts vararg with even size. It split to pair: the first value is used as key, the second value is used as value
+ * It accepts vararg with even size. It splits them to a pair: the first value is used as a key while the second value is used as a value
  */
 fun MessageFilter.Builder.addFields(vararg fields: Any?): MessageFilter.Builder = apply {
     for (i in fields.indices step 2) {

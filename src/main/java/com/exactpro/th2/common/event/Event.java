@@ -157,7 +157,7 @@ public class Event {
 
     /**
      * Sets event status if passed {@code eventStatus} isn't null.
-     * Default value is {@link Status#PASSED}
+     * The default value is {@link Status#PASSED}
      * @return current event
      */
     public Event status(Status eventStatus) {
@@ -168,7 +168,7 @@ public class Event {
     }
 
     /**
-     * Cretaes and adds new event with the same start / end time as current event
+     * Creates and adds a new event with the same start / end time as the current event
      * @return created event
      */
     @SuppressWarnings("NonBooleanMethodNameMayNotStartWithQuestion")
@@ -177,7 +177,7 @@ public class Event {
     }
 
     /**
-     * Adds passed event as sub event
+     * Adds passed event as a sub event
      * @return passed event
      * @throws NullPointerException if {@code subEvent} is null
      */
@@ -197,15 +197,16 @@ public class Event {
     }
 
     /**
-     * Adds exception with all the causes to the body data as series of messages
+     * Adds exception and optionally with all the causes to the body data as series of messages
+     * @param includeCauses if `true` attache messages for the caused of <code>throwable</code>
      * @return current event
      */
-    public Event exception(@NotNull Throwable throwable) {
+    public Event exception(@NotNull Throwable throwable, boolean includeCauses) {
         Throwable error = Objects.requireNonNull(throwable, "Throwable can't be null");
         do {
             bodyData(createMessageBean(error.toString()));
             error = error.getCause();
-        } while (error != null);
+        } while (includeCauses && error != null);
         return this;
     }
 
