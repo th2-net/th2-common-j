@@ -55,7 +55,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
     protected abstract Counter getContentCounter();
 
-    protected abstract int extractCountFrom(T message);
+    protected abstract int extractCountFrom(T batch);
 
     @Override
     public void send(T value) throws IOException {
@@ -70,7 +70,10 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             ConnectionManager connection = this.connectionManager.get();
             connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value));
 
-            if (LOGGER.isDebugEnabled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",
+                        exchangeName, sendQueue, toShortTraceString(value));
+            } else if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
                         exchangeName, sendQueue, toShortDebugString(value));
             }
@@ -78,6 +81,8 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             throw new IOException("Can not send message: " + toShortDebugString(value), e);
         }
     }
+
+    protected abstract String toShortTraceString(T value);
 
     protected abstract String toShortDebugString(T value);
 

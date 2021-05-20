@@ -39,19 +39,26 @@ class RabbitMessageGroupBatchSubscriber(
 
     override fun extractLabels(batch: MessageGroupBatch): Array<String> {
         val message = getMessages(batch)[0].messagesList[0]
-
-        return when {
-            message.hasMessage() -> getSessionAliasAndDirection(message.message.metadata.id)
-            message.hasRawMessage() -> getSessionAliasAndDirection(message.rawMessage.metadata.id)
-            else -> unknownLabels
-        }
+        return getSessionAliasAndDirection(message)
     }
 
     override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
     override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> = listOf(MessageGroupBatch.parseFrom(body))
     override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList
     override fun createBatch(messages: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(messages).build()
-    override fun toShortDebugString(value: MessageGroupBatch): String = value.toJson()
+    override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
+    override fun toShortDebugString(value: MessageGroupBatch): String = "MessageGroupBatch: " +
+        run {
+            val sessionAliasAndDirection = getSessionAliasAndDirection(value.groupsList[0].messagesList[0])
+            "session alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}"
+        } +
+        value.groupsList.flatMap { it.messagesList }.joinToString(prefix = ", sequences = ") {
+            when {
+                it.hasMessage() -> it.message.metadata.id.sequence.toString()
+                it.hasRawMessage() -> it.rawMessage.metadata.id.sequence.toString()
+                else -> ""
+            }
+        }
 
     override fun extractMetadata(messageGroup: MessageGroup): Metadata = throw UnsupportedOperationException()
 
@@ -87,6 +94,5 @@ class RabbitMessageGroupBatchSubscriber(
             .help("Quantity of incoming message groups")
             .register()
         private val MSG_GROUP_PROCESSING_TIME = Histogram.build("th2_mq_msg_group_processing_time", "Time of processing message groups").buckets(*DEFAULT_BUCKETS).register()
-        private val unknownLabels = arrayOf("unknown", "unknown")
     }
 }

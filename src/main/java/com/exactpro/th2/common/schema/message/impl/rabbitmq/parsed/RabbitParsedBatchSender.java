@@ -16,12 +16,17 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
+import static com.exactpro.th2.common.message.MessageUtils.getSessionAliasAndDirection;
+
+import java.util.stream.Collectors;
+
 import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroup;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
+
 import io.prometheus.client.Counter;
 
 public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> {
@@ -40,8 +45,8 @@ public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> 
     }
 
     @Override
-    protected int extractCountFrom(MessageBatch message) {
-        return message.getMessagesCount();
+    protected int extractCountFrom(MessageBatch batch) {
+        return batch.getMessagesCount();
     }
 
     @Override
@@ -60,7 +65,16 @@ public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> 
     }
 
     @Override
-    protected String toShortDebugString(MessageBatch value) {
+    protected String toShortTraceString(MessageBatch value) {
         return MessageUtils.toJson(value);
+    }
+
+    @Override
+    protected String toShortDebugString(MessageBatch value) {
+        String[] sessionAliasAndDirection = getSessionAliasAndDirection(value.getMessages(0).getMetadata().getId());
+        return String.format("MessageBatch: session_alias = %s, direction = %s, sequences = %s",
+                sessionAliasAndDirection[0],
+                sessionAliasAndDirection[1],
+                value.getMessagesList().stream().map(message -> Long.toString(message.getMetadata().getId().getSequence())).collect(Collectors.joining(", ")));
     }
 }

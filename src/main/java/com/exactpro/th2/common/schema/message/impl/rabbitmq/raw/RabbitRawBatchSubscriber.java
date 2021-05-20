@@ -29,6 +29,7 @@ import io.prometheus.client.Histogram;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.exactpro.th2.common.message.MessageUtils.getSessionAliasAndDirection;
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
@@ -119,8 +120,17 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
     }
 
     @Override
-    protected String toShortDebugString(RawMessageBatch value) {
+    protected String toShortTraceString(RawMessageBatch value) {
         return MessageUtils.toJson(value);
+    }
+
+    @Override
+    protected String toShortDebugString(RawMessageBatch value) {
+        String[] sessionAliasAndDirection = getSessionAliasAndDirection(value.getMessages(0).getMetadata().getId());
+        return String.format("RawMessageBatch: session_alias = %s, direction = %s, sequences = %s",
+                sessionAliasAndDirection[0],
+                sessionAliasAndDirection[1],
+                value.getMessagesList().stream().map(message -> Long.toString(message.getMetadata().getId().getSequence())).collect(Collectors.joining(", ")));
     }
 
     @Override

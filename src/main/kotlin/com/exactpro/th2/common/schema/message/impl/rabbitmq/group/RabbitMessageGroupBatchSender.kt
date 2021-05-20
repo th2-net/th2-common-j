@@ -17,6 +17,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import io.prometheus.client.Counter
@@ -24,9 +25,21 @@ import io.prometheus.client.Counter
 class RabbitMessageGroupBatchSender : AbstractRabbitSender<MessageGroupBatch>() {
     override fun getDeliveryCounter(): Counter = OUTGOING_MSG_GROUP_BATCH_QUANTITY
     override fun getContentCounter(): Counter = OUTGOING_MSG_GROUP_QUANTITY
-    override fun extractCountFrom(message: MessageGroupBatch): Int = message.groupsCount
+    override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
     override fun valueToBytes(value: MessageGroupBatch): ByteArray = value.toByteArray()
-    override fun toShortDebugString(value: MessageGroupBatch): String = value.toJson()
+    override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
+    override fun toShortDebugString(value: MessageGroupBatch): String = "MessageGroupBatch: " +
+        run {
+            val sessionAliasAndDirection = getSessionAliasAndDirection(value.groupsList[0].messagesList[0])
+            "session alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}"
+        } +
+        value.groupsList.flatMap { it.messagesList }.joinToString(prefix = ", sequences = ") {
+            when {
+                it.hasMessage() -> it.message.metadata.id.sequence.toString()
+                it.hasRawMessage() -> it.rawMessage.metadata.id.sequence.toString()
+                else -> ""
+            }
+        }
 
     companion object {
         private val OUTGOING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_batch_quantity", "Quantity of outgoing message group batches").register()

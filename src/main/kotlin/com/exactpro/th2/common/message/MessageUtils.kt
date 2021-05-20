@@ -214,8 +214,14 @@ var Message.Builder.sequence
         })
     }
 
-fun getSessionAliasAndDirection(messageID: MessageID): Array<String> {
-    return arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
+fun getSessionAliasAndDirection(messageID: MessageID): Array<String> = arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
+
+private val unknownLabels = arrayOf("unknown", "unknown")
+
+fun getSessionAliasAndDirection(anyMessage: AnyMessage): Array<String> = when {
+    anyMessage.hasMessage() -> getSessionAliasAndDirection(anyMessage.message.metadata.id)
+    anyMessage.hasRawMessage() -> getSessionAliasAndDirection(anyMessage.rawMessage.metadata.id)
+    else -> unknownLabels
 }
 
 @JvmOverloads

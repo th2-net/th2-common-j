@@ -37,8 +37,8 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
     }
 
     @Override
-    protected int extractCountFrom(EventBatch message) {
-        return message.getEventsCount();
+    protected int extractCountFrom(EventBatch batch) {
+        return batch.getEventsCount();
     }
 
     @Override
@@ -47,7 +47,12 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
     }
 
     @Override
-    protected String toShortDebugString(EventBatch value) {
+    protected String toShortTraceString(EventBatch value) {
         return MessageUtils.toJson(value);
+    }
+
+    @Override
+    protected String toShortDebugString(EventBatch value) {
+        return String.format("EventBatch: parent_event_id = %s", value.getParentEventId().getId());
     }
 }

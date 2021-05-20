@@ -124,6 +124,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract List<T> valueFromBytes(byte[] body) throws Exception;
 
+    protected abstract String toShortTraceString(T value);
+
     protected abstract String toShortDebugString(T value);
 
     @Nullable
@@ -162,8 +164,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     contentCounter.labels(extractLabels(value)).inc(extractCountFrom(value));
                 }
 
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("The received message {}", toShortDebugString(value));
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Received message: {}", toShortTraceString(value));
+                } else if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("Received message: {}", toShortDebugString(value));
                 }
 
                 var filteredValue = filter(value);
