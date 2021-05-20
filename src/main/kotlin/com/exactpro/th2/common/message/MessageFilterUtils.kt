@@ -70,12 +70,12 @@ fun MessageFilter.copy(): MessageFilter.Builder = MessageFilter.newBuilder().put
 fun MessageFilter.Builder.copy(): MessageFilter.Builder = MessageFilter.newBuilder().putAllFields(fieldsMap)
 
 fun RootMessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
-    row("Message type", RowBuilder()
+    row("message-type", RowBuilder()
         .column(MessageTypeColumn(messageType))
         .build())
-    row("Message filter", messageFilter.toTreeTableEntry())
-    row("Metadata filter", metadataFilter.toTreeTableEntry())
-    row("Comparison settings", comparisonSettings.toTreeTableEntry())
+    row("message-filter", messageFilter.toTreeTableEntry())
+    row("metadata-filter", metadataFilter.toTreeTableEntry())
+    row("comparison-settings", comparisonSettings.toTreeTableEntry())
 }.build()
 
 fun MessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
@@ -97,12 +97,14 @@ private fun MetadataFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilde
 }.build()
 
 private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
-    for ((index, nestedValue) in ignoreFieldsList.withIndex()) {
-        val nestedName = index.toString()
-        row(nestedName, RowBuilder()
-            .column(IgnoreFieldColumn(nestedValue))
-            .build())
-    }
+    row("ignore-fields", CollectionBuilder().apply {
+        for ((index, nestedValue) in ignoreFieldsList.withIndex()) {
+            val nestedName = index.toString()
+            row(nestedName, RowBuilder()
+                .column(IgnoreFieldColumn(nestedValue))
+                .build())
+        }
+    }.build())
 }.build()
 
 private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
@@ -113,7 +115,7 @@ private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuild
 }.build()
 
 private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = RowBuilder()
-    .column(MessageFilterTableColumn(value, operation.toString(), BooleanUtils.toStringYesNo(key)))
+    .column(MessageFilterTableColumn(value, operation.toString(), key))
     .build()
 
 private fun ValueFilter.toTreeTableEntry(): TreeTableEntry {
@@ -124,10 +126,10 @@ private fun ValueFilter.toTreeTableEntry(): TreeTableEntry {
         return listFilter.toTreeTableEntry()
     }
     return RowBuilder()
-        .column(MessageFilterTableColumn(simpleFilter, operation.toString(), BooleanUtils.toStringYesNo(key)))
+        .column(MessageFilterTableColumn(simpleFilter, operation.toString(), key))
         .build()
 }
 
-internal data class MessageFilterTableColumn(val expected: String, val operation: String, val key: String) : IColumn
+internal data class MessageFilterTableColumn(val expected: String, val operation: String, val key: Boolean) : IColumn
 internal data class MessageTypeColumn(val type: String) : IColumn
 internal data class IgnoreFieldColumn(val name: String) : IColumn

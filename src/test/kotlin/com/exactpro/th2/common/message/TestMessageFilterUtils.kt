@@ -31,9 +31,33 @@ class TestMessageFilterUtils {
     private val objectMapper = ObjectMapper()
 
     //FIXME: Implement converter from RootMessageFilter to JSON
-    private val fieldFiltersJson: String = """"NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":"no"}},"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":"yes"}},"SimpleCollection":{"type":"collection","rows":{"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":"no"}},"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":"no"}"""
-    private val messageFilterJson: String = """{"type":"treeTable","rows":{"MessageCollection":{"type":"collection","rows":{"0":{"type":"collection","rows":{${fieldFiltersJson}}}}}},"1":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}},"Message":{"type":"collection","rows":{${fieldFiltersJson}}}}}},"MessageTree":{"type":"collection","rows":{"subMessageA":{"type":"collection","rows":{"subMessageB":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}}}},${fieldFiltersJson}}}}}}"""
-    private val rootMessageFilterJson: String = """{"type":"treeTable","rows":{"Message filter":{"type":"collection","rows":{"MessageCollection":{"type":"collection","rows":{"0":{"type":"collection","rows":{"NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":"no"}},"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":"yes"}},"SimpleCollection":{"type":"collection","rows":{"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":"no"}},"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":"no"}}}}}},"1":{"type":"collection","rows":{"NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":"no"}},"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":"yes"}},"SimpleCollection":{"type":"collection","rows":{"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":"no"}},"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":"no"}}}}}}}},"Message":{"type":"collection","rows":{"NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":"no"}},"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":"yes"}},"SimpleCollection":{"type":"collection","rows":{"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":"no"}},"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":"no"}}}}}},"MessageTree":{"type":"collection","rows":{"subMessageA":{"type":"collection","rows":{"subMessageB":{"type":"collection","rows":{"NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":"no"}},"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":"yes"}},"SimpleCollection":{"type":"collection","rows":{"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":"no"}},"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":"no"}}}}}}}}}},"NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":"no"}},"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":"yes"}},"SimpleCollection":{"type":"collection","rows":{"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":"no"}},"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":"no"}}}}}},"Metadata filter":{"type":"collection","rows":{"propA":{"type":"row","columns":{"expected":"valB","operation":"EQUAL","key":"no"}}}},"Message type":{"type":"row","columns":{"type":"MsgType"}},"Comparison settings":{"type":"collection","rows":{"0":{"type":"row","columns":{"name":"fieldA"}},"1":{"type":"row","columns":{"name":"fieldB"}}}}}}"""
+    private val fieldFiltersJson = """"
+        |NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":false}},
+        |"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":true}},
+        |"SimpleCollection":{"type":"collection","rows":{
+            |"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":false}},
+            |"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":false}""".trimMargin().replace("\n", "")
+    private val messageFilterBodyJson = """"
+        |rows":{
+            |"MessageCollection":{"type":"collection","rows":{
+                |"0":{"type":"collection","rows":{${fieldFiltersJson}}}}}},
+                |"1":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}},
+            |"Message":{"type":"collection","rows":{${fieldFiltersJson}}}}}},
+            |"MessageTree":{"type":"collection","rows":{
+                |"subMessageA":{"type":"collection","rows":{
+                    |"subMessageB":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}}}},${fieldFiltersJson}}}}}""".trimMargin().replace("\n", "")
+    private val messageFilterJson = """{"type":"treeTable",$messageFilterBodyJson}"""
+    private val rootMessageFilterJson = """
+        |{"type":"treeTable","rows":{
+            |"message-filter":{"type":"collection",$messageFilterBodyJson},
+            |"message-type":{"type":"row","columns":{"type":"MsgType"}},
+            |"comparison-settings":{"type":"collection","rows":{
+                |"ignore-fields":{"type":"collection","rows":{
+                    |"0":{"type":"row","columns":{"name":"fieldA"}},
+                    |"1":{"type":"row","columns":{"name":"fieldB"}}}}}},
+            |"metadata-filter":{"type":"collection","rows":{
+                |"propB":{"type":"row","columns":{"expected":"valB","operation":"EQUAL","key":false}},
+                |"propA":{"type":"row","columns":{"expected":"valA","operation":"NOT_EQUAL","key":true}}}}}}""".trimMargin().replace("\n", "")
 
     @Test
     fun `valid message filter to tree table conversion`() {
@@ -49,7 +73,7 @@ class TestMessageFilterUtils {
             messageFilter = createMessageFilter()
             metadataFilterBuilder.apply {
                 putPropertyFilters("propA", simplePropertyFilter("valA", NOT_EQUAL, true))
-                putPropertyFilters("propA", simplePropertyFilter("valB"))
+                putPropertyFilters("propB", simplePropertyFilter("valB"))
             }
             comparisonSettingsBuilder.apply {
                 addIgnoreFields("fieldA")
