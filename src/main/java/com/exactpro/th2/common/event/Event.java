@@ -197,7 +197,7 @@ public class Event {
     }
 
     /**
-     * Adds exception with all causes to the body data as series of messages
+     * Adds exception with all the causes to the body data as series of messages
      * @return current event
      */
     public Event exception(@NotNull Throwable throwable) {
