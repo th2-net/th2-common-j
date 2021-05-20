@@ -445,12 +445,21 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read dictionary
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
-
         try {
+            List<Path> dictionaries = null;
+            Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
+            if (Files.exists(dictionaryTypeDictionary) && Files.isDirectory(dictionaryTypeDictionary)) {
+                dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
+                        .filter(Files::isRegularFile)
+                        .collect(Collectors.toList());
+            }
 
-            var dictionaries = Files.list(getPathToDictionariesDir())
-                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
-                    .collect(Collectors.toList());
+            // Find with old format
+            if (dictionaries == null || dictionaries.isEmpty()) {
+                dictionaries = Files.list(getOldPathToDictionariesDir())
+                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+                        .collect(Collectors.toList());
+            }
 
             if (dictionaries.isEmpty()) {
                 throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
@@ -500,6 +509,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @return Path to dictionary
      */
     protected abstract Path getPathToDictionariesDir();
+
+    protected abstract Path getOldPathToDictionariesDir();
 
     /**
      * @return Path to configuration for prometheus server
