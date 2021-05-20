@@ -1,4 +1,4 @@
-# th2 common library (Java) (2.17.2)
+# th2 common library (Java) (2.18.0)
 
 ## Usage
 
@@ -152,6 +152,7 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (2.18.0) - added features: ability to get service from gRPC router via attributes, reading dictionary from new directory (`var/th2/config/directory`) 
 * (2.17.2) - fix bug with filtering messages by `message_type`
 * (2.17.0) - added toProtoEvent(EventID) and toProtoEvents(EventID) overloads into the Event class  
 * (2.15.0) - tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
