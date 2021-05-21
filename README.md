@@ -154,7 +154,7 @@ NOTES:
 ## Release notes
 * (2.19.0) - Extended Utility classes
     * Added the toTreeTable method to convert message/message filter to event data
-    * Added the Event.exception method to add exception and optionally all the causes to the body data as series of messages
+    * Added the Event.exception method to include an exception and optionally all the causes to the body data as a series of messages
 * (2.18.0) - added features: ability to get service from gRPC router via attributes, reading dictionary from new directory (`var/th2/config/directory`) 
 * (2.17.2) - fix bug with filtering messages by `message_type`
 * (2.17.0) - added toProtoEvent(EventID) and toProtoEvents(EventID) overloads into the Event class  
