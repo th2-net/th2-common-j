@@ -126,6 +126,6 @@ private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
         .build()
 }
 
-internal data class MessageFilterTableColumn(val expected: String, val operation: String, val key: Boolean) : IColumn
-internal data class MessageTypeColumn(val type: String) : IColumn
-internal data class IgnoreFieldColumn(val name: String) : IColumn
+private data class MessageFilterTableColumn(val expected: String, val operation: String, val key: Boolean) : IColumn
+private data class MessageTypeColumn(val type: String) : IColumn
+private data class IgnoreFieldColumn(val name: String) : IColumn
