@@ -197,7 +197,7 @@ public class Event {
     }
 
     /**
-     * Adds exception and optionally all the causes to the body data as series of messages
+     * Adds the passed exception and optionally all the causes to the body data as a series of messages
      * @param includeCauses if `true` attache messages for the caused of <code>throwable</code>
      * @return current event
      */
