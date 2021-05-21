@@ -51,7 +51,7 @@ fun MessageFilter.Builder.getField(key: String): ValueFilter? = getFieldsOrDefau
 fun MessageFilter.Builder.addField(key: String, value: Any?): MessageFilter.Builder = apply { putFields(key, value?.toValueFilter() ?: emptyValueFilter()) }
 
 /**
- * It accepts vararg with even size. It splits them to a pair: the first value is used as a key while the second value is used as a value
+ * It accepts vararg with even size and splits it into pairs where the first value of a pair is used as a key while the second is used as a value
  */
 fun MessageFilter.Builder.addFields(vararg fields: Any?): MessageFilter.Builder = apply {
     for (i in fields.indices step 2) {
@@ -98,7 +98,7 @@ private fun MetadataFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilde
 
 private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
     row("ignore-fields", CollectionBuilder().apply {
-        for ((index, nestedValue) in ignoreFieldsList.withIndex()) {
+        ignoreFieldsList.forEachIndexed { index, nestedValue ->  
             val nestedName = index.toString()
             row(nestedName, RowBuilder()
                 .column(IgnoreFieldColumn(nestedValue))
@@ -108,7 +108,7 @@ private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = Collecti
 }.build()
 
 private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
-    for ((index, nestedValue) in valuesList.withIndex()) {
+    valuesList.forEachIndexed { index, nestedValue ->
         val nestedName = index.toString()
         row(nestedName, nestedValue.toTreeTableEntry())
     }
@@ -118,14 +118,10 @@ private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = RowBuilder()
     .column(MessageFilterTableColumn(value, operation.toString(), key))
     .build()
 
-private fun ValueFilter.toTreeTableEntry(): TreeTableEntry {
-    if (hasMessageFilter()) {
-        return messageFilter.toTreeTableEntry()
-    }
-    if (hasListFilter()) {
-        return listFilter.toTreeTableEntry()
-    }
-    return RowBuilder()
+private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
+    hasMessageFilter() -> messageFilter.toTreeTableEntry()
+    hasListFilter() -> listFilter.toTreeTableEntry()
+    else -> RowBuilder()
         .column(MessageFilterTableColumn(simpleFilter, operation.toString(), key))
         .build()
 }

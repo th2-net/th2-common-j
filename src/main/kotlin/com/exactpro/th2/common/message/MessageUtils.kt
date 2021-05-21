@@ -79,7 +79,7 @@ fun Message.Builder.copyField(message: Message.Builder, key: String): Message.Bu
 
 
 /**
- * It accepts vararg with even size. It splits them to a pair: the first value is used as a key while the second value is used as a value
+ * It accepts vararg with even size and splits it into pairs where the first value of a pair is used as a key while the second is used as a value
  */
 fun Message.Builder.addFields(vararg fields: Any?): Message.Builder = apply {
     for (i in fields.indices step 2) {
@@ -136,7 +136,7 @@ private fun Value.toTreeTableEntry(): TreeTableEntry = when {
         }
     }.build()
     hasListValue() -> CollectionBuilder().apply {
-        for ((index, nestedValue) in listValue.valuesList.withIndex()) {
+        listValue.valuesList.forEachIndexed { index, nestedValue ->
             val nestedName = index.toString()
             row(nestedName, nestedValue.toTreeTableEntry())
         }

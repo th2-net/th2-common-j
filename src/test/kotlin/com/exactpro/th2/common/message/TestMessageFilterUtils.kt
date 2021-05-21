@@ -122,14 +122,10 @@ class TestMessageFilterUtils {
     private fun messageFilter(filterOperation: FilterOperation = EQUAL, isKey: Boolean = false, block: MessageFilter.Builder.() -> Unit) = ValueFilter.newBuilder().apply {
         operation = filterOperation
         key = isKey
-        with(messageFilterBuilder) {
-            block()
-        }
+        messageFilterBuilder.block()
     }.build()
 
     private fun listFilter(vararg values: ValueFilter) = ValueFilter.newBuilder().apply {
-        with(listFilterBuilder) {
-            addAllValues(values.toList())
-        }
+        listFilterBuilder.addAllValues(values.toList())
     }.build()
 }
