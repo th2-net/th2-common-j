@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,12 @@
 
 package com.exactpro.th2.common.message
 
+import com.exactpro.th2.common.event.bean.IColumn
+import com.exactpro.th2.common.event.bean.TreeTable
+import com.exactpro.th2.common.event.bean.TreeTableEntry
+import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
+import com.exactpro.th2.common.event.bean.builder.RowBuilder
+import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
 import com.exactpro.th2.common.value.getDouble
@@ -73,7 +79,7 @@ fun Message.Builder.copyField(message: Message.Builder, key: String): Message.Bu
 
 
 /**
- * Accepts vararg with even size. It split to pair: the first value is used as key, the second value is used as value
+ * It accepts vararg with even size and splits it into pairs where the first value of a pair is used as a key while the second is used as a value
  */
 fun Message.Builder.addFields(vararg fields: Any?): Message.Builder = apply {
     for (i in fields.indices step 2) {
@@ -116,3 +122,28 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
+
+fun Message.toTreeTable(): TreeTable = TreeTableBuilder().apply {
+    for ((key, value) in fieldsMap) {
+        row(key, value.toTreeTableEntry())
+    }
+}.build()
+
+private fun Value.toTreeTableEntry(): TreeTableEntry = when {
+    hasMessageValue() -> CollectionBuilder().apply {
+        for ((key, value) in messageValue.fieldsMap) {
+            row(key, value.toTreeTableEntry())
+        }
+    }.build()
+    hasListValue() -> CollectionBuilder().apply {
+        listValue.valuesList.forEachIndexed { index, nestedValue ->
+            val nestedName = index.toString()
+            row(nestedName, nestedValue.toTreeTableEntry())
+        }
+    }.build()
+    else -> RowBuilder()
+        .column(MessageTableColumn(simpleValue))
+        .build()
+}
+
+internal data class MessageTableColumn(val fieldValue: String) : IColumn
