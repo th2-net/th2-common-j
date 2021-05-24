@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
-import static com.exactpro.th2.common.message.MessageUtils.getDebustring;
+import static com.exactpro.th2.common.message.MessageUtils.getDebugString;
 
 import java.util.stream.Collectors;
 
@@ -71,7 +71,7 @@ public class RabbitParsedBatchSender extends AbstractRabbitSender<MessageBatch> 
 
     @Override
     protected String toShortDebugString(MessageBatch value) {
-        return getDebustring(getClass().getSimpleName(),
+        return getDebugString(getClass().getSimpleName(),
                 value.getMessagesList().stream().map(message -> message.getMetadata().getId()).collect(Collectors.toList()));
     }
 }

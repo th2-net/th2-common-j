@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
-import static com.exactpro.th2.common.message.MessageUtils.getDebustring;
+import static com.exactpro.th2.common.message.MessageUtils.getDebugString;
 import static com.exactpro.th2.common.message.MessageUtils.getSessionAliasAndDirection;
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_DIRECTION_LABEL_NAME;
@@ -126,7 +126,7 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
 
     @Override
     protected String toShortDebugString(MessageBatch value) {
-        return getDebustring(getClass().getSimpleName(),
+        return getDebugString(getClass().getSimpleName(),
                 value.getMessagesList().stream().map(message -> message.getMetadata().getId()).collect(Collectors.toList()));
     }
 

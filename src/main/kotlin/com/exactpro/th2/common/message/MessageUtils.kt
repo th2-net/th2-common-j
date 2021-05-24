@@ -224,7 +224,7 @@ fun getSessionAliasAndDirection(anyMessage: AnyMessage): Array<String> = when {
     else -> unknownLabels
 }
 
-fun getDebustring(className: String, ids: List<MessageID>): String {
+fun getDebugString(className: String, ids: List<MessageID>): String {
     val sessionAliasAndDirection = getSessionAliasAndDirection(ids[0])
     val sequences = ids.joinToString { it.sequence.toString() }
     return "$className: session_alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}, sequnces = $sequences"
