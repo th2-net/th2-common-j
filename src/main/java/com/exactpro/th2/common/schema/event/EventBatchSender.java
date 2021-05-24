@@ -53,6 +53,6 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
 
     @Override
     protected String toShortDebugString(EventBatch value) {
-        return String.format("EventBatch: parent_event_id = %s", value.getParentEventId().getId());
+        return "EventBatch: parent_event_id = " + value.getParentEventId().getId();
     }
 }

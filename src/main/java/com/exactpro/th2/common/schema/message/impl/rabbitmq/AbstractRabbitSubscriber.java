@@ -160,8 +160,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     counter.inc();
                     contentCounter.inc(extractCountFrom(value));
                 } else {
-                    counter.labels(extractLabels(value)).inc();
-                    contentCounter.labels(extractLabels(value)).inc(extractCountFrom(value));
+                    counter.labels(labels).inc();
+                    contentCounter.labels(labels).inc(extractCountFrom(value));
                 }
 
                 if (LOGGER.isTraceEnabled()) {

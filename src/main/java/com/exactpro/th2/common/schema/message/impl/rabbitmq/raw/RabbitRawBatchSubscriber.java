@@ -15,6 +15,16 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
+import static com.exactpro.th2.common.message.MessageUtils.getDebustring;
+import static com.exactpro.th2.common.message.MessageUtils.getSessionAliasAndDirection;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_DIRECTION_LABEL_NAME;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_SESSION_ALIAS_LABEL_NAME;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -24,17 +34,9 @@ import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
+
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static com.exactpro.th2.common.message.MessageUtils.getSessionAliasAndDirection;
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_DIRECTION_LABEL_NAME;
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_SESSION_ALIAS_LABEL_NAME;
 
 public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawMessage, RawMessageBatch> {
 
@@ -126,11 +128,8 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
 
     @Override
     protected String toShortDebugString(RawMessageBatch value) {
-        String[] sessionAliasAndDirection = getSessionAliasAndDirection(value.getMessages(0).getMetadata().getId());
-        return String.format("RawMessageBatch: session_alias = %s, direction = %s, sequences = %s",
-                sessionAliasAndDirection[0],
-                sessionAliasAndDirection[1],
-                value.getMessagesList().stream().map(message -> Long.toString(message.getMetadata().getId().getSequence())).collect(Collectors.joining(", ")));
+        return getDebustring(getClass().getSimpleName(),
+                value.getMessagesList().stream().map(message -> message.getMetadata().getId()).collect(Collectors.toList()));
     }
 
     @Override

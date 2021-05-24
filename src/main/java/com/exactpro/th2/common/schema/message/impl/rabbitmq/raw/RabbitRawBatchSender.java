@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
-import static com.exactpro.th2.common.message.MessageUtils.getSessionAliasAndDirection;
+import static com.exactpro.th2.common.message.MessageUtils.getDebustring;
 
 import java.util.stream.Collectors;
 
@@ -69,10 +69,7 @@ public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> 
 
     @Override
     protected String toShortDebugString(RawMessageBatch value) {
-        String[] sessionAliasAndDirection = getSessionAliasAndDirection(value.getMessages(0).getMetadata().getId());
-        return String.format("RawMessageBatch: session_alias = %s, direction = %s, sequences = %s",
-                sessionAliasAndDirection[0],
-                sessionAliasAndDirection[1],
-                value.getMessagesList().stream().map(message -> Long.toString(message.getMetadata().getId().getSequence())).collect(Collectors.joining(", ")));
+        return getDebustring(getClass().getSimpleName(),
+                value.getMessagesList().stream().map(message -> message.getMetadata().getId()).collect(Collectors.toList()));
     }
 }
