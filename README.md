@@ -191,6 +191,7 @@ NOTES:
 ### 3.15.0
 
 + add `session alias` and `direction` labels to incoming metrics
++ rework logging for incoming and outgoing messages
 
 ### 3.14.0
 
@@ -198,11 +199,11 @@ NOTES:
 
 ### 3.13.6
 
-+ resets embedded `log4j` configuration before configuring from a file
++ resets embedded `log4j` configuration before configuring it from a file
 
 ### 3.13.5 
 
-+ fix bug with message filtering by `message_type`
++ fix a bug with message filtering by `message_type`
 
 ### 3.13.4
 
