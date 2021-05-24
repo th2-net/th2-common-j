@@ -28,7 +28,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     * --grpcRouterConfiguration - path to json file with configuration for GrpcRouter
     * --cradleConfiguration - path to json file with configuration for Cradle
     * --customConfiguration - path to json file with custom configuration
-    * --dictionariesDir - path to directory which contains files with encoded dictionaries
+    * --dictionariesDir - path to the directory which contains files with the encoded dictionaries
     * --prometheusConfiguration - path to json file with configuration for prometheus metrics server
     * --boxConfiguration - path to json file with boxes configuration and information
     * -c/--configs - folder with json files for schemas configurations with special names:
