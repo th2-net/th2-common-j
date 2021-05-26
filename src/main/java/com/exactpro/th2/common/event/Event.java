@@ -15,6 +15,7 @@
  */
 package com.exactpro.th2.common.event;
 
+import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
@@ -25,6 +26,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -131,7 +133,7 @@ public class Event {
             if (this.description != null) {
                 throw new IllegalStateException(formatStateException("Description", this.description));
             }
-            body.add(0, EventUtils.createMessageBean(description));
+            body.add(0, createMessageBean(description));
             this.description = description;
         }
         return this;
@@ -155,7 +157,7 @@ public class Event {
 
     /**
      * Sets event status if passed {@code eventStatus} isn't null.
-     * Default value is {@link Status#PASSED}
+     * The default value is {@link Status#PASSED}
      * @return current event
      */
     public Event status(Status eventStatus) {
@@ -166,7 +168,7 @@ public class Event {
     }
 
     /**
-     * Cretaes and adds new event with the same start / end time as current event
+     * Creates and adds a new event with the same start / end time as the current event
      * @return created event
      */
     @SuppressWarnings("NonBooleanMethodNameMayNotStartWithQuestion")
@@ -175,7 +177,7 @@ public class Event {
     }
 
     /**
-     * Adds passed event as sub event
+     * Adds passed event as a sub event
      * @return passed event
      * @throws NullPointerException if {@code subEvent} is null
      */
@@ -191,6 +193,20 @@ public class Event {
      */
     public Event bodyData(IBodyData bodyData) {
         body.add(requireNonNull(bodyData, "Body data can't be null"));
+        return this;
+    }
+
+    /**
+     * Adds the passed exception and optionally all the causes to the body data as a series of messages
+     * @param includeCauses if `true` attache messages for the caused of <code>throwable</code>
+     * @return current event
+     */
+    public Event exception(@NotNull Throwable throwable, boolean includeCauses) {
+        Throwable error = Objects.requireNonNull(throwable, "Throwable can't be null");
+        do {
+            bodyData(createMessageBean(error.toString()));
+            error = error.getCause();
+        } while (includeCauses && error != null);
         return this;
     }
 
