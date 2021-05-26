@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,12 +29,20 @@ import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
 
-    private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_incoming_event_batch_quantity", "Quantity of incoming event batches").register();
-    private static final Counter INCOMING_EVENT_QUANTITY = Counter.build("th2_mq_incoming_event_quantity", "Quantity of incoming events").register();
+    private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_event_batch_quantity")
+            .help("Quantity of incoming event batches")
+            .register();
+    private static final Counter INCOMING_EVENT_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_event_quantity")
+            .help("Quantity of incoming events")
+            .register();
     private static final Histogram EVENT_PROCESSING_TIME = Histogram.build()
             .buckets(DEFAULT_BUCKETS)
             .name("th2_mq_event_processing_time")
-            .help("Time of processing events").register();
+            .help("Time of processing events")
+            .register();
+    private static final String[] NO_LABELS = {};
 
     @Override
     protected Counter getDeliveryCounter() {
@@ -52,8 +60,13 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected int extractCountFrom(EventBatch message) {
-        return message.getEventsCount();
+    protected String[] extractLabels(EventBatch batch) {
+        return NO_LABELS;
+    }
+
+    @Override
+    protected int extractCountFrom(EventBatch batch) {
+        return batch.getEventsCount();
     }
 
     @Override
@@ -62,8 +75,13 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected String toShortDebugString(EventBatch value) {
+    protected String toShortTraceString(EventBatch value) {
         return toJson(value);
+    }
+
+    @Override
+    protected String toShortDebugString(EventBatch value) {
+        return "EventBatch: parent_event_id = " + value.getParentEventId().getId();
     }
 
     @Nullable

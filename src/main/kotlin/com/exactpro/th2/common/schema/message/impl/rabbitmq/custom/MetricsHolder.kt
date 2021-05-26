@@ -22,7 +22,8 @@ import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 
 class MetricsHolder(
-    customTag: String
+    customTag: String,
+    labels: Array<String>
 ) {
     val incomingDeliveryCounter: Counter
     val incomingDataCounter: Counter
@@ -35,10 +36,12 @@ class MetricsHolder(
 
         incomingDeliveryCounter = Counter.build()
             .name("th2_mq_incoming_${tag}_delivery_quantity")
+            .labelNames(*labels)
             .help("The received Rabbit MQ delivery quantity")
             .register()
         incomingDataCounter = Counter.build()
             .name("th2_mq_incoming_${tag}_data_quantity")
+            .labelNames(*labels)
             .help("The received data quantity")
             .register()
         outgoingDeliveryCounter = Counter.build()

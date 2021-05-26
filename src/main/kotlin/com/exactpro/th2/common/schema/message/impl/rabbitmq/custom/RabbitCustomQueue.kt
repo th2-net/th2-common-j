@@ -71,6 +71,7 @@ class RabbitCustomQueue<T : Any>(
     ) : AbstractRabbitSender<T>() {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
+        override fun toShortTraceString(value: T): String = converter.toTraceString(value)
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)
 
         //region Prometheus stats
@@ -78,7 +79,7 @@ class RabbitCustomQueue<T : Any>(
 
         override fun getContentCounter(): Counter = dataCounter
 
-        override fun extractCountFrom(message: T): Int = converter.extractCount(message)
+        override fun extractCountFrom(batch: T): Int = converter.extractCount(batch)
         //endregion
     }
 
@@ -90,6 +91,7 @@ class RabbitCustomQueue<T : Any>(
     ) : AbstractRabbitSubscriber<T>() {
         override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
 
+        override fun toShortTraceString(value: T): String = converter.toTraceString(value)
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)
 
         // FIXME: the filtering is not working for custom objects
@@ -102,7 +104,10 @@ class RabbitCustomQueue<T : Any>(
 
         override fun getProcessingTimer(): Histogram = timer
 
-        override fun extractCountFrom(message: T): Int = converter.extractCount(message)
+        override fun extractCountFrom(batch: T): Int = converter.extractCount(batch)
+
+        override fun extractLabels(batch: T): Array<String> = converter.getLabels(batch)
+
         //endregion
     }
 }

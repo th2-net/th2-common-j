@@ -23,10 +23,11 @@ import org.junit.jupiter.api.assertAll
 class TestMessageConverterLambdaDelegate {
     @Test
     fun `all methods return expected value`() {
-        val converter: MessageConverter<Byte> = MessageConverter.create({ byteArrayOf(it) }, { it[0] }, { "Value$it" }, { it.toInt() })
+        val converter: MessageConverter<Byte> = MessageConverter.create({ byteArrayOf(it) }, { it[0] }, { "Value$it" }, { "Value$it" }, { it.toInt() })
         assertAll(
             { assertArrayEquals(byteArrayOf(42), converter.toByteArray(42)) },
             { assertEquals(42, converter.fromByteArray(byteArrayOf(42))) },
+            { assertEquals("Value42", converter.toTraceString(42)) },
             { assertEquals("Value42", converter.toDebugString(42)) },
             { assertEquals(42, converter.extractCount(42)) }
         )
@@ -34,10 +35,11 @@ class TestMessageConverterLambdaDelegate {
 
     @Test
     fun `default extract count is 1`() {
-        val converter: MessageConverter<Byte> = MessageConverter.create({ byteArrayOf(it) }, { it[0] }, { "Value$it" })
+        val converter: MessageConverter<Byte> = MessageConverter.create({ byteArrayOf(it) }, { it[0] }, { "Value$it" }, { "Value$it" })
         assertAll(
             { assertArrayEquals(byteArrayOf(42), converter.toByteArray(42)) },
             { assertEquals(42, converter.fromByteArray(byteArrayOf(42))) },
+            { assertEquals("Value42", converter.toTraceString(42)) },
             { assertEquals("Value42", converter.toDebugString(42)) },
             { assertEquals(1, converter.extractCount(42)) }
         )

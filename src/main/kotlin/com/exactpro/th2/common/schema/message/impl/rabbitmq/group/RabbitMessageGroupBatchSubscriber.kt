@@ -17,8 +17,11 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
+import com.exactpro.th2.common.metrics.DEFAULT_DIRECTION_LABEL_NAME
+import com.exactpro.th2.common.metrics.DEFAULT_SESSION_ALIAS_LABEL_NAME
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
 import io.prometheus.client.Counter
@@ -33,11 +36,29 @@ class RabbitMessageGroupBatchSubscriber(
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
     override fun getContentCounter(): Counter = INCOMING_MSG_GROUP_QUANTITY
     override fun getProcessingTimer(): Histogram = MSG_GROUP_PROCESSING_TIME
-    override fun extractCountFrom(message: MessageGroupBatch): Int = message.groupsCount
+
+    override fun extractLabels(batch: MessageGroupBatch): Array<String> {
+        val message = getMessages(batch)[0].messagesList[0]
+        return getSessionAliasAndDirection(message)
+    }
+
+    override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
     override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> = listOf(MessageGroupBatch.parseFrom(body))
     override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList
     override fun createBatch(messages: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(messages).build()
-    override fun toShortDebugString(value: MessageGroupBatch): String = value.toJson()
+    override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
+    override fun toShortDebugString(value: MessageGroupBatch): String = "MessageGroupBatch: " +
+        run {
+            val sessionAliasAndDirection = getSessionAliasAndDirection(value.groupsList[0].messagesList[0])
+            "session alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}"
+        } +
+        value.groupsList.flatMap { it.messagesList }.joinToString(prefix = ", sequences = ") {
+            when {
+                it.hasMessage() -> it.message.metadata.id.sequence.toString()
+                it.hasRawMessage() -> it.rawMessage.metadata.id.sequence.toString()
+                else -> ""
+            }
+        }
 
     override fun extractMetadata(messageGroup: MessageGroup): Metadata = throw UnsupportedOperationException()
 
@@ -62,8 +83,16 @@ class RabbitMessageGroupBatchSubscriber(
     }
 
     companion object {
-        private val INCOMING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_incoming_msg_group_batch_quantity", "Quantity of incoming message group batches").register()
-        private val INCOMING_MSG_GROUP_QUANTITY = Counter.build("th2_mq_incoming_msg_group_quantity", "Quantity of incoming message groups").register()
+        private val INCOMING_MSG_GROUP_BATCH_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_msg_group_batch_quantity")
+            .labelNames(DEFAULT_SESSION_ALIAS_LABEL_NAME, DEFAULT_DIRECTION_LABEL_NAME)
+            .help("Quantity of incoming message group batches")
+            .register()
+        private val INCOMING_MSG_GROUP_QUANTITY = Counter.build()
+            .name("th2_mq_incoming_msg_group_quantity")
+            .labelNames(DEFAULT_SESSION_ALIAS_LABEL_NAME, DEFAULT_DIRECTION_LABEL_NAME)
+            .help("Quantity of incoming message groups")
+            .register()
         private val MSG_GROUP_PROCESSING_TIME = Histogram.build("th2_mq_msg_group_processing_time", "Time of processing message groups").buckets(*DEFAULT_BUCKETS).register()
     }
 }

@@ -324,10 +324,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Registers custom message router.
      *
-     * Unlike the {@link #registerCustomMessageRouter(Class, MessageConverter, Set, Set)} the registered router won't have any additional pins attributes
+     * Unlike the {@link #registerCustomMessageRouter(Class, MessageConverter, Set, Set, String...)} the registered router won't have any additional pins attributes
      * except {@link QueueAttribute#SUBSCRIBE} for subscribe methods and {@link QueueAttribute#PUBLISH} for send methods
      *
-     * @see #registerCustomMessageRouter(Class, MessageConverter, Set, Set)
+     * @see #registerCustomMessageRouter(Class, MessageConverter, Set, Set, String...)
      */
     public <T> void registerCustomMessageRouter(
             Class<T> messageClass,
@@ -350,7 +350,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             Class<T> messageClass,
             MessageConverter<T> messageConverter,
             Set<String> defaultSendAttributes,
-            Set<String> defaultSubscribeAttributes
+            Set<String> defaultSubscribeAttributes,
+            String... labels
     ) {
         customMessageRouters.compute(
                 messageClass,
@@ -358,7 +359,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (curValue != null) {
                         throw new IllegalStateException("Message router for type " + msgClass.getCanonicalName() + " is already registered");
                     }
-                    var router = new RabbitCustomRouter<>(msgClass.getSimpleName(), messageConverter, defaultSendAttributes,
+                    requireNonNull(labels, "Labels can't be null for custom message router");
+                    var router = new RabbitCustomRouter<>(msgClass.getSimpleName(), labels, messageConverter, defaultSendAttributes,
                             defaultSubscribeAttributes);
                     router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
                     return router;

@@ -214,6 +214,21 @@ var Message.Builder.sequence
         })
     }
 
+fun getSessionAliasAndDirection(messageID: MessageID): Array<String> = arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
+
+private val unknownLabels = arrayOf("unknown", "unknown")
+
+fun getSessionAliasAndDirection(anyMessage: AnyMessage): Array<String> = when {
+    anyMessage.hasMessage() -> getSessionAliasAndDirection(anyMessage.message.metadata.id)
+    anyMessage.hasRawMessage() -> getSessionAliasAndDirection(anyMessage.rawMessage.metadata.id)
+    else -> unknownLabels
+}
+
+fun getDebugString(className: String, ids: List<MessageID>): String {
+    val sessionAliasAndDirection = getSessionAliasAndDirection(ids[0])
+    val sequences = ids.joinToString { it.sequence.toString() }
+    return "$className: session_alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}, sequnces = $sequences"
+}
 
 @JvmOverloads
 fun com.google.protobuf.MessageOrBuilder.toJson(short: Boolean = true): String = JsonFormat.printer().includingDefaultValueFields().let {
