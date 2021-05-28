@@ -18,6 +18,12 @@
 
 package com.exactpro.th2.common.message
 
+import com.exactpro.th2.common.event.bean.IColumn
+import com.exactpro.th2.common.event.bean.TreeTable
+import com.exactpro.th2.common.event.bean.TreeTableEntry
+import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
+import com.exactpro.th2.common.event.bean.builder.RowBuilder
+import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
@@ -106,7 +112,7 @@ fun Message.Builder.copyField(message: Message.Builder, key: String): Message.Bu
 
 
 /**
- * Accepts vararg with even size. It split to pair: the first value is used as key, the second value is used as value
+ * It accepts vararg with even size and splits it into pairs where the first value of a pair is used as a key while the second is used as a value
  */
 fun Message.Builder.addFields(vararg fields: Any?): Message.Builder = apply {
     for (i in fields.indices step 2) {
@@ -214,6 +220,21 @@ var Message.Builder.sequence
         })
     }
 
+fun getSessionAliasAndDirection(messageID: MessageID): Array<String> = arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
+
+private val unknownLabels = arrayOf("unknown", "unknown")
+
+fun getSessionAliasAndDirection(anyMessage: AnyMessage): Array<String> = when {
+    anyMessage.hasMessage() -> getSessionAliasAndDirection(anyMessage.message.metadata.id)
+    anyMessage.hasRawMessage() -> getSessionAliasAndDirection(anyMessage.rawMessage.metadata.id)
+    else -> unknownLabels
+}
+
+fun getDebugString(className: String, ids: List<MessageID>): String {
+    val sessionAliasAndDirection = getSessionAliasAndDirection(ids[0])
+    val sequences = ids.joinToString { it.sequence.toString() }
+    return "$className: session_alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}, sequnces = $sequences"
+}
 
 @JvmOverloads
 fun com.google.protobuf.MessageOrBuilder.toJson(short: Boolean = true): String = JsonFormat.printer().includingDefaultValueFields().let {
@@ -223,3 +244,28 @@ fun com.google.protobuf.MessageOrBuilder.toJson(short: Boolean = true): String =
 fun <T: com.google.protobuf.Message.Builder> T.fromJson(json: String) : T = apply {
     JsonFormat.parser().ignoringUnknownFields().merge(json, this)
 }
+
+fun Message.toTreeTable(): TreeTable = TreeTableBuilder().apply {
+    for ((key, value) in fieldsMap) {
+        row(key, value.toTreeTableEntry())
+    }
+}.build()
+
+private fun Value.toTreeTableEntry(): TreeTableEntry = when {
+    hasMessageValue() -> CollectionBuilder().apply {
+        for ((key, value) in messageValue.fieldsMap) {
+            row(key, value.toTreeTableEntry())
+        }
+    }.build()
+    hasListValue() -> CollectionBuilder().apply {
+        listValue.valuesList.forEachIndexed { index, nestedValue ->
+            val nestedName = index.toString()
+            row(nestedName, nestedValue.toTreeTableEntry())
+        }
+    }.build()
+    else -> RowBuilder()
+        .column(MessageTableColumn(simpleValue))
+        .build()
+}
+
+internal data class MessageTableColumn(val fieldValue: String) : IColumn

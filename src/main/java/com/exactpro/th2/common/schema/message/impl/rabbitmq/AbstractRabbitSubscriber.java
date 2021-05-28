@@ -124,6 +124,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract List<T> valueFromBytes(byte[] body) throws Exception;
 
+    protected abstract String toShortTraceString(T value);
+
     protected abstract String toShortDebugString(T value);
 
     @Nullable
@@ -135,7 +137,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract Histogram getProcessingTimer();
 
-    protected abstract int extractCountFrom(T message);
+    protected abstract String[] extractLabels(T batch);
+
+    protected abstract int extractCountFrom(T batch);
 
     private void handle(String consumeTag, Delivery delivery) {
         Timer processTimer = getProcessingTimer().startTimer();
@@ -146,19 +150,30 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             for (T value : values) {
                 Objects.requireNonNull(value, "Received value is null");
 
-                Counter counter = getDeliveryCounter();
-                counter.inc();
-                Counter contentCounter = getContentCounter();
-                contentCounter.inc(extractCountFrom(value));
+                String[] labels = extractLabels(value);
+                Objects.requireNonNull(labels, "Labels list extracted from received value is null");
 
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("The received message {}", toShortDebugString(value));
+                Counter counter = getDeliveryCounter();
+                Counter contentCounter = getContentCounter();
+
+                if (labels.length == 0) {
+                    counter.inc();
+                    contentCounter.inc(extractCountFrom(value));
+                } else {
+                    counter.labels(labels).inc();
+                    contentCounter.labels(labels).inc(extractCountFrom(value));
+                }
+
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Received message: {}", toShortTraceString(value));
+                } else if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("Received message: {}", toShortDebugString(value));
                 }
 
                 var filteredValue = filter(value);
 
                 if (Objects.isNull(filteredValue)) {
-                    LOGGER.debug("Message is filtred");
+                    LOGGER.debug("Message is filtered");
                     return;
                 }
 

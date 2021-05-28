@@ -15,47 +15,6 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static java.util.Collections.emptyMap;
-import static java.util.Objects.requireNonNull;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
-
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Spliterators;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
-import org.apache.log4j.PropertyConfigurator;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
@@ -104,9 +63,49 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
-
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.PropertyConfigurator;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Spliterators;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -325,10 +324,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Registers custom message router.
      *
-     * Unlike the {@link #registerCustomMessageRouter(Class, MessageConverter, Set, Set)} the registered router won't have any additional pins attributes
+     * Unlike the {@link #registerCustomMessageRouter(Class, MessageConverter, Set, Set, String...)} the registered router won't have any additional pins attributes
      * except {@link QueueAttribute#SUBSCRIBE} for subscribe methods and {@link QueueAttribute#PUBLISH} for send methods
      *
-     * @see #registerCustomMessageRouter(Class, MessageConverter, Set, Set)
+     * @see #registerCustomMessageRouter(Class, MessageConverter, Set, Set, String...)
      */
     public <T> void registerCustomMessageRouter(
             Class<T> messageClass,
@@ -351,7 +350,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             Class<T> messageClass,
             MessageConverter<T> messageConverter,
             Set<String> defaultSendAttributes,
-            Set<String> defaultSubscribeAttributes
+            Set<String> defaultSubscribeAttributes,
+            String... labels
     ) {
         customMessageRouters.compute(
                 messageClass,
@@ -359,7 +359,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (curValue != null) {
                         throw new IllegalStateException("Message router for type " + msgClass.getCanonicalName() + " is already registered");
                     }
-                    var router = new RabbitCustomRouter<>(msgClass.getSimpleName(), messageConverter, defaultSendAttributes,
+                    requireNonNull(labels, "Labels can't be null for custom message router");
+                    var router = new RabbitCustomRouter<>(msgClass.getSimpleName(), labels, messageConverter, defaultSendAttributes,
                             defaultSubscribeAttributes);
                     router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
                     return router;
@@ -542,9 +543,20 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     public InputStream readDictionary(DictionaryType dictionaryType) {
         try {
-            var dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
-                    .filter(Files::isRegularFile)
-                    .collect(Collectors.toList());
+            List<Path> dictionaries = null;
+            Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
+            if (Files.exists(dictionaryTypeDictionary) && Files.isDirectory(dictionaryTypeDictionary)) {
+                dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
+                        .filter(Files::isRegularFile)
+                        .collect(Collectors.toList());
+            }
+
+            // Find with old format
+            if (dictionaries == null || dictionaries.isEmpty()) {
+                dictionaries = Files.list(getOldPathToDictionariesDir())
+                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+                        .collect(Collectors.toList());
+            }
 
             if (dictionaries.isEmpty()) {
                 throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
@@ -555,7 +567,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             var targetDictionary = dictionaries.get(0);
 
             return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-
         } catch (IOException e) {
             throw new IllegalStateException("Can not read dictionary", e);
         }
@@ -607,6 +618,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @return Path to dictionary
      */
     protected abstract Path getPathToDictionariesDir();
+
+    protected abstract Path getOldPathToDictionariesDir();
 
     /**
      * @return Context for all routers except event router
@@ -757,6 +770,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 .filter(Files::exists)
                 .findFirst()
                 .ifPresentOrElse(path -> {
+                            LogManager.resetConfiguration();
                             PropertyConfigurator.configure(path.toString());
                             LOGGER.info("Logger configuration from {} file is applied", path);
                         },

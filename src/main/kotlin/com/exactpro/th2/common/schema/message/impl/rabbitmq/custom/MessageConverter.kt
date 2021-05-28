@@ -26,6 +26,11 @@ interface MessageConverter<T : Any> {
     fun fromByteArray(data: ByteArray): T
 
     /**
+     * Representation for [value]. Is used to log the value when it is sent/received.
+     */
+    fun toTraceString(value: T): String
+
+    /**
      * Short representation for [value]. Is used to log the value when it is sent/received.
      */
     fun toDebugString(value: T): String
@@ -35,36 +40,57 @@ interface MessageConverter<T : Any> {
      */
     fun extractCount(value: T): Int
 
-    companion object {
-        @JvmStatic
-        fun <T : Any> create(
-            toBytes: (T) -> ByteArray,
-            fromBytes: (ByteArray) -> T,
-            toDebugString: (T) -> String,
-            countFrom: (T) -> Int
-        ): MessageConverter<T> = MessageConverterLambdaDelegate(toBytes, fromBytes, toDebugString, countFrom)
+    /**
+     * Extracts the labels from the value.
+     */
+    fun getLabels(value: T) : Array<String> = emptyArray()
 
+    companion object {
         // FIXME: when migrate to Kotlin 1.4 should be only one method with a default value for `countFrom` and @JvmOverloads annotation
         // Currently, Kotlin compiler has a bug that produces the method with illegal modifier: https://youtrack.jetbrains.com/issue/KT-35716
         @JvmStatic
         fun <T : Any> create(
             toBytes: (T) -> ByteArray,
             fromBytes: (ByteArray) -> T,
+            toTraceString: (T) -> String,
             toDebugString: (T) -> String
-        ): MessageConverter<T> = create(toBytes, fromBytes, toDebugString, { 1 })
+        ): MessageConverter<T> = create(toBytes, fromBytes, toTraceString, toDebugString) { 1 }
+
+        @JvmStatic
+        fun <T : Any> create(
+            toBytes: (T) -> ByteArray,
+            fromBytes: (ByteArray) -> T,
+            toTraceString: (T) -> String,
+            toDebugString: (T) -> String,
+            countFrom: (T) -> Int
+        ): MessageConverter<T> = create(toBytes, fromBytes, toTraceString, toDebugString, countFrom) { emptyArray() }
+
+        @JvmStatic
+        fun <T : Any> create(
+            toBytes: (T) -> ByteArray,
+            fromBytes: (ByteArray) -> T,
+            toTraceString: (T) -> String,
+            toDebugString: (T) -> String,
+            countFrom: (T) -> Int,
+            extractLabels: (T) -> Array<String>
+        ): MessageConverter<T> = MessageConverterLambdaDelegate(toBytes, fromBytes, toTraceString, toDebugString, countFrom, extractLabels)
     }
 }
 
 private class MessageConverterLambdaDelegate<T : Any>(
     private val toBytes: (T) -> ByteArray,
     private val fromBytes: (ByteArray) -> T,
+    private val toTraceString: (T) -> String,
     private val toDebugString: (T) -> String,
-    private val countFrom: (T) -> Int
+    private val countFrom: (T) -> Int,
+    private val extractLabels: (T) -> Array<String>
 ) : MessageConverter<T> {
     override fun toByteArray(value: T): ByteArray = toBytes(value)
 
     override fun fromByteArray(data: ByteArray): T = fromBytes(data)
 
+    override fun toTraceString(value: T): String = toTraceString.invoke(value)
     override fun toDebugString(value: T): String = toDebugString.invoke(value)
     override fun extractCount(value: T): Int = countFrom(value)
+    override fun getLabels(value: T): Array<String> = extractLabels(value)
 }

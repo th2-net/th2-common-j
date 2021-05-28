@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,8 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
     }
 
     @Override
-    protected int extractCountFrom(EventBatch message) {
-        return message.getEventsCount();
+    protected int extractCountFrom(EventBatch batch) {
+        return batch.getEventsCount();
     }
 
     @Override
@@ -47,7 +47,12 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
     }
 
     @Override
-    protected String toShortDebugString(EventBatch value) {
+    protected String toShortTraceString(EventBatch value) {
         return MessageUtils.toJson(value);
+    }
+
+    @Override
+    protected String toShortDebugString(EventBatch value) {
+        return "EventBatch: parent_event_id = " + value.getParentEventId().getId();
     }
 }

@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.13.0)
+# th2 common library (Java) (3.16.0)
 
 ## Usage
 
@@ -28,7 +28,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     * --grpcRouterConfiguration - path to json file with configuration for GrpcRouter
     * --cradleConfiguration - path to json file with configuration for Cradle
     * --customConfiguration - path to json file with custom configuration
-    * --dictionariesDir - path to directory which contains files with encoded dictionaries
+    * --dictionariesDir - path to the directory which contains files with the encoded dictionaries
     * --prometheusConfiguration - path to json file with configuration for prometheus metrics server
     * --boxConfiguration - path to json file with boxes configuration and information
     * -c/--configs - folder with json files for schemas configurations with special names:
@@ -73,9 +73,9 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * exchangeName - the required setting defines the exchange that will be used for sending/subscribing operation in MQ routers. 
   Please see more details about the exchanges in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
 * connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for infinite waiting.
-* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, default value is set to 10000.
+* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, the default value is set to 10000.
 * maxRecoveryAttempts - this option defines the number of reconnection attempts to RabbitMQ, with its default value set to 5. 
-  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set false.
+  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set to false.
 * minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
@@ -187,9 +187,59 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
-* (3.13.0) 
-  - reads dictionaries from the /var/th2/config/dictionary folder.
-  - uses mq_router, grpc_router, cradle_manager optional JSON configs from the /var/th2/config folder
-* (3.11.0) - tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
-* (3.6.0) - update Cradle version. Introduce async API for storing events
-* (3.0.1) - metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)
+
+### 3.16.0
+
++ Extended Utility classes
+++ Added the toTreeTable method to convert message/message filter to event data
+++ Added the Event.exception method to include an exception and optionally all the causes to the body data as a series of messages
+
+### 3.15.0
+
++ add `session alias` and `direction` labels to incoming metrics
++ rework logging for incoming and outgoing messages
+
+### 3.14.0
+
++ add `toProtoEvent(EventID)` and `toProtoEvents(EventID)` overloads into the Event class
+
+### 3.13.6
+
++ resets embedded `log4j` configuration before configuring it from a file
+
+### 3.13.5 
+
++ fix a bug with message filtering by `message_type`
+
+### 3.13.4
+
++ migration to Sonatype
+
+### 3.13.3
+
++ additional fixes for dictionary reading
+
+### 3.13.2
+
++ add backward compatibility for reading dictionaries
+
+### 3.13.1
+
++ removed gRPC event loop handling 
++ fixed dictionary reading
+
+### 3.13.0 
++ reads dictionaries from the /var/th2/config/dictionary folder.
++ uses mq_router, grpc_router, cradle_manager optional JSON configs from the /var/th2/config folder
+
+### 3.11.0
+
++ tries to load log4j.properties files from sources in order: '/var/th2/config', '/home/etc', configured path via cmd, default configuration
+
+### 3.6.0
+
++ update Cradle version. Introduce async API for storing events
+
+### 3.0.1
+
++ metrics related to time measurement of an incoming message handling (Raw / Parsed / Event) migrated to Prometheus [histogram](https://prometheus.io/docs/concepts/metric_types/#histogram)

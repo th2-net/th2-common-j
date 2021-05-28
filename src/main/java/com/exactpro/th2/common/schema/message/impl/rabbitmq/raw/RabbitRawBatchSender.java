@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,17 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
+import static com.exactpro.th2.common.message.MessageUtils.getDebugString;
+
+import java.util.stream.Collectors;
+
 import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.MessageGroup;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
+
 import io.prometheus.client.Counter;
 
 public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> {
@@ -40,8 +45,8 @@ public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> 
     }
 
     @Override
-    protected int extractCountFrom(RawMessageBatch message) {
-        return message.getMessagesCount();
+    protected int extractCountFrom(RawMessageBatch batch) {
+        return batch.getMessagesCount();
     }
 
     @Override
@@ -58,7 +63,13 @@ public class RabbitRawBatchSender extends AbstractRabbitSender<RawMessageBatch> 
     }
 
     @Override
-    protected String toShortDebugString(RawMessageBatch value) {
+    protected String toShortTraceString(RawMessageBatch value) {
         return MessageUtils.toJson(value);
+    }
+
+    @Override
+    protected String toShortDebugString(RawMessageBatch value) {
+        return getDebugString(getClass().getSimpleName(),
+                value.getMessagesList().stream().map(message -> message.getMetadata().getId()).collect(Collectors.toList()));
     }
 }
