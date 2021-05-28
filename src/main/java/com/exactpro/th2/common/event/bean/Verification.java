@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ import java.util.Map;
 import com.exactpro.th2.common.event.IBodyData;
 
 public class Verification implements IBodyData {
-    private String type;
+    public static final String TYPE = "verification";
+
+    private String type = TYPE;
     private String status;
     private Map<String, VerificationEntry> fields;
 

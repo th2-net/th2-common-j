@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@ package com.exactpro.th2.common.event.bean;
 import com.exactpro.th2.common.event.IBodyData;
 
 public class Message implements IBodyData {
+    public static final String TYPE = "message";
 
     private String data;
-    private String type;
+    private String type = TYPE;
 
     public String getData() {
         return data;
