@@ -188,6 +188,11 @@ NOTES:
 
 ## Release notes
 
+### 3.16.2
+
++ Fixed configuration for gRPC server.
+++ Added property `workers`, which change count of gRPC server's threads
+
 ### 3.16.0
 
 + Extended Utility classes
