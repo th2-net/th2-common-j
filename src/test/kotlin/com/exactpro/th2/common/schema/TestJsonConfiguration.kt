@@ -69,7 +69,7 @@ class TestJsonConfiguration {
                     mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr")))
                 )
             ),
-            GrpcServerConfiguration("host123", 1234)
+            GrpcServerConfiguration("host123", 1234, 58)
         ))
     }
 
