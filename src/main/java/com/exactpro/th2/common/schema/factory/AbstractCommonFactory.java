@@ -36,6 +36,7 @@ import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawFilterStrategyModule;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
@@ -44,6 +45,7 @@ import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigurationModule;
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
 import com.exactpro.th2.common.schema.message.impl.monitor.BroadcastMessageRouterMonitor;
 import com.exactpro.th2.common.schema.message.impl.monitor.EventMessageRouterMonitor;
@@ -132,6 +134,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         routingStrategyModule.addSerializer(RoutingStrategy.class, new JsonSerializerRoutingStrategy(MAPPER));
 
         MAPPER.registerModule(routingStrategyModule);
+        MAPPER.registerModule(new MessageRouterConfigurationModule());
+        MAPPER.registerModule(new GrpcRawFilterStrategyModule());
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);

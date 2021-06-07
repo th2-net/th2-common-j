@@ -19,9 +19,11 @@ import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
+import org.apache.commons.collections4.MultiMapUtils;
+import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -31,8 +33,8 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
     @Override
     public boolean verify(T message, RouterFilter routerFilter) {
 
-        var msgFieldFilters = new HashMap<>(routerFilter.getMessage());
-
+        MultiValuedMap<String, FieldFilterConfiguration> msgFieldFilters = MultiMapUtils.newListValuedHashMap();
+        msgFieldFilters.putAll(routerFilter.getMessage());
         msgFieldFilters.putAll(routerFilter.getMetadata());
 
         return checkValues(getFields(message), msgFieldFilters);
@@ -52,12 +54,10 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
     protected abstract Map<String, String> getFields(T message);
 
 
-    private boolean checkValues(Map<String, String> messageFields, Map<String, FieldFilterConfiguration> fieldFilters) {
-        return fieldFilters.entrySet().stream().allMatch(entry -> {
-            var fieldName = entry.getKey();
-            var fieldFilter = entry.getValue();
-            var msgFieldValue = messageFields.get(fieldName);
-            return checkValue(msgFieldValue, fieldFilter);
+    private boolean checkValues(Map<String, String> messageFields, MultiValuedMap<String, FieldFilterConfiguration> fieldFilters) {
+        return fieldFilters.keys().stream().allMatch(fieldName -> {
+            Collection<FieldFilterConfiguration> filters = fieldFilters.get(fieldName);
+            return filters.stream().anyMatch(filter -> checkValue(messageFields.get(fieldName), filter));
         });
     }
 
@@ -66,7 +66,7 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
             return false;
         }
 
-        var value2 = filterConfiguration.getValue();
+        var value2 = filterConfiguration.getExpectedValue();
 
         switch (filterConfiguration.getOperation()) {
             case EQUAL:

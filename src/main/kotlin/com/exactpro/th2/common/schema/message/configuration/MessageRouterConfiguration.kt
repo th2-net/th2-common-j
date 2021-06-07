@@ -17,8 +17,18 @@ package com.exactpro.th2.common.schema.message.configuration
 
 import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.schema.configuration.Configuration
+import com.exactpro.th2.common.util.DeserializerMultiMap
+import com.exactpro.th2.common.util.emptyMultiMap
 import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonGetter
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.module.SimpleModule
+import org.apache.commons.collections4.MultiMapUtils
+import org.apache.commons.collections4.MultiValuedMap
 
 data class MessageRouterConfiguration(var queues: Map<String, QueueConfiguration> = emptyMap()) : Configuration() {
 
@@ -35,17 +45,67 @@ data class QueueConfiguration(
     @JsonProperty(required = true) @JsonAlias("subscribeKey") var queue: String,
     @JsonProperty(required = true) var exchange: String,
     @JsonProperty(required = true) @JsonAlias("labels", "tags") var attributes: List<String> = emptyList(),
-    var filters: List<MqRouterFilterConfiguration> = emptyList(),
+    @JsonProperty var filters: List<MqRouterFilterConfiguration> = emptyList(),
     @JsonProperty(value = "read") var isReadable: Boolean = true,
     @JsonProperty(value = "write") var isWritable: Boolean = true
 ) : Configuration()
 
 data class MqRouterFilterConfiguration(
-    override var metadata: Map<String, FieldFilterConfiguration> = emptyMap(),
-    override var message: Map<String, FieldFilterConfiguration> = emptyMap()
-) : Configuration(), RouterFilter
+    override var metadata: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap(),
+    override var message: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap()
+) : Configuration(), RouterFilter {
+
+    constructor(
+        metadata: Collection<FieldFilterConfiguration> = emptyList(),
+        message: Collection<FieldFilterConfiguration> = emptyList()
+    ) : this(
+        MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().also { metadataMultiMap ->
+            metadata.forEach {
+                metadataMultiMap.put(it.fieldName, it)
+            }
+        },
+        MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().also { messageMultiMap ->
+            message.forEach {
+                messageMultiMap.put(it.fieldName, it)
+            }
+        }
+    )
+
+    @JsonGetter("metadata")
+    fun getJsonMetadata(): Collection<FieldFilterConfiguration> = metadata.values()
+
+    @JsonGetter("message")
+    fun getJsonMessage(): Collection<FieldFilterConfiguration> = message.values()
+}
 
 data class FieldFilterConfiguration(
-    var value: String? = null,
+    @JsonProperty(value = "fieldName", required = true) @JsonAlias("name") var fieldName: String,
+    @JsonProperty("expectedValue") @JsonAlias("value") var expectedValue: String,
     @JsonProperty(required = true) var operation: FilterOperation
 ) : Configuration()
+
+// FieldFilterConfiguration has required field 'fieldName', so we add field to node
+// and use default deserializer
+val DESERIALIZER_MULTI_MAP_FIELD_FILTER = DeserializerMultiMap(FieldFilterConfiguration::class.java, {it.fieldName}, "fieldName")
+
+
+open class MqRouterFilterConfigurationDeserializer :
+    JsonDeserializer<MqRouterFilterConfiguration>() {
+
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): MqRouterFilterConfiguration {
+        val location = p.currentLocation
+        val node = p.readValueAsTree<JsonNode>()
+        val metadata = node["metadata"]?.let { DESERIALIZER_MULTI_MAP_FIELD_FILTER.deserializerMultiMap(p, it, "metadata", location) }
+            ?: MultiMapUtils.emptyMultiValuedMap()
+        val message = node["message"]?.let { DESERIALIZER_MULTI_MAP_FIELD_FILTER.deserializerMultiMap(p, it, "message", location) }
+            ?: MultiMapUtils.emptyMultiValuedMap()
+
+        return MqRouterFilterConfiguration(metadata, message)
+    }
+}
+
+class MessageRouterConfigurationModule : SimpleModule() {
+    init {
+        addDeserializer(MqRouterFilterConfiguration::class.java, MqRouterFilterConfigurationDeserializer())
+    }
+}

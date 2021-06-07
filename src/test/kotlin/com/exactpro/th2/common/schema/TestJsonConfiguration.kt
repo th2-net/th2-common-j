@@ -21,11 +21,13 @@ import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawFilterStrategyModule
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServerConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigurationModule
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
@@ -54,6 +56,8 @@ class TestJsonConfiguration {
             routingStrategyModule.addSerializer(RoutingStrategy::class.java, JsonSerializerRoutingStrategy(OBJECT_MAPPER))
 
             OBJECT_MAPPER.registerModule(routingStrategyModule)
+            OBJECT_MAPPER.registerModule(MessageRouterConfigurationModule())
+            OBJECT_MAPPER.registerModule(GrpcRawFilterStrategyModule())
         }
     }
 
@@ -95,10 +99,22 @@ class TestJsonConfiguration {
             "routing_key",
             "queue_name",
             "exchange",
-            listOf("attr1", "attr2"),
-            listOf(MqRouterFilterConfiguration(mapOf("session_alias" to FieldFilterConfiguration("test_session_alias", FilterOperation.EQUAL)),
-                mapOf("test_field" to FieldFilterConfiguration("test_value", FilterOperation.EQUAL))))
-        ))))
+            listOf("attr1", "attr2")
+        ).apply {
+            filters = listOf(
+                MqRouterFilterConfiguration(
+                    listOf(FieldFilterConfiguration("session_alias", "test_session_alias", FilterOperation.EQUAL)),
+                    listOf(FieldFilterConfiguration("test_field", "test_value", FilterOperation.EQUAL))
+                ),
+                MqRouterFilterConfiguration(
+                    listOf(FieldFilterConfiguration("session_alias", "test_session_alias", FilterOperation.EQUAL)),
+                    listOf(
+                        FieldFilterConfiguration("test_field", "test_value0", FilterOperation.EQUAL),
+                        FieldFilterConfiguration("test_field", "test_value1", FilterOperation.EQUAL)
+                    )
+                )
+            )
+        })))
     }
 
     @Test
@@ -129,7 +145,7 @@ class TestJsonConfiguration {
     @Test
     fun `test backward compatibility for router mq json configuration`() {
         OBJECT_MAPPER.readValue(
-            "{\"queues\":{\"estore-pin\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"},\"from_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:from_codec]\"},\"some_pin\":{\"attributes\":[],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:some_pin]\"},\"to_send_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{},\"metadata\":{\"session_alias\":{\"operation\":\"EQUAL\",\"value\":\"codec-fix\"}}}],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:to_send_codec]\"}}}",
+            "{\"queues\":{\"estore-pin\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{\"field0\":{\"operation\":\"EQUAL\",\"value\":\"value0\"}}}],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"},\"from_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:from_codec]\"},\"some_pin\":{\"attributes\":[],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:some_pin]\"},\"to_send_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{},\"metadata\":{\"session_alias\":{\"operation\":\"EQUAL\",\"value\":\"codec-fix\"}}}],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:to_send_codec]\"}}}",
             MessageRouterConfiguration::class.java)
     }
 
