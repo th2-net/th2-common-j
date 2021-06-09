@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.16.0)
+# th2 common library (Java) (3.16.2)
 
 ## Usage
 
@@ -190,14 +190,17 @@ NOTES:
 
 ### 3.16.2
 
++ Restore backward compatibility for MessageConverter factory methods.
+  **NOTE: one of the methods was not restored and update to this version might require manual update for your code**.
+  The old methods without `toTraceString` supplier will be removed in the future
 + Fixed configuration for gRPC server.
-++ Added property `workers`, which change count of gRPC server's threads
-
+  + Added property `workers`, which change count of gRPC server's threads
+  
 ### 3.16.0
 
 + Extended Utility classes
-++ Added the toTreeTable method to convert message/message filter to event data
-++ Added the Event.exception method to include an exception and optionally all the causes to the body data as a series of messages
+  + Added the toTreeTable method to convert message/message filter to event data
+  + Added the Event.exception method to include an exception and optionally all the causes to the body data as a series of messages
 
 ### 3.15.0
 
