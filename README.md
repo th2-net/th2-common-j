@@ -198,7 +198,9 @@ NOTES:
 + Restore backward compatibility for MessageConverter factory methods.
   **NOTE: one of the methods was not restored and update to this version might require manual update for your code**.
   The old methods without `toTraceString` supplier will be removed in the future
-
++ Fixed configuration for gRPC server.
+  + Added the property `workers`, which changes the count of gRPC server's threads
+  
 ### 3.16.0
 
 + Extended Utility classes
@@ -220,7 +222,7 @@ NOTES:
 
 ### 3.13.5 
 
-+ fix a bug with message filtering by `message_type`
++ fixed a bug with message filtering by `message_type`
 
 ### 3.13.4
 
