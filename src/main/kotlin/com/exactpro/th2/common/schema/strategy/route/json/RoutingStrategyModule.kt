@@ -13,11 +13,16 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.configuration
+package com.exactpro.th2.common.schema.strategy.route.json
 
-import org.apache.commons.collections4.MultiValuedMap
+import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.module.SimpleModule
 
-interface RouterFilter {
-    val metadata: MultiValuedMap<String, FieldFilterConfiguration>
-    val message: MultiValuedMap<String, FieldFilterConfiguration>
+class RoutingStrategyModule(objectMapper: ObjectMapper) : SimpleModule() {
+    init {
+        addDeserializer(RoutingStrategy::class.java, JsonDeserializerRoutingStategy())
+        addSerializer(RoutingStrategy::class.java, JsonSerializerRoutingStrategy(objectMapper))
+    }
+
 }

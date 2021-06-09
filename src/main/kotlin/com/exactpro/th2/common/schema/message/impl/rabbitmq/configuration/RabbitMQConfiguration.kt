@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
 
 import com.exactpro.th2.common.schema.configuration.Configuration
-import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
 
 data class RabbitMQConfiguration(
@@ -26,7 +25,7 @@ data class RabbitMQConfiguration(
     @JsonProperty(required = true) var username: String,
     @JsonProperty(required = true) var password: String,
     @Deprecated(message = "Please use subscriber name from ConnectionManagerConfiguration")
-    var subscriberName: String? = null,
+    var subscriberName: String? = null,  //FIXME: Remove in future version
     var exchangeName: String? = null) : Configuration()
 
 data class ConnectionManagerConfiguration(
