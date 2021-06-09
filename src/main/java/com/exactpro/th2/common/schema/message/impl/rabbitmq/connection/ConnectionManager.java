@@ -260,7 +260,6 @@ public class ConnectionManager implements AutoCloseable {
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey));
         holder.withLock(channel -> {
-            waitForConnectionRecovery(channel);
             channel.basicPublish(exchange, routingKey, props, body);
         });
     }
@@ -268,7 +267,6 @@ public class ConnectionManager implements AutoCloseable {
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
         String tag = holder.mapWithLock(channel -> {
-            waitForConnectionRecovery(channel);
             return channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
                     try {
                         try {
@@ -285,8 +283,7 @@ public class ConnectionManager implements AutoCloseable {
         return new RabbitMqSubscriberMonitor(holder, tag, this::basicCancel);
     }
 
-    public void basicCancel(Channel channel, String consumerTag) throws IOException {
-        waitForConnectionRecovery(channel);
+    private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
     }
 
@@ -306,7 +303,7 @@ public class ConnectionManager implements AutoCloseable {
     private ChannelHolder getChannelFor(PinId pinId) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
-            return new ChannelHolder(this::createChannel);
+            return new ChannelHolder(this::createChannel, this::waitForConnectionRecovery);
         });
     }
 
@@ -356,7 +353,6 @@ public class ConnectionManager implements AutoCloseable {
      * @throws IOException
      */
     private void basicAck(Channel channel, long deliveryTag) throws IOException {
-        waitForConnectionRecovery(channel);
         channel.basicAck(deliveryTag, false);
     }
 
@@ -431,10 +427,15 @@ public class ConnectionManager implements AutoCloseable {
     private static class ChannelHolder {
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
+        private final java.util.function.Consumer<ShutdownNotifier> reconnectionChecker;
         private Channel channel;
 
-        public ChannelHolder(Supplier<Channel> supplier) {
+        public ChannelHolder(
+                Supplier<Channel> supplier,
+                java.util.function.Consumer<ShutdownNotifier> reconnectionChecker
+        ) {
             this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
+            this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
@@ -459,6 +460,7 @@ public class ConnectionManager implements AutoCloseable {
             if (channel == null) {
                 channel = supplier.get();
             }
+            reconnectionChecker.accept(channel);
             return channel;
         }
     }
