@@ -15,23 +15,26 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.grpc.BindableService;
+import io.grpc.Server;
+import io.grpc.netty.NettyServerBuilder;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
-import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
-
-import io.grpc.BindableService;
-import io.grpc.Server;
-import io.grpc.netty.NettyServerBuilder;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Abstract implementation for {@link GrpcRouter}
@@ -48,6 +51,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected static final long SERVER_SHUTDOWN_TIMEOUT_MS = 5000L;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractGrpcRouter.class);
+    private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("grpc-router-server-pool-%d").build();
     protected List<Server> servers = new ArrayList<>();
     protected GrpcConfiguration configuration;
 
@@ -77,6 +81,15 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         } else {
             builder = NettyServerBuilder.forAddress(InetSocketAddress.createUnresolved(serverConf.getHost(), serverConf.getPort()));
         }
+
+        var executor = Executors.newFixedThreadPool(serverConf.getWorkers(), THREAD_FACTORY);
+        var eventLoop = new NioEventLoopGroup(serverConf.getWorkers(), executor);
+
+        // Boss event loop - for I/O
+        // Worker event loop - for custom logic
+        builder = builder.workerEventLoopGroup(eventLoop)
+                .bossEventLoopGroup(eventLoop)
+                .channelType(NioServerSocketChannel.class);
 
         for (BindableService service : services) {
             builder.addService(service);

@@ -49,6 +49,20 @@ interface MessageConverter<T : Any> {
         // FIXME: when migrate to Kotlin 1.4 should be only one method with a default value for `countFrom` and @JvmOverloads annotation
         // Currently, Kotlin compiler has a bug that produces the method with illegal modifier: https://youtrack.jetbrains.com/issue/KT-35716
         @JvmStatic
+        @Deprecated(
+            message = "Use the method with separated toDebug and toTrace suppliers",
+            replaceWith = ReplaceWith(
+                """create(toBytes,fromBytes,toDebugString,toDebugString)""",
+                "com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter.Companion.create"),
+            level = DeprecationLevel.WARNING
+        )
+        fun <T : Any> create(
+            toBytes: (T) -> ByteArray,
+            fromBytes: (ByteArray) -> T,
+            toDebugString: (T) -> String
+        ): MessageConverter<T> = create(toBytes, fromBytes, toDebugString, toDebugString)
+
+        @JvmStatic
         fun <T : Any> create(
             toBytes: (T) -> ByteArray,
             fromBytes: (ByteArray) -> T,
