@@ -15,21 +15,18 @@
 
 package com.exactpro.th2.common.util
 
-import com.fasterxml.jackson.core.JsonLocation
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import org.apache.commons.collections4.MultiMapUtils
 import org.apache.commons.collections4.MultiValuedMap
 
-fun <K, V> multiMapOf(vararg pairs: Pair<K, V>): MultiValuedMap<K, V> =
-    MultiMapUtils.newListValuedHashMap<K, V>().also { multiMap ->
-        pairs.forEach { (key, value) ->
-            multiMap.put(key, value)
-        }
-    }
+fun <K, V> multiMapOf(vararg pairs: Pair<K, V>): MultiValuedMap<K, V> = multiMapOf(pairs.toList())
 
 fun <K, V> multiMapOf(list: List<Pair<K, V>>): MultiValuedMap<K, V> =
     MultiMapUtils.newListValuedHashMap<K, V>().also { multiMap ->
@@ -40,40 +37,35 @@ fun <K, V> multiMapOf(list: List<Pair<K, V>>): MultiValuedMap<K, V> =
 
 fun <K, V> emptyMultiMap(): MultiValuedMap<K, V> = MultiMapUtils.newListValuedHashMap()
 
-class DeserializerMultiMap<T>(
-    private val valueClass: Class<T>,
-    private val keySupplier: (T) -> String,
-    private val fieldKeyName: String? = null
-) {
-    fun deserializerMultiMap(
-        parser: JsonParser,
-        node: JsonNode,
-        name: String,
-        location: JsonLocation
-    ): MultiValuedMap<String, T> {
-        val result: MultiValuedMap<String, T> = MultiMapUtils.newListValuedHashMap()
+class MultiMapFiltersDeserializer : JsonDeserializer<MultiValuedMap<String, FieldFilterConfiguration>>() {
+    override fun deserialize(parser: JsonParser, ctxt: DeserializationContext): MultiValuedMap<String, FieldFilterConfiguration> {
+        val location = parser.currentLocation
+        val node = parser.readValueAsTree<JsonNode>()
+
+        val result: MultiValuedMap<String, FieldFilterConfiguration> = MultiMapUtils.newListValuedHashMap()
         val codec = parser.codec
         when {
             node.isArray -> node.forEach { element ->
-                codec.treeToValue(element, valueClass)?.also { obj ->
-                    result.put(keySupplier(obj), obj)
+                codec.treeToValue(element, FieldFilterConfiguration::class.java)?.also { filter ->
+                    result.put(filter.fieldName, filter)
                 }
             }
             node.isObject -> node.fields().forEach { field ->
                 val fieldName = field.key
 
-                val fullNode = if (fieldKeyName != null && field.value is ObjectNode) (field.value as ObjectNode).set(
-                    fieldKeyName,
+                val fullNode = if (field.value is ObjectNode) (field.value as ObjectNode).set(
+                    "fieldName",
                     TextNode(fieldName)
                 ) else node
 
-                codec.treeToValue(fullNode, valueClass)?.also { obj ->
-                    result.put(keySupplier(obj), obj)
+                codec.treeToValue(fullNode, FieldFilterConfiguration::class.java)?.also { filter ->
+                    result.put(filter.fieldName, filter)
                 }
             }
-            else -> throw JsonParseException(parser, "Can not deserialize field with name '$name'", location)
+            else -> throw JsonParseException(parser, "Can not deserialize MultiValuedMap", location)
         }
         return result;
     }
+
 }
 

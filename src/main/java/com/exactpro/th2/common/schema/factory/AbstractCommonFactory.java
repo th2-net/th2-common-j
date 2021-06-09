@@ -36,7 +36,6 @@ import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawFilterStrategyModule;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
@@ -45,7 +44,6 @@ import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigurationModule;
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
 import com.exactpro.th2.common.schema.message.impl.monitor.BroadcastMessageRouterMonitor;
 import com.exactpro.th2.common.schema.message.impl.monitor.EventMessageRouterMonitor;
@@ -58,12 +56,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomR
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
-import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
-import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutingStategy;
-import com.exactpro.th2.common.schema.strategy.route.json.JsonSerializerRoutingStrategy;
+import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
@@ -129,13 +124,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     static  {
         MAPPER.registerModule(new KotlinModule());
 
-        SimpleModule routingStrategyModule = new SimpleModule();
-        routingStrategyModule.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
-        routingStrategyModule.addSerializer(RoutingStrategy.class, new JsonSerializerRoutingStrategy(MAPPER));
-
-        MAPPER.registerModule(routingStrategyModule);
-        MAPPER.registerModule(new MessageRouterConfigurationModule());
-        MAPPER.registerModule(new GrpcRawFilterStrategyModule());
+        MAPPER.registerModule(new RoutingStrategyModule(MAPPER));
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);

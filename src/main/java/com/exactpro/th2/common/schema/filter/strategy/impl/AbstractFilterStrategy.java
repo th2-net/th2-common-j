@@ -55,12 +55,10 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
 
 
     private boolean checkValues(Map<String, String> messageFields, MultiValuedMap<String, FieldFilterConfiguration> fieldFilters) {
-        return fieldFilters.keys().stream().allMatch(fieldName -> {
+        return fieldFilters.size() == 0 || fieldFilters.keys().stream().anyMatch(fieldName -> {
+            String messageValue = messageFields.get(fieldName);
             Collection<FieldFilterConfiguration> filters = fieldFilters.get(fieldName);
-            return filters.stream().anyMatch(filter -> {
-                String messageValue = messageFields.get(fieldName);
-                return checkValue(messageValue, filter);
-            });
+            return filters.size() != 0 && filters.stream().allMatch(filter -> checkValue(messageValue, filter));
         });
     }
 

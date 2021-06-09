@@ -188,6 +188,10 @@ NOTES:
 
 ## Release notes
 
+### 3.17
+
++ Add support for the new filter's format
+
 ### 3.16.2
 
 + Restore backward compatibility for MessageConverter factory methods.
