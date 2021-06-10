@@ -50,6 +50,7 @@ import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -379,7 +380,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (cradleConfiguration.getTimeout() > 0) {
                         cassandraConnectionSettings.setTimeout(cradleConfiguration.getTimeout());
                     }
-                    
+
                     if (cradleConfiguration.getPageSize() > 0) {
                         cassandraConnectionSettings.setResultPageSize(cradleConfiguration.getPageSize());
                     }
@@ -661,6 +662,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 .filter(Files::exists)
                 .findFirst()
                 .ifPresentOrElse(path -> {
+                            LogManager.resetConfiguration();
                             PropertyConfigurator.configure(path.toString());
                             LOGGER.info("Logger configuration from {} file is applied", path);
                         },

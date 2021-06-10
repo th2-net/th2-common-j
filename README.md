@@ -1,4 +1,4 @@
-# th2 common library (Java) (2.19.0)
+# th2 common library (Java) (2.19.1)
 
 ## Usage
 
@@ -152,6 +152,7 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (2.19.1) - resets embedded log4j configuration before configuring from a file
 * (2.19.0) - Extended Utility classes
     * Added the toTreeTable method to convert message/message filter to event data
     * Added the Event.exception method to include an exception and optionally all the causes to the body data as a series of messages
