@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.16.2)
+# th2 common library (Java) (3.16.3)
 
 ## Usage
 
@@ -187,6 +187,11 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.16.3
+
++ Change the way channels are stored (they mapped to the pin instead of the thread).
+  It might increase the average number of channels used by the box, but it also limits the max number of channels to the number of pins
 
 ### 3.16.2
 
