@@ -1,4 +1,4 @@
-# th2 common library (Java) (2.19.1)
+# th2 common library (Java) (2.19.2)
 
 ## Usage
 
@@ -152,6 +152,8 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (2.19.2) - Change the way channels are stored (they mapped to the pin instead of the thread).
+  It might increase the average number of channels used by the box, but it also limits the max number of channels to the number of pins
 * (2.19.1) - resets embedded log4j configuration before configuring from a file
 * (2.19.0) - Extended Utility classes
     * Added the toTreeTable method to convert message/message filter to event data
