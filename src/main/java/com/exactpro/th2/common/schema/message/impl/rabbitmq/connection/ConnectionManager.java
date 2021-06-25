@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
@@ -323,23 +324,33 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void waitForConnectionRecovery(ShutdownNotifier notifier) {
+        waitForConnectionRecovery(notifier, true);
+    }
+
+    private void waitForConnectionRecovery(ShutdownNotifier notifier, boolean waitForRecovery) {
         if (isConnectionRecovery(notifier)) {
-            LOGGER.warn("Start waiting for connection recovery");
-
-            while (isConnectionRecovery(notifier)) {
-                try {
-                    Thread.sleep(1);
-                } catch (InterruptedException e) {
-                    LOGGER.error("Wait for connection recovery was interrupted", e);
-                    break;
-                }
+            if (waitForRecovery) {
+                LOGGER.warn("Start waiting for connection recovery");
+                waitForRecovery(notifier);
+                LOGGER.info("Stop waiting for connection recovery");
+            } else {
+                LOGGER.info("Skip waiting for connection recovery");
             }
-
-            LOGGER.info("Stop waiting for connection recovery");
         }
 
         if (connectionIsClosed.get()) {
             throw new IllegalStateException("Connection is already closed");
+        }
+    }
+
+    private void waitForRecovery(ShutdownNotifier notifier) {
+        while (isConnectionRecovery(notifier)) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                LOGGER.error("Wait for connection recovery was interrupted", e);
+                break;
+            }
         }
     }
 
@@ -371,7 +382,7 @@ public class ConnectionManager implements AutoCloseable {
 
         @Override
         public void unsubscribe() throws Exception {
-            holder.withLock(channel -> action.execute(channel, tag));
+            holder.withLock(false, channel -> action.execute(channel, tag));
         }
     }
 
@@ -427,21 +438,25 @@ public class ConnectionManager implements AutoCloseable {
     private static class ChannelHolder {
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
-        private final java.util.function.Consumer<ShutdownNotifier> reconnectionChecker;
+        private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
         private Channel channel;
 
         public ChannelHolder(
                 Supplier<Channel> supplier,
-                java.util.function.Consumer<ShutdownNotifier> reconnectionChecker
+                BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker
         ) {
             this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
             this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
+            withLock(true, consumer);
+        }
+
+        public void withLock(boolean waitForRecovery, ChannelConsumer consumer) throws IOException {
             lock.lock();
             try {
-                consumer.consume(getChannel());
+                consumer.consume(getChannel(waitForRecovery));
             } finally {
                 lock.unlock();
             }
@@ -455,12 +470,16 @@ public class ConnectionManager implements AutoCloseable {
                 lock.unlock();
             }
         }
-
         private Channel getChannel() {
+            return getChannel(true);
+        }
+
+
+        private Channel getChannel(boolean waitForRecovery) {
             if (channel == null) {
                 channel = supplier.get();
             }
-            reconnectionChecker.accept(channel);
+            reconnectionChecker.accept(channel, waitForRecovery);
             return channel;
         }
     }
