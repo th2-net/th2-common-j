@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.16.3)
+# th2 common library (Java) (3.16.4)
 
 ## Usage
 
@@ -187,6 +187,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.16.4
+
++ Disable waiting for connection recovery when closing the `SubscribeMonitor`
 
 ### 3.16.3
 
