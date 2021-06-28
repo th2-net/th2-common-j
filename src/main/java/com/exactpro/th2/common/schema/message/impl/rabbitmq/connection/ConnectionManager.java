@@ -334,11 +334,9 @@ public class ConnectionManager implements AutoCloseable {
     private void waitForConnectionRecovery(ShutdownNotifier notifier, boolean waitForRecovery) {
         if (isConnectionRecovery(notifier)) {
             if (waitForRecovery) {
-                LOGGER.warn("Start waiting for connection recovery");
                 waitForRecovery(notifier);
-                LOGGER.info("Stop waiting for connection recovery");
             } else {
-                LOGGER.info("Skip waiting for connection recovery");
+                LOGGER.warn("Skip waiting for connection recovery");
             }
         }
 
@@ -348,6 +346,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void waitForRecovery(ShutdownNotifier notifier) {
+        LOGGER.warn("Start waiting for connection recovery");
         while (isConnectionRecovery(notifier)) {
             try {
                 Thread.sleep(1);
@@ -356,6 +355,7 @@ public class ConnectionManager implements AutoCloseable {
                 break;
             }
         }
+        LOGGER.info("Stop waiting for connection recovery");
     }
 
     private boolean isConnectionRecovery(ShutdownNotifier notifier) {
