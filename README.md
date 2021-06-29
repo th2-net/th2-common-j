@@ -1,4 +1,4 @@
-# th2 common library (Java) (2.19.2)
+# th2 common library (Java) (2.19.3)
 
 ## Usage
 
@@ -152,6 +152,7 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+* (2.19.3) - Disable waiting for connection recovery when closing the `SubscribeMonitor`
 * (2.19.2) - Change the way channels are stored (they mapped to the pin instead of the thread).
   It might increase the average number of channels used by the box, but it also limits the max number of channels to the number of pins
 * (2.19.1) - resets embedded log4j configuration before configuring from a file
