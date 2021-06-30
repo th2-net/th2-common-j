@@ -189,7 +189,7 @@ NOTES:
 ## Release notes
 
 ### 3.16.5
-+ Update `th2-grpc-common` and `th2-grpc-service-generator` versions
++ Update `th2-grpc-common` and `th2-grpc-service-generator` versions to `3.2.0` and `3.1.12` respectively
 
 ### 3.16.4
 
