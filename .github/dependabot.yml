@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Enable version updates for npm
+  # Enable version updates for Gradle
   - package-ecosystem: "gradle"
     # Look for `build.gradle` file in the `root` directory
     directory: "/"
