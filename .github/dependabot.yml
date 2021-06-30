@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "gradle"
+    # Look for `build.gradle` file in the `root` directory
+    directory: "/"
+    # Check for updates every day (weekdays)
+    schedule:
+      interval: "daily"
