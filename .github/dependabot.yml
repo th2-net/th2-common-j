@@ -1,16 +1,9 @@
 version: 2
-registries:
-  sonatype:
-    type: maven-repository
-    url: https://s01.oss.sonatype.org/content/repositories/releases/
 updates:
   # Enable version updates for Gradle
   - package-ecosystem: "gradle"
     # Look for `build.gradle` file in the `root` directory
     directory: "/"
-    # Using Sonatype registry
-    registries:
-      - sonatype
     # Check for updates every day (weekdays)
     schedule:
       interval: "daily"
