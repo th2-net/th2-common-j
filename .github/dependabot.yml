@@ -3,8 +3,6 @@ registries:
   sonatype:
     type: maven-repository
     url: https://s01.oss.sonatype.org/content/repositories/releases/
-    username: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
-    password: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
 updates:
   # Enable version updates for Gradle
   - package-ecosystem: "gradle"
