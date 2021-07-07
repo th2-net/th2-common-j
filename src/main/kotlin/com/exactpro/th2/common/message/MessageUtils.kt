@@ -27,15 +27,29 @@ import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.FailUnexpected
+import com.exactpro.th2.common.grpc.FailUnexpected.NO
+import com.exactpro.th2.common.grpc.FilterOperation
+import com.exactpro.th2.common.grpc.FilterOperation.EQUAL
 import com.exactpro.th2.common.grpc.ListValue
+import com.exactpro.th2.common.grpc.ListValueFilter
 import com.exactpro.th2.common.grpc.ListValueOrBuilder
 import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.MessageOrBuilder
+import com.exactpro.th2.common.grpc.MetadataFilter
+import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.grpc.Value.KindCase.LIST_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.MESSAGE_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.NULL_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
+import com.exactpro.th2.common.grpc.ValueFilter
 import com.exactpro.th2.common.grpc.ValueOrBuilder
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
@@ -62,6 +76,9 @@ import java.time.ZoneOffset
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
+
+typealias FieldValues = Map<String, Value>
+typealias FieldValueFilters = Map<String, ValueFilter>
 
 fun message() : Message.Builder = Message.newBuilder()
 fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType)
@@ -171,6 +188,90 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
+
+fun Message.toRootMessageFilter(rootKeyFields: List<String> = listOf(),
+                                keyProperties: List<String> = listOf(),
+                                ignoreFields: List<String> = listOf()): RootMessageFilter = this.let { source ->
+    return RootMessageFilter.newBuilder().apply {
+        if (source.hasMetadata()) {
+            source.metadata.also { metadata ->
+                messageType = metadata.messageType
+                metadataFilter = metadata.toMetadataFilter(keyProperties)
+            }
+        }
+        if (ignoreFields.isNotEmpty()) {
+            comparisonSettingsBuilder.apply {
+                addAllIgnoreFields(ignoreFields)
+            }
+        }
+        messageFilter = source.toMessageFilter(rootKeyFields)
+    }.build()
+}
+
+fun MessageMetadata.toMetadataFilter(keyProperties: List<String> = listOf()): MetadataFilter = this.let { source ->
+    return if (MessageMetadata.getDefaultInstance() == source) {
+        MetadataFilter.getDefaultInstance()
+    } else {
+        source.propertiesMap.let { propertiesMap ->
+            if (propertiesMap.isNotEmpty()) {
+                return MetadataFilter.newBuilder().apply {
+                    propertiesMap.forEach { (name, value) ->
+                        putPropertyFilters(name, SimpleFilter.newBuilder().apply {
+                            operation = EQUAL
+                            key = keyProperties.contains(name)
+                            this.value = value
+                        }.build())
+                    }
+                }.build()
+            }
+
+            return MetadataFilter.getDefaultInstance()
+        }
+    }
+}
+
+fun Value.toValueFilter(isKey: Boolean): ValueFilter = this.let { source ->
+    return if (Value.getDefaultInstance() == source) {
+        ValueFilter.getDefaultInstance()
+    } else {
+        ValueFilter.newBuilder().apply {
+            key = isKey
+            when(source.kindCase) {
+                LIST_VALUE -> listFilter = source.listValue.toListValueFilter()
+                MESSAGE_VALUE -> messageFilter = source.messageValue.toMessageFilter()
+                SIMPLE_VALUE -> simpleFilter = source.simpleValue
+                NULL_VALUE -> operation = FilterOperation.EMPTY
+                else -> error("Unsupportable kind ${source.kindCase}")
+            }
+        }.build()
+    }
+}
+
+fun FieldValues.toFieldValueFilters(keyFields: List<String> = listOf()): FieldValueFilters =
+    mapValues { (name, value) -> value.toValueFilter(keyFields.contains(name)) }
+
+fun Message.toMessageFilter(keyFields: List<String> = listOf(), failUnexpected: FailUnexpected = NO): MessageFilter {
+    return if (Message.getDefaultInstance() == this) {
+        MessageFilter.getDefaultInstance()
+    } else MessageFilter.newBuilder().apply {
+        putAllFields(this@toMessageFilter.fieldsMap.toFieldValueFilters(keyFields))
+        if (failUnexpected.number != 0) {
+            comparisonSettingsBuilder.apply {
+                this.failUnexpected = failUnexpected
+            }
+        }
+    }.build()
+}
+
+fun ListValue.toListValueFilter(): ListValueFilter {
+    return if (ListValue.getDefaultInstance() == this) {
+        ListValueFilter.getDefaultInstance()
+    } else {
+        ListValueFilter.newBuilder().apply {
+            addAllValues(this@toListValueFilter.valuesList.map { value -> value.toValueFilter(false) })
+        }.build()
+    }
+}
 
 val Message.messageType
     get(): String = metadata.messageType
