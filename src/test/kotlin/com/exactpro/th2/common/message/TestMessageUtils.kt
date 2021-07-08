@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test
 
 class TestMessageUtils {
 
-    val fieldText = """
+    private val fieldText = """
         |message_filter { 
             |fields { key: "KeyEmpty" value { simple_filter: "" } } 
             |fields { key: "KeyString" value { simple_filter: "key string" } } 
