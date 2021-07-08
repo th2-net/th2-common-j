@@ -189,9 +189,11 @@ fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).to
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
 
-fun Message.toRootMessageFilter(rootKeyFields: List<String> = listOf(),
-                                keyProperties: List<String> = listOf(),
-                                ignoreFields: List<String> = listOf()): RootMessageFilter = this.let { source ->
+fun Message.toRootMessageFilter(
+    rootKeyFields: List<String> = listOf(),
+    keyProperties: List<String> = listOf(),
+    ignoreFields: List<String> = listOf()
+): RootMessageFilter = let { source ->
     return RootMessageFilter.newBuilder().apply {
         if (source.hasMetadata()) {
             source.metadata.also { metadata ->
@@ -230,31 +232,27 @@ fun MessageMetadata.toMetadataFilter(keyProperties: List<String> = listOf()): Me
     }
 }
 
-fun Value.toValueFilter(isKey: Boolean): ValueFilter = this.let { source ->
-    return if (Value.getDefaultInstance() == source) {
-        ValueFilter.getDefaultInstance()
-    } else {
-        ValueFilter.newBuilder().apply {
-            key = isKey
-            when(source.kindCase) {
-                LIST_VALUE -> listFilter = source.listValue.toListValueFilter()
-                MESSAGE_VALUE -> messageFilter = source.messageValue.toMessageFilter()
-                SIMPLE_VALUE -> simpleFilter = source.simpleValue
-                NULL_VALUE -> operation = FilterOperation.EMPTY
-                else -> error("Unsupportable kind ${source.kindCase}")
-            }
-        }.build()
-    }
+fun Value.toValueFilter(isKey: Boolean): ValueFilter = when (val source = this) {
+    Value.getDefaultInstance() -> ValueFilter.getDefaultInstance()
+    else -> ValueFilter.newBuilder().apply {
+        key = isKey
+        when (source.kindCase) {
+            LIST_VALUE -> listFilter = source.listValue.toListValueFilter()
+            MESSAGE_VALUE -> messageFilter = source.messageValue.toMessageFilter()
+            SIMPLE_VALUE -> simpleFilter = source.simpleValue
+            NULL_VALUE -> operation = FilterOperation.EMPTY
+            else -> error("Unsupportable kind ${source.kindCase}")
+        }
+    }.build()
 }
 
 fun FieldValues.toFieldValueFilters(keyFields: List<String> = listOf()): FieldValueFilters =
-    mapValues { (name, value) -> value.toValueFilter(keyFields.contains(name)) }
+    mapValues { (name, value) -> value.toValueFilter(name in keyFields) }
 
-fun Message.toMessageFilter(keyFields: List<String> = listOf(), failUnexpected: FailUnexpected = NO): MessageFilter {
-    return if (Message.getDefaultInstance() == this) {
-        MessageFilter.getDefaultInstance()
-    } else MessageFilter.newBuilder().apply {
-        putAllFields(this@toMessageFilter.fieldsMap.toFieldValueFilters(keyFields))
+fun Message.toMessageFilter(keyFields: List<String> = listOf(), failUnexpected: FailUnexpected = NO): MessageFilter = when (val source = this) {
+    Message.getDefaultInstance() -> MessageFilter.getDefaultInstance()
+    else -> MessageFilter.newBuilder().apply {
+        putAllFields(source.fieldsMap.toFieldValueFilters(keyFields))
         if (failUnexpected.number != 0) {
             comparisonSettingsBuilder.apply {
                 this.failUnexpected = failUnexpected
