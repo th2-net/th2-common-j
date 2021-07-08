@@ -32,7 +32,7 @@ class TestMessageUtils {
             |fields { key: "NotKeyString" value { simple_filter: "not key field" } } 
             |fields { key: "SimpleCollection" value { list_filter { 
                 |values { simple_filter: "a" } 
-                |values { simple_filter: "b" } } }
+                |values { simple_filter: "b" } } } } }
     """.trimMargin().replace("\n", "")
 
     @Test
@@ -47,13 +47,13 @@ class TestMessageUtils {
                 |messageType: "MsgType" 
                 |message_filter { fields { key: "KeyEmpty" value { simple_filter: "" } } 
                     |fields { key: "KeyString" value { key: true simple_filter: "key string" } } 
-                    |fields { key: "Message" value { key: true $fieldText } } } } 
+                    |fields { key: "Message" value { key: true $fieldText } } 
                     |fields { key: "MessageCollection" value { list_filter { 
-                        |values { $fieldText } } } 
-                        |values { $fieldText } } } } } } 
+                        |values { $fieldText } 
+                        |values { $fieldText } } } } 
                     |fields { key: "MessageTree" value { message_filter { 
                         |fields { key: "subMessageA" value { message_filter { 
-                            |fields { key: "subMessageB" value { $fieldText } } } } } } } } } } 
+                            |fields { key: "subMessageB" value { $fieldText } } } } } } } } 
                     |fields { key: "NotKeyString" value { simple_filter: "not key field" } } 
                     |fields { key: "SimpleCollection" value { key: true list_filter { 
                         |values { simple_filter: "a" } 
