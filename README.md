@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.16.5)
+# th2 common library (Java) (3.17.0)
 
 ## Usage
 
@@ -187,6 +187,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.17.0
++ Extended message utility class
+  + Added the toRootMessageFilter method to convert message to root message filter
 
 ### 3.16.5
 + Update `th2-grpc-common` and `th2-grpc-service-generator` versions to `3.2.0` and `3.1.12` respectively
