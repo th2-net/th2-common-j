@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.16.2)
+# th2 common library (Java) (3.17.0)
 
 ## Usage
 
@@ -188,9 +188,25 @@ NOTES:
 
 ## Release notes
 
-### 3.17
+### 3.18.0
 
 + Add support for the new filter's format
+
+### 3.17.0
++ Extended message utility class
+  + Added the toRootMessageFilter method to convert message to root message filter
+
+### 3.16.5
++ Update `th2-grpc-common` and `th2-grpc-service-generator` versions to `3.2.0` and `3.1.12` respectively
+
+### 3.16.4
+
++ Disable waiting for connection recovery when closing the `SubscribeMonitor`
+
+### 3.16.3
+
++ Change the way channels are stored (they mapped to the pin instead of the thread).
+  It might increase the average number of channels used by the box, but it also limits the max number of channels to the number of pins
 
 ### 3.16.2
 
