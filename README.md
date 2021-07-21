@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.17.0)
+# th2 common library (Java) (3.18.0)
 
 ## Usage
 
@@ -190,7 +190,8 @@ NOTES:
 
 ### 3.18.0
 
-+ Add support for the new filter's format
++ Extended filter's format
+    + Add multiply filters support 
 
 ### 3.17.0
 + Extended message utility class

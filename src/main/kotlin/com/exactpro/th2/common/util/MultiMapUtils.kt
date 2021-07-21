@@ -16,8 +16,8 @@
 package com.exactpro.th2.common.util
 
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
-import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.JsonToken
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonNode
@@ -39,7 +39,6 @@ fun <K, V> emptyMultiMap(): MultiValuedMap<K, V> = MultiMapUtils.newListValuedHa
 
 class MultiMapFiltersDeserializer : JsonDeserializer<MultiValuedMap<String, FieldFilterConfiguration>>() {
     override fun deserialize(parser: JsonParser, ctxt: DeserializationContext): MultiValuedMap<String, FieldFilterConfiguration> {
-        val location = parser.currentLocation
         val node = parser.readValueAsTree<JsonNode>()
 
         val result: MultiValuedMap<String, FieldFilterConfiguration> = MultiMapUtils.newListValuedHashMap()
@@ -62,7 +61,7 @@ class MultiMapFiltersDeserializer : JsonDeserializer<MultiValuedMap<String, Fiel
                     result.put(filter.fieldName, filter)
                 }
             }
-            else -> throw JsonParseException(parser, "Can not deserialize MultiValuedMap", location)
+            else -> ctxt.reportWrongTokenException(MultiValuedMap::class.java, JsonToken.START_ARRAY, "Can not deserialize MultiValuedMap. Field is not array or object.")
         }
         return result;
     }
