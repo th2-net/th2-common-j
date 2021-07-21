@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.17.0)
+# th2 common library (Java) (3.18.0)
 
 ## Usage
 
@@ -187,6 +187,12 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.18.0
+
+#### Changed:
+
++ Update Cradle version from `2.9.1` to `2.13.0`
 
 ### 3.17.0
 + Extended message utility class
