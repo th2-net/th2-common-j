@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.18.0)
+# th2 common library (Java) (3.18.1)
 
 ## Usage
 
@@ -187,6 +187,13 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.18.1
+
+#### Changed:
+
++ The `toMetadataFilter` returns `null` the original metadata has nothing to compare
++ The `toRootMessageFilter` does not add the `MetadataFilter` if the message's metadata has nothing to compare
 
 ### 3.18.0
 
