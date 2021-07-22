@@ -198,7 +198,9 @@ fun Message.toRootMessageFilter(
         if (source.hasMetadata()) {
             source.metadata.also { metadata ->
                 messageType = metadata.messageType
-                metadataFilter = metadata.toMetadataFilter(keyProperties)
+                metadata.toMetadataFilter(keyProperties)?.also {
+                    metadataFilter = it
+                }
             }
         }
         if (ignoreFields.isNotEmpty()) {
@@ -210,13 +212,18 @@ fun Message.toRootMessageFilter(
     }.build()
 }
 
-fun MessageMetadata.toMetadataFilter(keyProperties: List<String> = listOf()): MetadataFilter = this.let { source ->
+/**
+ * Converts [MessageMetadata] to [MetadataFilter].
+ *
+ * @return the [MetadataFilter] matches the original metadata or `null` if the original metadata does not have anything to compare
+ */
+fun MessageMetadata.toMetadataFilter(keyProperties: List<String> = listOf()): MetadataFilter? = this.let { source ->
     return if (MessageMetadata.getDefaultInstance() == source) {
-        MetadataFilter.getDefaultInstance()
+        null
     } else {
         source.propertiesMap.let { propertiesMap ->
             if (propertiesMap.isNotEmpty()) {
-                return MetadataFilter.newBuilder().apply {
+                MetadataFilter.newBuilder().apply {
                     propertiesMap.forEach { (name, value) ->
                         putPropertyFilters(name, SimpleFilter.newBuilder().apply {
                             operation = EQUAL
@@ -225,9 +232,9 @@ fun MessageMetadata.toMetadataFilter(keyProperties: List<String> = listOf()): Me
                         }.build())
                     }
                 }.build()
+            } else {
+                null
             }
-
-            return MetadataFilter.getDefaultInstance()
         }
     }
 }

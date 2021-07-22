@@ -66,11 +66,41 @@ class TestMessageUtils {
         }
     }
 
-    private fun createMessage(): Message = Message.newBuilder().apply {
+    @Test
+    fun `message without properties to root message filter`() {
+        createMessage(addProperties = false).toRootMessageFilter(
+            listOf("KeyString", "Message", "SimpleCollection"),
+            listOf("prB"),
+            listOf("KeyEmpty")
+        ).also { messageFilter ->
+            Assertions.assertNotNull(messageFilter)
+            Assertions.assertEquals("""
+                |messageType: "MsgType" 
+                |message_filter { fields { key: "KeyEmpty" value { simple_filter: "" } } 
+                    |fields { key: "KeyString" value { key: true simple_filter: "key string" } } 
+                    |fields { key: "Message" value { key: true $fieldText } } 
+                    |fields { key: "MessageCollection" value { list_filter { 
+                        |values { $fieldText } 
+                        |values { $fieldText } } } } 
+                    |fields { key: "MessageTree" value { message_filter { 
+                        |fields { key: "subMessageA" value { message_filter { 
+                            |fields { key: "subMessageB" value { $fieldText } } } } } } } } 
+                    |fields { key: "NotKeyString" value { simple_filter: "not key field" } } 
+                    |fields { key: "SimpleCollection" value { key: true list_filter { 
+                        |values { simple_filter: "a" } 
+                        |values { simple_filter: "b" } } } } } 
+                |comparison_settings { ignore_fields: "KeyEmpty" }
+            """.trimMargin().replace("\n", ""), TextFormat.shortDebugString(messageFilter))
+        }
+    }
+
+    private fun createMessage(addProperties: Boolean = true): Message = Message.newBuilder().apply {
         metadataBuilder.apply {
             messageType = "MsgType"
-            putProperties("prA", "A")
-            putProperties("prB", "B")
+            if (addProperties) {
+                putProperties("prA", "A")
+                putProperties("prB", "B")
+            }
         }
 
         fillMessage(this)
