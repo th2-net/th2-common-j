@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -221,7 +222,7 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
 
             QueueConfiguration queueByAlias = getConfiguration().getQueueByAlias(key);
             if (queueByAlias == null) {
-                throw new IllegalStateException("Can not find queue");
+                throw new IllegalStateException("Can not find queue for " + queueAlias);
             }
 
             return createQueue(connectionManager, queueByAlias, this::filterMessage);
@@ -229,22 +230,22 @@ public abstract class AbstractRabbitMessageRouter<T> implements MessageRouter<T>
     }
 
     protected void send(Map<String, T> aliasesAndMessagesToSend) {
-        Collection<Exception> exceptions = new ArrayList<>();
+        Map<String, Exception> exceptions = new HashMap<>();
 
         aliasesAndMessagesToSend.forEach((queueAlias, message) -> {
             try {
                 MessageSender<T> sender = getMessageQueue(queueAlias).getSender();
                 sender.send(message);
             } catch (IOException e) {
-                exceptions.add(e);
+                exceptions.put(queueAlias, e);
             } catch (Exception e) {
                 throw new RouterException("Can not start sender to queue: " + queueAlias, e);
             }
         });
 
         if (!exceptions.isEmpty()) {
-            RouterException exception = new RouterException("Can not send to some queue");
-            exceptions.forEach(exception::addSuppressed);
+            RouterException exception = new RouterException("Can not send to queue(s): " + String.join(",", exceptions.keySet()));
+            exceptions.values().forEach(exception::addSuppressed);
             throw exception;
         }
     }
