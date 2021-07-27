@@ -36,7 +36,7 @@ public class EventUtils {
         return new MessageBuilder().text(text).build();
     }
 
-    @Contract("null -> null")
+    @Contract("null -> null; !null -> !null")
     public static @Nullable EventID toEventID(@Nullable String id) {
         if (id == null) {
             return null;

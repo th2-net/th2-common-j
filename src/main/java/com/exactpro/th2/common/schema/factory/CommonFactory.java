@@ -93,7 +93,6 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path oldDictionariesDir;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
