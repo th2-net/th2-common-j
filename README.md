@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.18.1)
+# th2 common library (Java) (3.18.2)
 
 ## Usage
 
@@ -187,6 +187,13 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.18.2
+
+#### Changed:
+
++ Fix possible NPE when adding the `Exception` to the event with `null` message
++ Correct exception messages
 
 ### 3.18.1
 
