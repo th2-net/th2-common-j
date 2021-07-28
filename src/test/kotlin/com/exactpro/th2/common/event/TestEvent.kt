@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 
+typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
+
 class TestEvent {
 
     private val parentEventId: EventID = EventUtils.toEventID("parentEventId")!!
@@ -186,6 +188,47 @@ class TestEvent {
     }
 
     @Test
+    fun `root event to list batch proto with size limit`() {
+        val rootName = "root"
+        val childName = "child"
+        val rootEvent = Event.start().apply {
+            name = rootName
+            bodyData(data).apply {
+                addSubEventWithSamePeriod().apply {
+                    name = childName
+                    bodyData(data)
+                }
+            }
+        }
+
+        val batches = rootEvent.toListBatchProto(dataSize, null)
+        assertEquals(2, batches.size)
+        checkEventStatus(batches, 2, 0)
+
+        batches[0].checkEventBatch(false, listOf(rootName))
+        batches[1].checkEventBatch(true, listOf(childName))
+    }
+
+    @Test
+    fun `root event to list batch proto without size limit`() {
+        val rootName = "root"
+        val childName = "child"
+        val rootEvent = Event.start().apply {
+            name = rootName
+            bodyData(data).apply {
+                addSubEventWithSamePeriod().apply {
+                    name = childName
+                    bodyData(data)
+                }
+            }
+        }
+
+        val batch = rootEvent.toBatchProto(null)
+        checkEventStatus(listOf(batch), 2, 0)
+        batch.checkEventBatch(false, listOf(rootName, childName))
+    }
+
+    @Test
     fun `event with children is before the event without children`() {
         val rootEvent = Event.start()
             .bodyData(data).apply {
@@ -216,20 +259,24 @@ class TestEvent {
                     .bodyData(data)
             }
 
-        val batches = rootEvent.toListBatchProto(parentEventId)
-        assertEquals(1, batches.size)
-        assertEquals(parentEventId, batches[0].parentEventId)
-        checkEventStatus(batches, 4, 0)
+        val batch = rootEvent.toBatchProto(parentEventId)
+        assertEquals(parentEventId, batch.parentEventId)
+        checkEventStatus(listOf(batch), 4, 0)
     }
 
     @Test
     fun `pack single event single batch`() {
         val rootEvent = Event.start()
 
-        val batches = rootEvent.toListBatchProto(parentEventId)
-        assertEquals(1, batches.size)
-        assertFalse(batches[0].hasParentEventId())
-        checkEventStatus(batches, 1, 0)
+        val batch = rootEvent.toBatchProto(parentEventId)
+        assertFalse(batch.hasParentEventId())
+        checkEventStatus(listOf(batch), 1, 0)
+    }
+
+    private fun EventBatch.checkEventBatch(hasParentId: Boolean, eventNames: List<String>) {
+        assertEquals(hasParentId, hasParentEventId())
+        assertEquals(eventNames.size, eventsCount)
+        assertEquals(eventNames, eventsList.map(ProtoEvent::getName).toList())
     }
 
     private fun checkEventStatus(batches: List<EventBatch>, successNumber: Int, filedNumber: Int) {

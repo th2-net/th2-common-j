@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -53,6 +54,7 @@ public class Event {
 
     public static final String UNKNOWN_EVENT_NAME = "Unknown event name";
     public static final String UNKNOWN_EVENT_TYPE = "Unknown event type";
+    public static final EventID DEFAULT_EVENT_ID = EventID.getDefaultInstance();
 
     protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER = ThreadLocal.withInitial(() -> new ObjectMapper().setSerializationInclusion(NON_NULL));
 
@@ -275,17 +277,17 @@ public class Event {
         return eventBuilder.build();
     }
 
-    public List<EventBatch> toListBatchProto(@Nullable EventID parentID) throws JsonProcessingException {
+    public EventBatch toBatchProto(@Nullable EventID parentID) throws JsonProcessingException {
         List<com.exactpro.th2.common.grpc.Event> events = toListProto(parentID);
 
         EventBatch.Builder builder = EventBatch.newBuilder()
             .addAllEvents(events);
 
-        if (events.size() != 1) {
+        if (parentID != null && events.size() != 1) {
             builder.setParentEventId(parentID);
         }
 
-        return Collections.singletonList(builder.build());
+        return builder.build();
     }
 
     public List<EventBatch> toListBatchProto(int maxEventBatchContentSize, @Nullable EventID parentID) throws JsonProcessingException {
@@ -299,6 +301,10 @@ public class Event {
         Map<EventID, List<com.exactpro.th2.common.grpc.Event>> eventGroups = events.stream().collect(Collectors.groupingBy(com.exactpro.th2.common.grpc.Event::getParentId));
         batch(maxEventBatchContentSize, result, eventGroups, parentID);
         return result;
+    }
+
+    public List<EventBatch> toListBatchProto(@Nullable EventID parentID) throws JsonProcessingException {
+        return toListBatchProto(Integer.MAX_VALUE, parentID);
     }
 
     public String getId() {
@@ -340,7 +346,7 @@ public class Event {
     /**
      * @deprecated use {@link #getAggregatedStatus} instead
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     protected Status getAggrigatedStatus() {
         return getAggregatedStatus();
     }
@@ -355,28 +361,31 @@ public class Event {
         return Status.FAILED;
     }
 
-    private void batch(int maxEventBatchContentSize, List<EventBatch> result, Map<EventID, List<com.exactpro.th2.common.grpc.Event>> eventGroups, EventID eventID) throws JsonProcessingException {
-        EventBatch.Builder builder = EventBatch.newBuilder().setParentEventId(eventID);
+    private void batch(int maxEventBatchContentSize, List<EventBatch> result, Map<EventID, List<com.exactpro.th2.common.grpc.Event>> eventGroups, @Nullable EventID eventID) throws JsonProcessingException {
+        eventID = ObjectUtils.defaultIfNull(eventID, DEFAULT_EVENT_ID);
+        EventBatch.Builder builder = setParentId(EventBatch.newBuilder(), eventID);
 
         List<com.exactpro.th2.common.grpc.Event> events = Objects.requireNonNull(eventGroups.get(eventID),
-                "Neither of events refers to " + shortDebugString(eventID));
+                eventID != DEFAULT_EVENT_ID
+                        ? "Neither of events refers to " + shortDebugString(eventID)
+                        : "Neither of events is root event");
 
-        for (com.exactpro.th2.common.grpc.Event event : events) {
-            com.exactpro.th2.common.grpc.Event checkedEvent = checkAndRebuild(maxEventBatchContentSize, event);
+        for (var protoEvent : events) {
+            var checkedProtoEvent = checkAndRebuild(maxEventBatchContentSize, protoEvent);
 
-            LOGGER.trace("Process {} {}", checkedEvent.getName(), checkedEvent.getType());
-            if(eventGroups.containsKey(checkedEvent.getId())) {
+            LOGGER.trace("Process {} {}", checkedProtoEvent.getName(), checkedProtoEvent.getType());
+            if(eventGroups.containsKey(checkedProtoEvent.getId())) {
                 result.add(checkAndBuild(maxEventBatchContentSize, EventBatch.newBuilder()
-                        .addEvents(checkedEvent)));
+                        .addEvents(checkedProtoEvent)));
 
-                batch(maxEventBatchContentSize, result, eventGroups, checkedEvent.getId());
+                batch(maxEventBatchContentSize, result, eventGroups, checkedProtoEvent.getId());
             } else {
                 if(builder.getEventsCount() > 0
-                        && getContentSize(builder) + getContentSize(checkedEvent) > maxEventBatchContentSize) {
+                        && getContentSize(builder) + getContentSize(checkedProtoEvent) > maxEventBatchContentSize) {
                     result.add(checkAndBuild(maxEventBatchContentSize, builder));
-                    builder = EventBatch.newBuilder().setParentEventId(eventID);
+                    builder = setParentId(EventBatch.newBuilder(), eventID);
                 }
-                builder.addEvents(checkedEvent);
+                builder.addEvents(checkedProtoEvent);
             }
         }
 
@@ -395,14 +404,22 @@ public class Event {
     }
 
     private com.exactpro.th2.common.grpc.Event checkAndRebuild(int maxEventBatchContentSize, com.exactpro.th2.common.grpc.Event event) throws JsonProcessingException {
-        if (getContentSize(event) > maxEventBatchContentSize) {
+        int contentSize = getContentSize(event);
+        if (contentSize > maxEventBatchContentSize) {
             return com.exactpro.th2.common.grpc.Event.newBuilder(event)
                     .setStatus(EventStatus.FAILED)
                     .setBody(ByteString.copyFrom(OBJECT_MAPPER.get().writeValueAsBytes(
-                            Collections.singletonList(createMessageBean("Event " + shortDebugString(event.getId()) + " exceeds max size, max " + maxEventBatchContentSize + ", actual " + getContentSize(event))))))
+                            Collections.singletonList(createMessageBean("Event " + shortDebugString(event.getId()) + " exceeds max size, max " + maxEventBatchContentSize + ", actual " + contentSize)))))
                     .build();
         }
         return event;
+    }
+
+    private static EventBatch.Builder setParentId(EventBatch.Builder builder, @NotNull EventID parentId) {
+        if (parentId != DEFAULT_EVENT_ID) {
+            builder.setParentEventId(parentId);
+        }
+        return builder;
     }
 
     private static int getContentSize(com.exactpro.th2.common.grpc.Event event) {
