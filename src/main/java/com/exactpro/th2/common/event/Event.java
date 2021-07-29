@@ -21,6 +21,7 @@ import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.protobuf.TextFormat.shortDebugString;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
@@ -32,7 +33,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.ObjectUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -213,7 +213,7 @@ public class Event {
      * @return current event
      */
     public Event exception(@NotNull Throwable throwable, boolean includeCauses) {
-        Throwable error = Objects.requireNonNull(throwable, "Throwable can't be null");
+        Throwable error = requireNonNull(throwable, "Throwable can't be null");
         do {
             bodyData(createMessageBean(error.toString()));
             error = error.getCause();
@@ -290,7 +290,15 @@ public class Event {
         return builder.build();
     }
 
-    public List<EventBatch> toListBatchProto(int maxEventBatchContentSize, @Nullable EventID parentID) throws JsonProcessingException {
+    /**
+     * Converts the event with all child events to a sequence of the th2 events then organizes them into batches according to event tree structure and value of max event batch content size argent.
+     * Splitting to batch executes by principles:
+     * * Events with children are put into distinct batches because events can't be a child of an event from another batch.
+     * * Events without children are collected into batches according to the max size. For example, little child events can be put into one batch; big child events can be put into separate batches.
+     * @param maxEventBatchContentSize - the maximum size of useful content in one batch which is calculated as the sum of the size of all event bodies in the batch
+     * @param parentID - reference to parent event for the current event tree. It may be null if the current event is root.
+     */
+    public List<EventBatch> toBatchesProtoWithLimit(int maxEventBatchContentSize, @Nullable EventID parentID) throws JsonProcessingException {
         if (maxEventBatchContentSize <= 0) {
             throw new IllegalArgumentException("'maxEventBatchContentSize' should be greater than zero, actual: " + maxEventBatchContentSize);
         }
@@ -303,8 +311,15 @@ public class Event {
         return result;
     }
 
+    /**
+     * Converts the event with all child events to a sequence of the th2 events then organizes them into batches according to event tree structure.
+     * Splitting to batch executes by principles:
+     * * Events with children are put into distinct batches because events can't be a child of an event from another batch.
+     * * Events without children are collected into batches.
+     * @param parentID - reference to parent event for the current event tree. It may be null if the current event is root.
+     */
     public List<EventBatch> toListBatchProto(@Nullable EventID parentID) throws JsonProcessingException {
-        return toListBatchProto(Integer.MAX_VALUE, parentID);
+        return toBatchesProtoWithLimit(Integer.MAX_VALUE, parentID);
     }
 
     public String getId() {
@@ -362,13 +377,13 @@ public class Event {
     }
 
     private void batch(int maxEventBatchContentSize, List<EventBatch> result, Map<EventID, List<com.exactpro.th2.common.grpc.Event>> eventGroups, @Nullable EventID eventID) throws JsonProcessingException {
-        eventID = ObjectUtils.defaultIfNull(eventID, DEFAULT_EVENT_ID);
+        eventID = requireNonNullElse(eventID, DEFAULT_EVENT_ID);
         EventBatch.Builder builder = setParentId(EventBatch.newBuilder(), eventID);
 
         List<com.exactpro.th2.common.grpc.Event> events = Objects.requireNonNull(eventGroups.get(eventID),
-                eventID != DEFAULT_EVENT_ID
-                        ? "Neither of events refers to " + shortDebugString(eventID)
-                        : "Neither of events is root event");
+                eventID == DEFAULT_EVENT_ID
+                        ? "Neither of events is root event"
+                        : "Neither of events refers to " + shortDebugString(eventID));
 
         for (var protoEvent : events) {
             var checkedProtoEvent = checkAndRebuild(maxEventBatchContentSize, protoEvent);

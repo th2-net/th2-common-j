@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,8 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 package com.exactpro.th2.common;
+
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,7 +24,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Supplier;
 
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -39,7 +40,7 @@ public class ConfigurationUtils {
 
     @Nullable
     public static String getEnv(String key, @Nullable String defaultValue) {
-        return ObjectUtils.defaultIfNull(System.getenv(key), defaultValue);
+        return defaultIfNull(System.getenv(key), defaultValue);
     }
 
     @Nullable
@@ -101,7 +102,7 @@ public class ConfigurationUtils {
     }
 
     @FunctionalInterface
-    public static interface Loadable<T> {
-        public T load(InputStream inputStream) throws IOException;
+    public interface Loadable<T> {
+        T load(InputStream inputStream) throws IOException;
     }
 }

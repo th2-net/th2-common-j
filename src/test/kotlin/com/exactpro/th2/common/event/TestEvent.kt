@@ -15,14 +15,19 @@
  */
 package com.exactpro.th2.common.event
 
+import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_NAME
+import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_TYPE
+import com.exactpro.th2.common.event.EventUtils.toEventID
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.ByteString
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 
@@ -30,30 +35,27 @@ typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
 
-    private val parentEventId: EventID = EventUtils.toEventID("parentEventId")!!
+    private val parentEventId: EventID = toEventID("parentEventId")!!
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
 
     @Test
-    fun `set parent to the toProto method`() {
-        val event = Event.start()
-        val parentEventId = EventID.newBuilder().apply {
-            id = "test"
-        }.build()
+    fun `call the toProto method on a simple event`() {
+        Event.start().toProto(null).run {
+            checkDefaultEventFields()
+            assertFalse(hasParentId())
+        }
 
-        assertAll(
-            { assertEquals(parentEventId, event.toProto(parentEventId).parentId) },
-            { assertFalse(event.toProto(null).hasParentId()) }
-        )
+        Event.start().toProto(parentEventId).run {
+            checkDefaultEventFields()
+            assertEquals(parentEventId, parentId)
+        }
     }
 
     @Test
     fun `set parent to the toListProto method`() {
         val event = Event.start()
-        val parentEventId = EventID.newBuilder().apply {
-            id = "test"
-        }.build()
 
         val toListProtoWithParent = event.toListProto(parentEventId)
         val toListProtoWithoutParent = event.toListProto(null)
@@ -69,8 +71,8 @@ class TestEvent {
     fun `negative or zero max size`() {
         val rootEvent = Event.start()
         assertAll(
-            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toListBatchProto(-1, parentEventId) } },
-            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toListBatchProto(0, parentEventId) } }
+            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(-1, parentEventId) } },
+            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(0, parentEventId) } }
         )
     }
 
@@ -80,7 +82,7 @@ class TestEvent {
             .bodyData(data)
 
         assertAll(
-            { Assertions.assertThrows(IllegalStateException::class.java) { rootEvent.toListBatchProto(1, parentEventId) } }
+            { Assertions.assertThrows(IllegalStateException::class.java) { rootEvent.toBatchesProtoWithLimit(1, parentEventId) } }
         )
     }
 
@@ -94,7 +96,7 @@ class TestEvent {
                     .bodyData(data)
             }
 
-        val batches = rootEvent.toListBatchProto(dataSize, parentEventId)
+        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, parentEventId)
         assertEquals(3, batches.size)
         checkEventStatus(batches, 3, 0)
     }
@@ -109,7 +111,7 @@ class TestEvent {
                     .bodyData(bigData)
             }
 
-        val batches = rootEvent.toListBatchProto(dataSize, parentEventId)
+        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, parentEventId)
         assertEquals(3, batches.size)
         checkEventStatus(batches, 2, 1)
     }
@@ -130,15 +132,15 @@ class TestEvent {
 
         assertAll(
             {
-                val batches = rootEvent.toListBatchProto(dataSize, parentEventId)
+                val batches = rootEvent.toBatchesProtoWithLimit(dataSize, parentEventId)
                 assertEquals(5, batches.size)
                 checkEventStatus(batches, 4, 1)
             }, {
-                val batches = rootEvent.toListBatchProto(dataSize * 2, parentEventId)
+                val batches = rootEvent.toBatchesProtoWithLimit(dataSize * 2, parentEventId)
                 assertEquals(4, batches.size)
                 checkEventStatus(batches, 5, 0)
             }, {
-                val batches = rootEvent.toListBatchProto(dataSize * 3, parentEventId)
+                val batches = rootEvent.toBatchesProtoWithLimit(dataSize * 3, parentEventId)
                 assertEquals(3, batches.size)
                 checkEventStatus(batches, 5, 0)
             }
@@ -154,7 +156,7 @@ class TestEvent {
         val subEvent2 = rootEvent.addSubEventWithSamePeriod()
             .bodyData(data)
 
-        val batches = rootEvent.toListBatchProto(1024 * 1024, parentEventId)
+        val batches = rootEvent.toBatchesProtoWithLimit(1024 * 1024, parentEventId)
         assertEquals(2, batches.size)
         checkEventStatus(batches, 3, 0)
 
@@ -182,7 +184,7 @@ class TestEvent {
                     }
             }
 
-        val batches = rootEvent.toListBatchProto(dataSize, parentEventId)
+        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, parentEventId)
         assertEquals(4, batches.size)
         checkEventStatus(batches, 4, 0)
     }
@@ -201,7 +203,7 @@ class TestEvent {
             }
         }
 
-        val batches = rootEvent.toListBatchProto(dataSize, null)
+        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, null)
         assertEquals(2, batches.size)
         checkEventStatus(batches, 2, 0)
 
@@ -241,7 +243,7 @@ class TestEvent {
                     .bodyData(data)
             }
 
-        val batches = rootEvent.toListBatchProto(dataSize, parentEventId)
+        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, parentEventId)
         assertEquals(4, batches.size)
         checkEventStatus(batches, 4, 0)
     }
@@ -271,6 +273,19 @@ class TestEvent {
         val batch = rootEvent.toBatchProto(parentEventId)
         assertFalse(batch.hasParentEventId())
         checkEventStatus(listOf(batch), 1, 0)
+    }
+
+    private fun com.exactpro.th2.common.grpc.Event.checkDefaultEventFields() {
+        assertAll(
+            { assertTrue(hasId()) },
+            { assertEquals(UNKNOWN_EVENT_NAME, name) },
+            { assertEquals(UNKNOWN_EVENT_TYPE, type) },
+            { assertTrue(hasStartTimestamp()) },
+            { assertTrue(hasEndTimestamp()) },
+            { assertEquals(SUCCESS, status) },
+            { assertEquals(ByteString.copyFrom("[]".toByteArray()), body) },
+            { assertEquals(0, attachedMessageIdsCount) }
+        )
     }
 
     private fun EventBatch.checkEventBatch(hasParentId: Boolean, eventNames: List<String>) {
