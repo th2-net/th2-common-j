@@ -105,7 +105,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
     protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    protected static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
     private final AtomicReference<RabbitMQConfiguration> rabbitMqConfiguration = new AtomicReference<>();
@@ -139,6 +139,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     static {
         configureLogger();
+
+        SimpleModule module = new SimpleModule();
+        module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
+
+        MAPPER.registerModule(module);
     }
 
     /**
@@ -530,13 +535,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected GrpcRouterConfiguration loadGrpcRouterConfiguration(GrpcRouterConfiguration currentValue) {
         if (currentValue == null) {
-            SimpleModule module = new SimpleModule();
-            module.addDeserializer(RoutingStrategy.class, new JsonDeserializerRoutingStategy());
-
-            var mapper = new ObjectMapper();
-            mapper.registerModule(module);
-
-            return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, mapper);
+            return getConfiguration(getPathToGrpcRouterConfiguration(), GrpcRouterConfiguration.class, MAPPER);
         }
         return currentValue;
     }
@@ -685,10 +684,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     .filter(Objects::nonNull)
                     .map(Manifest::getMainAttributes)
                     .filter(attributes -> EXACTPRO_IMPLEMENTATION_VENDOR.equals(attributes.getValue(Name.IMPLEMENTATION_VENDOR)))
-                    .forEach(attributes -> {
-                        LOGGER.info("Manifest title {}, version {}"
-                                , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION));
-                    });
+                    .forEach(attributes -> LOGGER.info("Manifest title {}, version {}"
+                            , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION)));
         } catch (IOException e) {
             LOGGER.warn("Manifest searching failure", e);
         }

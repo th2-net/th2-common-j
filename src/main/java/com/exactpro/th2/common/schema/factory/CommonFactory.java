@@ -17,7 +17,7 @@
 package com.exactpro.th2.common.schema.factory;
 
 import static java.util.Collections.emptyMap;
-import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
+import static java.util.Objects.requireNonNullElse;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,7 +53,6 @@ import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -93,7 +92,6 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path oldDictionariesDir;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
@@ -107,7 +105,7 @@ public class CommonFactory extends AbstractCommonFactory {
         this.cradle = cradle;
         this.custom = custom;
         this.dictionariesDir = dictionariesDir;
-        this.oldDictionariesDir = defaultIfNull(oldDictionariesDir, CONFIG_DEFAULT_PATH);
+        this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.prometheus = prometheus;
     }
 
@@ -118,7 +116,7 @@ public class CommonFactory extends AbstractCommonFactory {
         this.cradle = cradle;
         this.custom = custom;
         this.dictionariesDir = dictionariesDir;
-        this.oldDictionariesDir = defaultIfNull(oldDictionariesDir, CONFIG_DEFAULT_PATH);
+        this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.prometheus = prometheus;
 
         start();
