@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.18.2)
+# th2 common library (Java) (3.19.0)
 
 ## Usage
 
@@ -187,6 +187,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.19.0
+
++ Added the Event.toListBatchProto method to covert instance of the Event class to list of event batches.
 
 ### 3.18.2
 

@@ -793,10 +793,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     .filter(Objects::nonNull)
                     .map(Manifest::getMainAttributes)
                     .filter(attributes -> EXACTPRO_IMPLEMENTATION_VENDOR.equals(attributes.getValue(Name.IMPLEMENTATION_VENDOR)))
-                    .forEach(attributes -> {
-                        LOGGER.info("Manifest title {}, version {}"
-                                , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION));
-                    });
+                    .forEach(attributes -> LOGGER.info("Manifest title {}, version {}"
+                            , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION)));
         } catch (IOException e) {
             LOGGER.warn("Manifest searching failure", e);
         }
