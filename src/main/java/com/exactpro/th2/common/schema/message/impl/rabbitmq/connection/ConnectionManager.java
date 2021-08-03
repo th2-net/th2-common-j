@@ -14,7 +14,7 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -73,12 +73,14 @@ public class ConnectionManager implements AutoCloseable {
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
 
+    private final HealthMetrics metrics = new HealthMetrics(this);
+
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
         public void handleRecovery(Recoverable recoverable) {
             LOGGER.debug("Count tries to recovery connection reset to 0");
             connectionRecoveryAttempts.set(0);
-            CommonMetrics.setRabbitMQReadiness(true);
+            metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
         }
 
@@ -164,7 +166,7 @@ public class ConnectionManager implements AutoCloseable {
             }
 
             private void turnOffReadiness(Throwable exception){
-                CommonMetrics.setRabbitMQReadiness(false);
+                metrics.getReadinessMonitor().disable();
                 LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
             }
         });
@@ -209,10 +211,10 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             this.connection = factory.newConnection();
-            CommonMetrics.setRabbitMQReadiness(true);
+            metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
-            CommonMetrics.setRabbitMQReadiness(false);
+            metrics.getReadinessMonitor().disable();
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using configuration", e);
         }

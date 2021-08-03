@@ -26,6 +26,7 @@ import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
@@ -153,6 +154,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
     private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
     private final Map<Class<?>, MessageRouter<?>> customMessageRouters = new ConcurrentHashMap<>();
+    private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness("common_factory_liveness");
 
     static {
         configureLogger();
@@ -208,7 +210,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         DefaultExports.initialize();
         PrometheusConfiguration prometheusConfiguration = loadPrometheusConfiguration();
 
-        CommonMetrics.setLiveness(true);
+        livenessMonitor.enable();
 
         this.prometheusExporter.updateAndGet(server -> {
             if (server == null && prometheusConfiguration.getEnabled()) {
@@ -651,7 +653,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
-        return new ConnectionManager(getRabbitMqConfiguration(), getConnectionManagerConfiguration(), () -> CommonMetrics.setLiveness(false));
+        return new ConnectionManager(getRabbitMqConfiguration(), getConnectionManagerConfiguration(), livenessMonitor::disable);
     }
 
     protected ConnectionManager getRabbitMqConnectionManager() {
