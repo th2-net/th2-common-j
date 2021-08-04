@@ -18,6 +18,9 @@ package com.exactpro.th2.common.metrics
 import java.nio.file.Files
 import java.nio.file.Path
 
+/**
+ * Metric arbiter which uses a file to showing its status
+ */
 class FileMetricArbiter(fileName: String) : AbstractMetricArbiter() {
     private val metricFile: Path = DEFAULT_PATH_TO_METRIC_FOLDER.resolve(fileName)
 
@@ -25,12 +28,10 @@ class FileMetricArbiter(fileName: String) : AbstractMetricArbiter() {
         Files.deleteIfExists(metricFile)
     }
 
-    override fun metricChangedValue(value: Boolean) {
+    override fun onValueChange(value: Boolean) {
         if (value) {
             try {
                 Files.createFile(metricFile)
-            } catch (e: FileAlreadyExistsException) {
-                // Do nothing
             } catch (e: Exception) {
                 throw IllegalStateException("Can not create file = $metricFile", e)
             }
@@ -40,6 +41,6 @@ class FileMetricArbiter(fileName: String) : AbstractMetricArbiter() {
     }
 
     companion object {
-        private val DEFAULT_PATH_TO_METRIC_FOLDER = Path.of("/tmp")
+        private val DEFAULT_PATH_TO_METRIC_FOLDER = Path.of(System.getProperty("java.io.tmpdir"))
     }
 }

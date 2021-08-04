@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -55,8 +55,8 @@ private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC
 fun registerLiveness(name: String) = LIVENESS_ARBITER.register(name)
 fun registerReadiness(name: String) = READINESS_ARBITER.register(name)
 
-fun registerLiveness(obj: Any) = LIVENESS_ARBITER.register("${obj.javaClass.simpleName}_liveness_${obj.hashCode()}")
-fun registerReadiness(obj: Any) = READINESS_ARBITER.register("${obj.javaClass.simpleName}_readness_${obj.hashCode()}")
+fun registerLiveness(obj: Any) = LIVENESS_ARBITER.register("${obj::class.simpleName}_liveness_${obj.hashCode()}")
+fun registerReadiness(obj: Any) = READINESS_ARBITER.register("${obj::class.simpleName}_readiness_${obj.hashCode()}")
 
 @JvmField
 val LIVENESS_MONITOR = registerLiveness("user_liveness")
@@ -128,21 +128,19 @@ fun setGRPCReadiness(value: Boolean) {
     updateCommonReadiness()
 }
 
-class HealthMetrics @JvmOverloads constructor(val livenessMonitor: MetricMonitor,
-                    val readinessMonitor: MetricMonitor,
-                    private val maxAttempts: Int = 10) {
-
+class HealthMetrics @JvmOverloads constructor(
+    val livenessMonitor: MetricMonitor,
+    val readinessMonitor: MetricMonitor,
+    private val maxAttempts: Int = 10
+) {
     @JvmOverloads
     constructor(parent: Any, attempts: Int = 10) : this(registerLiveness(parent), registerReadiness(parent), attempts)
 
     private val attempts = AtomicInteger(0)
 
-    fun notReady() {
-        if (maxAttempts > attempts.incrementAndGet()) {
-            readinessMonitor.disable()
-        } else {
-            disable();
-        }
+    fun notReady() = when {
+        maxAttempts > attempts.incrementAndGet() -> readinessMonitor.disable()
+        else -> disable()
     }
 
     fun enable() {

@@ -40,16 +40,12 @@ class MetricMonitor(
     /**
      * Enable monitor, that mean all is ok
      */
-    fun enable() {
-        arbiter.enable(this)
-    }
+    fun enable() = arbiter.enable(this)
 
     /**
      * Disable monitor, that mean something wrong
      */
-    fun disable() {
-        arbiter.disable(this)
-    }
+    fun disable() = arbiter.disable(this)
 
 
     override fun toString(): String {

@@ -15,13 +15,35 @@
  */
 package com.exactpro.th2.common.metrics
 
+/**
+ * Interface for managing logic metrics with multiple monitors which can change metrics value
+ * @see MetricMonitor
+ */
 interface MetricArbiter {
+    /**
+     * Status property of the current arbiter.
+     */
     val isEnabled: Boolean
 
+    /**
+     * Register new endpoint
+     * @param name monitor name
+     * @return monitor which can change metrics value
+     */
     fun register(name: String) : MetricMonitor
 
+    /**
+     * Check if monitor is enable
+     */
     fun isMonitorEnabled(monitor: MetricMonitor) : Boolean
 
+    /**
+     * Enable monitor
+     */
     fun enable(monitor: MetricMonitor)
+
+    /**
+     * Disable monitor
+     */
     fun disable(monitor: MetricMonitor)
 }
