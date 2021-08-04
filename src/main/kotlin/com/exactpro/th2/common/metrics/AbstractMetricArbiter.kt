@@ -38,7 +38,7 @@ abstract class AbstractMetricArbiter : MetricArbiter {
         }
     }
 
-    override fun isMonitorEnabled(monitor: MetricMonitor): Boolean = monitor !in disabledMonitors
+    override fun isEnabled(monitor: MetricMonitor): Boolean = monitor !in disabledMonitors
 
     protected abstract fun onValueChange(value: Boolean)
 }

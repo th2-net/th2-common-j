@@ -28,7 +28,7 @@ class MetricMonitor(
      * Status property of the current monitor. Please use the [isMetricEnabled] method to get cumulative metric status
      */
     var isEnabled: Boolean
-        get() = arbiter.isMonitorEnabled(this)
+        get() = arbiter.isEnabled(this)
         set(value) = if (value) enable() else disable()
 
     /**
@@ -38,12 +38,12 @@ class MetricMonitor(
         get() = arbiter.isEnabled
 
     /**
-     * Enable monitor, that mean all is ok
+     * Changes status of this monitor to `enabled`
      */
     fun enable() = arbiter.enable(this)
 
     /**
-     * Disable monitor, that mean something wrong
+     * Changes status of this monitor to `disabled`
      */
     fun disable() = arbiter.disable(this)
 

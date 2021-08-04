@@ -16,15 +16,15 @@
 package com.exactpro.th2.common.metrics
 
 /**
- * Metric arbiter which combining some metric arbiters
+ * Metric arbiter which aggregates several other metric arbiters
  */
-class MultiMetricArbiter(private val metricsArbiters: List<MetricArbiter>) : MetricArbiter {
+class AggregatingMetricArbiter(private val metricsArbiters: List<MetricArbiter>) : MetricArbiter {
     override val isEnabled: Boolean
         get() = !metricsArbiters.any { !it.isEnabled }
 
     override fun register(name: String): MetricMonitor = MetricMonitor(this, name)
 
-    override fun isMonitorEnabled(monitor: MetricMonitor): Boolean = metricsArbiters.all { it.isMonitorEnabled(monitor) }
+    override fun isEnabled(monitor: MetricMonitor): Boolean = metricsArbiters.all { it.isEnabled(monitor) }
 
     override fun enable(monitor: MetricMonitor) = metricsArbiters.forEach {
         it.enable(monitor)

@@ -19,7 +19,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Metric arbiter which uses a file to showing its status
+ * Metric arbiter which uses a file to show its status
  */
 class FileMetricArbiter(fileName: String) : AbstractMetricArbiter() {
     private val metricFile: Path = DEFAULT_PATH_TO_METRIC_FOLDER.resolve(fileName)
