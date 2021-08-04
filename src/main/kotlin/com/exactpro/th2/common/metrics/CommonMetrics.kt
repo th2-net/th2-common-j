@@ -45,8 +45,8 @@ val DEFAULT_BUCKETS = doubleArrayOf(0.000_25, 0.000_5, 0.001, 0.005, 0.010, 0.01
 const val DEFAULT_SESSION_ALIAS_LABEL_NAME : String = "session_alias"
 const val DEFAULT_DIRECTION_LABEL_NAME : String = "direction"
 
-private val LIVENESS_ARBITER = AggregatingMetricArbiter(listOf(PrometheusMetricArbiter("th2_liveness", "Service liveness"), FileMetricArbiter( "healthy")))
-private val READINESS_ARBITER = AggregatingMetricArbiter(listOf(PrometheusMetricArbiter("th2_readiness", "Service readiness"), FileMetricArbiter( "ready")))
+private val LIVENESS_ARBITER = AggregatingMetric(listOf(PrometheusMetric("th2_liveness", "Service liveness"), FileMetric( "healthy")))
+private val READINESS_ARBITER = AggregatingMetric(listOf(PrometheusMetric("th2_readiness", "Service readiness"), FileMetric( "ready")))
 
 private val RABBITMQ_READINESS = AtomicBoolean(true)
 private val GRPC_READINESS = AtomicBoolean(true)

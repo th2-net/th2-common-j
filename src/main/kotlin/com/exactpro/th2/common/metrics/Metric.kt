@@ -20,7 +20,7 @@ package com.exactpro.th2.common.metrics
  * Resulting metric status will be calculated from statuses of all monitors
  * @see MetricMonitor
  */
-interface MetricArbiter {
+interface Metric {
     /**
      * Current metric status.
      */

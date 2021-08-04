@@ -15,30 +15,22 @@
 
 package com.exactpro.th2.common.metrics
 
-import java.util.concurrent.ConcurrentHashMap
-
-abstract class AbstractMetricArbiter : MetricArbiter {
-
-    private val disabledMonitors: MutableSet<MetricMonitor> = ConcurrentHashMap.newKeySet()
-
+/**
+ * Metric arbiter which aggregates several other metric arbiters
+ */
+class AggregatingMetric(private val metrics: List<Metric>) : Metric {
     override val isEnabled: Boolean
-        get() = disabledMonitors.isEmpty()
+        get() = !metrics.any { !it.isEnabled }
 
     override fun register(name: String): MetricMonitor = MetricMonitor(this, name)
 
-    override fun enable(monitor: MetricMonitor) {
-        if(disabledMonitors.remove(monitor)) {
-            onValueChange(disabledMonitors.isEmpty())
-        }
+    override fun isEnabled(monitor: MetricMonitor): Boolean = metrics.all { it.isEnabled(monitor) }
+
+    override fun enable(monitor: MetricMonitor) = metrics.forEach {
+        it.enable(monitor)
     }
 
-    override fun disable(monitor: MetricMonitor) {
-        if (disabledMonitors.add(monitor)) {
-            onValueChange(false)
-        }
+    override fun disable(monitor: MetricMonitor) = metrics.forEach {
+        it.disable(monitor)
     }
-
-    override fun isEnabled(monitor: MetricMonitor): Boolean = monitor !in disabledMonitors
-
-    protected abstract fun onValueChange(value: Boolean)
 }

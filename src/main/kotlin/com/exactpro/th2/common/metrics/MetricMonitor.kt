@@ -21,7 +21,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder
  * Class for change state of metric
  */
 class MetricMonitor(
-    private val arbiter: MetricArbiter,
+    private val arbiter: Metric,
     val name: String
 ) {
     /**

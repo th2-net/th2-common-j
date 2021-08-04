@@ -15,22 +15,14 @@
 
 package com.exactpro.th2.common.metrics
 
+import io.prometheus.client.Gauge
+
 /**
- * Metric arbiter which aggregates several other metric arbiters
+ * Metric arbiter which uses a Prometheus metric to show its status
  */
-class AggregatingMetricArbiter(private val metricsArbiters: List<MetricArbiter>) : MetricArbiter {
-    override val isEnabled: Boolean
-        get() = !metricsArbiters.any { !it.isEnabled }
-
-    override fun register(name: String): MetricMonitor = MetricMonitor(this, name)
-
-    override fun isEnabled(monitor: MetricMonitor): Boolean = metricsArbiters.all { it.isEnabled(monitor) }
-
-    override fun enable(monitor: MetricMonitor) = metricsArbiters.forEach {
-        it.enable(monitor)
-    }
-
-    override fun disable(monitor: MetricMonitor) = metricsArbiters.forEach {
-        it.disable(monitor)
+class PrometheusMetric(name: String, help: String) : AbstractMetric() {
+    private val metric: Gauge = Gauge.build(name, help).register()
+    override fun onValueChange(value: Boolean) {
+        metric.set(if (value) 1.0 else 0.0)
     }
 }
