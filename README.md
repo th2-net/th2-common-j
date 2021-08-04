@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.18.0)
+# th2 common library (Java) (3.20.0)
 
 ## Usage
 
@@ -188,10 +188,34 @@ NOTES:
 
 ## Release notes
 
-### 3.18.0
+### 3.20.0
 
 + Extended filter's format
-    + Add multiply filters support 
+    + Add multiply filters support
+
+### 3.19.0
+
++ Added the Event.toListBatchProto method to covert instance of the Event class to list of event batches.
+
+### 3.18.2
+
+#### Changed:
+
++ Fix possible NPE when adding the `Exception` to the event with `null` message
++ Correct exception messages
+
+### 3.18.1
+
+#### Changed:
+
++ The `toMetadataFilter` returns `null` the original metadata has nothing to compare
++ The `toRootMessageFilter` does not add the `MetadataFilter` if the message's metadata has nothing to compare
+
+### 3.18.0
+
+#### Changed:
+
++ Update Cradle version from `2.9.1` to `2.13.0`
 
 ### 3.17.0
 + Extended message utility class

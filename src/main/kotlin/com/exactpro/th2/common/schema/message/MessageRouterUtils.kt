@@ -27,6 +27,7 @@ import com.google.protobuf.MessageOrBuilder
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
+import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
@@ -50,7 +51,7 @@ fun MessageRouter<EventBatch>.storeEvent(
     var error = cause
 
     while (error != null) {
-        bodyData(EventUtils.createMessageBean(error.message))
+        bodyData(EventUtils.createMessageBean(ExceptionUtils.getMessage(error)))
         error = error.cause
     }
 

@@ -71,6 +71,7 @@ import java.util.Set;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
@@ -124,7 +125,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
         this.dictionariesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_DIR_NAME);
-        this.oldDictionariesDir = defaultIfNull(oldDictionariesDir, CONFIG_DEFAULT_PATH);
+        this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
 
         start();
@@ -392,7 +393,7 @@ public class CommonFactory extends AbstractCommonFactory {
         ConfigMap cradleConfigMap;
 
         Path configPath = Path.of(System.getProperty("user.dir"), GENERATED_CONFIG_DIR_NAME);
-        
+
         Path dictionaryPath = configPath.resolve(DICTIONARY_DIR_NAME);
         Path boxConfigurationPath = configPath.resolve(BOX_FILE_NAME);
 
