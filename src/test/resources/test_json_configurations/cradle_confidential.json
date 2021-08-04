@@ -1,0 +1,9 @@
+{
+  "dataCenter": "data center",
+  "host": "host",
+  "keyspace": "keyspace",
+  "port": 1234,
+  "username": "user",
+  "password": "pass",
+  "cradleInstanceName": "instance"
+}

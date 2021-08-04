@@ -74,8 +74,13 @@ data class MqRouterFilterConfiguration(
     fun getJsonMessage(): Collection<FieldFilterConfiguration> = message.values()
 }
 
+data class FieldFilterConfigurationOld(
+    var value: String? = null,
+    @JsonProperty(required = true) var operation: FilterOperation
+) : Configuration()
+
 data class FieldFilterConfiguration(
     @JsonProperty(value = "fieldName", required = true) var fieldName: String,
-    @JsonProperty("expectedValue") @JsonAlias("value") var expectedValue: String,
+    @JsonProperty("expectedValue") @JsonAlias("value") var expectedValue: String?,
     @JsonProperty(required = true) var operation: FilterOperation
 ) : Configuration()

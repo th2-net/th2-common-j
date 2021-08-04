@@ -1,0 +1,9 @@
+{
+  "subscriberName": "subscriberName",
+  "connectionTimeout": 10000,
+  "connectionCloseTimeout": 12000,
+  "maxRecoveryAttempts": 8,
+  "minConnectionRecoveryTimeout": 8888,
+  "maxConnectionRecoveryTimeout": 88888,
+  "prefetchCount": 1
+}

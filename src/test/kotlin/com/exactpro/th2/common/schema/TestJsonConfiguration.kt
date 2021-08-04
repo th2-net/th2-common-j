@@ -36,247 +36,78 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.nio.file.Path
 
 class TestJsonConfiguration {
 
-    companion object {
-        @JvmStatic
-        private val OBJECT_MAPPER: ObjectMapper = ObjectMapper()
-
-        init {
-            OBJECT_MAPPER.registerModule(KotlinModule())
-
-            OBJECT_MAPPER.registerModule(RoutingStrategyModule(OBJECT_MAPPER))
-        }
+    @Test
+    fun `test grpc json configuration deserialize`() {
+        testDeserialize(GRPC_CONF_JSON, GRPC_CONF)
     }
 
     @Test
-    fun `test grpc json configuration`() {
-        testSerializeAndDeserialize(
-            GrpcConfiguration(
-                mapOf(
-                    "test" to GrpcServiceConfiguration(
-                        RobinRoutingStrategy().apply {
-                            init(GrpcRawRobinStrategy().also { it.endpoints = listOf("endpoint") })
-                        },
-                        GrpcConfiguration::class.java,
-                        mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr")))
-                    )
-                ),
-                GrpcServerConfiguration("host123", 1234, 58)
-            )
-        )
+    fun `test grpc json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(GRPC_CONF)
     }
 
     @Test
-    fun `test rabbitmq json configuration`() {
-        testSerializeAndDeserialize(
-            RabbitMQConfiguration(
-                "host",
-                "vHost",
-                1234,
-                "user",
-                "pass",
-                "subscriberName",
-                "exchangeName"
-            )
-        )
+    fun `test rabbitmq json configuration deserialize`() {
+        testDeserialize(RABBITMQ_CONF_JSON, RABBITMQ_CONF)
     }
 
     @Test
-    fun `test connection manager json configuration`() {
-        testSerializeAndDeserialize(ConnectionManagerConfiguration("subscriberName", 10000))
+    fun `test rabbitmq json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(RABBITMQ_CONF)
     }
 
     @Test
-    fun `test router mq json configuration`() {
-        testSerializeAndDeserialize(
-            MessageRouterConfiguration(
-                mapOf("test_queue" to QueueConfiguration(
-                    "routing_key",
-                    "queue_name",
-                    "exchange",
-                    listOf("attr1", "attr2")
-                ).apply {
-                    filters = listOf(
-                        MqRouterFilterConfiguration(
-                            listOf(
-                                FieldFilterConfiguration(
-                                    "session_alias",
-                                    "test_session_alias",
-                                    FilterOperation.EQUAL
-                                )
-                            ),
-                            listOf(FieldFilterConfiguration("test_field", "test_value", FilterOperation.EQUAL))
-                        ),
-                        MqRouterFilterConfiguration(
-                            listOf(
-                                FieldFilterConfiguration(
-                                    "session_alias",
-                                    "test_session_alias",
-                                    FilterOperation.EQUAL
-                                )
-                            ),
-                            listOf(
-                                FieldFilterConfiguration("test_field", "test_value0", FilterOperation.EQUAL),
-                                FieldFilterConfiguration("test_field", "test_value1", FilterOperation.EQUAL)
-                            )
-                        )
-                    )
-                })
-            )
-        )
+    fun `test connection manager json configuration deserialize`() {
+        testDeserialize(CONNECTION_MANAGER_CONF_JSON, CONNECTION_MANAGER_CONF)
     }
 
     @Test
-    fun `test cradle confidential json configuration`() {
-        testSerializeAndDeserialize(
-            CradleConfidentialConfiguration(
-                "data center",
-                "host",
-                "keyspace",
-                1234,
-                "user",
-                "pass",
-                "instance"
-            )
-        )
+    fun `test connection manager json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(CONNECTION_MANAGER_CONF)
     }
 
     @Test
-    fun `test backward compatibility for grpc json configuration`() {
-        testDeserialize(
-            "{\"server\":{\"host\":null,\"port\":8080,\"workers\":5},\"services\":{\"check1Service\":{\"endpoints\":{\"th2-qa-endpoint\":{\"host\":\"localhost\",\"port\":31304}},\"service-class\":\"${GrpcServiceConfiguration::class.java.name}\",\"strategy\":{\"endpoints\":[\"th2-qa-endpoint\"],\"name\":\"robin\"}}}}",
-            GrpcConfiguration(
-                mapOf(
-                    "check1Service" to GrpcServiceConfiguration(
-                        RobinRoutingStrategy().apply {
-                            init(
-                                GrpcRawRobinStrategy(listOf("th2-qa-endpoint"))
-                            )
-                        },
-                        GrpcServiceConfiguration::class.java,
-                        mapOf("th2-qa-endpoint" to GrpcEndpointConfiguration("localhost", 31304))
-                    )
-                ),
-                GrpcServerConfiguration(null, 8080, 5)
-            )
-        )
+    fun `test router mq json configuration deserialize`() {
+        testDeserialize(MESSAGE_ROUTER_CONF_JSON, MESSAGE_ROUTER_CONF)
     }
 
     @Test
-    fun `test backward compatibility for rabbitmq json configuration`() {
-        testDeserialize(
-            "{\"host\":\"localhost\",\"vHost\":\"testVHost\",\"port\":\"5672\",\"username\":\"userNameTest\",\"password\":\"testPass\",\"exchangeName\":\"exchange\"}",
-            RabbitMQConfiguration("localhost", "testVHost", 5672, "userNameTest", "testPass", null, "exchange")
-        )
+    fun `test router mq json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(MESSAGE_ROUTER_CONF)
     }
 
     @Test
-    fun `test backward compatibility for router mq json configuration`() {
-        testDeserialize(
-            "{\"queues\":{\"estore-pin\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{\"field0\":{\"operation\":\"EQUAL\",\"value\":\"value0\"}}}],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"},\"from_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:from_codec]\"},\"some_pin\":{\"attributes\":[],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:some_pin]\"},\"to_send_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{},\"metadata\":{\"session_alias\":{\"operation\":\"EQUAL\",\"value\":\"codec-fix\"}}}],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:to_send_codec]\"}}}",
-            MessageRouterConfiguration(
-                mapOf(
-                    "estore-pin" to QueueConfiguration(
-                        "key[schema-dev:act-dev-entry-point:estore-pin]",
-                        "",
-                        "demo_exchange",
-                        listOf("publish", "event"),
-                        listOf(
-                            MqRouterFilterConfiguration(
-                                emptyList(),
-                                listOf(FieldFilterConfiguration("field0", "value0", FilterOperation.EQUAL))
-                            )
-                        )
-                    ),
-                    "from_codec" to QueueConfiguration(
-                        "", "link[schema-dev:act-dev-entry-point:from_codec]", "demo_exchange", listOf(
-                            "subscribe",
-                            "oe",
-                            "parsed",
-                            "first"
-                        ), emptyList()
-                    ),
-                    "some_pin" to QueueConfiguration(
-                        "",
-                        "link[schema-dev:act-dev-entry-point:some_pin]",
-                        "demo_exchange",
-                        emptyList(),
-                        emptyList()
-                    ),
-                    "to_send_codec" to QueueConfiguration(
-                        "",
-                        "link[schema-dev:act-dev-entry-point:to_send_codec]",
-                        "demo_exchange",
-                        listOf(
-                            "subscribe",
-                            "oe",
-                            "parsed",
-                            "first"
-                        ),
-                        listOf(
-                            MqRouterFilterConfiguration(
-                                listOf(
-                                    FieldFilterConfiguration(
-                                        "session_alias",
-                                        "codec-fix",
-                                        FilterOperation.EQUAL
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-
-        )
+    fun `test cradle confidential json configuration deserialize`() {
+        testDeserialize(CRADLE_CONFIDENTIAL_CONF_JSON, CRADLE_CONFIDENTIAL_CONF)
     }
 
     @Test
-    fun `test backward compatibility for cradle confidential json configuration`() {
-        testDeserialize(
-            "{\"dataCenter\":\"datacenter1\",\"host\":\"localhost\",\"port\":\"9042\",\"keyspace\":\"schema_dev\",\"username\":\"th2\",\"password\":\"CASSANDRA_PASS\"}",
-            CradleConfidentialConfiguration("datacenter1", "localhost", "schema_dev", 9042, "th2", "CASSANDRA_PASS")
-        )
+    fun `test cradle confidential json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(CRADLE_CONFIDENTIAL_CONF)
     }
 
     @Test
-    fun `test cradle non confidential json configuration`() {
-        testSerializeAndDeserialize(CradleNonConfidentialConfiguration())
+    fun `test cradle non confidential json configuration deserialize`() {
+        testDeserialize(CRADLE_NON_CONFIDENTIAL_CONF_JSON, CRADLE_NON_CONFIDENTIAL_CONF)
     }
 
     @Test
-    fun `test prometheus confidential json configuration`() {
-        testSerializeAndDeserialize(PrometheusConfiguration())
-
-        testDeserialize(
-            "{\"enabled\":\"false\"}",
-            PrometheusConfiguration(enabled = false)
-        )
+    fun `test cradle non confidential json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(CRADLE_NON_CONFIDENTIAL_CONF)
     }
 
     @Test
-    fun `test new filter format json configuration`() {
-        testDeserialize(
-            "{\"queues\":{\"pin0\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":[{\"fieldName\":\"field0\",\"expectedValue\":\"value0\",\"operation\":\"EQUAL\"}]}],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"}}}",
-            MessageRouterConfiguration(
-                mapOf(
-                    "pin0" to QueueConfiguration(
-                        "key[schema-dev:act-dev-entry-point:estore-pin]",
-                        "",
-                        "demo_exchange",
-                        listOf("publish", "event"),
-                        listOf(
-                            MqRouterFilterConfiguration(
-                                emptyList(),
-                                listOf(FieldFilterConfiguration("field0", "value0", FilterOperation.EQUAL))
-                            )
-                        )
-                    )
-                )
-            )
-        )
+    fun `test prometheus confidential json configuration deserialize`() {
+        testDeserialize(PROMETHEUS_CONF_JSON, PROMETHEUS_CONF)
+    }
+
+    @Test
+    fun `test prometheus confidential json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(PROMETHEUS_CONF)
     }
 
     private fun testSerializeAndDeserialize(configuration: Any) {
@@ -287,5 +118,121 @@ class TestJsonConfiguration {
 
     private fun testDeserialize(json: String, obj: Any) {
         assertEquals(obj, OBJECT_MAPPER.readValue(json, obj::class.java))
+    }
+
+    companion object {
+        @JvmStatic
+        private val OBJECT_MAPPER: ObjectMapper = ObjectMapper()
+
+        @JvmStatic
+        private val CONF_DIR = Path.of("test_json_configurations")
+
+        private val GRPC_CONF_JSON = loadConfJson("grpc")
+        private val GRPC_CONF = GrpcConfiguration(
+            mapOf(
+                "test" to GrpcServiceConfiguration(
+                    RobinRoutingStrategy().apply {
+                        init(GrpcRawRobinStrategy(listOf("endpoint")))
+                    },
+                    GrpcConfiguration::class.java,
+                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr")))
+                )
+            ),
+            GrpcServerConfiguration("host123", 1234, 58)
+        )
+
+        private val RABBITMQ_CONF_JSON = loadConfJson("rabbitMq")
+        private val RABBITMQ_CONF = RabbitMQConfiguration(
+            "host",
+            "vHost",
+            1234,
+            "user",
+            "pass",
+            "subscriberName",
+            "exchangeName"
+        )
+
+        private val CONNECTION_MANAGER_CONF_JSON = loadConfJson("connection_manager")
+        private val CONNECTION_MANAGER_CONF = ConnectionManagerConfiguration(
+            "subscriberName",
+            10000,
+            12000,
+            8,
+            8888,
+            88888,
+            1
+        )
+
+        private val MESSAGE_ROUTER_CONF_JSON = loadConfJson("message_router")
+        private val MESSAGE_ROUTER_CONF = MessageRouterConfiguration(
+            mapOf("test_queue" to QueueConfiguration(
+                "routing_key",
+                "queue_name",
+                "exchange",
+                listOf("attr1", "attr2")
+            ).apply {
+                filters = listOf(
+                    MqRouterFilterConfiguration(
+                        listOf(
+                            FieldFilterConfiguration(
+                                "session_alias",
+                                "test_session_alias",
+                                FilterOperation.EQUAL
+                            )
+                        ),
+                        listOf(FieldFilterConfiguration("test_field", "test_value", FilterOperation.EQUAL))
+                    ),
+                    MqRouterFilterConfiguration(
+                        listOf(
+                            FieldFilterConfiguration(
+                                "session_alias",
+                                "test_session_alias",
+                                FilterOperation.EQUAL
+                            )
+                        ),
+                        listOf(
+                            FieldFilterConfiguration("test_field", "test_value0", FilterOperation.EQUAL),
+                            FieldFilterConfiguration("test_field", "test_value1", FilterOperation.EQUAL)
+                        )
+                    )
+                )
+            })
+        )
+
+        private val CRADLE_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_confidential")
+        private val CRADLE_CONFIDENTIAL_CONF = CradleConfidentialConfiguration(
+            "data center",
+            "host",
+            "keyspace",
+            1234,
+            "user",
+            "pass",
+            "instance"
+        )
+
+        private val CRADLE_NON_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_non_confidential")
+        private val CRADLE_NON_CONFIDENTIAL_CONF = CradleNonConfidentialConfiguration(
+            888,
+            111,
+            123,
+            321
+        )
+
+        private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")
+        private val PROMETHEUS_CONF = PrometheusConfiguration("123.3.3.3", 1234, false)
+
+        init {
+            OBJECT_MAPPER.registerModule(KotlinModule())
+
+            OBJECT_MAPPER.registerModule(RoutingStrategyModule(OBJECT_MAPPER))
+        }
+
+        private fun loadConfJson(fileName: String): String {
+            val path = CONF_DIR.resolve(fileName)
+
+            return Thread.currentThread().contextClassLoader
+                .getResourceAsStream("$path.json")?.readAllBytes()?.let { bytes -> String(bytes) }
+                ?: error("Can not load resource by path $path.json")
+        }
     }
 }

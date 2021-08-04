@@ -42,10 +42,8 @@ class TestMultiMapDeserializer {
     fun `test negate deserialize`() {
         try {
             OBJECT_MAPPER.readValue<TestBeanClass>("""{"multimap":"string"}""", TestBeanClass::class.java)
-        } catch (e: MismatchedInputException) {
-            return
-        }
-        assert(false)
+            assert(false)
+        } catch (e: MismatchedInputException) {}
     }
 
     @Test

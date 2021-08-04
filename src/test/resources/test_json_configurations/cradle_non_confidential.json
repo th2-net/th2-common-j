@@ -1,0 +1,6 @@
+{
+  "timeout": 888,
+  "pageSize": 111,
+  "cradleMaxEventBatchSize": 123,
+  "cradleMaxMessageBatchSize": 321
+}

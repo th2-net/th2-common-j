@@ -16,13 +16,13 @@
 package com.exactpro.th2.common.util
 
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfigurationOld
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.databind.node.TextNode
 import org.apache.commons.collections4.MultiMapUtils
 import org.apache.commons.collections4.MultiValuedMap
 
@@ -43,24 +43,39 @@ class MultiMapFiltersDeserializer : JsonDeserializer<MultiValuedMap<String, Fiel
 
         val result: MultiValuedMap<String, FieldFilterConfiguration> = MultiMapUtils.newListValuedHashMap()
         val codec = parser.codec
+
+
+
         when {
             node.isArray -> node.forEach { element ->
                 codec.treeToValue(element, FieldFilterConfiguration::class.java)?.also { filter ->
                     result.put(filter.fieldName, filter)
                 }
             }
-            node.isObject -> node.fields().forEach { field ->
-                val fieldName = field.key
+            node.isObject -> {
 
-                val fullNode = if (field.value is ObjectNode) (field.value as ObjectNode).set(
-                    "fieldName",
-                    TextNode(fieldName)
-                ) else node
+                val mapDeserializer = ctxt.findRootValueDeserializer(ctxt.typeFactory.constructType(object : TypeReference<Map<String, FieldFilterConfigurationOld>>(){}))
+                val nodeParser = parser.codec.treeAsTokens(node)
+                nodeParser.nextToken()
+                val map = mapDeserializer.deserialize(nodeParser, ctxt) as Map<String, FieldFilterConfigurationOld>?
 
-                codec.treeToValue(fullNode, FieldFilterConfiguration::class.java)?.also { filter ->
-                    result.put(filter.fieldName, filter)
+                map?.entries?.forEach { (fieldName, filter) ->
+                    result.put(fieldName, FieldFilterConfiguration(fieldName, filter.value, filter.operation))
                 }
             }
+
+//            node.fields().forEach { field ->
+//                val fieldName = field.key
+//
+//                val fullNode = if (field.value is ObjectNode) (field.value as ObjectNode).set(
+//                    "fieldName",
+//                    TextNode(fieldName)
+//                ) else node
+//
+//                codec.treeToValue(fullNode, FieldFilterConfiguration::class.java)?.also { filter ->
+//                    result.put(filter.fieldName, filter)
+//                }
+//            }
             else -> ctxt.reportWrongTokenException(MultiValuedMap::class.java, JsonToken.START_ARRAY, "Can not deserialize MultiValuedMap. Field is not array or object.")
         }
         return result;

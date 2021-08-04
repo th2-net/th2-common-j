@@ -1,0 +1,47 @@
+{
+  "queues": {
+    "test_queue": {
+      "routingKey": "routing_key",
+      "queue": "queue_name",
+      "exchange": "exchange",
+      "attributes": ["attr1", "attr2"],
+      "filters": [
+        {
+          "metadata": {
+            "session_alias": {
+              "value": "test_session_alias",
+              "operation": "EQUAL"
+            }
+          },
+          "message": {
+            "test_field": {
+              "value": "test_value",
+              "operation": "EQUAL"
+            }
+          }
+        },
+        {
+          "metadata": [
+            {
+              "fieldName": "session_alias",
+              "value": "test_session_alias",
+              "operation": "EQUAL"
+            }
+          ],
+          "message": [
+            {
+              "fieldName": "test_field",
+              "value": "test_value0",
+              "operation": "EQUAL"
+            },
+            {
+              "fieldName": "test_field",
+              "value": "test_value1",
+              "operation": "EQUAL"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
