@@ -24,7 +24,7 @@ abstract class AbstractMetric : Metric {
     override val isEnabled: Boolean
         get() = disabledMonitors.isEmpty()
 
-    override fun register(name: String): MetricMonitor = MetricMonitor(this, name)
+    override fun createMonitor(name: String): MetricMonitor = MetricMonitor(this, name)
 
     override fun enable(monitor: MetricMonitor) {
         if(disabledMonitors.remove(monitor)) {

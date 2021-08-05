@@ -16,13 +16,13 @@
 package com.exactpro.th2.common.metrics
 
 /**
- * Metric arbiter which aggregates several other metric arbiters
+ * Metric which aggregates several other metrics
  */
 class AggregatingMetric(private val metrics: List<Metric>) : Metric {
     override val isEnabled: Boolean
         get() = !metrics.any { !it.isEnabled }
 
-    override fun register(name: String): MetricMonitor = MetricMonitor(this, name)
+    override fun createMonitor(name: String): MetricMonitor = MetricMonitor(this, name)
 
     override fun isEnabled(monitor: MetricMonitor): Boolean = metrics.all { it.isEnabled(monitor) }
 

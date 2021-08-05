@@ -18,7 +18,7 @@ package com.exactpro.th2.common.metrics
 import io.prometheus.client.Gauge
 
 /**
- * Metric arbiter which uses a Prometheus metric to show its status
+ * Metric which uses a Prometheus metric to show its status
  */
 class PrometheusMetric(name: String, help: String) : AbstractMetric() {
     private val metric: Gauge = Gauge.build(name, help).register()

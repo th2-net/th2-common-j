@@ -52,11 +52,11 @@ private val RABBITMQ_READINESS = AtomicBoolean(true)
 private val GRPC_READINESS = AtomicBoolean(true)
 private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC_READINESS))
 
-fun registerLiveness(name: String) = LIVENESS_ARBITER.register(name)
-fun registerReadiness(name: String) = READINESS_ARBITER.register(name)
+fun registerLiveness(name: String) = LIVENESS_ARBITER.createMonitor(name)
+fun registerReadiness(name: String) = READINESS_ARBITER.createMonitor(name)
 
-fun registerLiveness(obj: Any) = LIVENESS_ARBITER.register("${obj::class.simpleName}_liveness_${obj.hashCode()}")
-fun registerReadiness(obj: Any) = READINESS_ARBITER.register("${obj::class.simpleName}_readiness_${obj.hashCode()}")
+fun registerLiveness(obj: Any) = LIVENESS_ARBITER.createMonitor("${obj::class.simpleName}_liveness_${obj.hashCode()}")
+fun registerReadiness(obj: Any) = READINESS_ARBITER.createMonitor("${obj::class.simpleName}_readiness_${obj.hashCode()}")
 
 @JvmField
 val LIVENESS_MONITOR = registerLiveness("user_liveness")

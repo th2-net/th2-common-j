@@ -31,7 +31,7 @@ interface Metric {
      * @param name monitor name
      * @return monitor which can change metrics value
      */
-    fun register(name: String) : MetricMonitor
+    fun createMonitor(name: String) : MetricMonitor
 
     /**
      * Checks if status of a provided [monitor] is `enabled`
