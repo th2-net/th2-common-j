@@ -39,7 +39,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
                 return configClass.getDeclaredConstructor().newInstance()
             }
 
-            val sourceContent = String(Files.readAllBytes(configPath))
+            val sourceContent = Files.readString(configPath)
             LOGGER.info("Configuration path {} source content {}", configPath, sourceContent)
             val content: String = stringSubstitutor.replace(sourceContent)
             return objectMapper.readerFor(configClass).readValue(content)

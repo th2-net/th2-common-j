@@ -15,6 +15,34 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -22,6 +50,7 @@ import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
+import com.exactpro.th2.common.schema.configuration.Secrets;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
@@ -37,6 +66,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
+
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
@@ -46,33 +76,6 @@ import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import kotlin.text.Charsets;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
-import static java.util.Collections.emptyMap;
-import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElse;
-import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
  * Default implementation for {@link AbstractCommonFactory}
@@ -91,6 +94,7 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String BOX_FILE_NAME = "box.json";
     private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
     private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
+    private static final String SECRETS_FILE_NAME = "secret_custom_config.json";
 
     private static final String DICTIONARY_DIR_NAME = "dictionary";
 
@@ -144,18 +148,25 @@ public class CommonFactory extends AbstractCommonFactory {
                 createConfigurationManager(settings));
     }
 
-
     /**
      * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
      */
     @Deprecated(since = "3.10.0", forRemoval = true)
     public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                         Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                         Class<? extends GrpcRouter> grpcRouterClass,
-                         Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
-
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass,
+            Path rabbitMQ,
+            Path routerMQ,
+            Path routerGRPC,
+            Path cradle,
+            Path custom,
+            Path prometheus,
+            Path dictionariesDir,
+            Path boxConfiguration,
+            Path secrets
+    ) {
         this(new FactorySettings(messageRouterParsedBatchClass,
                 messageRouterRawBatchClass,
                 messageRouterMessageGroupBatchClass,
@@ -171,16 +182,18 @@ public class CommonFactory extends AbstractCommonFactory {
                 prometheus,
                 boxConfiguration,
                 custom,
-                dictionariesDir));
+                dictionariesDir,
+                null,
+                secrets));
     }
 
     /**
      * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
      */
     @Deprecated(since = "3.10.0", forRemoval = true)
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
+    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration, Path secrets) {
         this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class,
-                rabbitMQ ,routerMQ ,routerGRPC ,cradle ,custom ,dictionariesDir ,prometheus ,boxConfiguration);
+                rabbitMQ, routerMQ, routerGRPC, cradle, custom, dictionariesDir, prometheus, boxConfiguration, secrets);
     }
 
     /**
@@ -256,14 +269,19 @@ public class CommonFactory extends AbstractCommonFactory {
      *             --contextName - context name to choose the context from Kube config
      *             <p>
      *             --dictionaries - which dictionaries will be use, and types for it (example: fix-50=main fix-55=level1)
-     *      *      <p>
+     *             <p>
      *             -c/--configs - folder with json files for schemas configurations with special names:
      *             <p>
-     *             rabbitMq.json - configuration for RabbitMQ
-     *             mq.json - configuration for {@link MessageRouter}
-     *             grpc.json - configuration for {@link GrpcRouter}
-     *             cradle.json - configuration for cradle
-     *             custom.json - custom configuration
+     *             --secrets - path to JSON file with secrets
+     *             <p>
+     *             <br>
+     *             Default file names for these files are:<br>
+     *             * rabbitMq.json - configuration for RabbitMQ<br>
+     *             * mq.json - configuration for {@link MessageRouter}<br>
+     *             * grpc.json - configuration for {@link GrpcRouter}<br>
+     *             * cradle.json - configuration for cradle<br>
+     *             * custom.json - custom configuration<br>
+     *             * secret_custom_config.json - secrets configuration
      * @return CommonFactory with set path
      * @throws IllegalArgumentException - Cannot parse command line arguments
      */
@@ -291,6 +309,7 @@ public class CommonFactory extends AbstractCommonFactory {
         dictionariesOption.setArgs(Option.UNLIMITED_VALUES);
         Option connectionManagerConfigurationOption = createLongOption(options, "connectionManagerConfiguration");
         Option cradleManagerConfigurationOption = createLongOption(options, "cradleManagerConfiguration");
+        Option secretsOption = createLongOption(options, "secrets");
 
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
@@ -341,6 +360,7 @@ public class CommonFactory extends AbstractCommonFactory {
             settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
             settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
             settings.setDictionariesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_DIR_NAME));
+            settings.setSecrets(calculatePath(cmd, secretsOption, configs, SECRETS_FILE_NAME));
 
             String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
             settings.setOldDictionariesDir(oldDictionariesDir == null ? (configs == null ? CONFIG_DEFAULT_PATH : Path.of(configs)) : Path.of(oldDictionariesDir));
@@ -457,6 +477,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_FILE_NAME, boxData));
                 settings.setPrometheus(writeFile(configPath, PROMETHEUS_FILE_NAME, boxData));
                 settings.setCustom(writeFile(configPath, CUSTOM_FILE_NAME, boxData));
+                settings.setSecrets(writeFile(configPath, SECRETS_FILE_NAME, boxData));
 
                 settings.setBoxConfiguration(boxConfigurationPath);
                 settings.setDictionariesDir(dictionaryPath);
@@ -542,6 +563,7 @@ public class CommonFactory extends AbstractCommonFactory {
         paths.put(CradleNonConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
         paths.put(PrometheusConfiguration.class, defaultPathIfNull(settings.getPrometheus(), PROMETHEUS_FILE_NAME));
         paths.put(BoxConfiguration.class, defaultPathIfNull(settings.getBoxConfiguration(), BOX_FILE_NAME));
+        paths.put(Secrets.class, defaultPathIfNull(settings.getSecrets(), SECRETS_FILE_NAME));
         return new ConfigurationManager(paths);
     }
 

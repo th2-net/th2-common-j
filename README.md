@@ -249,6 +249,12 @@ NOTES:
 
 ## Release notes
 
+### 3.23.0
+
++ loading of secrets from a file (`secret_custom_config.json` by default)
++ ability to obtain a loaded secret via `CommonFactory.getSecret(String)` method
+
+
 ### 3.22.0
 
 + Change class for filtering in router from `FilterOperation` to `FieldFilterOperation`

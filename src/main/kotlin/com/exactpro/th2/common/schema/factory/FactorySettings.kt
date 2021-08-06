@@ -46,7 +46,9 @@ data class FactorySettings @JvmOverloads constructor(
     var boxConfiguration: Path? = null,
     var custom: Path? = null,
     var dictionariesDir: Path? = null,
-    var oldDictionariesDir: Path? = null) {
+    var oldDictionariesDir: Path? = null,
+    var secrets: Path? = null
+) {
     private val _variables: MutableMap<String, String> = HashMap()
     val variables: Map<String, String> = _variables
 
