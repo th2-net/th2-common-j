@@ -189,7 +189,8 @@ NOTES:
 ## Release notes
 
 ### 3.21.1
-+ Update common version. Added information about message timestamp into checkpoint
++ Update the grpc-common version to 3.3.0:
+  + Added information about message timestamp into the checkpoint
 
 ### 3.21.0
 + Added classes for management metrics.
