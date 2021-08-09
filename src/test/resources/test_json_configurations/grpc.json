@@ -1,0 +1,27 @@
+{
+  "services": {
+    "test": {
+      "endpoints": {
+        "endpoint": {
+          "host": "host",
+          "port": 12345,
+          "attributes": [
+            "test_attr"
+          ]
+        }
+      },
+      "service-class": "com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration",
+      "strategy": {
+        "endpoints": [
+          "endpoint"
+        ],
+        "name": "robin"
+      }
+    }
+  },
+  "server": {
+    "host": "host123",
+    "port": 1234,
+    "workers": 58
+  }
+}
