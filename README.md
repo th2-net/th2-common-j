@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.19.0)
+# th2 common library (Java) (3.20.0)
 
 ## Usage
 
@@ -187,6 +187,11 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.20.0
+
++ Extended filter's format
+    + Add multiply filters support
 
 ### 3.19.0
 

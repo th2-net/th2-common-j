@@ -17,8 +17,14 @@ package com.exactpro.th2.common.schema.message.configuration
 
 import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.schema.configuration.Configuration
+import com.exactpro.th2.common.util.MultiMapFiltersDeserializer
+import com.exactpro.th2.common.util.emptyMultiMap
 import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonGetter
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import org.apache.commons.collections4.MultiMapUtils
+import org.apache.commons.collections4.MultiValuedMap
 
 data class MessageRouterConfiguration(var queues: Map<String, QueueConfiguration> = emptyMap()) : Configuration() {
 
@@ -41,11 +47,40 @@ data class QueueConfiguration(
 ) : Configuration()
 
 data class MqRouterFilterConfiguration(
-    override var metadata: Map<String, FieldFilterConfiguration> = emptyMap(),
-    override var message: Map<String, FieldFilterConfiguration> = emptyMap()
-) : Configuration(), RouterFilter
+    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var metadata: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap(),
+    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var message: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap()
+) : Configuration(), RouterFilter {
+
+    constructor(
+        metadata: Collection<FieldFilterConfiguration> = emptyList(),
+        message: Collection<FieldFilterConfiguration> = emptyList()
+    ) : this(
+        MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().also { metadataMultiMap ->
+            metadata.forEach {
+                metadataMultiMap.put(it.fieldName, it)
+            }
+        },
+        MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().also { messageMultiMap ->
+            message.forEach {
+                messageMultiMap.put(it.fieldName, it)
+            }
+        }
+    )
+
+    @JsonGetter("metadata")
+    fun getJsonMetadata(): Collection<FieldFilterConfiguration> = metadata.values()
+
+    @JsonGetter("message")
+    fun getJsonMessage(): Collection<FieldFilterConfiguration> = message.values()
+}
+
+data class FieldFilterConfigurationOld(
+    var value: String? = null,
+    @JsonProperty(required = true) var operation: FilterOperation
+) : Configuration()
 
 data class FieldFilterConfiguration(
-    var value: String? = null,
+    @JsonProperty(value = "fieldName", required = true) var fieldName: String,
+    @JsonProperty("expectedValue") @JsonAlias("value") var expectedValue: String?,
     @JsonProperty(required = true) var operation: FilterOperation
 ) : Configuration()

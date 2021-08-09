@@ -15,7 +15,9 @@
 
 package com.exactpro.th2.common.schema.message.configuration
 
+import org.apache.commons.collections4.MultiValuedMap
+
 interface RouterFilter {
-    val metadata: Map<String, FieldFilterConfiguration>
-    val message: Map<String, FieldFilterConfiguration>
+    val metadata: MultiValuedMap<String, FieldFilterConfiguration>
+    val message: MultiValuedMap<String, FieldFilterConfiguration>
 }

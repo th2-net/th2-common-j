@@ -30,132 +30,209 @@ import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfig
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy
 import com.exactpro.th2.common.schema.strategy.route.impl.RobinRoutingStrategy
-import com.exactpro.th2.common.schema.strategy.route.json.JsonDeserializerRoutingStategy
-import com.exactpro.th2.common.schema.strategy.route.json.JsonSerializerRoutingStrategy
+import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.nio.file.Path
 
 class TestJsonConfiguration {
+
+    @Test
+    fun `test grpc json configuration deserialize`() {
+        testDeserialize(GRPC_CONF_JSON, GRPC_CONF)
+    }
+
+    @Test
+    fun `test grpc json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(GRPC_CONF)
+    }
+
+    @Test
+    fun `test rabbitmq json configuration deserialize`() {
+        testDeserialize(RABBITMQ_CONF_JSON, RABBITMQ_CONF)
+    }
+
+    @Test
+    fun `test rabbitmq json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(RABBITMQ_CONF)
+    }
+
+    @Test
+    fun `test connection manager json configuration deserialize`() {
+        testDeserialize(CONNECTION_MANAGER_CONF_JSON, CONNECTION_MANAGER_CONF)
+    }
+
+    @Test
+    fun `test connection manager json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(CONNECTION_MANAGER_CONF)
+    }
+
+    @Test
+    fun `test router mq json configuration deserialize`() {
+        testDeserialize(MESSAGE_ROUTER_CONF_JSON, MESSAGE_ROUTER_CONF)
+    }
+
+    @Test
+    fun `test router mq json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(MESSAGE_ROUTER_CONF)
+    }
+
+    @Test
+    fun `test cradle confidential json configuration deserialize`() {
+        testDeserialize(CRADLE_CONFIDENTIAL_CONF_JSON, CRADLE_CONFIDENTIAL_CONF)
+    }
+
+    @Test
+    fun `test cradle confidential json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(CRADLE_CONFIDENTIAL_CONF)
+    }
+
+    @Test
+    fun `test cradle non confidential json configuration deserialize`() {
+        testDeserialize(CRADLE_NON_CONFIDENTIAL_CONF_JSON, CRADLE_NON_CONFIDENTIAL_CONF)
+    }
+
+    @Test
+    fun `test cradle non confidential json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(CRADLE_NON_CONFIDENTIAL_CONF)
+    }
+
+    @Test
+    fun `test prometheus confidential json configuration deserialize`() {
+        testDeserialize(PROMETHEUS_CONF_JSON, PROMETHEUS_CONF)
+    }
+
+    @Test
+    fun `test prometheus confidential json configuration serialize and deserialize`() {
+        testSerializeAndDeserialize(PROMETHEUS_CONF)
+    }
+
+    private fun testSerializeAndDeserialize(configuration: Any) {
+        OBJECT_MAPPER.writeValueAsString(configuration).also { jsonString ->
+            testDeserialize(jsonString, configuration)
+        }
+    }
+
+    private fun testDeserialize(json: String, obj: Any) {
+        assertEquals(obj, OBJECT_MAPPER.readValue(json, obj::class.java))
+    }
 
     companion object {
         @JvmStatic
         private val OBJECT_MAPPER: ObjectMapper = ObjectMapper()
 
-        init {
-            OBJECT_MAPPER.registerModule(KotlinModule())
+        @JvmStatic
+        private val CONF_DIR = Path.of("test_json_configurations")
 
-            val routingStrategyModule = SimpleModule()
-            routingStrategyModule.addDeserializer(RoutingStrategy::class.java, JsonDeserializerRoutingStategy())
-            routingStrategyModule.addSerializer(RoutingStrategy::class.java, JsonSerializerRoutingStrategy(OBJECT_MAPPER))
-
-            OBJECT_MAPPER.registerModule(routingStrategyModule)
-        }
-    }
-
-    @Test
-    fun `test grpc json configuration`() {
-        testJson(GrpcConfiguration(
+        private val GRPC_CONF_JSON = loadConfJson("grpc")
+        private val GRPC_CONF = GrpcConfiguration(
             mapOf(
                 "test" to GrpcServiceConfiguration(
                     RobinRoutingStrategy().apply {
-                        init(GrpcRawRobinStrategy().also { it.endpoints = listOf("endpoint") })
+                        init(GrpcRawRobinStrategy(listOf("endpoint")))
                     },
                     GrpcConfiguration::class.java,
                     mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr")))
                 )
             ),
             GrpcServerConfiguration("host123", 1234, 58)
-        ))
-    }
+        )
 
-    @Test
-    fun `test rabbitmq json configuration`() {
-        testJson(RabbitMQConfiguration("host",
+        private val RABBITMQ_CONF_JSON = loadConfJson("rabbitMq")
+        private val RABBITMQ_CONF = RabbitMQConfiguration(
+            "host",
             "vHost",
             1234,
             "user",
             "pass",
             "subscriberName",
-            "exchangeName"))
-    }
+            "exchangeName"
+        )
 
-    @Test
-    fun `test connection manager json configuration`() {
-        testJson(ConnectionManagerConfiguration("subscriberName", 10000))
-    }
+        private val CONNECTION_MANAGER_CONF_JSON = loadConfJson("connection_manager")
+        private val CONNECTION_MANAGER_CONF = ConnectionManagerConfiguration(
+            "subscriberName",
+            10000,
+            12000,
+            8,
+            8888,
+            88888,
+            1
+        )
 
-    @Test
-    fun `test router mq json configuration`(){
-        testJson(MessageRouterConfiguration(mapOf("test_queue" to QueueConfiguration(
-            "routing_key",
-            "queue_name",
-            "exchange",
-            listOf("attr1", "attr2"),
-            listOf(MqRouterFilterConfiguration(mapOf("session_alias" to FieldFilterConfiguration("test_session_alias", FilterOperation.EQUAL)),
-                mapOf("test_field" to FieldFilterConfiguration("test_value", FilterOperation.EQUAL))))
-        ))))
-    }
+        private val MESSAGE_ROUTER_CONF_JSON = loadConfJson("message_router")
+        private val MESSAGE_ROUTER_CONF = MessageRouterConfiguration(
+            mapOf("test_queue" to QueueConfiguration(
+                "routing_key",
+                "queue_name",
+                "exchange",
+                listOf("attr1", "attr2")
+            ).apply {
+                filters = listOf(
+                    MqRouterFilterConfiguration(
+                        listOf(
+                            FieldFilterConfiguration(
+                                "session_alias",
+                                "test_session_alias",
+                                FilterOperation.EQUAL
+                            )
+                        ),
+                        listOf(FieldFilterConfiguration("test_field", "test_value", FilterOperation.EQUAL))
+                    ),
+                    MqRouterFilterConfiguration(
+                        listOf(
+                            FieldFilterConfiguration(
+                                "session_alias",
+                                "test_session_alias",
+                                FilterOperation.EQUAL
+                            )
+                        ),
+                        listOf(
+                            FieldFilterConfiguration("test_field", "test_value0", FilterOperation.EQUAL),
+                            FieldFilterConfiguration("test_field", "test_value1", FilterOperation.EQUAL)
+                        )
+                    )
+                )
+            })
+        )
 
-    @Test
-    fun `test cradle confidential json configuration`() {
-        testJson(CradleConfidentialConfiguration("data center",
+        private val CRADLE_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_confidential")
+        private val CRADLE_CONFIDENTIAL_CONF = CradleConfidentialConfiguration(
+            "data center",
             "host",
             "keyspace",
             1234,
             "user",
             "pass",
-            "instance"))
-    }
-
-    @Test
-    fun `test backward compatibility for grpc json configuration`() {
-        OBJECT_MAPPER.readValue(
-            "{\"server\":{\"host\":null,\"port\":8080,\"workers\":5},\"services\":{\"check1Service\":{\"endpoints\":{\"th2-qa-endpoint\":{\"host\":\"localhost\",\"port\":31304}},\"service-class\":\"${GrpcServiceConfiguration::class.java.name}\",\"strategy\":{\"endpoints\":[\"th2-qa-endpoint\"],\"name\":\"robin\"}}}}",
-            GrpcConfiguration::class.java)
-    }
-
-    @Test
-    fun `test backward compatibility for rabbitmq json configuration`() {
-        OBJECT_MAPPER.readValue(
-            "{\"host\":\"localhost\",\"vHost\":\"schema\",\"port\":\"5672\",\"username\":\"schema\",\"password\":\"RABBITMQ_PASS\",\"exchangeName\":\"exchange\"}",
-            RabbitMQConfiguration::class.java)
-    }
-
-    @Test
-    fun `test backward compatibility for router mq json configuration`() {
-        OBJECT_MAPPER.readValue(
-            "{\"queues\":{\"estore-pin\":{\"attributes\":[\"publish\",\"event\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"key[schema-dev:act-dev-entry-point:estore-pin]\",\"queue\":\"\"},\"from_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:from_codec]\"},\"some_pin\":{\"attributes\":[],\"exchange\":\"demo_exchange\",\"filters\":[],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:some_pin]\"},\"to_send_codec\":{\"attributes\":[\"subscribe\",\"oe\",\"parsed\",\"first\"],\"exchange\":\"demo_exchange\",\"filters\":[{\"message\":{},\"metadata\":{\"session_alias\":{\"operation\":\"EQUAL\",\"value\":\"codec-fix\"}}}],\"name\":\"\",\"queue\":\"link[schema-dev:act-dev-entry-point:to_send_codec]\"}}}",
-            MessageRouterConfiguration::class.java)
-    }
-
-    @Test
-    fun `test backward compatibility for cradle confidential json configuration`() {
-        OBJECT_MAPPER.readValue(
-            "{\"dataCenter\":\"datacenter1\",\"host\":\"localhost\",\"port\":\"9042\",\"keyspace\":\"schema_dev\",\"username\":\"th2\",\"password\":\"CASSANDRA_PASS\"}",
-            CradleConfidentialConfiguration::class.java
+            "instance"
         )
-    }
-    @Test
-    fun `test cradle non confidential json configuration`() {
-        testJson(CradleNonConfidentialConfiguration())
-    }
 
-    @Test
-    fun `test prometheus confidential json configuration`() {
-        testJson(PrometheusConfiguration())
-        OBJECT_MAPPER.readValue(
-            "{\"enabled\":\"true\"}",
-            PrometheusConfiguration::class.java)
-    }
+        private val CRADLE_NON_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_non_confidential")
+        private val CRADLE_NON_CONFIDENTIAL_CONF = CradleNonConfidentialConfiguration(
+            888,
+            111,
+            123,
+            321
+        )
 
-    private fun testJson(configuration: Any) {
-        OBJECT_MAPPER.writeValueAsString(configuration).also {
-            assertEquals(configuration, OBJECT_MAPPER.readValue(it, configuration::class.java))
+        private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")
+        private val PROMETHEUS_CONF = PrometheusConfiguration("123.3.3.3", 1234, false)
+
+        init {
+            OBJECT_MAPPER.registerModule(KotlinModule())
+
+            OBJECT_MAPPER.registerModule(RoutingStrategyModule(OBJECT_MAPPER))
+        }
+
+        private fun loadConfJson(fileName: String): String {
+            val path = CONF_DIR.resolve(fileName)
+
+            return Thread.currentThread().contextClassLoader
+                .getResourceAsStream("$path.json")?.readAllBytes()?.let { bytes -> String(bytes) }
+                ?: error("Can not load resource by path $path.json")
         }
     }
 }
