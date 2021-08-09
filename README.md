@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.20.0)
+# th2 common library (Java) (3.21.1)
 
 ## Usage
 
@@ -187,6 +187,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.21.1
++ Update the grpc-common version to 3.3.0:
+  + Added information about message timestamp into the checkpoint
 
 ### 3.21.0
 + Added classes for management metrics.
