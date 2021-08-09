@@ -188,6 +188,10 @@ NOTES:
 
 ## Release notes
 
+### 3.21.0
++ Added classes for management metrics.
++ Added ability for resubscribe on canceled subscriber.
+
 ### 3.20.0
 
 + Extended filter's format

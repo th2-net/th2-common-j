@@ -6,15 +6,16 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
+import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageListener;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
@@ -48,6 +49,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
     private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
+
+    private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
@@ -97,7 +100,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 return monitor;
             });
         } catch (Exception e) {
-            throw new IOException("Can not start listening", e);
+            throw new IllegalStateException("Can not start listening", e);
         }
     }
 
@@ -120,6 +123,15 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
         listeners.forEach(MessageListener::onClose);
         listeners.clear();
+    }
+
+    protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
+        FilterFunction filterFunction = this.filterFunc.get();
+        if (filterFunction == null) {
+            throw new IllegalStateException("Subscriber is not initialized");
+        }
+
+        return filterFunction.apply(message, filters);
     }
 
     protected abstract List<T> valueFromBytes(byte[] body) throws Exception;
@@ -192,27 +204,34 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
-    protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
-        FilterFunction filterFunction = this.filterFunc.get();
-        if (filterFunction == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
+    private void resubscribe() {
+        SubscribeTarget target = subscribeTarget.get();
+        var queue = target.getQueue();
+        var routingKey = target.getRoutingKey();
+        var exchangeName = target.getExchange();
+        LOGGER.info("Try to resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+        if (monitor != null) {
+            try {
+                monitor.unsubscribe();
+            } catch (Exception e) {
+                LOGGER.info("Can not unsubscribe on resubscribe for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+            }
         }
 
-        return filterFunction.apply(message, filters);
+        try {
+            start();
+        } catch (Exception e) {
+            LOGGER.error("Can not resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+            healthMetrics.disable();
+        }
     }
 
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
-        try {
-            close();
-        } catch (Exception e) {
-            SubscribeTarget subscribeTarget = this.subscribeTarget.get();
-            if (subscribeTarget != null) {
-                LOGGER.error("Can not close subscriber with exchange name '{}' and queue '{}'", subscribeTarget.getExchange(), subscribeTarget.getQueue(), e);
-            } else {
-                LOGGER.error("Can not close subscriber without subscribe target", e);
-            }
-        }
+        healthMetrics.getReadinessMonitor().disable();
+        resubscribe();
     }
 
 }
