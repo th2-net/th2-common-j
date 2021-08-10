@@ -188,6 +188,11 @@ NOTES:
 
 ## Release notes
 
+### 3.22.0
+
++ Change class for filtering in router from `FilterOperation` to `FieldFilterOperation`
++ Added `WILDCARD` filter operation, which filter a field by wildcard expression.
+
 ### 3.21.1
 + Update the grpc-common version to 3.3.0:
   + Added information about message timestamp into the checkpoint

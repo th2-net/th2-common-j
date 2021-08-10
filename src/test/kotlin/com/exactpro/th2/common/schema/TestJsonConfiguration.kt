@@ -15,7 +15,6 @@
 
 package com.exactpro.th2.common.schema
 
-import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.metrics.PrometheusConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
@@ -25,6 +24,7 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServerConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -177,22 +177,22 @@ class TestJsonConfiguration {
                             FieldFilterConfiguration(
                                 "session_alias",
                                 "test_session_alias",
-                                FilterOperation.EQUAL
+                                FieldFilterOperation.EQUAL
                             )
                         ),
-                        listOf(FieldFilterConfiguration("test_field", "test_value", FilterOperation.EQUAL))
+                        listOf(FieldFilterConfiguration("test_field", "test_value", FieldFilterOperation.EQUAL))
                     ),
                     MqRouterFilterConfiguration(
                         listOf(
                             FieldFilterConfiguration(
                                 "session_alias",
                                 "test_session_alias",
-                                FilterOperation.EQUAL
+                                FieldFilterOperation.EQUAL
                             )
                         ),
                         listOf(
-                            FieldFilterConfiguration("test_field", "test_value0", FilterOperation.EQUAL),
-                            FieldFilterConfiguration("test_field", "test_value1", FilterOperation.EQUAL)
+                            FieldFilterConfiguration("test_field", "test_value0", FieldFilterOperation.EQUAL),
+                            FieldFilterConfiguration("test_field", "test_value1", FieldFilterOperation.EQUAL)
                         )
                     )
                 )

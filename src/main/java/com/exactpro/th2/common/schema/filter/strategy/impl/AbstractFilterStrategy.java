@@ -21,6 +21,7 @@ import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 import org.apache.commons.collections4.MultiMapUtils;
 import org.apache.commons.collections4.MultiValuedMap;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Collection;
@@ -62,22 +63,24 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
         });
     }
 
-    private boolean checkValue(String value1, FieldFilterConfiguration filterConfiguration) {
-        if (StringUtils.isEmpty(value1)) {
+    private boolean checkValue(String value, FieldFilterConfiguration filterConfiguration) {
+        if (StringUtils.isEmpty(value)) {
             return false;
         }
 
-        var value2 = filterConfiguration.getExpectedValue();
+        var valueInConf = filterConfiguration.getExpectedValue();
 
         switch (filterConfiguration.getOperation()) {
             case EQUAL:
-                return value1.equals(value2);
+                return value.equals(valueInConf);
             case NOT_EQUAL:
-                return !value1.equals(value2);
+                return !value.equals(valueInConf);
             case EMPTY:
-                return StringUtils.isEmpty(value1);
+                return StringUtils.isEmpty(value);
             case NOT_EMPTY:
-                return StringUtils.isNotEmpty(value1);
+                return StringUtils.isNotEmpty(value);
+            case WILDCARD:
+                return FilenameUtils.wildcardMatch(value, valueInConf);
             default:
                 return false;
         }
