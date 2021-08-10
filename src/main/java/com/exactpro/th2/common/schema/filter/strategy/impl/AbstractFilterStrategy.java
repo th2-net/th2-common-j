@@ -64,12 +64,9 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
     }
 
     private boolean checkValue(String value, FieldFilterConfiguration filterConfiguration) {
-        if (StringUtils.isEmpty(value)) {
-            return false;
-        }
-
         var valueInConf = filterConfiguration.getExpectedValue();
 
+        // FIXME: Change switch to switch-expression after upping java version
         switch (filterConfiguration.getOperation()) {
             case EQUAL:
                 return value.equals(valueInConf);
