@@ -188,6 +188,9 @@ NOTES:
 
 ## Release notes
 
+### 3.21.2
++ Fixed grpc server start.
+
 ### 3.21.1
 + Update the grpc-common version to 3.3.0:
   + Added information about message timestamp into the checkpoint
