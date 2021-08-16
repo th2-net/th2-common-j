@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.21.1)
+# th2 common library (Java) (3.22.0)
 
 ## Usage
 
@@ -94,6 +94,67 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   "minConnectionRecoveryTimeout": 10000,
   "maxConnectionRecoveryTimeout": 60000,
   "prefetchCount": 10
+}
+```
+
+The `CommonFactory` reads a message's router configuration from the `mq.json` file.
+* queues - the required settings defines all pins for an application
+    * name - routing key in RabbitMQ for sending
+    * queue - queue's name in RabbitMQ for subscribe
+    * exchange - exchange in RabbitMQ
+    * attributes - pin's attribute for filtering. Default attributes:
+        * first
+        * second
+        * subscribe
+        * publish        
+        * parsed
+        * raw
+        * store
+        * event
+      
+    * filters - pin's message's filters
+        * metadata - a metadata filters
+        * message - a message's fields filters
+    
+Filters format: 
+* fieldName - a field's name
+* expectedValue - expected field's value (used not for all operations)
+* operation - operation's type
+    * `EQUAL` - filter is pass if the field equals exact value
+    * `NOT_EQUAL` - filter is pass if the field doesn't equal exact value
+    * `EMPTY` - filter is pass if the field is empty
+    * `NOT_EMPTY` - filter is pass if the field isn't empty
+    * `WILDCARD` - filters the field by wildcard expression
+
+```json
+{
+  "queues": {
+    "pin1": {
+      "name": "routing_key_1",
+      "queue": "queue_1",
+      "exchange": "exchange",
+      "attributes": [
+        "publish",
+        "subscribe"
+      ],
+      "filters": {
+        "metadata": [
+          {
+            "fieldName": "session-alias",
+            "expectedValue": "connection1",
+            "operation": "EQUAL"
+          }
+        ],
+        "message": [
+          {
+            "fieldName": "checkField",
+            "expectedValue": "wil?card*",
+            "operation": "WILDCARD"
+          }
+        ]
+      }
+    }
+  }
 }
 ```
 
