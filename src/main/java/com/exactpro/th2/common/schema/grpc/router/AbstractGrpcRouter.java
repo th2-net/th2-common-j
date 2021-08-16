@@ -79,7 +79,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         if (serverConf.getHost() == null) {
             builder = NettyServerBuilder.forPort(serverConf.getPort());
         } else {
-            builder = NettyServerBuilder.forAddress(InetSocketAddress.createUnresolved(serverConf.getHost(), serverConf.getPort()));
+            builder = NettyServerBuilder.forAddress(new InetSocketAddress(serverConf.getHost(), serverConf.getPort()));
         }
 
         var executor = Executors.newFixedThreadPool(serverConf.getWorkers(), THREAD_FACTORY);
