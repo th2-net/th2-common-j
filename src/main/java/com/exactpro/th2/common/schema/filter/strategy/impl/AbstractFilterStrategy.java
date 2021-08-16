@@ -27,6 +27,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 
 public abstract class AbstractFilterStrategy<T extends Message> implements FilterStrategy<T> {
@@ -69,9 +70,9 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
         // FIXME: Change switch to switch-expression after upping java version
         switch (filterConfiguration.getOperation()) {
             case EQUAL:
-                return value.equals(valueInConf);
+                return Objects.equals(value, valueInConf);
             case NOT_EQUAL:
-                return !value.equals(valueInConf);
+                return !Objects.equals(value, valueInConf);
             case EMPTY:
                 return StringUtils.isEmpty(value);
             case NOT_EMPTY:
