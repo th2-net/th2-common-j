@@ -23,6 +23,6 @@ class Secrets {
         @JsonAnyGetter get() = field
 
     operator fun get(name: String): String? = secrets[name]
-    @JsonAnySetter private fun set(name: String, value: String) = secrets.set(name, value)
+    @JsonAnySetter private fun set(name: String, value: String) = System.getenv(value)?.apply { secrets[name] = this }
     override fun toString(): String = secrets.toString()
 }

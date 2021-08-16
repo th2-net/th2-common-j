@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.22.0)
+# th2 common library (Java) (3.23.0)
 
 ## Usage
 
@@ -21,7 +21,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     You can use one of the following groups of arguments. Arguments from different
     groups cannot be used together. 
-    
+
     The first group:
     * --rabbitConfiguration - path to json file with RabbitMQ configuration
     * --messageRouterConfiguration - path to json file with configuration for MessageRouter
@@ -37,17 +37,17 @@ Then you will create an instance of imported class, by choosing one of the follo
     3. grpc.json - configuration for GrpcRouter
     4. cradle.json - configuration for cradle
     5. custom.json - custom configuration
-    
+
     The second group:
     * --namespace - the namespace in Kubernetes to search config maps
     * --boxName - the name of the target th2 box placed in the specified Kubernetes namespace
     * --contextName - the context name to search connect parameters in Kube config
-    * --dictionaries - the mapping between a dictionary in infra schema and a dictionary type in the format: 
+    * --dictionaries - the mapping between a dictionary in infra schema and a dictionary type in the format:
       `--dictionaries <dictionary name>=<dictionary type >[ <dictionary name>=<dictionary type >]`. 
       It can be useful when you required dictionaries to start a specific box. 
-    
+
     Their usage is disclosed further.
-    
+
 1. Create factory with a namespace in Kubernetes and the name of the target th2 box from Kubernetes:
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
@@ -250,9 +250,8 @@ NOTES:
 ## Release notes
 
 ### 3.23.0
-
-+ loading of secrets from a file (`secret_custom_config.json` by default)
-+ ability to obtain a loaded secret via `CommonFactory.getSecret(String)` method
++ Added loading of secrets from a file (`secret_custom_config.json` by default)
++ Added ability to obtain a loaded secret via `CommonFactory.getSecret(String)` method
 
 
 ### 3.22.0
