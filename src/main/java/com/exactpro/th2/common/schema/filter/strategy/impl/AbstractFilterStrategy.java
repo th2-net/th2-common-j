@@ -21,11 +21,13 @@ import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 import org.apache.commons.collections4.MultiMapUtils;
 import org.apache.commons.collections4.MultiValuedMap;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 
 public abstract class AbstractFilterStrategy<T extends Message> implements FilterStrategy<T> {
@@ -62,22 +64,21 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
         });
     }
 
-    private boolean checkValue(String value1, FieldFilterConfiguration filterConfiguration) {
-        if (StringUtils.isEmpty(value1)) {
-            return false;
-        }
+    private boolean checkValue(String value, FieldFilterConfiguration filterConfiguration) {
+        var valueInConf = filterConfiguration.getExpectedValue();
 
-        var value2 = filterConfiguration.getExpectedValue();
-
+        // FIXME: Change switch to switch-expression after upping java version
         switch (filterConfiguration.getOperation()) {
             case EQUAL:
-                return value1.equals(value2);
+                return Objects.equals(value, valueInConf);
             case NOT_EQUAL:
-                return !value1.equals(value2);
+                return !Objects.equals(value, valueInConf);
             case EMPTY:
-                return StringUtils.isEmpty(value1);
+                return StringUtils.isEmpty(value);
             case NOT_EMPTY:
-                return StringUtils.isNotEmpty(value1);
+                return StringUtils.isNotEmpty(value);
+            case WILDCARD:
+                return FilenameUtils.wildcardMatch(value, valueInConf);
             default:
                 return false;
         }

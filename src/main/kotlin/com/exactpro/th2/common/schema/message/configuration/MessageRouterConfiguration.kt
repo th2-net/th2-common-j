@@ -15,7 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.configuration
 
-import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.schema.configuration.Configuration
 import com.exactpro.th2.common.util.MultiMapFiltersDeserializer
 import com.exactpro.th2.common.util.emptyMultiMap
@@ -76,11 +75,19 @@ data class MqRouterFilterConfiguration(
 
 data class FieldFilterConfigurationOld(
     var value: String? = null,
-    @JsonProperty(required = true) var operation: FilterOperation
+    @JsonProperty(required = true) var operation: FieldFilterOperation
 ) : Configuration()
 
 data class FieldFilterConfiguration(
     @JsonProperty(value = "fieldName", required = true) var fieldName: String,
     @JsonProperty("expectedValue") @JsonAlias("value") var expectedValue: String?,
-    @JsonProperty(required = true) var operation: FilterOperation
+    @JsonProperty(required = true) var operation: FieldFilterOperation
 ) : Configuration()
+
+enum class FieldFilterOperation {
+    EQUAL,
+    NOT_EQUAL,
+    EMPTY,
+    NOT_EMPTY,
+    WILDCARD
+}
