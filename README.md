@@ -251,6 +251,7 @@ NOTES:
 
 ### 3.22.1
 + Update the grpc-common version to 3.4.0
+    + Added `IN`, `LIKE`, `MORE`, `LESS`, `WILDCARD` FilterOperation and their negative versions
 
 ### 3.22.0
 
