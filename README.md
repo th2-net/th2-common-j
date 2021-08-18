@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.22.0)
+# th2 common library (Java) (3.22.1)
 
 ## Usage
 
@@ -248,6 +248,9 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.22.1
++ Update the grpc-common version to 3.4.0
 
 ### 3.22.0
 
