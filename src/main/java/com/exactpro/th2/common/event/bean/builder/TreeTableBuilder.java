@@ -26,22 +26,23 @@ public class TreeTableBuilder {
     public static final String TABLE_TYPE = "treeTable";
 
     private final Map<String, TreeTableEntry> rows = new HashMap<>();
-    private String tableName;
+    private final String tableName;
+
+    public TreeTableBuilder() {
+        this(null);
+    }
+
+    public TreeTableBuilder(String tableName) {
+        this.tableName = tableName;
+    }
 
     public TreeTableBuilder row(String rowName, TreeTableEntry row) {
         rows.put(rowName, row);
         return this;
     }
 
-    public TreeTableBuilder name(String tableName) {
-        this.tableName = tableName;
-        return this;
-    }
-
     public TreeTable build() {
-        TreeTable treeTable = new TreeTable(TABLE_TYPE, rows.entrySet().stream()
+        return new TreeTable(tableName, TABLE_TYPE, rows.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-        treeTable.setName(tableName);
-        return treeTable;
     }
 }

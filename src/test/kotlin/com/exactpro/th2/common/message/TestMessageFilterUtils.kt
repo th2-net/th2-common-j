@@ -22,6 +22,7 @@ import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -41,6 +42,15 @@ class TestMessageFilterUtils {
         |"SimpleCollection":{"type":"collection","rows":{
             |"0":{"type":"row","columns":{"expected":"EQUAL 'A'","key":false}},
             |"1":{"type":"row","columns":{"expected":"EQUAL 'B'","key":false}""".trimMargin().replace("\n", "")
+    private val ignoredSettingFields = """"
+        |rows":{
+            |"ignore-fields":{"type":"collection","rows":{
+                |"0":{"type":"row","columns":{"name":"fieldA"}},
+                |"1":{"type":"row","columns":{"name":"fieldB"}}}}}""".trimMargin().replace("\n", "")
+    private val metadataFilterRows = """
+        |"rows":{
+            |"propB":{"type":"row","columns":{"expected":"EQUAL 'valB'","key":false}},
+            |"propA":{"type":"row","columns":{"expected":"NOT_EQUAL 'valA'","key":true}}""".trimMargin().replace("\n", "")
     private val messageFilterBodyJson = """"
         |rows":{
             |"MessageCollection":{"type":"collection","rows":{
@@ -55,29 +65,18 @@ class TestMessageFilterUtils {
         |{"type":"treeTable","rows":{
             |"message-filter":{"type":"collection",$messageFilterBodyJson},
             |"message-type":{"type":"row","columns":{"type":"MsgType"}},
-            |"comparison-settings":{"type":"collection","rows":{
-                |"ignore-fields":{"type":"collection","rows":{
-                    |"0":{"type":"row","columns":{"name":"fieldA"}},
-                    |"1":{"type":"row","columns":{"name":"fieldB"}}}}}},
-            |"metadata-filter":{"type":"collection","rows":{
-                |"propB":{"type":"row","columns":{"expected":"EQUAL 'valB'","key":false}},
-                |"propA":{"type":"row","columns":{"expected":"NOT_EQUAL 'valA'","key":true}}}}}}""".trimMargin().replace("\n", "")
-    
+            |"comparison-settings":{"type":"collection",$ignoredSettingFields},
+            |"metadata-filter":{"type":"collection",$metadataFilterRows}}}}""".trimMargin().replace("\n", "")
+
     private val readableRootMessageFilterJson = """
         |[{"type":"treeTable","name":"Filter","rows":{
             |"message-filter":{"type":"collection",$messageFilterBodyJson},
-            |"metadata-filter":{"type":"collection","rows":{
-                    |"propB":{"type":"row","columns":{"expected":"EQUAL 'valB'","key":false}},
-                    |"propA":{"type":"row","columns":{"expected":"NOT_EQUAL 'valA'","key":true}}}}}},
+            |"metadata-filter":{"type":"collection",$metadataFilterRows}}}},
             |{"type":"treeTable","name":"Settings","rows":{
-                |"comparison-settings":{"type":"collection","rows":{
-                    |"ignore-fields":{"type":"collection","rows":{
-                        |"0":{"type":"row","columns":{"name":"fieldA"}},
-                        |"1":{"type":"row","columns":{"name":"fieldB"}}}}}}}},
-        |{"data":"Metadata","type":"message"},
-        |{"type":"table","rows":[{
-            |"Metadata Field":"message-type","Expected field value":"MsgType"}
-            |%additional_metadata%]}]""".trimMargin().replace("\n", "")
+                |"comparison-settings":{"type":"collection",$ignoredSettingFields}}},
+        |{"type":"treeTable","name":"Metadata","rows":{
+                |"message-type":{"type":"row","columns":{"Expected field value":"MsgType"}}
+                |$ADDITIONAL_METADATA_TAG}}]""".trimMargin().replace("\n", "")
 
     @Test
     fun `valid message filter to tree table conversion`() {
@@ -107,7 +106,7 @@ class TestMessageFilterUtils {
     @ParameterizedTest
     @MethodSource("additionalMetadata")
     fun `valid root message filter to readable body collection conversion`(additionalMetadata: Map<String, String>) {
-        val expected =
+        val expectedJson =
             readableRootMessageFilterJson.replace(ADDITIONAL_METADATA_TAG, mapToJsonConverter(additionalMetadata))
         val toTreeTable = RootMessageFilter.newBuilder().apply {
             messageType = "MsgType"
@@ -121,8 +120,13 @@ class TestMessageFilterUtils {
                 addIgnoreFields("fieldB")
             }
         }.build().toReadableBodyCollection(additionalMetadata)
+
+        val expected = objectMapper.readTree(expectedJson).toList()
+        val actual = objectMapper.valueToTree<JsonNode>(toTreeTable).toList()
+
         Assertions.assertNotNull(toTreeTable)
-        Assertions.assertEquals(expected, objectMapper.writeValueAsString(toTreeTable))
+        Assertions.assertNotEquals(expected, actual, "Json nodes must be unordered")
+        Assertions.assertTrue(expected.size == actual.size && expected.containsAll(actual));
     }
 
     private fun createMessageFilter(): MessageFilter {
@@ -175,7 +179,7 @@ class TestMessageFilterUtils {
             return ""
         }
         return parametersMap.map {
-            "{\"Metadata Field\":\"${it.key}\",\"Expected field value\":\"${it.value}\"}"
+            "\"${it.key}\":{\"type\":\"row\",\"columns\":{\"Expected field value\":\"${it.value}\"}}"
         }.joinToString(separator = ",", prefix = ",")
     }
 

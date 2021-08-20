@@ -25,11 +25,19 @@ public class TreeTable implements IBodyData {
     public static final String TYPE = "treeTable";
 
     private final String type = TYPE;
-    private String name;
+    private final String name;
     private final Map<String, TreeTableEntry> rows;
 
-    public TreeTable(String type, Map<String, TreeTableEntry> rows) {
+    public TreeTable(String name, String type, Map<String, TreeTableEntry> rows) {
+        if (name != null && name.isBlank()) {
+            throw new IllegalArgumentException("Tree table name cannot be empty or blank");
+        }
+        this.name = name;
         this.rows = rows;
+    }
+
+    public TreeTable(String type, Map<String, TreeTableEntry> rows) {
+        this(null, TYPE, rows);
     }
 
     public String getType() {
@@ -42,9 +50,5 @@ public class TreeTable implements IBodyData {
 
     public String getName() {
         return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 }
