@@ -25,6 +25,10 @@ import com.exactpro.th2.common.grpc.ValueFilter
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import java.util.stream.Stream
 
 class TestMessageFilterUtils {
 
@@ -32,11 +36,11 @@ class TestMessageFilterUtils {
 
     //FIXME: Implement converter from RootMessageFilter to JSON
     private val fieldFiltersJson = """"
-        |NotKeyString":{"type":"row","columns":{"expected":"not key field","operation":"EQUAL","key":false}},
-        |"KeyString":{"type":"row","columns":{"expected":"key string","operation":"NOT_EQUAL","key":true}},
+        |NotKeyString":{"type":"row","columns":{"expected":"EQUAL 'not key field'","key":false}},
+        |"KeyString":{"type":"row","columns":{"expected":"NOT_EQUAL 'key string'","key":true}},
         |"SimpleCollection":{"type":"collection","rows":{
-            |"0":{"type":"row","columns":{"expected":"A","operation":"EQUAL","key":false}},
-            |"1":{"type":"row","columns":{"expected":"B","operation":"EQUAL","key":false}""".trimMargin().replace("\n", "")
+            |"0":{"type":"row","columns":{"expected":"EQUAL 'A'","key":false}},
+            |"1":{"type":"row","columns":{"expected":"EQUAL 'B'","key":false}""".trimMargin().replace("\n", "")
     private val messageFilterBodyJson = """"
         |rows":{
             |"MessageCollection":{"type":"collection","rows":{
@@ -56,8 +60,24 @@ class TestMessageFilterUtils {
                     |"0":{"type":"row","columns":{"name":"fieldA"}},
                     |"1":{"type":"row","columns":{"name":"fieldB"}}}}}},
             |"metadata-filter":{"type":"collection","rows":{
-                |"propB":{"type":"row","columns":{"expected":"valB","operation":"EQUAL","key":false}},
-                |"propA":{"type":"row","columns":{"expected":"valA","operation":"NOT_EQUAL","key":true}}}}}}""".trimMargin().replace("\n", "")
+                |"propB":{"type":"row","columns":{"expected":"EQUAL 'valB'","key":false}},
+                |"propA":{"type":"row","columns":{"expected":"NOT_EQUAL 'valA'","key":true}}}}}}""".trimMargin().replace("\n", "")
+    
+    private val readableRootMessageFilterJson = """
+        |[{"type":"treeTable","name":"Filter","rows":{
+            |"message-filter":{"type":"collection",$messageFilterBodyJson},
+            |"metadata-filter":{"type":"collection","rows":{
+                    |"propB":{"type":"row","columns":{"expected":"EQUAL 'valB'","key":false}},
+                    |"propA":{"type":"row","columns":{"expected":"NOT_EQUAL 'valA'","key":true}}}}}},
+            |{"type":"treeTable","name":"Settings","rows":{
+                |"comparison-settings":{"type":"collection","rows":{
+                    |"ignore-fields":{"type":"collection","rows":{
+                        |"0":{"type":"row","columns":{"name":"fieldA"}},
+                        |"1":{"type":"row","columns":{"name":"fieldB"}}}}}}}},
+        |{"data":"Metadata","type":"message"},
+        |{"type":"table","rows":[{
+            |"Metadata Field":"message-type","Expected field value":"MsgType"}
+            |%additional_metadata%]}]""".trimMargin().replace("\n", "")
 
     @Test
     fun `valid message filter to tree table conversion`() {
@@ -82,6 +102,27 @@ class TestMessageFilterUtils {
         }.build().toTreeTable()
         Assertions.assertNotNull(toTreeTable)
         Assertions.assertEquals(rootMessageFilterJson, objectMapper.writeValueAsString(toTreeTable))
+    }
+
+    @ParameterizedTest
+    @MethodSource("additionalMetadata")
+    fun `valid root message filter to readable body collection conversion`(additionalMetadata: Map<String, String>) {
+        val expected =
+            readableRootMessageFilterJson.replace(ADDITIONAL_METADATA_TAG, mapToJsonConverter(additionalMetadata))
+        val toTreeTable = RootMessageFilter.newBuilder().apply {
+            messageType = "MsgType"
+            messageFilter = createMessageFilter()
+            metadataFilterBuilder.apply {
+                putPropertyFilters("propA", simplePropertyFilter("valA", NOT_EQUAL, true))
+                putPropertyFilters("propB", simplePropertyFilter("valB"))
+            }
+            comparisonSettingsBuilder.apply {
+                addIgnoreFields("fieldA")
+                addIgnoreFields("fieldB")
+            }
+        }.build().toReadableBodyCollection(additionalMetadata)
+        Assertions.assertNotNull(toTreeTable)
+        Assertions.assertEquals(expected, objectMapper.writeValueAsString(toTreeTable))
     }
 
     private fun createMessageFilter(): MessageFilter {
@@ -128,4 +169,29 @@ class TestMessageFilterUtils {
     private fun listFilter(vararg values: ValueFilter) = ValueFilter.newBuilder().apply {
         listFilterBuilder.addAllValues(values.toList())
     }.build()
+
+    private fun mapToJsonConverter(parametersMap: Map<String, String>): String {
+        if (parametersMap.isEmpty()) {
+            return ""
+        }
+        return parametersMap.map {
+            "{\"Metadata Field\":\"${it.key}\",\"Expected field value\":\"${it.value}\"}"
+        }.joinToString(separator = ",", prefix = ",")
+    }
+
+    companion object {
+        var ADDITIONAL_METADATA_TAG = "%additional_metadata%"
+
+        @JvmStatic
+        fun additionalMetadata(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.arguments(emptyMap<String, String>()), // empty additional parameter
+                Arguments.arguments(mapOf("session-alias" to "conn")), // single additional parameter
+                Arguments.arguments(mapOf( // multiple additional parameters
+                    "session-alias" to "conn",
+                    "direction" to "FIRST"
+                ))
+            )
+        }
+    }
 }
