@@ -249,6 +249,9 @@ NOTES:
 
 ## Release notes
 
+### 3.24.0
++ Added util to convert RootMessageFilter into readable collection of payload bodies
+
 ### 3.23.0
 + Update the grpc-common version to 3.4.0
     + Added `IN`, `LIKE`, `MORE`, `LESS`, `WILDCARD` FilterOperation and their negative versions
