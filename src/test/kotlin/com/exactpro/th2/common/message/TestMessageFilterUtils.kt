@@ -108,6 +108,8 @@ class TestMessageFilterUtils {
     fun `valid root message filter to readable body collection conversion`(additionalMetadata: Map<String, String>) {
         val expectedJson =
             readableRootMessageFilterJson.replace(ADDITIONAL_METADATA_TAG, mapToJsonConverter(additionalMetadata))
+        val expected = objectMapper.readTree(expectedJson).toList()
+
         val toTreeTable = RootMessageFilter.newBuilder().apply {
             messageType = "MsgType"
             messageFilter = createMessageFilter()
@@ -121,12 +123,11 @@ class TestMessageFilterUtils {
             }
         }.build().toReadableBodyCollection(additionalMetadata)
 
-        val expected = objectMapper.readTree(expectedJson).toList()
+        Assertions.assertNotNull(toTreeTable)
         val actual = objectMapper.valueToTree<JsonNode>(toTreeTable).toList()
 
-        Assertions.assertNotNull(toTreeTable)
         Assertions.assertNotEquals(expected, actual, "Json nodes must be unordered")
-        Assertions.assertTrue(expected.size == actual.size && expected.containsAll(actual));
+        Assertions.assertTrue(expected.size == actual.size && expected.containsAll(actual))
     }
 
     private fun createMessageFilter(): MessageFilter {
