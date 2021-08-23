@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class TreeTableBuilder {
+    public static final String TABLE_TYPE = TreeTable.TYPE;
 
     private final Map<String, TreeTableEntry> rows = new HashMap<>();
     private final String tableName;
@@ -41,7 +42,7 @@ public class TreeTableBuilder {
     }
 
     public TreeTable build() {
-        return new TreeTable(tableName, TreeTable.TYPE, rows.entrySet().stream()
+        return new TreeTable(tableName, TABLE_TYPE, rows.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 }
