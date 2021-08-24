@@ -24,6 +24,7 @@ import com.exactpro.th2.common.metrics.DEFAULT_DIRECTION_LABEL_NAME
 import com.exactpro.th2.common.metrics.DEFAULT_SESSION_ALIAS_LABEL_NAME
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
+import com.google.protobuf.CodedInputStream
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
@@ -43,7 +44,12 @@ class RabbitMessageGroupBatchSubscriber(
     }
 
     override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
-    override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> = listOf(MessageGroupBatch.parseFrom(body))
+    override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> {
+        val ins = CodedInputStream.newInstance(body)
+        //TODO: extract the value as a config setting
+        ins.setRecursionLimit(200)
+        return listOf(MessageGroupBatch.parseFrom(ins))
+    }
     override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList
     override fun createBatch(messages: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(messages).build()
     override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
