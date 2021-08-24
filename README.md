@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.23.0)
+# th2 common library (Java) (3.23.1)
 
 ## Usage
 
@@ -115,6 +115,7 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
+    * messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
     
 Filters format: 
 * fieldName - a field's name
