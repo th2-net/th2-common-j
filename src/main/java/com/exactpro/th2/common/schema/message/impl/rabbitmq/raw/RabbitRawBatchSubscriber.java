@@ -58,8 +58,8 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
 
     private static final String MESSAGE_TYPE = "raw";
 
-    public RabbitRawBatchSubscriber(List<? extends RouterFilter> filters) {
-        super(filters);
+    public RabbitRawBatchSubscriber(List<? extends RouterFilter> filters, int messageRecursionLimit) {
+        super(filters, messageRecursionLimit);
     }
 
     @Override

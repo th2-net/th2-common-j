@@ -30,8 +30,9 @@ import io.prometheus.client.Histogram
 import mu.KotlinLogging
 
 class RabbitMessageGroupBatchSubscriber(
-    private val filters: List<RouterFilter>
-) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters) {
+    private val filters: List<RouterFilter>,
+    messageRecursionLimit: Int
+) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters, messageRecursionLimit) {
     private val logger = KotlinLogging.logger {}
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
@@ -44,12 +45,7 @@ class RabbitMessageGroupBatchSubscriber(
     }
 
     override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
-    override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> {
-        val ins = CodedInputStream.newInstance(body)
-        //TODO: extract the value as a config setting
-        ins.setRecursionLimit(200)
-        return listOf(MessageGroupBatch.parseFrom(ins))
-    }
+    override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> = listOf(parseEncodedBatch(body))
     override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList
     override fun createBatch(messages: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(messages).build()
     override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()

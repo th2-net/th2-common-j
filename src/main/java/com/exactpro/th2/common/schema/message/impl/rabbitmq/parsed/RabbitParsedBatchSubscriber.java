@@ -82,8 +82,8 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
         return batch.getMessagesCount();
     }
 
-    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters) {
-        super(filters);
+    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters, int messageRecursionLimit) {
+        super(filters, messageRecursionLimit);
     }
 
     @Override
