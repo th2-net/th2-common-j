@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.23.1)
+# th2 common library (Java) (3.24.0)
 
 ## Usage
 
