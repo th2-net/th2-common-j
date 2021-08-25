@@ -32,7 +32,7 @@ class RabbitMessageGroupBatchQueue : AbstractRabbitQueue<MessageGroupBatch>() {
     }
 
     override fun createSubscriber(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration, filterFunction: FilterFunction): MessageSubscriber<MessageGroupBatch> {
-        return RabbitMessageGroupBatchSubscriber(queueConfiguration.filters, queueConfiguration.messageRecursionLimit).apply {
+        return RabbitMessageGroupBatchSubscriber(queueConfiguration.filters, connectionManager.configuration.messageRecursionLimit).apply {
             init(connectionManager, SubscribeTarget(queueConfiguration.queue, queueConfiguration.routingKey, queueConfiguration.exchange), filterFunction)
         }
     }

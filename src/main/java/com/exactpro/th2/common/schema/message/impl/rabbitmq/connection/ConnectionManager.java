@@ -88,6 +88,10 @@ public class ConnectionManager implements AutoCloseable {
         public void handleRecoveryStarted(Recoverable recoverable) {}
     };
 
+    public ConnectionManagerConfiguration getConfiguration() {
+        return configuration;
+    }
+
     public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");

@@ -79,6 +79,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
+* messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
 
 ```json
 {
@@ -93,7 +94,8 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   "maxRecoveryAttempts": 5,
   "minConnectionRecoveryTimeout": 10000,
   "maxConnectionRecoveryTimeout": 60000,
-  "prefetchCount": 10
+  "prefetchCount": 10,
+  "messageRecursionLimit": 100
 }
 ```
 
@@ -115,7 +117,6 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
-    * messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
     
 Filters format: 
 * fieldName - a field's name
@@ -249,6 +250,9 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.23.1
++ Added setting `messageRecursionLimit`(default 100) to RabbitMQ configuration that denotes how deep nested protobuf messages might be.
 
 ### 3.23.0
 + Update the grpc-common version to 3.4.0

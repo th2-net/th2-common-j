@@ -42,8 +42,7 @@ data class QueueConfiguration(
     @JsonProperty(required = true) @JsonAlias("labels", "tags") var attributes: List<String> = emptyList(),
     var filters: List<MqRouterFilterConfiguration> = emptyList(),
     @JsonProperty(value = "read") var isReadable: Boolean = true,
-    @JsonProperty(value = "write") var isWritable: Boolean = true,
-    @JsonProperty(value = "messageRecursionLimit") var messageRecursionLimit: Int = 100
+    @JsonProperty(value = "write") var isWritable: Boolean = true
 ) : Configuration()
 
 data class MqRouterFilterConfiguration(
