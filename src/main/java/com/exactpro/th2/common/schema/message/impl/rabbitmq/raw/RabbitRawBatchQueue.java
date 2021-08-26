@@ -36,7 +36,7 @@ public class RabbitRawBatchQueue extends AbstractRabbitQueue<RawMessageBatch> {
 
     @Override
     protected MessageSubscriber<RawMessageBatch> createSubscriber(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters());
+        var result = new RabbitRawBatchSubscriber(queueConfiguration.getFilters(), connectionManager.getConfiguration().getMessageRecursionLimit());
         result.init(connectionManager,
                 new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()),
                 filterFunction);
