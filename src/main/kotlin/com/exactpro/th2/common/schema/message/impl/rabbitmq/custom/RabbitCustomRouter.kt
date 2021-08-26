@@ -16,13 +16,16 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
 import com.exactpro.th2.common.schema.message.FilterFunction
-import com.exactpro.th2.common.schema.message.MessageQueue
+import com.exactpro.th2.common.schema.message.MessageSender
+import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
-import com.exactpro.th2.common.schema.message.configuration.RouterFilter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.google.protobuf.Message
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
+import io.prometheus.client.Counter
+import io.prometheus.client.Histogram
 
 class RabbitCustomRouter<T : Any>(
     customTag: String,
@@ -30,26 +33,112 @@ class RabbitCustomRouter<T : Any>(
     private val converter: MessageConverter<T>,
     defaultSendAttributes: Set<String> = emptySet(),
     defaultSubscribeAttributes: Set<String> = emptySet()
-) : AbstractRabbitMessageRouter<T>() {
-    private val requiredSubscribeAttributes: Set<String> = hashSetOf(QueueAttribute.SUBSCRIBE.toString()) + defaultSubscribeAttributes
-    private val requiredSendAttributes: Set<String> = hashSetOf(QueueAttribute.PUBLISH.toString()) + defaultSendAttributes
+) : AbstractRabbitRouter<T>() {
+    private val requiredSendAttributes: MutableSet<String> =
+        mutableSetOf(QueueAttribute.PUBLISH.toString()).apply {
+            addAll(defaultSendAttributes)
+        }
+
+    private val requiredSubscribeAttributes: MutableSet<String> =
+        mutableSetOf(QueueAttribute.SUBSCRIBE.toString()).apply {
+            addAll(defaultSubscribeAttributes)
+        }
+
     private val metricsHolder = MetricsHolder(customTag, labels)
 
-    override fun createQueue(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration, filterFunction: FilterFunction): MessageQueue<T> {
-        return RabbitCustomQueue(converter, metricsHolder).apply {
-            init(connectionManager, queueConfiguration, filterFunction)
+    override fun getRequiredSendAttributes(): Set<String> {
+        return requiredSendAttributes
+    }
+
+    override fun getRequiredSubscribeAttributes(): Set<String> {
+        return requiredSubscribeAttributes
+    }
+
+    override fun splitAndFilter(message: T, pinConfiguration: PinConfiguration): T {
+        return message
+    }
+
+    override fun createSender(pinConfig: PinConfiguration): MessageSender<T> {
+        return Sender(
+            converter,
+            metricsHolder.outgoingDeliveryCounter,
+            metricsHolder.outgoingDataCounter
+        ).apply {
+            init(connectionManager, pinConfig.exchange, pinConfig.routingKey)
         }
     }
 
-    // FIXME: the filtering is not working for custom objects
-    override fun filterMessage(msg: Message?, filters: MutableList<out RouterFilter>?): Boolean = true
-
-    // FIXME: the filtering is not working for custom objects
-    override fun findQueueByFilter(queues: Map<String, QueueConfiguration>, msg: T): Map<String, T> {
-        return queues.keys.associateWithTo(HashMap()) { msg }
+    override fun createSubscriber(pinConfig: PinConfiguration): MessageSubscriber<T> {
+        return Subscriber(
+            converter,
+            metricsHolder.incomingDeliveryCounter,
+            metricsHolder.processingTimer,
+            metricsHolder.incomingDataCounter
+        ).apply {
+            init(
+                connectionManager,
+                SubscribeTarget(
+                    pinConfig.queue,
+                    pinConfig.routingKey,
+                    pinConfig.exchange
+                ),
+                FilterFunction.DEFAULT_FILTER_FUNCTION
+            )
+        }
     }
 
-    override fun requiredSubscribeAttributes(): Set<String> = requiredSubscribeAttributes
+    override fun T.toErrorString(): String {
+        return this.toString()
+    }
 
-    override fun requiredSendAttributes(): Set<String> = requiredSendAttributes
+    override fun getDeliveryCounter(): Counter {
+        return metricsHolder.outgoingDeliveryCounter
+    }
+
+    override fun getContentCounter(): Counter {
+        return metricsHolder.outgoingDataCounter
+    }
+
+    override fun extractCountFrom(batch: T): Int {
+        return converter.extractCount(batch)
+    }
+
+    private class Sender<T : Any>(
+        private val converter: MessageConverter<T>,
+        private val deliveryCounter: Counter,
+        private val dataCounter: Counter
+    ) : AbstractRabbitSender<T>() {
+        override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
+
+        override fun toShortTraceString(value: T): String = converter.toTraceString(value)
+        override fun toShortDebugString(value: T): String = converter.toDebugString(value)
+    }
+
+    private class Subscriber<T : Any>(
+        private val converter: MessageConverter<T>,
+        private val deliveryCounter: Counter,
+        private val timer: Histogram,
+        private val dataCounter: Counter
+    ) : AbstractRabbitSubscriber<T>() {
+        override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
+
+        override fun toShortTraceString(value: T): String = converter.toTraceString(value)
+        override fun toShortDebugString(value: T): String = converter.toDebugString(value)
+
+        // FIXME: the filtering is not working for custom objects
+        override fun filter(value: T): T = value
+
+        //region Prometheus stats
+        override fun getDeliveryCounter(): Counter = deliveryCounter
+
+        override fun getContentCounter(): Counter = dataCounter
+
+        override fun getProcessingTimer(): Histogram = timer
+
+        override fun extractCountFrom(batch: T): Int = converter.extractCount(batch)
+
+        override fun extractLabels(batch: T): Array<String> = converter.getLabels(batch)
+
+        //endregion
+    }
 }

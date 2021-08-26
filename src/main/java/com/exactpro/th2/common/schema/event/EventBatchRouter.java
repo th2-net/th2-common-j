@@ -15,53 +15,92 @@
 
 package com.exactpro.th2.common.schema.event;
 
-import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.schema.message.FilterFunction;
-import com.exactpro.th2.common.schema.message.MessageQueue;
-import com.exactpro.th2.common.schema.message.QueueAttribute;
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.google.protobuf.Message;
+import java.util.Set;
+
 import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.MessageSender;
+import com.exactpro.th2.common.schema.message.MessageSubscriber;
+import com.exactpro.th2.common.schema.message.QueueAttribute;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
+import com.google.protobuf.TextFormat;
 
-public class EventBatchRouter extends AbstractRabbitMessageRouter<EventBatch> {
+import io.prometheus.client.Counter;
 
+public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
     private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
 
+    private static final Counter OUTGOING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_event_batch_quantity", "Quantity of outgoing event batches").register();
+    private static final Counter OUTGOING_EVENT_QUANTITY = Counter.build("th2_mq_outgoing_event_quantity", "Quantity of outgoing events").register();
+
+    @NotNull
     @Override
-    protected MessageQueue<EventBatch> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        EventBatchQueue eventBatchQueue = new EventBatchQueue();
-        eventBatchQueue.init(connectionManager, queueConfiguration, filterFunction);
-        return eventBatchQueue;
+    protected EventBatch splitAndFilter(EventBatch message, @NotNull QueueConfiguration pinConfiguration) {
+        return message;
     }
 
+    @NotNull
     @Override
-    protected Map<String, EventBatch> findQueueByFilter(Map<String, QueueConfiguration> queues, EventBatch msg) {
-        return queues.entrySet().stream().collect(Collectors.toMap(Entry::getKey, v -> msg));
+    protected Set<String> getRequiredSendAttributes() {
+        return REQUIRED_SEND_ATTRIBUTES;
     }
 
+    @NotNull
     @Override
-    protected boolean filterMessage(Message msg, List<? extends RouterFilter> filters) {
-        return true;
-    }
-
-    @Override
-    protected Set<String> requiredSubscribeAttributes() {
+    protected Set<String> getRequiredSubscribeAttributes() {
         return REQUIRED_SUBSCRIBE_ATTRIBUTES;
     }
 
+    @NotNull
     @Override
-    protected Set<String> requiredSendAttributes() {
-        return REQUIRED_SEND_ATTRIBUTES;
+    protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration) {
+        EventBatchSender eventBatchSender = new EventBatchSender();
+        eventBatchSender.init(
+                getConnectionManager(),
+                queueConfiguration.getExchange(),
+                queueConfiguration.getRoutingKey()
+        );
+        return eventBatchSender;
+    }
+
+    @NotNull
+    @Override
+    protected MessageSubscriber<EventBatch> createSubscriber(QueueConfiguration queueConfiguration) {
+        EventBatchSubscriber eventBatchSubscriber = new EventBatchSubscriber();
+        eventBatchSubscriber.init(
+                getConnectionManager(),
+                new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()),
+                FilterFunction.DEFAULT_FILTER_FUNCTION
+        );
+        return eventBatchSubscriber;
+    }
+
+    @NotNull
+    @Override
+    protected String toErrorString(EventBatch eventBatch) {
+        return TextFormat.shortDebugString(eventBatch);
+    }
+
+    @NotNull
+    @Override
+    protected Counter getDeliveryCounter() {
+        return OUTGOING_EVENT_BATCH_QUANTITY;
+    }
+
+    @NotNull
+    @Override
+    protected Counter getContentCounter() {
+        return OUTGOING_EVENT_QUANTITY;
+    }
+
+    @Override
+    protected int extractCountFrom(EventBatch batch) {
+        return batch.getEventsCount();
     }
 }

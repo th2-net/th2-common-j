@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,6 @@ import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
-/**
- * Send message to {@link MessageQueue}
- */
 @NotThreadSafe
 public interface MessageSender<T> {
     void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue);

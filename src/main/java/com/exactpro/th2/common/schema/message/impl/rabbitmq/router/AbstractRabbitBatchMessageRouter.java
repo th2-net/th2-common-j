@@ -15,59 +15,31 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.router;
 
+import java.util.List;
+
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitMessageRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter;
 import com.google.protobuf.Message;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitMessageRouter<MB> {
+public abstract class AbstractRabbitBatchMessageRouter<M extends Message, MB, MBB> extends AbstractRabbitRouter<MB> {
 
     @Override
-    protected Map<String, MB> findQueueByFilter(Map<String, QueueConfiguration> queues, MB batch) {
-
-        Map<String, MBB> result = new HashMap<>();
-
-        for (var message : getMessages(batch)) {
-
-            for (var queueAlias : filter(queues, message)) {
-
-                result.putIfAbsent(queueAlias, createBatchBuilder());
-
-                addMessage(result.get(queueAlias), message);
-
+    protected @NotNull MB splitAndFilter(MB batch, @NotNull QueueConfiguration pinConfiguration) {
+        MBB result = createBatchBuilder();
+        getMessages(batch).forEach(message -> {
+            if (filter(message, pinConfiguration)) {
+                addMessage(result, message);
             }
-
-        }
-
-        return result.entrySet().stream()
-                .collect(Collectors.toMap(Entry::getKey, value -> build(value.getValue())));
+        });
+        return build(result);
     }
 
-    protected Set<String> filter(Map<String, QueueConfiguration> queues, Message message) {
-
-        var aliases = new HashSet<String>();
-
-        for (var queueEntry : queues.entrySet()) {
-
-            var queueAlias = queueEntry.getKey();
-            var filters = queueEntry.getValue().getFilters();
-
-            if (filters.isEmpty() || filterMessage(message, filters)) {
-                aliases.add(queueAlias);
-            }
-
-        }
-
-        return aliases;
+    protected boolean filter(Message message, QueueConfiguration pinConfiguration) {
+        return pinConfiguration.getFilters().isEmpty()
+                || filterMessage(message, pinConfiguration.getFilters());
     }
-
 
     protected abstract List<M> getMessages(MB batch);
 

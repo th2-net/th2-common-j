@@ -15,49 +15,49 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
+import java.util.List;
+import java.util.Set;
+
+import org.apache.commons.collections4.SetUtils;
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.common.grpc.RawMessage;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch.Builder;
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
 import com.exactpro.th2.common.schema.filter.strategy.impl.Th2RawMsgFilterStrategy;
-import com.exactpro.th2.common.schema.message.FilterFunction;
-import com.exactpro.th2.common.schema.message.MessageQueue;
+import com.exactpro.th2.common.schema.message.MessageSender;
+import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
 import com.google.protobuf.Message;
-import org.apache.commons.collections4.SetUtils;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-import java.util.Set;
+import io.prometheus.client.Counter;
 
 public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch, RawMessageBatch.Builder> {
-
     private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.PUBLISH.toString());
+
+    private static final Counter OUTGOING_RAW_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_batch_quantity", "Quantity of outgoing raw message batches").register();
+    private static final Counter OUTGOING_RAW_MSG_QUANTITY = Counter.build("th2_mq_outgoing_raw_msg_quantity", "Quantity of outgoing raw messages").register();
 
     @Override
     protected @NotNull FilterStrategy<Message> getDefaultFilterStrategy() {
         return new Th2RawMsgFilterStrategy();
     }
 
+    @NotNull
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        RabbitRawBatchQueue queue = new RabbitRawBatchQueue();
-        queue.init(connectionManager, queueConfiguration, filterFunction);
-        return queue;
-    }
-
-    @Override
-    protected Set<String> requiredSubscribeAttributes() {
-        return REQUIRED_SUBSCRIBE_ATTRIBUTES;
-    }
-
-    @Override
-    protected Set<String> requiredSendAttributes() {
+    protected Set<String> getRequiredSendAttributes() {
         return REQUIRED_SEND_ATTRIBUTES;
+    }
+
+    @NotNull
+    @Override
+    protected Set<String> getRequiredSubscribeAttributes() {
+        return REQUIRED_SUBSCRIBE_ATTRIBUTES;
     }
 
     @Override
@@ -78,5 +78,51 @@ public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMe
     @Override
     protected RawMessageBatch build(Builder builder) {
         return builder.build();
+    }
+
+    @NotNull
+    @Override
+    protected MessageSender<RawMessageBatch> createSender(QueueConfiguration queueConfiguration) {
+        RabbitRawBatchSender rabbitRawBatchSender = new RabbitRawBatchSender();
+        rabbitRawBatchSender.init(getConnectionManager(), queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
+        return rabbitRawBatchSender;
+    }
+
+    @NotNull
+    @Override
+    protected MessageSubscriber<RawMessageBatch> createSubscriber(QueueConfiguration queueConfiguration) {
+        RabbitRawBatchSubscriber rabbitRawBatchSubscriber = new RabbitRawBatchSubscriber(
+                queueConfiguration.getFilters(),
+                getConnectionManager().getConfiguration().getMessageRecursionLimit()
+        );
+        rabbitRawBatchSubscriber.init(
+                getConnectionManager(),
+                new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()),
+                this::filterMessage
+        );
+        return rabbitRawBatchSubscriber;
+    }
+
+    @NotNull
+    @Override
+    protected String toErrorString(RawMessageBatch rawMessageBatch) {
+        return rawMessageBatch.toString();
+    }
+
+    @NotNull
+    @Override
+    protected Counter getDeliveryCounter() {
+        return OUTGOING_RAW_MSG_BATCH_QUANTITY;
+    }
+
+    @NotNull
+    @Override
+    protected Counter getContentCounter() {
+        return OUTGOING_RAW_MSG_QUANTITY;
+    }
+
+    @Override
+    protected int extractCountFrom(RawMessageBatch batch) {
+        return batch.getMessagesCount();
     }
 }

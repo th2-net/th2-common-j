@@ -20,12 +20,8 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
-import io.prometheus.client.Counter
 
 class RabbitMessageGroupBatchSender : AbstractRabbitSender<MessageGroupBatch>() {
-    override fun getDeliveryCounter(): Counter = OUTGOING_MSG_GROUP_BATCH_QUANTITY
-    override fun getContentCounter(): Counter = OUTGOING_MSG_GROUP_QUANTITY
-    override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
     override fun valueToBytes(value: MessageGroupBatch): ByteArray = value.toByteArray()
     override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
     override fun toShortDebugString(value: MessageGroupBatch): String = "MessageGroupBatch: " +
@@ -40,9 +36,4 @@ class RabbitMessageGroupBatchSender : AbstractRabbitSender<MessageGroupBatch>() 
                 else -> ""
             }
         }
-
-    companion object {
-        private val OUTGOING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_batch_quantity", "Quantity of outgoing message group batches").register()
-        private val OUTGOING_MSG_GROUP_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_quantity", "Quantity of outgoing message groups").register()
-    }
 }
