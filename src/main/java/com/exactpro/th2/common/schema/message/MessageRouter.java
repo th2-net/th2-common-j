@@ -16,11 +16,13 @@
 package com.exactpro.th2.common.schema.message;
 
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Interface for send and receive RabbitMQ messages
@@ -34,7 +36,12 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param configuration message router configuration
      */
     @Deprecated(since = "3.2.2", forRemoval = true)
-    void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration);
+    default void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration) {
+        Objects.requireNonNull(connectionManager, "Connection owner can not be null");
+        Objects.requireNonNull(configuration, "Configuration cannot be null");
+
+        init(new DefaultMessageRouterContext(connectionManager, MessageRouterMonitor.DEFAULT_MONITOR, configuration));
+    }
 
     /**
      * Initialization message router
@@ -58,7 +65,9 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
      */
     @Nullable
-    SubscriberMonitor subscribeAll(MessageListener<T> callback);
+    default SubscriberMonitor subscribeAll(MessageListener<T> callback) {
+        return subscribeAll(callback, QueueAttribute.SUBSCRIBE.toString());
+    }
 
     /**
      * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
@@ -74,7 +83,9 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param message
      * @throws IOException if can not send message
      */
-    void send(T message) throws IOException;
+    default void send(T message) throws IOException {
+        send(message, QueueAttribute.PUBLISH.toString());
+    }
 
     /**
      * Send message to <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes

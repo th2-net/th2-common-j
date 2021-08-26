@@ -24,9 +24,6 @@ import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
-/**
- * Send message to {@link MessageQueue}
- */
 @NotThreadSafe
 public interface MessageSender<T> {
     void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue);

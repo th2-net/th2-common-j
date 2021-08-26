@@ -18,73 +18,42 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch.Builder
-import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractFilterStrategy
 import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
-import com.exactpro.th2.common.schema.message.FilterFunction
-import com.exactpro.th2.common.schema.message.MessageQueue
-import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
-import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
+import com.exactpro.th2.common.schema.message.MessageSender
+import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter
 import com.google.protobuf.Message
+import com.google.protobuf.TextFormat
+import io.prometheus.client.Counter
+import org.jetbrains.annotations.NotNull
+import java.util.stream.Collectors
 
 class RabbitMessageGroupBatchRouter : AbstractRabbitBatchMessageRouter<MessageGroup, MessageGroupBatch, Builder>() {
 
     override fun getDefaultFilterStrategy(): AbstractFilterStrategy<Message> {
-        return AnyMessageFilterStrategy();
+        return AnyMessageFilterStrategy()
     }
 
-    override fun createQueue(connectionManager: ConnectionManager, queueConfiguration: QueueConfiguration, filterFunction: FilterFunction): MessageQueue<MessageGroupBatch> {
-        return RabbitMessageGroupBatchQueue().apply {
-            init(connectionManager, queueConfiguration, filterFunction)
+    override fun splitAndFilter(
+        message: MessageGroupBatch,
+        pinConfiguration: @NotNull QueueConfiguration
+    ): @NotNull MessageGroupBatch {
+        if (pinConfiguration.filters.isEmpty()) {
+            return message
         }
-    }
 
-    override fun findQueueByFilter(queues: MutableMap<String, QueueConfiguration>, batch: MessageGroupBatch): MutableMap<String, MessageGroupBatch> {
-        val builders = hashMapOf<String, Builder>()
-
-        getMessages(batch).forEach { group ->
-            val originalMessages = group.messagesList
-            val parsedRawPartition = originalMessages.partition { it.hasMessage() }
-
-            if (parsedRawPartition.first.size == originalMessages.size || parsedRawPartition.second.size == originalMessages.size) {
-                val forFilter = if (parsedRawPartition.first.isEmpty()) parsedRawPartition.second else parsedRawPartition.first
-                val groups = hashMapOf<String, MessageGroup.Builder>()
-                forFilter.forEach {
-                    filter(queues, it).forEach { alias ->
-                        groups.getOrPut(alias) {MessageGroup.newBuilder()}.addMessages(it)
-                    }
-                }
-
-                groups.forEach { (alias, newGroup) ->
-                    builders.getOrPut(alias, ::createBatchBuilder).addGroups(newGroup)
-                }
-            } else {
-                val skippedAliases = hashSetOf<String>()
-                originalMessages.groupBy { filter(queues, it) }.forEach { (aliases, messages) ->
-                    if (aliases.isNotEmpty() && messages.size == group.messagesCount) {
-                        aliases.forEach { alias ->
-                            builders.getOrPut(alias, ::createBatchBuilder).addGroups(group)
-                        }
-                    } else {
-                        skippedAliases.addAll(aliases)
-                    }
-                }
-
-                if (skippedAliases.isNotEmpty()) {
-                    monitor.onWarn("Group was skipped for aliases '{}' '{}'", skippedAliases, group.toJson())
-                }
+        val builder = MessageGroupBatch.newBuilder()
+        message.groupsList.forEach { group ->
+            if (group.messagesList.all { filterMessage(it, pinConfiguration.filters) }) {
+                builder.addGroups(group)
             }
         }
-
-        return builders.mapValuesTo(hashMapOf()) { it.value.build() }
+        return builder.build()
     }
-
-    override fun requiredSubscribeAttributes(): Set<String> = REQUIRED_SUBSCRIBE_ATTRIBUTES
-
-    override fun requiredSendAttributes(): Set<String> = REQUIRED_SEND_ATTRIBUTES
 
     override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList
 
@@ -96,8 +65,46 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitBatchMessageRouter<MessageGr
 
     override fun build(builder: Builder): MessageGroupBatch = builder.build()
 
+    override fun createSender(pinConfig: QueueConfiguration): MessageSender<MessageGroupBatch> {
+        return RabbitMessageGroupBatchSender().apply {
+            init(connectionManager, pinConfig.exchange, pinConfig.routingKey)
+        }
+    }
+
+    override fun createSubscriber(pinConfig: QueueConfiguration): MessageSubscriber<MessageGroupBatch> {
+        return RabbitMessageGroupBatchSubscriber(
+            pinConfig.filters,
+            connectionManager.configuration.messageRecursionLimit
+        ).apply {
+            init(
+                connectionManager,
+                SubscribeTarget(
+                    pinConfig.queue,
+                    pinConfig.routingKey,
+                    pinConfig.exchange
+                )
+            ) { msg: Message, filters: List<RouterFilter> -> filterMessage(msg, filters) }
+        }
+    }
+
+    override fun MessageGroupBatch.toErrorString(): String {
+        return TextFormat.shortDebugString(this)
+    }
+
+    override fun getDeliveryCounter(): Counter {
+        return OUTGOING_MSG_GROUP_BATCH_QUANTITY
+    }
+
+    override fun getContentCounter(): Counter {
+        return OUTGOING_MSG_GROUP_QUANTITY
+    }
+
+    override fun extractCountFrom(batch: MessageGroupBatch): Int {
+        return batch.groupsCount
+    }
+
     companion object {
-        private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(SUBSCRIBE.toString())
-        private val REQUIRED_SEND_ATTRIBUTES = setOf(PUBLISH.toString())
+        private val OUTGOING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_batch_quantity", "Quantity of outgoing message group batches").register()
+        private val OUTGOING_MSG_GROUP_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_quantity", "Quantity of outgoing message groups").register()
     }
 }

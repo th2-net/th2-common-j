@@ -27,8 +27,6 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
-import io.prometheus.client.Counter;
-
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSender.class);
 
@@ -51,20 +49,9 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         this.sendQueue.set(sendQueue);
     }
 
-    protected abstract Counter getDeliveryCounter();
-
-    protected abstract Counter getContentCounter();
-
-    protected abstract int extractCountFrom(T batch);
-
     @Override
     public void send(T value) throws IOException {
         Objects.requireNonNull(value, "Value for send can not be null");
-
-        Counter counter = getDeliveryCounter();
-        counter.inc();
-        Counter contentCounter = getContentCounter();
-        contentCounter.inc(extractCountFrom(value));
 
         try {
             ConnectionManager connection = this.connectionManager.get();
