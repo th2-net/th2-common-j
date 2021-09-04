@@ -251,6 +251,9 @@ NOTES:
 
 ## Release notes
 
+### 3.24.2
++ Fixed `messageRecursionLimit` - still was not applied to all kind of RabbitMQ subscribers
+
 ### 3.24.1
 + Fixed `messageRecursionLimit` setting for all kind of RabbitMQ subscribers
 
