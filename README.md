@@ -1,4 +1,3 @@
-
 # th2 common library (Java) (3.24.1)
 
 ## Usage
@@ -253,7 +252,9 @@ NOTES:
 ## Release notes
 
 ### 3.24.1
++ Fixed `messageRecursionLimit` setting for all kind of RabbitMQ subscribers
 
+### 3.24.0
 + Added setting `messageRecursionLimit`(default 100) to RabbitMQ configuration that denotes how deep nested protobuf messages might be.
 
 ### 3.23.0
