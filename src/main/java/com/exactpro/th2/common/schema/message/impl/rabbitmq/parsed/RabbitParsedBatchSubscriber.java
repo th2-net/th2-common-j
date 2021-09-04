@@ -29,13 +29,11 @@ import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
-import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber;
 
-import com.google.protobuf.CodedInputStream;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
 
@@ -89,8 +87,7 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
 
     @Override
     protected List<MessageBatch> valueFromBytes(byte[] body) throws Exception {
-        CodedInputStream ins = CodedInputStream.newInstance(body);
-        var groupBatch = MessageGroupBatch.parseFrom(ins);
+        var groupBatch = parseEncodedBatch(body);
         var messageGroups = groupBatch.getGroupsList();
         var parsedBatches = new ArrayList<MessageBatch>(messageGroups.size());
 
