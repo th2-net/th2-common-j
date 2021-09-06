@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 
 import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
-import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.grpc.RawMessage;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
@@ -58,8 +57,8 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
 
     private static final String MESSAGE_TYPE = "raw";
 
-    public RabbitRawBatchSubscriber(List<? extends RouterFilter> filters) {
-        super(filters);
+    public RabbitRawBatchSubscriber(List<? extends RouterFilter> filters, int messageRecursionLimit) {
+        super(filters, messageRecursionLimit);
     }
 
     @Override
@@ -90,7 +89,7 @@ public class RabbitRawBatchSubscriber extends AbstractRabbitBatchSubscriber<RawM
 
     @Override
     protected List<RawMessageBatch> valueFromBytes(byte[] body) throws Exception {
-        var groupBatch = MessageGroupBatch.parseFrom(body);
+        var groupBatch = parseEncodedBatch(body);
         var messageGroups = groupBatch.getGroupsList();
         var rawBatches = new ArrayList<RawMessageBatch>(messageGroups.size());
 

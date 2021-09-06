@@ -29,7 +29,6 @@ import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.AnyMessage.KindCase;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.MessageBatch;
-import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
@@ -82,13 +81,13 @@ public class RabbitParsedBatchSubscriber extends AbstractRabbitBatchSubscriber<M
         return batch.getMessagesCount();
     }
 
-    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters) {
-        super(filters);
+    public RabbitParsedBatchSubscriber(List<? extends RouterFilter> filters, int messageRecursionLimit) {
+        super(filters, messageRecursionLimit);
     }
 
     @Override
     protected List<MessageBatch> valueFromBytes(byte[] body) throws Exception {
-        var groupBatch = MessageGroupBatch.parseFrom(body);
+        var groupBatch = parseEncodedBatch(body);
         var messageGroups = groupBatch.getGroupsList();
         var parsedBatches = new ArrayList<MessageBatch>(messageGroups.size());
 

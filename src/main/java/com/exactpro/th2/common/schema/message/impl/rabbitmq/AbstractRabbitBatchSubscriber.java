@@ -16,12 +16,15 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.grpc.Direction;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
+import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,9 +34,14 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitBatchSubscriber.class);
 
     private List<? extends RouterFilter> filters;
+    private final int messageRecursionLimit;
 
-    public AbstractRabbitBatchSubscriber(List<? extends RouterFilter> filters) {
+    public AbstractRabbitBatchSubscriber(List<? extends RouterFilter> filters, int messageRecursionLimit) {
         this.filters = filters;
+        if (messageRecursionLimit < 0) {
+            throw new IllegalArgumentException("Recursion limit cannot be negative: " + messageRecursionLimit);
+        }
+        this.messageRecursionLimit = messageRecursionLimit;
     }
 
     @Override
@@ -63,6 +71,12 @@ public abstract class AbstractRabbitBatchSubscriber<M extends Message, MB> exten
     protected abstract MB createBatch(List<M> messages);
 
     protected abstract Metadata extractMetadata(M message);
+    
+    protected MessageGroupBatch parseEncodedBatch(byte[] body) throws IOException {
+        var ins = CodedInputStream.newInstance(body);
+        ins.setRecursionLimit(messageRecursionLimit);
+        return MessageGroupBatch.parseFrom(ins);
+    }
 
     protected static class Metadata {
         private final long sequence;
