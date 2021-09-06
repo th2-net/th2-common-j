@@ -212,7 +212,7 @@ public class Event {
      * Adds passed collection of body data
      * @return current event
      */
-    public Event bodyData(Collection<IBodyData> bodyDataCollection) {
+    public Event bodyData(Collection<? extends IBodyData> bodyDataCollection) {
         body.addAll(requireNonNull(bodyDataCollection, "Body data collection cannot be null"));
         return this;
     }
