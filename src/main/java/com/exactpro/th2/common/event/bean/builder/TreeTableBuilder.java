@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,18 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class TreeTableBuilder {
-    public static final String TABLE_TYPE = "treeTable";
+    public static final String TABLE_TYPE = TreeTable.TYPE;
 
     private final Map<String, TreeTableEntry> rows = new HashMap<>();
+    private final String tableName;
+
+    public TreeTableBuilder() {
+        this(null);
+    }
+
+    public TreeTableBuilder(String tableName) {
+        this.tableName = tableName;
+    }
 
     public TreeTableBuilder row(String rowName, TreeTableEntry row) {
         rows.put(rowName, row);
@@ -33,7 +42,7 @@ public class TreeTableBuilder {
     }
 
     public TreeTable build() {
-        return new TreeTable(TABLE_TYPE, rows.entrySet().stream()
+        return new TreeTable(tableName, TABLE_TYPE, rows.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 }

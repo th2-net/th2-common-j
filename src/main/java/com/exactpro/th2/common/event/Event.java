@@ -27,6 +27,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -204,6 +205,15 @@ public class Event {
      */
     public Event bodyData(IBodyData bodyData) {
         body.add(requireNonNull(bodyData, "Body data can't be null"));
+        return this;
+    }
+
+    /**
+     * Adds passed collection of body data
+     * @return current event
+     */
+    public Event bodyData(Collection<? extends IBodyData> bodyDataCollection) {
+        body.addAll(requireNonNull(bodyDataCollection, "Body data collection cannot be null"));
         return this;
     }
 

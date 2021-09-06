@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.common.message
 
+import com.exactpro.th2.common.event.IBodyData
 import com.exactpro.th2.common.event.bean.IColumn
 import com.exactpro.th2.common.event.bean.TreeTable
 import com.exactpro.th2.common.event.bean.TreeTableEntry
@@ -31,6 +32,8 @@ import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
 import com.exactpro.th2.common.grpc.RootComparisonSettings
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonProperty
 
 @Deprecated(
         message = "The message type from MessageFilter will be removed in the future",
@@ -75,6 +78,23 @@ fun RootMessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
     row("metadata-filter", metadataFilter.toTreeTableEntry())
     row("comparison-settings", comparisonSettings.toTreeTableEntry())
 }.build()
+
+fun RootMessageFilter.toReadableBodyCollection(additionalMetadata: Map<String, String>? = null): Collection<IBodyData> =
+    listOf(
+        TreeTableBuilder("Metadata").apply {
+            row("message-type", RowBuilder().column(MetadataField(messageType)).build())
+            additionalMetadata?.forEach {
+                row(it.key, RowBuilder().column(MetadataField(it.value)).build())
+            }
+        }.build(),
+        TreeTableBuilder("Filter").apply {
+            row("message-filter", messageFilter.toTreeTableEntry())
+            row("metadata-filter", metadataFilter.toTreeTableEntry())
+        }.build(),
+        TreeTableBuilder("Settings").apply {
+            row("comparison-settings", comparisonSettings.toTreeTableEntry())
+        }.build()
+    )
 
 fun MessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
     for ((key, value) in fieldsMap) {
@@ -124,6 +144,19 @@ private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
         .build()
 }
 
-private data class MessageFilterTableColumn(val expected: String, val operation: String, val key: Boolean) : IColumn
+private data class MessageFilterTableColumn(
+    @JsonIgnore val value: String,
+    @JsonIgnore val operation: String,
+    val key: Boolean
+) : IColumn {
+    @get:JsonProperty(index = 0)
+    val expected: String
+        get() = if (value.isEmpty()) operation else "$operation '${value}'"
+}
+
+private data class MetadataField(
+    @get:JsonProperty(value = "Expected field value") val metadataValue: String
+) : IColumn
+
 private data class MessageTypeColumn(val type: String) : IColumn
 private data class IgnoreFieldColumn(val name: String) : IColumn

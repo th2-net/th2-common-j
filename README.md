@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.24.1)
+# th2 common library (Java) (3.25.0)
 
 ## Usage
 
@@ -250,6 +250,9 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.25.0
++ Added util to convert RootMessageFilter into readable collection of payload bodies
 
 ### 3.24.2
 + Fixed `messageRecursionLimit` - still was not applied to all kind of RabbitMQ subscribers
