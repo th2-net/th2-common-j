@@ -22,9 +22,7 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
-import com.exactpro.th2.common.event.EventUtils.toEventID
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.grpc.EventID
 import com.google.protobuf.MessageOrBuilder
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
@@ -33,14 +31,14 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
-    parentId: EventID? = null
+    parentId: String? = null
 ): Event = event.apply {
-    val batch = toBatchProto(parentId)
+    val batch = EventBatch.newBuilder().addEvents(toProtoEvent(parentId)).build()
     sendAll(batch, PUBLISH.toString(), EVENT.toString())
 }
 
 fun MessageRouter<EventBatch>.storeEvent(
-    parentId: EventID,
+    parentId: String,
     name: String,
     type: String,
     cause: Throwable? = null
@@ -58,24 +56,6 @@ fun MessageRouter<EventBatch>.storeEvent(
     }
 
     storeEvent(this, parentId)
-}
-
-@Deprecated("Use the method with parentId with EventID type")
-fun MessageRouter<EventBatch>.storeEvent(
-    event: Event,
-    parentId: String? = null
-): Event = event.apply {
-    storeEvent(event, toEventID(parentId))
-}
-
-@Deprecated("Use the method with parentId with EventID type")
-fun MessageRouter<EventBatch>.storeEvent(
-    parentId: String,
-    name: String,
-    type: String,
-    cause: Throwable? = null
-): Event = Event.start().apply {
-    storeEvent(requireNotNull(toEventID(parentId)), name, type, cause)
 }
 
 @Deprecated(message = "Please use MessageUtils.toJson", replaceWith = ReplaceWith("toJson(true)", imports = ["com.exactpro.th2.common.message.toJson"]), level = DeprecationLevel.WARNING)

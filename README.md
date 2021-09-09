@@ -255,7 +255,6 @@ NOTES:
 
 #### Changed:
 + Extension method for `MessageRouter<EventBatch>` now send the event to all pins that satisfy the requested attributes set
-+ Deprecate methods with `String` as `parentId`
 
 ### 3.25.0
 + Added util to convert RootMessageFilter into readable collection of payload bodies
