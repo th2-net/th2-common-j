@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.25.0)
+# th2 common library (Java) (3.25.1)
 
 ## Usage
 
@@ -250,6 +250,11 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.25.1
+
+#### Changed:
++ Extension method for `MessageRouter<EventBatch>` now send the event to all pins that satisfy the requested attributes set
 
 ### 3.25.0
 + Added util to convert RootMessageFilter into readable collection of payload bodies

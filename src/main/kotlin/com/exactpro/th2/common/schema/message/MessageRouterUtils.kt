@@ -34,7 +34,7 @@ fun MessageRouter<EventBatch>.storeEvent(
     parentId: String? = null
 ): Event = event.apply {
     val batch = EventBatch.newBuilder().addEvents(toProtoEvent(parentId)).build()
-    send(batch, PUBLISH.toString(), EVENT.toString())
+    sendAll(batch, PUBLISH.toString(), EVENT.toString())
 }
 
 fun MessageRouter<EventBatch>.storeEvent(
