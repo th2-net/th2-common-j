@@ -251,6 +251,10 @@ NOTES:
 
 ## Release notes
 
+### 3.25.2
++ Update the grpc-common version to 3.5.0:
+    + Added a new flag that check repeating group order
+
 ### 3.25.1
 
 #### Changed:
