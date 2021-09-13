@@ -23,6 +23,7 @@ import com.exactpro.th2.common.event.bean.TreeTableEntry
 import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
 import com.exactpro.th2.common.event.bean.builder.RowBuilder
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
+import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.grpc.ListValueFilter
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
@@ -31,6 +32,7 @@ import com.exactpro.th2.common.grpc.MetadataFilter
 import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
 import com.exactpro.th2.common.grpc.RootComparisonSettings
 import com.exactpro.th2.common.grpc.RootMessageFilter
+import com.exactpro.th2.common.grpc.SimpleList
 import com.exactpro.th2.common.grpc.ValueFilter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -139,8 +141,15 @@ private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = RowBuilder()
 private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
     hasMessageFilter() -> messageFilter.toTreeTableEntry()
     hasListFilter() -> listFilter.toTreeTableEntry()
+    hasSimpleList() -> simpleList.toTreeTableEntry(operation, key)
     else -> RowBuilder()
         .column(MessageFilterTableColumn(simpleFilter, operation.toString(), key))
+        .build()
+}
+
+private fun SimpleList.toTreeTableEntry(operation: FilterOperation, key: Boolean): TreeTableEntry {
+    return RowBuilder()
+        .column(MessageFilterTableColumn(simpleValuesList.joinToString(prefix = "[", postfix = "]"), operation.toString(), key))
         .build()
 }
 
