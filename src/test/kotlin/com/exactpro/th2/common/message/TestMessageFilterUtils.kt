@@ -17,6 +17,7 @@ package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.grpc.FilterOperation.EQUAL
+import com.exactpro.th2.common.grpc.FilterOperation.IN
 import com.exactpro.th2.common.grpc.FilterOperation.NOT_EQUAL
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
@@ -56,7 +57,9 @@ class TestMessageFilterUtils {
             |"MessageCollection":{"type":"collection","rows":{
                 |"0":{"type":"collection","rows":{${fieldFiltersJson}}}}}},
                 |"1":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}},
-            |"Message":{"type":"collection","rows":{${fieldFiltersJson}}}}}},
+            |"Message":{"type":"collection","rows":{
+                |"SimpleFilterList":{"type":"row","columns":{"expected":"IN '[val1, val2, val3]'","key":false}},
+                |${fieldFiltersJson}}}}}},
             |"MessageTree":{"type":"collection","rows":{
                 |"subMessageA":{"type":"collection","rows":{
                     |"subMessageB":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}}}},${fieldFiltersJson}}}}}""".trimMargin().replace("\n", "")
@@ -133,7 +136,10 @@ class TestMessageFilterUtils {
     private fun createMessageFilter(): MessageFilter {
         return MessageFilter.newBuilder().apply {
             fillMessage(this)
-            putFields("Message", messageFilter { fillMessage(this) })
+            putFields("Message", messageFilter {
+                fillMessage(this)
+                putFields("SimpleFilterList", simpleListFilter("val1", "val2", "val3"))
+            })
             putFields("MessageCollection", listFilter(
                 messageFilter { fillMessage(this) },
                 messageFilter { fillMessage(this) }
@@ -174,6 +180,10 @@ class TestMessageFilterUtils {
     private fun listFilter(vararg values: ValueFilter) = ValueFilter.newBuilder().apply {
         listFilterBuilder.addAllValues(values.toList())
     }.build()
+
+    private fun simpleListFilter(vararg values: String, filterOperation: FilterOperation = IN) = ValueFilter.newBuilder().apply {
+        simpleListBuilder.addAllSimpleValues(values.toList())
+    }.setOperation(filterOperation).build()
 
     private fun mapToJsonConverter(parametersMap: Map<String, String>): String {
         if (parametersMap.isEmpty()) {

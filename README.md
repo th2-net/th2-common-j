@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.25.1)
+# th2 common library (Java) (3.25.2)
 
 ## Usage
 
@@ -250,6 +250,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.25.2
+
++ Added support for converting `SimpleList` to readable payload body
 
 ### 3.25.1
 
