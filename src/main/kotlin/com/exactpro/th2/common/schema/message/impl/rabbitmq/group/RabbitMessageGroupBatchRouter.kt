@@ -15,25 +15,21 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.MessageGroupBatch.Builder
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractFilterStrategy
 import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter
 import com.google.protobuf.Message
 import com.google.protobuf.TextFormat
 import io.prometheus.client.Counter
 import org.jetbrains.annotations.NotNull
-import java.util.stream.Collectors
 
-class RabbitMessageGroupBatchRouter : AbstractRabbitBatchMessageRouter<MessageGroup, MessageGroupBatch, Builder>() {
-
+class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() {
     override fun getDefaultFilterStrategy(): AbstractFilterStrategy<Message> {
         return AnyMessageFilterStrategy()
     }
@@ -54,16 +50,6 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitBatchMessageRouter<MessageGr
         }
         return builder.build()
     }
-
-    override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList
-
-    override fun createBatchBuilder(): Builder = MessageGroupBatch.newBuilder()
-
-    override fun addMessage(builder: Builder, group: MessageGroup) {
-        builder.addGroups(group)
-    }
-
-    override fun build(builder: Builder): MessageGroupBatch = builder.build()
 
     override fun createSender(pinConfig: QueueConfiguration): MessageSender<MessageGroupBatch> {
         return RabbitMessageGroupBatchSender().apply {

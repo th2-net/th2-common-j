@@ -227,7 +227,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext());
+                    router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
@@ -247,7 +247,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext());
+                    router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
@@ -335,9 +335,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * Registers message router for custom type that is passed via {@code messageClass} parameter.<br>
      *
      * @param messageClass custom message class
-     * @param messageConverter converter that will used to convert message to bytes and vice versa
+     * @param messageConverter converter that will be used to convert message to bytes and vice versa
      * @param defaultSendAttributes set of attributes for sending. A pin must have all of them to be selected for sending the message
-     * @param defaultSubscribeAttributes set of attributes subscription. A pin must have all of them to be selected for receiving messages
+     * @param defaultSubscribeAttributes set of attributes for subscription. A pin must have all of them to be selected for receiving messages
      * @param <T> custom message type
      * @throws IllegalStateException if the router for {@code messageClass} is already registered
      */

@@ -15,107 +15,56 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed;
 
-import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
-import com.exactpro.th2.common.grpc.Message;
+import com.exactpro.th2.common.grpc.AnyMessage;
 import com.exactpro.th2.common.grpc.MessageBatch;
-import com.exactpro.th2.common.grpc.MessageBatch.Builder;
-import com.exactpro.th2.common.schema.message.FilterFunction;
-import com.exactpro.th2.common.schema.message.MessageSender;
-import com.exactpro.th2.common.schema.message.MessageSubscriber;
+import com.exactpro.th2.common.grpc.MessageGroup;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractGroupBatchAdapterRouter;
 
-import io.prometheus.client.Counter;
-
-public class RabbitParsedBatchRouter extends AbstractRabbitBatchMessageRouter<Message, MessageBatch, MessageBatch.Builder> {
+public class RabbitParsedBatchRouter extends AbstractGroupBatchAdapterRouter<MessageBatch> {
     private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.PARSED.toString(), QueueAttribute.PUBLISH.toString());
 
-    private static final Counter OUTGOING_PARSED_MSG_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_batch_quantity", "Quantity of outgoing parsed message batches").register();
-    private static final Counter OUTGOING_PARSED_MSG_QUANTITY = Counter.build("th2_mq_outgoing_parsed_msg_quantity", "Quantity of outgoing parsed messages").register();
-
     @NotNull
     @Override
-    protected Set<String> getRequiredSendAttributes() {
+    public Set<String> getRequiredSendAttributes() {
         return REQUIRED_SEND_ATTRIBUTES;
     }
 
     @NotNull
     @Override
-    protected Set<String> getRequiredSubscribeAttributes() {
+    public Set<String> getRequiredSubscribeAttributes() {
         return REQUIRED_SUBSCRIBE_ATTRIBUTES;
     }
 
     @Override
-    protected List<Message> getMessages(MessageBatch batch) {
-        return batch.getMessagesList();
+    protected @NotNull MessageGroupBatch buildGroupBatch(MessageBatch messageBatch) {
+        var messageGroupBuilder = MessageGroup.newBuilder();
+        messageBatch.getMessagesList().forEach(message ->
+                messageGroupBuilder.addMessages(AnyMessage.newBuilder().setMessage(message).build())
+        );
+        return MessageGroupBatch.newBuilder().addGroups(messageGroupBuilder).build();
     }
 
     @Override
-    protected Builder createBatchBuilder() {
-        return MessageBatch.newBuilder();
-    }
-
-    @Override
-    protected void addMessage(Builder builder, Message message) {
-        builder.addMessages(message);
-    }
-
-    @Override
-    protected MessageBatch build(Builder builder) {
+    protected MessageBatch buildFromGroupBatch(@NotNull MessageGroupBatch groupBatch) {
+        var builder = MessageBatch.newBuilder();
+        groupBatch.getGroupsList().stream()
+                .flatMap(messageGroup -> messageGroup.getMessagesList().stream())
+                .peek(anyMessage -> {
+                    if (!anyMessage.hasMessage()) {
+                        throw new IllegalStateException("Message group batch contains not parsed message: " + MessageUtils.toJson(groupBatch));
+                    }
+                })
+                .map(AnyMessage::getMessage)
+                .forEach(builder::addMessages);
         return builder.build();
-    }
-
-    @NotNull
-    @Override
-    protected MessageSender<MessageBatch> createSender(QueueConfiguration queueConfiguration) {
-        RabbitParsedBatchSender rabbitParsedBatchSender = new RabbitParsedBatchSender();
-        rabbitParsedBatchSender.init(getConnectionManager(), queueConfiguration.getExchange(), queueConfiguration.getRoutingKey());
-        return rabbitParsedBatchSender;
-    }
-
-    @NotNull
-    @Override
-    protected MessageSubscriber<MessageBatch> createSubscriber(QueueConfiguration queueConfiguration) {
-        RabbitParsedBatchSubscriber rabbitParsedBatchSubscriber = new RabbitParsedBatchSubscriber(
-                queueConfiguration.getFilters(),
-                getConnectionManager().getConfiguration().getMessageRecursionLimit()
-        );
-        rabbitParsedBatchSubscriber.init(
-                getConnectionManager(),
-                new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()),
-                FilterFunction.DEFAULT_FILTER_FUNCTION
-        );
-        return rabbitParsedBatchSubscriber;
-    }
-
-    @NotNull
-    @Override
-    protected String toErrorString(MessageBatch messageBatch) {
-        return messageBatch.toString();
-    }
-
-    @NotNull
-    @Override
-    protected Counter getDeliveryCounter() {
-        return OUTGOING_PARSED_MSG_BATCH_QUANTITY;
-    }
-
-    @NotNull
-    @Override
-    protected Counter getContentCounter() {
-        return OUTGOING_PARSED_MSG_QUANTITY;
-    }
-
-    @Override
-    protected int extractCountFrom(MessageBatch batch) {
-        return batch.getMessagesCount();
     }
 }

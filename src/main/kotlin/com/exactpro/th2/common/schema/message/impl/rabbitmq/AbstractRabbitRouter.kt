@@ -101,18 +101,6 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    private fun appendAttributes(
-        vararg attributes: String,
-        requiredAttributes: () -> Set<String>
-    ): Set<String> {
-        if (attributes.isEmpty()) {
-            return requiredAttributes()
-        }
-        return mutableSetOf(*attributes).apply {
-            addAll(requiredAttributes())
-        }
-    }
-
     override fun close() {
         LOGGER.info("Closing message router")
 
