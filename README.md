@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.25.2)
+# th2 common library (Java) (3.26.0)
 
 ## Usage
 
@@ -248,8 +248,37 @@ NOTES:
 
 * in order for the metrics to be exported, you also will need to create an instance of CommonFactory
 * common JVM metrics will also be exported alongside common service metrics
+* some metric labels are enumerations (`th2_type`: `MESSAGE_GROUP`, `EVENT`, `<customTag>`;`message_type`: `RAW_MESSAGE`, `MESSAGE`)
+
+ABSTRACT METRICS:
+* th2_rabbitmq_message_size_publish_bytes (`th2_pin`, `th2_type`, `exchange`, `routing_key`): quantity of published message bytes
+* th2_rabbitmq_message_publish_total (`th2_pin`, `th2_type`, `exchange`, `routing_key`): quantity of published message batches
+* th2_rabbitmq_message_size_subscribe_bytes (`th2_pin`, `th2_type`, `queue`): quantity of received message bytes, includes dropped after filters. For dropped please see 'th2_message_dropped_subscribe_total' and 'th2_message_group_dropped_subscribe_total'
+* th2_rabbitmq_message_process_duration_seconds (`th2_pin`, `th2_type`, `queue`): time of message processing during subscribe in seconds
+
+MESSAGES METRICS:
+* th2_message_publish_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of published raw or parsed messages
+* th2_message_subscribe_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of received raw or parsed messages, includes dropped after filters. For dropped please see 'th2_message_dropped_subscribe_total'
+* th2_message_dropped_publish_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of published raw or parsed messages dropped after filters
+* th2_message_dropped_subscribe_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of received raw or parsed messages dropped after filters
+* th2_message_group_publish_total (`th2_pin`, `session_alias`, `direction`): quantity of published message groups 
+* th2_message_group_subscribe_total (`th2_pin`, `session_alias`, `direction`): quantity of received message groups, includes dropped after filters. For dropped please see 'th2_message_group_dropped_subscribe_total'
+* th2_message_group_dropped_publish_total (`th2_pin`, `session_alias`, `direction`): quantity of published message groups dropped after filters
+* th2_message_group_dropped_subscribe_total (`th2_pin`, `session_alias`, `direction`): quantity of received message groups dropped after filters
+* th2_message_group_sequence_publish (`th2_pin`, `session_alias`, `direction`): last published sequence
+* th2_message_group_sequence_subscribe (`th2_pin`, `session_alias`, `direction`): last received sequence
+
+EVENTS METRICS:
+* th2_event_publish_total (`th2_pin`): quantity of published events 
+* th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 3.26.0
+
++ Added new abstract router `AbstractRabbitRouter`, removed `MessageQueue` hierarchy
++ Parsed/raw routers work with `MessageGroupBatch` router
++ Added new metrics and removed old
 
 ### 3.25.2
 

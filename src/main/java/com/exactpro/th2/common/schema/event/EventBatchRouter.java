@@ -27,12 +27,13 @@ import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.google.protobuf.TextFormat;
 
 import io.prometheus.client.Counter;
 
 public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
+    protected static final String EVENT_TYPE = "EVENT";
+
     private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
 
@@ -41,7 +42,11 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
 
     @NotNull
     @Override
-    protected EventBatch splitAndFilter(EventBatch message, @NotNull QueueConfiguration pinConfiguration) {
+    protected EventBatch splitAndFilter(
+            EventBatch message,
+            @NotNull QueueConfiguration pinConfiguration,
+            @NotNull String pinName
+    ) {
         return message;
     }
 
@@ -59,26 +64,24 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
 
     @NotNull
     @Override
-    protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration) {
-        EventBatchSender eventBatchSender = new EventBatchSender();
-        eventBatchSender.init(
+    protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration, @NotNull String pinName) {
+        return new EventBatchSender(
                 getConnectionManager(),
                 queueConfiguration.getExchange(),
-                queueConfiguration.getRoutingKey()
+                queueConfiguration.getRoutingKey(),
+                pinName
         );
-        return eventBatchSender;
     }
 
     @NotNull
     @Override
-    protected MessageSubscriber<EventBatch> createSubscriber(QueueConfiguration queueConfiguration) {
-        EventBatchSubscriber eventBatchSubscriber = new EventBatchSubscriber();
-        eventBatchSubscriber.init(
+    protected MessageSubscriber<EventBatch> createSubscriber(QueueConfiguration queueConfiguration, @NotNull String pinName) {
+        return new EventBatchSubscriber(
                 getConnectionManager(),
-                new SubscribeTarget(queueConfiguration.getQueue(), queueConfiguration.getRoutingKey(), queueConfiguration.getExchange()),
-                FilterFunction.DEFAULT_FILTER_FUNCTION
+                queueConfiguration.getQueue(),
+                FilterFunction.DEFAULT_FILTER_FUNCTION,
+                pinName
         );
-        return eventBatchSubscriber;
     }
 
     @NotNull

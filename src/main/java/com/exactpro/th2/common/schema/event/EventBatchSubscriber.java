@@ -17,12 +17,18 @@
 package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.rabbitmq.client.Delivery;
+
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
+import static com.exactpro.th2.common.schema.event.EventBatchRouter.EVENT_TYPE;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
-import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static com.exactpro.th2.common.message.MessageUtils.toJson;
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
@@ -42,6 +48,22 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
             .name("th2_mq_event_processing_time")
             .help("Time of processing events")
             .register();
+
+    private static final Counter EVENT_SUBSCRIBE_TOTAL = Counter.build()
+            .name("th2_event_subscribe_total")
+            .labelNames(TH2_PIN_LABEL)
+            .help("Quantity of received events")
+            .register();
+
+    public EventBatchSubscriber(
+            @NotNull ConnectionManager connectionManager,
+            @NotNull String queue,
+            @NotNull FilterFunction filterFunc,
+            @NotNull String th2Pin
+    ) {
+        super(connectionManager, queue, filterFunc, th2Pin, EVENT_TYPE);
+    }
+
     private static final String[] NO_LABELS = {};
 
     @Override
@@ -70,8 +92,8 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected List<EventBatch> valueFromBytes(byte[] bytes) throws Exception {
-        return List.of(EventBatch.parseFrom(bytes));
+    protected EventBatch valueFromBytes(byte[] bytes) throws Exception {
+        return EventBatch.parseFrom(bytes);
     }
 
     @Override
@@ -88,5 +110,13 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     @Override
     protected EventBatch filter(EventBatch eventBatch) throws Exception {
         return eventBatch;
+    }
+
+    @Override
+    protected void handle(String consumeTag, Delivery delivery, EventBatch value) {
+        EVENT_SUBSCRIBE_TOTAL
+                .labels(th2Pin)
+                .inc(value.getEventsCount());
+        super.handle(consumeTag, delivery, value);
     }
 }

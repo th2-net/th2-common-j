@@ -18,20 +18,33 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.metrics.DIRECTION_LABEL
+import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
+import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
+import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
 import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
-import com.exactpro.th2.common.metrics.DEFAULT_DIRECTION_LABEL_NAME
-import com.exactpro.th2.common.metrics.DEFAULT_SESSION_ALIAS_LABEL_NAME
+import com.exactpro.th2.common.metrics.incrementTotalMetrics
+import com.exactpro.th2.common.metrics.incrementDroppedMetrics
+import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.google.protobuf.CodedInputStream
+import com.rabbitmq.client.Delivery
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
 import io.prometheus.client.Counter
+import io.prometheus.client.Gauge
 import io.prometheus.client.Histogram
 import mu.KotlinLogging
 
 class RabbitMessageGroupBatchSubscriber(
+    connectionManager: ConnectionManager,
+    queue: String,
+    filterFunction: FilterFunction,
+    th2Pin: String,
     private val filters: List<RouterFilter>,
     private val messageRecursionLimit: Int
-) : AbstractRabbitSubscriber<MessageGroupBatch>() {
+) : AbstractRabbitSubscriber<MessageGroupBatch>(connectionManager, queue, filterFunction, th2Pin, MESSAGE_GROUP_TYPE) {
     private val logger = KotlinLogging.logger {}
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
@@ -45,7 +58,7 @@ class RabbitMessageGroupBatchSubscriber(
 
     override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
 
-    override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> = listOf(parseEncodedBatch(body))
+    override fun valueFromBytes(body: ByteArray): MessageGroupBatch = parseEncodedBatch(body)
 
     override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
 
@@ -74,12 +87,29 @@ class RabbitMessageGroupBatchSubscriber(
                 }.also { allMessagesMatch ->
                     if (!allMessagesMatch) {
                         logger.debug { "Skipped message group because none or some of its messages didn't match any filters: ${group.toJson()}" }
+                        incrementDroppedMetrics(
+                            group.messagesList,
+                            th2Pin,
+                            MESSAGE_DROPPED_SUBSCRIBE_TOTAL,
+                            MESSAGE_GROUP_DROPPED_SUBSCRIBE_TOTAL
+                        )
                     }
                 }
             }
             .toList()
 
         return if (groups.isEmpty()) null else MessageGroupBatch.newBuilder().addAllGroups(groups).build()
+    }
+
+    override fun handle(consumeTag: String, delivery: Delivery, value: MessageGroupBatch) {
+        incrementTotalMetrics(
+            value,
+            th2Pin,
+            MESSAGE_SUBSCRIBE_TOTAL,
+            MESSAGE_GROUP_SUBSCRIBE_TOTAL,
+            MESSAGE_GROUP_SEQUENCE_SUBSCRIBE
+        )
+        super.handle(consumeTag, delivery, value)
     }
 
     private fun parseEncodedBatch(body: ByteArray?): MessageGroupBatch {
@@ -91,14 +121,46 @@ class RabbitMessageGroupBatchSubscriber(
     companion object {
         private val INCOMING_MSG_GROUP_BATCH_QUANTITY = Counter.build()
             .name("th2_mq_incoming_msg_group_batch_quantity")
-            .labelNames(DEFAULT_SESSION_ALIAS_LABEL_NAME, DEFAULT_DIRECTION_LABEL_NAME)
+            .labelNames(SESSION_ALIAS_LABEL, DIRECTION_LABEL)
             .help("Quantity of incoming message group batches")
             .register()
         private val INCOMING_MSG_GROUP_QUANTITY = Counter.build()
             .name("th2_mq_incoming_msg_group_quantity")
-            .labelNames(DEFAULT_SESSION_ALIAS_LABEL_NAME, DEFAULT_DIRECTION_LABEL_NAME)
+            .labelNames(SESSION_ALIAS_LABEL, DIRECTION_LABEL)
             .help("Quantity of incoming message groups")
             .register()
         private val MSG_GROUP_PROCESSING_TIME = Histogram.build("th2_mq_msg_group_processing_time", "Time of processing message groups").buckets(*DEFAULT_BUCKETS).register()
+
+        private val MESSAGE_SUBSCRIBE_TOTAL = Counter.build()
+            .name("th2_message_subscribe_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
+            .help("Quantity of received raw or parsed messages, includes dropped after filters. " +
+                    "For dropped please see 'th2_message_dropped_subscribe_total'")
+            .register()
+
+        private val MESSAGE_GROUP_SUBSCRIBE_TOTAL = Counter.build()
+            .name("th2_message_group_subscribe_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+            .help("Quantity of received message groups, includes dropped after filters. " +
+                    "For dropped please see 'th2_message_group_dropped_subscribe_total'")
+            .register()
+
+        private val MESSAGE_DROPPED_SUBSCRIBE_TOTAL = Counter.build()
+            .name("th2_message_dropped_subscribe_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
+            .help("Quantity of received raw or parsed messages dropped after filters")
+            .register()
+
+        private val MESSAGE_GROUP_DROPPED_SUBSCRIBE_TOTAL = Counter.build()
+            .name("th2_message_group_dropped_subscribe_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+            .help("Quantity of received message groups dropped after filters")
+            .register()
+
+        private val MESSAGE_GROUP_SEQUENCE_SUBSCRIBE = Gauge.build()
+            .name("th2_message_group_sequence_subscribe")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+            .help("Last received sequence")
+            .register()
     }
 }

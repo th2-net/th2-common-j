@@ -17,7 +17,6 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jetbrains.annotations.NotNull;
@@ -27,42 +26,75 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
+import static com.exactpro.th2.common.metrics.CommonMetrics.EXCHANGE_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.ROUTING_KEY_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
+import io.prometheus.client.Counter;
+import static java.util.Objects.requireNonNull;
+
 public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSender.class);
 
-    private final AtomicReference<String> sendQueue = new AtomicReference<>();
+    private static final Counter MESSAGE_SIZE_PUBLISH_BYTES = Counter.build()
+            .name("th2_rabbitmq_message_size_publish_bytes")
+            .labelNames(TH2_PIN_LABEL, TH2_TYPE_LABEL, EXCHANGE_LABEL, ROUTING_KEY_LABEL)
+            .help("Quantity of published message bytes")
+            .register();
+
+    private static final Counter MESSAGE_PUBLISH_TOTAL = Counter.build()
+            .name("th2_rabbitmq_message_publish_total")
+            .labelNames(TH2_PIN_LABEL, TH2_TYPE_LABEL, EXCHANGE_LABEL, ROUTING_KEY_LABEL)
+            .help("Quantity of published message batches")
+            .register();
+
+    protected final String th2Pin;
+    private final AtomicReference<String> routingKey = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+    private final String th2Type;
 
+    public AbstractRabbitSender(
+            @NotNull ConnectionManager connectionManager,
+            @NotNull String exchangeName,
+            @NotNull String routingKey,
+            @NotNull String th2Pin,
+            @NotNull String th2Type
+    ) {
+        this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
+        this.exchangeName.set(requireNonNull(exchangeName, "Exchange name can not be null"));
+        this.routingKey.set(requireNonNull(routingKey, "Routing key can not be null"));
+        this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
+        this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
+    }
+
+    @Deprecated
     @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String sendQueue) {
-        Objects.requireNonNull(connectionManager, "Connection can not be null");
-        Objects.requireNonNull(exchangeName, "Exchange name can not be null");
-        Objects.requireNonNull(sendQueue, "Send queue can not be null");
-
-        if (this.connectionManager.get() != null && this.sendQueue.get() != null && this.exchangeName.get() != null) {
-            throw new IllegalStateException("Sender is already initialize");
-        }
-
-        this.connectionManager.set(connectionManager);
-        this.exchangeName.set(exchangeName);
-        this.sendQueue.set(sendQueue);
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull String routingKey) {
+        throw new UnsupportedOperationException("Method is deprecated, please use constructor");
     }
 
     @Override
     public void send(T value) throws IOException {
-        Objects.requireNonNull(value, "Value for send can not be null");
+        requireNonNull(value, "Value for send can not be null");
 
         try {
             ConnectionManager connection = this.connectionManager.get();
-            connection.basicPublish(exchangeName.get(), sendQueue.get(), null, valueToBytes(value));
+            byte[] bytes = valueToBytes(value);
+            MESSAGE_SIZE_PUBLISH_BYTES
+                    .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
+                    .inc(bytes.length);
+            MESSAGE_PUBLISH_TOTAL
+                    .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
+                    .inc();
+            connection.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",
-                        exchangeName, sendQueue, toShortTraceString(value));
+                        exchangeName, routingKey, toShortTraceString(value));
             } else if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Message sent to exchangeName='{}', routing key='{}': '{}'",
-                        exchangeName, sendQueue, toShortDebugString(value));
+                        exchangeName, routingKey, toShortDebugString(value));
             }
         } catch (Exception e) {
             throw new IOException("Can not send message: " + toShortDebugString(value), e);
@@ -74,6 +106,4 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     protected abstract String toShortDebugString(T value);
 
     protected abstract byte[] valueToBytes(T value);
-
-
 }

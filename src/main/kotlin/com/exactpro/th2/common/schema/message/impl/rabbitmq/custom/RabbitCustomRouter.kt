@@ -23,12 +23,16 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 
+/**
+ * NOTE: labels are used for back compatibility and may be deleted later
+ */
 class RabbitCustomRouter<T : Any>(
-    customTag: String,
+    private val customTag: String,
     labels: Array<String>,
     private val converter: MessageConverter<T>,
     defaultSendAttributes: Set<String> = emptySet(),
@@ -54,37 +58,35 @@ class RabbitCustomRouter<T : Any>(
         return requiredSubscribeAttributes
     }
 
-    override fun splitAndFilter(message: T, pinConfiguration: PinConfiguration): T {
+    override fun splitAndFilter(message: T, pinConfiguration: PinConfiguration, pinName: PinName): T {
         return message
     }
 
-    override fun createSender(pinConfig: PinConfiguration): MessageSender<T> {
+    override fun createSender(pinConfig: PinConfiguration, pinName: PinName): MessageSender<T> {
         return Sender(
+            connectionManager,
+            pinConfig.exchange,
+            pinConfig.routingKey,
+            pinName,
+            customTag,
             converter,
             metricsHolder.outgoingDeliveryCounter,
             metricsHolder.outgoingDataCounter
-        ).apply {
-            init(connectionManager, pinConfig.exchange, pinConfig.routingKey)
-        }
+        )
     }
 
-    override fun createSubscriber(pinConfig: PinConfiguration): MessageSubscriber<T> {
+    override fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T> {
         return Subscriber(
+            connectionManager,
+            pinConfig.queue,
+            FilterFunction.DEFAULT_FILTER_FUNCTION,
+            pinName,
+            customTag,
             converter,
             metricsHolder.incomingDeliveryCounter,
             metricsHolder.processingTimer,
             metricsHolder.incomingDataCounter
-        ).apply {
-            init(
-                connectionManager,
-                SubscribeTarget(
-                    pinConfig.queue,
-                    pinConfig.routingKey,
-                    pinConfig.exchange
-                ),
-                FilterFunction.DEFAULT_FILTER_FUNCTION
-            )
-        }
+        )
     }
 
     override fun T.toErrorString(): String {
@@ -104,25 +106,37 @@ class RabbitCustomRouter<T : Any>(
     }
 
     private class Sender<T : Any>(
+        connectionManager: ConnectionManager,
+        exchangeName: String,
+        routingKey: String,
+        th2Pin: String,
+        customTag: String,
         private val converter: MessageConverter<T>,
         private val deliveryCounter: Counter,
         private val dataCounter: Counter
-    ) : AbstractRabbitSender<T>() {
+    ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)
+
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)
     }
 
     private class Subscriber<T : Any>(
+        connectionManager: ConnectionManager,
+        queue: String,
+        filterFunction: FilterFunction,
+        th2Pin: String,
+        customTag: String,
         private val converter: MessageConverter<T>,
         private val deliveryCounter: Counter,
         private val timer: Histogram,
         private val dataCounter: Counter
-    ) : AbstractRabbitSubscriber<T>() {
-        override fun valueFromBytes(body: ByteArray): List<T> = listOf(converter.fromByteArray(body))
+    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, filterFunction, th2Pin, customTag) {
+        override fun valueFromBytes(body: ByteArray): T = converter.fromByteArray(body)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)
+
         override fun toShortDebugString(value: T): String = converter.toDebugString(value)
 
         // FIXME: the filtering is not working for custom objects
