@@ -15,7 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
-import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
@@ -23,7 +22,7 @@ import com.exactpro.th2.common.metrics.DEFAULT_BUCKETS
 import com.exactpro.th2.common.metrics.DEFAULT_DIRECTION_LABEL_NAME
 import com.exactpro.th2.common.metrics.DEFAULT_SESSION_ALIAS_LABEL_NAME
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitBatchSubscriber
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.google.protobuf.CodedInputStream
 import io.prometheus.client.Counter
 import io.prometheus.client.Histogram
@@ -31,8 +30,8 @@ import mu.KotlinLogging
 
 class RabbitMessageGroupBatchSubscriber(
     private val filters: List<RouterFilter>,
-    messageRecursionLimit: Int
-) : AbstractRabbitBatchSubscriber<MessageGroup, MessageGroupBatch>(filters, messageRecursionLimit) {
+    private val messageRecursionLimit: Int
+) : AbstractRabbitSubscriber<MessageGroupBatch>() {
     private val logger = KotlinLogging.logger {}
 
     override fun getDeliveryCounter(): Counter = INCOMING_MSG_GROUP_BATCH_QUANTITY
@@ -40,15 +39,16 @@ class RabbitMessageGroupBatchSubscriber(
     override fun getProcessingTimer(): Histogram = MSG_GROUP_PROCESSING_TIME
 
     override fun extractLabels(batch: MessageGroupBatch): Array<String> {
-        val message = getMessages(batch)[0].messagesList[0]
+        val message = batch.groupsList[0].messagesList[0]
         return getSessionAliasAndDirection(message)
     }
 
     override fun extractCountFrom(batch: MessageGroupBatch): Int = batch.groupsCount
+
     override fun valueFromBytes(body: ByteArray): List<MessageGroupBatch> = listOf(parseEncodedBatch(body))
-    override fun getMessages(batch: MessageGroupBatch): MutableList<MessageGroup> = batch.groupsList
-    override fun createBatch(messages: List<MessageGroup>): MessageGroupBatch = MessageGroupBatch.newBuilder().addAllGroups(messages).build()
+
     override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
+
     override fun toShortDebugString(value: MessageGroupBatch): String = "MessageGroupBatch: " +
         run {
             val sessionAliasAndDirection = getSessionAliasAndDirection(value.groupsList[0].messagesList[0])
@@ -62,14 +62,12 @@ class RabbitMessageGroupBatchSubscriber(
             }
         }
 
-    override fun extractMetadata(messageGroup: MessageGroup): Metadata = throw UnsupportedOperationException()
-
     override fun filter(batch: MessageGroupBatch): MessageGroupBatch? {
         if (filters.isEmpty()) {
             return batch
         }
 
-        val groups = getMessages(batch).asSequence()
+        val groups = batch.groupsList.asSequence()
             .filter { group ->
                 group.messagesList.all { message ->
                     callFilterFunction(message, filters)
@@ -81,7 +79,13 @@ class RabbitMessageGroupBatchSubscriber(
             }
             .toList()
 
-        return if (groups.isEmpty()) null else createBatch(groups)
+        return if (groups.isEmpty()) null else MessageGroupBatch.newBuilder().addAllGroups(groups).build()
+    }
+
+    private fun parseEncodedBatch(body: ByteArray?): MessageGroupBatch {
+        val ins = CodedInputStream.newInstance(body)
+        ins.setRecursionLimit(messageRecursionLimit)
+        return MessageGroupBatch.parseFrom(ins)
     }
 
     companion object {

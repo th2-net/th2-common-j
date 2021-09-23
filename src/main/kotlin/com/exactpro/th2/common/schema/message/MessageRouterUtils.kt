@@ -60,3 +60,15 @@ fun MessageRouter<EventBatch>.storeEvent(
 
 @Deprecated(message = "Please use MessageUtils.toJson", replaceWith = ReplaceWith("toJson(true)", imports = ["com.exactpro.th2.common.message.toJson"]), level = DeprecationLevel.WARNING)
 fun MessageOrBuilder.toJson() : String = toJson(true)
+
+fun appendAttributes(
+    vararg attributes: String,
+    requiredAttributes: () -> Set<String>
+): Set<String> {
+    if (attributes.isEmpty()) {
+        return requiredAttributes()
+    }
+    return mutableSetOf(*attributes).apply {
+        addAll(requiredAttributes())
+    }
+}
