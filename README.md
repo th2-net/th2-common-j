@@ -253,7 +253,7 @@ NOTES:
 
 ### 3.26.0
 + Update the grpc-common version to 3.5.0
-    + Added `SimpleList` to `SimpleFilter`; Change `simple_filter` in `ValueFilter` from `string` to `SimpleFilter`
+    + Added `SimpleList` to `SimpleFilter`
 
 ### 3.25.2
 
