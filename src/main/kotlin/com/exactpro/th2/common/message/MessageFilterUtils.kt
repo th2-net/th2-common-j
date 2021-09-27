@@ -134,9 +134,12 @@ private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuild
     }
 }.build()
 
-private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = RowBuilder()
-    .column(MessageFilterTableColumn(value, operation.toString(), key))
-    .build()
+private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = when {
+    hasSimpleList() -> simpleList.toTreeTableEntry(operation, key)
+    else -> RowBuilder()
+        .column(MessageFilterTableColumn(value, operation.toString(), key))
+        .build()
+}
 
 private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
     hasMessageFilter() -> messageFilter.toTreeTableEntry()
