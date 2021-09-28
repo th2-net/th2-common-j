@@ -30,10 +30,12 @@ import com.exactpro.th2.common.value.toValueFilter
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MetadataFilter
 import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
+import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter.FilterValueCase.VALUE
 import com.exactpro.th2.common.grpc.RootComparisonSettings
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.SimpleList
 import com.exactpro.th2.common.grpc.ValueFilter
+import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 
@@ -134,17 +136,22 @@ private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuild
     }
 }.build()
 
-private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = RowBuilder()
-    .column(MessageFilterTableColumn(value, operation.toString(), key))
-    .build()
+private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = when {
+    hasSimpleList() -> simpleList.toTreeTableEntry(operation, key)
+    filterValueCase == VALUE -> RowBuilder()
+        .column(MessageFilterTableColumn(value, operation.toString(), key))
+        .build()
+    else -> error("Unsupported simple filter value: $filterValueCase")
+}
 
 private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
     hasMessageFilter() -> messageFilter.toTreeTableEntry()
     hasListFilter() -> listFilter.toTreeTableEntry()
     hasSimpleList() -> simpleList.toTreeTableEntry(operation, key)
-    else -> RowBuilder()
+    kindCase == SIMPLE_FILTER -> RowBuilder()
         .column(MessageFilterTableColumn(simpleFilter, operation.toString(), key))
         .build()
+    else -> error("Unsupported ValueFilter value: $kindCase")
 }
 
 private fun SimpleList.toTreeTableEntry(operation: FilterOperation, key: Boolean): TreeTableEntry {

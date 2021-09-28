@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.26.0)
+# th2 common library (Java) (3.26.1)
 
 ## Usage
 
@@ -250,6 +250,9 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.26.1
++ Add `SimpleList` display to `TreeTableEntry`;
 
 ### 3.26.0
 + Update the grpc-common version to 3.5.0
