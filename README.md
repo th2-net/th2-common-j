@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.26.1)
+# th2 common library (Java) (3.26.2)
 
 ## Usage
 
@@ -250,6 +250,9 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.26.2
++ Fix `SimpleFilter` and `valueFilter` treeTable convertation
 
 ### 3.26.1
 + Add `SimpleList` display to `TreeTableEntry`;
