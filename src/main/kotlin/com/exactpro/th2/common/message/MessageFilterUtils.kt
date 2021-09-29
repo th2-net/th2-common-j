@@ -24,9 +24,9 @@ import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
 import com.exactpro.th2.common.event.bean.builder.RowBuilder
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.grpc.FilterOperation
+import com.exactpro.th2.common.grpc.FilterOperation.EMPTY
+import com.exactpro.th2.common.grpc.FilterOperation.NOT_EMPTY
 import com.exactpro.th2.common.grpc.ListValueFilter
-import com.exactpro.th2.common.value.emptyValueFilter
-import com.exactpro.th2.common.value.toValueFilter
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MetadataFilter
 import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
@@ -36,6 +36,8 @@ import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.SimpleList
 import com.exactpro.th2.common.grpc.ValueFilter
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
+import com.exactpro.th2.common.value.emptyValueFilter
+import com.exactpro.th2.common.value.toValueFilter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 
@@ -138,7 +140,7 @@ private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuild
 
 private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = when {
     hasSimpleList() -> simpleList.toTreeTableEntry(operation, key)
-    filterValueCase == VALUE -> RowBuilder()
+    filterValueCase == VALUE || operation == EMPTY || operation == NOT_EMPTY -> RowBuilder()
         .column(MessageFilterTableColumn(value, operation.toString(), key))
         .build()
     else -> error("Unsupported simple filter value: $filterValueCase")
@@ -148,7 +150,7 @@ private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
     hasMessageFilter() -> messageFilter.toTreeTableEntry()
     hasListFilter() -> listFilter.toTreeTableEntry()
     hasSimpleList() -> simpleList.toTreeTableEntry(operation, key)
-    kindCase == SIMPLE_FILTER -> RowBuilder()
+    kindCase == SIMPLE_FILTER || operation == EMPTY || operation == NOT_EMPTY -> RowBuilder()
         .column(MessageFilterTableColumn(simpleFilter, operation.toString(), key))
         .build()
     else -> error("Unsupported ValueFilter value: $kindCase")
