@@ -252,7 +252,7 @@ NOTES:
 ## Release notes
 
 ### 3.26.2
-+ Fix `SimpleFilter` and `valueFilter` treeTable convertation
++ Fix `SimpleFilter` and `ValueFilter` treeTable convertation
 
 ### 3.26.1
 + Add `SimpleList` display to `TreeTableEntry`;
