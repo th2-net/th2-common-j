@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.26.3)
+# th2 common library (Java) (3.26.4)
 
 ## Usage
 
@@ -250,6 +250,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.26.4
++ Migrated `grpc-common` version from `3.6.0` to `3.7.0`
+  + Added `check_repeating_group_order` parameter to `RootComparisonSettings` message
 
 ### 3.26.3
 + Migrated `grpc-common` version from `3.5.0` to `3.6.0`
