@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.schema.message.impl.monitor
 
-import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.event.EventBuilder
 import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.message.MessageRouter
@@ -26,21 +26,21 @@ class EventMessageRouterMonitor(private val router: MessageRouter<EventBatch>, p
     MessageRouterMonitor {
 
     override fun onInfo(msg: String, vararg args: Any?) {
-        router.send(createEventBatch("Event in message router", arrayFormat(msg, args).message, Event.Status.PASSED))
+        router.send(createEventBatch("Event in message router", arrayFormat(msg, args).message, EventBuilder.Status.PASSED))
     }
 
     override fun onWarn(msg: String, vararg args: Any?) {
-        router.send(createEventBatch("Warn message in message router", arrayFormat(msg, args).message, Event.Status.FAILED))
+        router.send(createEventBatch("Warn message in message router", arrayFormat(msg, args).message, EventBuilder.Status.FAILED))
     }
 
     override fun onError(msg: String, vararg args: Any?) {
-        router.send(createEventBatch("Error message in message router", arrayFormat(msg, args).message, Event.Status.FAILED))
+        router.send(createEventBatch("Error message in message router", arrayFormat(msg, args).message, EventBuilder.Status.FAILED))
     }
 
-    private fun createEventBatch(name: String, msg: String, status: Event.Status): EventBatch =
+    private fun createEventBatch(name: String, msg: String, status: EventBuilder.Status): EventBatch =
         EventBatch.newBuilder().apply {
             addEvents(
-                Event.start()
+                EventBuilder.start()
                     .name(name)
                     .bodyData(Message().apply { data = msg; type = "message" })
                     .status(status)

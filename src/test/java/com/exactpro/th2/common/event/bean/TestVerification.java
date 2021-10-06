@@ -15,7 +15,8 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.event.EventBuilder;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -41,7 +42,7 @@ public class TestVerification extends BaseTest {
         }});
 
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).toProtoEvent("id");
+                EventBuilder.start().bodyData(verification).toProtoEvent("id");
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -91,7 +92,7 @@ public class TestVerification extends BaseTest {
         }});
 
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).toProtoEvent("id");
+                EventBuilder.start().bodyData(verification).toProtoEvent("id");
 
         String expectedJson = "[\n" +
                 "  {\n" +

@@ -18,9 +18,9 @@
 
 package com.exactpro.th2.common.schema.message
 
-import com.exactpro.th2.common.event.Event
-import com.exactpro.th2.common.event.Event.Status.FAILED
-import com.exactpro.th2.common.event.Event.Status.PASSED
+import com.exactpro.th2.common.event.EventBuilder
+import com.exactpro.th2.common.event.EventBuilder.Status.FAILED
+import com.exactpro.th2.common.event.EventBuilder.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.EventBatch
 import com.google.protobuf.MessageOrBuilder
@@ -30,9 +30,9 @@ import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
-    event: Event,
+    eventBuilder: EventBuilder,
     parentId: String? = null
-): Event = event.apply {
+): EventBuilder = eventBuilder.apply {
     val batch = EventBatch.newBuilder().addEvents(toProtoEvent(parentId)).build()
     sendAll(batch, PUBLISH.toString(), EVENT.toString())
 }
@@ -42,7 +42,7 @@ fun MessageRouter<EventBatch>.storeEvent(
     name: String,
     type: String,
     cause: Throwable? = null
-): Event = Event.start().apply {
+): EventBuilder = EventBuilder.start().apply {
     endTimestamp()
     name(name)
     type(type)

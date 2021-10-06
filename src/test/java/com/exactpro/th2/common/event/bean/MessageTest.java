@@ -15,7 +15,7 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.event.EventBuilder;
 import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ public class MessageTest extends BaseTest {
                 .build();
 
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(message).toProtoEvent("id");
+                EventBuilder.start().bodyData(message).toProtoEvent("id");
 
         String expectedJson = "[\n" +
                 "  {\n" +

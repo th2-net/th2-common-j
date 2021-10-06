@@ -15,7 +15,7 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.event.EventBuilder;
 import com.exactpro.th2.common.event.bean.builder.TableBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +40,7 @@ public class TableTest extends BaseTest {
         Table table = tableBuilder.row(row1)
                 .row(row2).build();
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(table).toProtoEvent("id");
+                EventBuilder.start().bodyData(table).toProtoEvent("id");
 
         String expectedJson = "[\n" +
                 "  {\n" +
