@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
