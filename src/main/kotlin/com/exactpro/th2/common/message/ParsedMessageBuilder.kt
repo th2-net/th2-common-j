@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.ListValue
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.NullValue
@@ -55,6 +56,16 @@ class ParsedMessageBuilder : MessageBuilder<Message>() {
 
     fun addSimpleField(field: String, value: String): ParsedMessageBuilder {
         this.fields[field] = Value.newBuilder().setSimpleValue(value).build()
+        return this
+    }
+
+    fun addMessageField(field: String, message: Message): ParsedMessageBuilder {
+        this.fields[field] = Value.newBuilder().setMessageValue(message).build()
+        return this
+    }
+
+    fun addListField(field: String, listValue: ListValue): ParsedMessageBuilder {
+        this.fields[field] = Value.newBuilder().setListValue(listValue).build()
         return this
     }
 }
