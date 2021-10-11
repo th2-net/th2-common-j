@@ -15,14 +15,10 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.message.MessageBuilder;
-import com.exactpro.th2.common.message.ParsedMessageBuilder;
-import com.exactpro.th2.common.message.RawMessageBuilder;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
@@ -221,18 +217,6 @@ public class CommonFactory extends AbstractCommonFactory {
     @Override
     protected ConfigurationManager getConfigurationManager() {
         return configurationManager;
-    }
-    
-    public Event getEventBuilder() {
-        return Event.start();
-    }
-
-    public ParsedMessageBuilder getParsedMessageBuilder() {
-        return MessageBuilder.startParsedBuilder();
-    }
-
-    public RawMessageBuilder getRawMessageBuilder() {
-        return MessageBuilder.startRawBuilder();
     }
     /**
      * Create {@link CommonFactory} from command line arguments
