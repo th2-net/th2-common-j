@@ -25,8 +25,7 @@ abstract class MessageBuilder<T> {
     private var sessionAlias: String? = null
     private var direction: Int? = null
     private var sequence: Long? = null
-    private var subSequenceIndex: Int? = null
-    private var subSequenceValue: Int? = null
+    private var subsequences: List<Int>? = null
     private var timestamp: Instant? = null
     protected var properties: Map<String, String>? = null
     protected var protocol: String? = null
@@ -44,8 +43,8 @@ abstract class MessageBuilder<T> {
         if (sequence != null) {
             idBuilder.sequence = sequence!!
         }
-        if (subSequenceIndex != null && subSequenceValue != null) {
-            idBuilder.setSubsequence(subSequenceIndex!!, subSequenceValue!!)
+        if (subsequences != null) {
+            idBuilder.addAllSubsequence(subsequences!!)
         }
         return idBuilder.build()
     }
@@ -74,9 +73,8 @@ abstract class MessageBuilder<T> {
         return this
     }
 
-    fun subSequence(index: Int, value: Int): MessageBuilder<T> {
-        subSequenceIndex = index
-        subSequenceValue = value
+    fun subsequences(subsequences: List<Int>): MessageBuilder<T> {
+        this.subsequences = subsequences
         return this
     }
 
