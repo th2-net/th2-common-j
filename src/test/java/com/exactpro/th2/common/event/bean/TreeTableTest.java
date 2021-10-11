@@ -15,7 +15,7 @@
  */
 package com.exactpro.th2.common.event.bean;
 
-import com.exactpro.th2.common.event.EventBuilder;
+import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.event.bean.builder.CollectionBuilder;
 import com.exactpro.th2.common.event.bean.builder.RowBuilder;
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder;
@@ -39,7 +39,7 @@ public class TreeTableTest extends BaseTest {
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("FirstRow", row).build();
         com.exactpro.th2.common.grpc.Event event =
-                EventBuilder.start().bodyData(treeTable).toProtoEvent("id");
+                Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[{\n" +
                 "    \"type\": \"treeTable\",\n" +
@@ -81,7 +81,7 @@ public class TreeTableTest extends BaseTest {
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
         com.exactpro.th2.common.grpc.Event event =
-                EventBuilder.start().bodyData(treeTable).toProtoEvent("id");
+                Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -142,7 +142,7 @@ public class TreeTableTest extends BaseTest {
                 .build();
 
         com.exactpro.th2.common.grpc.Event event =
-                EventBuilder.start().bodyData(treeTable).toProtoEvent("id");
+                Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -193,7 +193,7 @@ public class TreeTableTest extends BaseTest {
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
         com.exactpro.th2.common.grpc.Event event =
-                EventBuilder.start().bodyData(treeTable).toProtoEvent("id");
+                Event.start().bodyData(treeTable).toProtoEvent("id");
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +

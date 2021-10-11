@@ -50,8 +50,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 
-public class EventBuilder {
-    private static final Logger LOGGER = LoggerFactory.getLogger(EventBuilder.class);
+public class Event {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Event.class);
 
     public static final String UNKNOWN_EVENT_NAME = "Unknown event name";
     public static final String UNKNOWN_EVENT_TYPE = "Unknown event type";
@@ -60,7 +60,7 @@ public class EventBuilder {
     protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER = ThreadLocal.withInitial(() -> new ObjectMapper().setSerializationInclusion(NON_NULL));
 
     protected final String id = generateUUID();
-    protected final List<EventBuilder> subEventBuilders = new ArrayList<>();
+    protected final List<Event> subEvents = new ArrayList<>();
     protected final List<MessageID> attachedMessageIDS = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
     protected final Instant startTimestamp;
@@ -70,16 +70,16 @@ public class EventBuilder {
     protected String description;
     protected Status status = Status.PASSED;
 
-    protected EventBuilder(Instant startTimestamp, @Nullable Instant endTimestamp) {
+    protected Event(Instant startTimestamp, @Nullable Instant endTimestamp) {
         this.startTimestamp = startTimestamp;
         this.endTimestamp = endTimestamp;
     }
 
-    protected EventBuilder(Instant startTimestamp) {
+    protected Event(Instant startTimestamp) {
         this(startTimestamp, null);
     }
 
-    protected EventBuilder() {
+    protected Event() {
         this(Instant.now());
     }
 
@@ -87,16 +87,16 @@ public class EventBuilder {
      * Creates event with current time as start
      * @return new event
      */
-    public static EventBuilder start() {
-        return new EventBuilder();
+    public static Event start() {
+        return new Event();
     }
 
     /**
      * Creates event with passed time as start
      * @return new event
      */
-    public static EventBuilder from(Instant startTimestamp) {
-        return new EventBuilder(startTimestamp);
+    public static Event from(Instant startTimestamp) {
+        return new Event(startTimestamp);
     }
 
     @Contract("null -> null")
@@ -110,7 +110,7 @@ public class EventBuilder {
                 .build();
     }
 
-    public EventBuilder endTimestamp() {
+    public Event endTimestamp() {
         if (endTimestamp != null) {
             throw new IllegalStateException(formatStateException("End time", endTimestamp));
         }
@@ -124,7 +124,7 @@ public class EventBuilder {
      * @return current event
      * @throws IllegalStateException if name already set
      */
-    public EventBuilder name(String eventName) {
+    public Event name(String eventName) {
         if (isNotBlank(eventName)) {
             if (name != null) {
                 throw new IllegalStateException(formatStateException("Name", name));
@@ -140,7 +140,7 @@ public class EventBuilder {
      * @return current event
      * @throws IllegalStateException if description already set
      */
-    public EventBuilder description(String description) {
+    public Event description(String description) {
         if (isNotBlank(description)) {
             if (this.description != null) {
                 throw new IllegalStateException(formatStateException("Description", this.description));
@@ -157,7 +157,7 @@ public class EventBuilder {
      * @return current event
      * @throws IllegalStateException if type already set
      */
-    public EventBuilder type(String eventType) {
+    public Event type(String eventType) {
         if (isNotBlank(eventType)) {
             if (type != null) {
                 throw new IllegalStateException(formatStateException("Type", type));
@@ -172,7 +172,7 @@ public class EventBuilder {
      * The default value is {@link Status#PASSED}
      * @return current event
      */
-    public EventBuilder status(Status eventStatus) {
+    public Event status(Status eventStatus) {
         if (eventStatus != null) {
             status = eventStatus;
         }
@@ -184,8 +184,8 @@ public class EventBuilder {
      * @return created event
      */
     @SuppressWarnings("NonBooleanMethodNameMayNotStartWithQuestion")
-    public EventBuilder addSubEventWithSamePeriod() {
-        return addSubEvent(new EventBuilder(startTimestamp, endTimestamp));
+    public Event addSubEventWithSamePeriod() {
+        return addSubEvent(new Event(startTimestamp, endTimestamp));
     }
 
     /**
@@ -194,16 +194,16 @@ public class EventBuilder {
      * @throws NullPointerException if {@code subEvent} is null
      */
     @SuppressWarnings("NonBooleanMethodNameMayNotStartWithQuestion")
-    public EventBuilder addSubEvent(EventBuilder subEventBuilder) {
-        subEventBuilders.add(requireNonNull(subEventBuilder, "Sub event can't be null"));
-        return subEventBuilder;
+    public Event addSubEvent(Event subEvent) {
+        subEvents.add(requireNonNull(subEvent, "Sub event can't be null"));
+        return subEvent;
     }
 
     /**
      * Adds passed body data bodyData
      * @return current event
      */
-    public EventBuilder bodyData(IBodyData bodyData) {
+    public Event bodyData(IBodyData bodyData) {
         body.add(requireNonNull(bodyData, "Body data can't be null"));
         return this;
     }
@@ -212,7 +212,7 @@ public class EventBuilder {
      * Adds passed collection of body data
      * @return current event
      */
-    public EventBuilder bodyData(Collection<? extends IBodyData> bodyDataCollection) {
+    public Event bodyData(Collection<? extends IBodyData> bodyDataCollection) {
         body.addAll(requireNonNull(bodyDataCollection, "Body data collection cannot be null"));
         return this;
     }
@@ -222,7 +222,7 @@ public class EventBuilder {
      * @param includeCauses if `true` attache messages for the caused of <code>throwable</code>
      * @return current event
      */
-    public EventBuilder exception(@NotNull Throwable throwable, boolean includeCauses) {
+    public Event exception(@NotNull Throwable throwable, boolean includeCauses) {
         Throwable error = requireNonNull(throwable, "Throwable can't be null");
         do {
             bodyData(createMessageBean(error.toString()));
@@ -235,7 +235,7 @@ public class EventBuilder {
      * Adds message id as linked
      * @return current event
      */
-    public EventBuilder messageID(MessageID attachedMessageID) {
+    public Event messageID(MessageID attachedMessageID) {
         attachedMessageIDS.add(requireNonNull(attachedMessageID, "Attached message id can't be null"));
         return this;
     }
@@ -354,8 +354,8 @@ public class EventBuilder {
 
     protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable EventID parentID) throws JsonProcessingException {
         protoEvents.add(toProto(parentID)); // collect current level
-        for (EventBuilder subEventBuilder : subEventBuilders) {
-            subEventBuilder.collectSubEvents(protoEvents, toEventID(id)); // collect sub level
+        for (Event subEvent : subEvents) {
+            subEvent.collectSubEvents(protoEvents, toEventID(id)); // collect sub level
         }
         return protoEvents;
     }
@@ -379,7 +379,7 @@ public class EventBuilder {
     @NotNull
     protected Status getAggregatedStatus() {
         if (status == Status.PASSED) {
-            return subEventBuilders.stream().anyMatch(subEvent -> subEvent.getAggregatedStatus() == Status.FAILED)
+            return subEvents.stream().anyMatch(subEvent -> subEvent.getAggregatedStatus() == Status.FAILED)
                     ? Status.FAILED
                     : Status.PASSED;
         }
@@ -452,7 +452,7 @@ public class EventBuilder {
     }
 
     private static int getContentSize(EventBatchOrBuilder eventBatch) {
-        return eventBatch.getEventsList().stream().map(EventBuilder::getContentSize).mapToInt(Integer::intValue).sum();
+        return eventBatch.getEventsList().stream().map(Event::getContentSize).mapToInt(Integer::intValue).sum();
     }
 
     public enum Status {

@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import com.exactpro.th2.common.event.EventBuilder;
+import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -223,8 +223,8 @@ public class CommonFactory extends AbstractCommonFactory {
         return configurationManager;
     }
     
-    public EventBuilder getEventBuilder() {
-        return EventBuilder.start();
+    public Event getEventBuilder() {
+        return Event.start();
     }
 
     public ParsedMessageBuilder getParsedMessageBuilder() {

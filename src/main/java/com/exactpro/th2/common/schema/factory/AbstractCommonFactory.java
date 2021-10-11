@@ -20,7 +20,7 @@ import com.exactpro.cradle.cassandra.CassandraCradleManager;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
-import com.exactpro.th2.common.event.EventBuilder;
+import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -581,10 +581,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                         return null;
                     }
 
-                    com.exactpro.th2.common.grpc.Event rootEvent = EventBuilder.start().endTimestamp()
+                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start().endTimestamp()
                             .name(boxName + " " + Instant.now())
                             .description("Root event")
-                            .status(EventBuilder.Status.PASSED)
+                            .status(Event.Status.PASSED)
                             .type("Microservice")
                             .toProtoEvent(null);
 
