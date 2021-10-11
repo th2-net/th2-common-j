@@ -70,17 +70,17 @@ public class Event {
     protected String description;
     protected Status status = Status.PASSED;
 
-    protected Event(Instant startTimestamp, @Nullable Instant endTimestamp) {
+    protected Event(Instant startTimestamp, @Nullable Instant endTimestamp, IEventFactory eventFactory) {
         this.startTimestamp = startTimestamp;
         this.endTimestamp = endTimestamp;
     }
 
-    protected Event(Instant startTimestamp) {
-        this(startTimestamp, null);
+    protected Event(Instant startTimestamp, IEventFactory eventFactory) {
+        this(startTimestamp, null, eventFactory);
     }
 
-    protected Event() {
-        this(Instant.now());
+    protected Event(IEventFactory eventFactory) {
+        this(Instant.now(), eventFactory);
     }
 
     /**
@@ -88,7 +88,7 @@ public class Event {
      * @return new event
      */
     public static Event start() {
-        return new Event();
+        return new Event(null);
     }
 
     /**
@@ -96,7 +96,7 @@ public class Event {
      * @return new event
      */
     public static Event from(Instant startTimestamp) {
-        return new Event(startTimestamp);
+        return new Event(startTimestamp, null);
     }
 
     @Contract("null -> null")
@@ -185,7 +185,7 @@ public class Event {
      */
     @SuppressWarnings("NonBooleanMethodNameMayNotStartWithQuestion")
     public Event addSubEventWithSamePeriod() {
-        return addSubEvent(new Event(startTimestamp, endTimestamp));
+        return addSubEvent(new Event(startTimestamp, endTimestamp, null));
     }
 
     /**
