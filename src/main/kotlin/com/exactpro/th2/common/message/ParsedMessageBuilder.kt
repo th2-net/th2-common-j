@@ -20,52 +20,85 @@ import com.exactpro.th2.common.grpc.ListValue
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.NullValue
+import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.exactpro.th2.common.grpc.Value
+import java.time.Instant
 
-class ParsedMessageBuilder : MessageBuilder<Message>() {
-    private var messageType: String? = null
+class ParsedMessageBuilder() : MessageBuilder<Message>() {
+    private lateinit var messageType: String
     private var fields = mutableMapOf<String, Value>()
 
+    constructor(rawMessageMetadata: RawMessageMetadata) : this() {
+        directionValue = rawMessageMetadata.id.directionValue
+        sequence = rawMessageMetadata.id.sequence
+        subsequences = rawMessageMetadata.id.subsequenceList
+        timestamp = Instant.ofEpochSecond(
+            rawMessageMetadata.timestamp.seconds,
+            rawMessageMetadata.timestamp.nanos.toLong()
+        )
+        properties = rawMessageMetadata.propertiesMap
+        protocol = rawMessageMetadata.protocol
+    }
+
     override fun toProto(parentEventId: EventID): Message {
-        val metadataBuilder = MessageMetadata.newBuilder()
-            .setId(getMessageId())
-        if (messageType != null) {
-            metadataBuilder.messageType = messageType
-        }
-        if (properties != null) {
-            metadataBuilder.putAllProperties(properties)
-        }
-        if (protocol != null) {
-            metadataBuilder.protocol = protocol
-        }
-        val timestamp = getTimestamp()
-        if (timestamp != null) {
-            metadataBuilder.timestamp = timestamp
-        }
         return Message.newBuilder()
             .setParentEventId(parentEventId)
-            .setMetadata(metadataBuilder)
+            .setMetadata(
+                MessageMetadata.newBuilder().also {
+                    it.id = getMessageId()
+                    it.timestamp = getTimestamp()
+                    it.messageType = messageType
+                    it.putAllProperties(properties)
+                    it.protocol = protocol
+                }
+            )
             .putAllFields(fields)
             .build()
     }
 
+    fun messageType(messageType: String): ParsedMessageBuilder {
+        this.messageType = messageType
+        return this
+    }
+
     fun addNullField(field: String): ParsedMessageBuilder {
-        this.fields[field] = Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build()
+        fields[field] = Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build()
         return this
     }
 
     fun addSimpleField(field: String, value: String): ParsedMessageBuilder {
-        this.fields[field] = Value.newBuilder().setSimpleValue(value).build()
+        fields[field] = Value.newBuilder().setSimpleValue(value).build()
+        return this
+    }
+
+    fun addSimpleListField(field: String, values: List<String>): ParsedMessageBuilder {
+        fields[field] = Value
+            .newBuilder()
+            .setListValue(listValueFrom(values, Value.newBuilder()::setSimpleValue))
+            .build()
         return this
     }
 
     fun addMessageField(field: String, message: Message): ParsedMessageBuilder {
-        this.fields[field] = Value.newBuilder().setMessageValue(message).build()
+        fields[field] = Value.newBuilder().setMessageValue(message).build()
         return this
     }
 
-    fun addListField(field: String, listValue: ListValue): ParsedMessageBuilder {
-        this.fields[field] = Value.newBuilder().setListValue(listValue).build()
+    fun addMessageListField(field: String, messages: List<Message>): ParsedMessageBuilder {
+        fields[field] = Value
+            .newBuilder()
+            .setListValue(listValueFrom(messages, Value.newBuilder()::setMessageValue))
+            .build()
         return this
     }
+
+    private fun <T> listValueFrom(values: List<T>, listValueBuilder: (T) -> Value.Builder) =
+        ListValue
+            .newBuilder()
+            .addAllValues(
+                values
+                    .asSequence()
+                    .map { listValueBuilder(it).build() }
+                    .asIterable()
+            )
 }

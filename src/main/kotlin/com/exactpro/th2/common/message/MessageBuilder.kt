@@ -16,55 +16,41 @@
 package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.ConnectionID
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
 abstract class MessageBuilder<T> {
-    private var sessionAlias: String? = null
-    private var direction: Int? = null
-    private var sequence: Long? = null
-    private var subsequences: List<Int>? = null
-    private var timestamp: Instant? = null
-    protected var properties: Map<String, String>? = null
-    protected var protocol: String? = null
+    private lateinit var sessionAlias: String
+    protected var directionValue: Int = Direction.SECOND_VALUE
+    protected var sequence: Long = -1
+    protected var subsequences = mutableListOf<Int>()
+    protected var timestamp: Instant = Instant.now()
+    protected var properties = mutableMapOf<String, String>()
+    protected lateinit var protocol: String
 
     abstract fun toProto(parentEventId: EventID): T
 
     fun getMessageId(): MessageID {
-        val idBuilder = MessageID.newBuilder()
-        if (sessionAlias != null) {
-            idBuilder.setConnectionId(ConnectionID.newBuilder().setSessionAlias(sessionAlias))
-        }
-        if (direction != null) {
-            idBuilder.directionValue = direction!!
-        }
-        if (sequence != null) {
-            idBuilder.sequence = sequence!!
-        }
-        if (subsequences != null) {
-            idBuilder.addAllSubsequence(subsequences!!)
-        }
-        return idBuilder.build()
-    }
-
-    fun getTimestamp(): Timestamp? {
-        return if (timestamp == null) {
-            null
-        } else Timestamp.newBuilder()
-            .setSeconds(timestamp!!.epochSecond)
-            .setNanos(timestamp!!.nano)
+        return MessageID.newBuilder()
+            .setConnectionId(ConnectionID.newBuilder().setSessionAlias(sessionAlias))
+            .setDirectionValue(directionValue)
+            .setSequence(sequence)
+            .addAllSubsequence(subsequences)
             .build()
     }
 
-    fun sessionAlias(sessionAlias: String): MessageBuilder<T> {
-        this.sessionAlias = sessionAlias
-        return this
+    fun getTimestamp(): Timestamp {
+        return Timestamp.newBuilder()
+            .setSeconds(timestamp.epochSecond)
+            .setNanos(timestamp.nano)
+            .build()
     }
 
     fun direction(direction: Int): MessageBuilder<T> {
-        this.direction = direction
+        this.directionValue = direction
         return this
     }
 
@@ -73,8 +59,8 @@ abstract class MessageBuilder<T> {
         return this
     }
 
-    fun subsequences(subsequences: List<Int>): MessageBuilder<T> {
-        this.subsequences = subsequences
+    fun addSubsequence(subsequence: Int): MessageBuilder<T> {
+        subsequences.add(subsequence)
         return this
     }
 
@@ -83,21 +69,13 @@ abstract class MessageBuilder<T> {
         return this
     }
 
-    fun properties(properties: Map<String, String>): MessageBuilder<T> {
-        this.properties = properties
+    fun addProperty(propertyKey: String, propertyValue: String): MessageBuilder<T> {
+        properties[propertyKey] = propertyValue
         return this
     }
 
     fun protocol(protocol: String): MessageBuilder<T> {
         this.protocol = protocol
         return this
-    }
-
-    private companion object {
-        @JvmStatic
-        fun startParsedBuilder() = ParsedMessageBuilder()
-
-        @JvmStatic
-        fun startRawBuilder() = RawMessageBuilder()
     }
 }

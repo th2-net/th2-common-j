@@ -16,33 +16,40 @@
 package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.EventID
+import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.google.protobuf.ByteString
+import java.time.Instant
 
-class RawMessageBuilder : MessageBuilder<RawMessage>() {
-    private var bytes: ByteArray? = null
+class RawMessageBuilder() : MessageBuilder<RawMessage>() {
+    private lateinit var bytes: ByteArray
+
+    constructor(messageMetadata: MessageMetadata) : this() {
+        directionValue = messageMetadata.id.directionValue
+        sequence = messageMetadata.id.sequence
+        subsequences = messageMetadata.id.subsequenceList
+        timestamp = Instant.ofEpochSecond(
+            messageMetadata.timestamp.seconds,
+            messageMetadata.timestamp.nanos.toLong()
+        )
+        properties = messageMetadata.propertiesMap
+        protocol = messageMetadata.protocol
+    }
 
     override fun toProto(parentEventId: EventID): RawMessage {
-        val metadataBuilder = RawMessageMetadata.newBuilder()
-            .setId(getMessageId())
-        if (properties != null) {
-            metadataBuilder.putAllProperties(properties)
-        }
-        if (protocol != null) {
-            metadataBuilder.protocol = protocol
-        }
-        val timestamp = getTimestamp()
-        if (timestamp != null) {
-            metadataBuilder.timestamp = timestamp
-        }
-        val rawMessageBuilder = RawMessage.newBuilder()
+        return RawMessage.newBuilder()
             .setParentEventId(parentEventId)
-            .setMetadata(metadataBuilder)
-        if (bytes != null) {
-            rawMessageBuilder.body = ByteString.copyFrom(bytes)
-        }
-        return rawMessageBuilder.build()
+            .setMetadata(
+                RawMessageMetadata.newBuilder().also {
+                    it.id = getMessageId()
+                    it.timestamp = getTimestamp()
+                    it.putAllProperties(properties)
+                    it.protocol = protocol
+                }
+            )
+            .setBody(ByteString.copyFrom(bytes))
+            .build()
     }
 
     fun bytes(bytes: ByteArray): RawMessageBuilder {
