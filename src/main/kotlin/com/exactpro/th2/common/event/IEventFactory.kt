@@ -20,5 +20,10 @@ import java.time.Instant
 
 interface IEventFactory {
     fun start(): Event
+
     fun from(startTimestamp: Instant): Event
+
+    fun from(startTimestamp: Instant, endTimestamp: Instant?): Event
+
+    fun from(startTimestamp: Instant, endTimestamp: Instant?, eventFactory: IEventFactory): Event
 }

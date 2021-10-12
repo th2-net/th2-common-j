@@ -19,7 +19,12 @@ package com.exactpro.th2.common.event
 import java.time.Instant
 
 class EventFactory : IEventFactory {
-    override fun start(): Event = Event.start()
+    override fun start() = Event(this)
 
-    override fun from(startTimestamp: Instant): Event = Event.from(startTimestamp)
+    override fun from(startTimestamp: Instant) = Event(startTimestamp, this)
+
+    override fun from(startTimestamp: Instant, endTimestamp: Instant?) = from(startTimestamp, endTimestamp, this)
+
+    override fun from(startTimestamp: Instant, endTimestamp: Instant?, eventFactory: IEventFactory) =
+        Event(startTimestamp, endTimestamp, eventFactory)
 }

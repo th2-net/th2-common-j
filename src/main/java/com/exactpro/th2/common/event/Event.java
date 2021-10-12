@@ -69,33 +69,57 @@ public class Event {
     protected String name;
     protected String description;
     protected Status status = Status.PASSED;
+    private final IEventFactory eventFactory;
 
-    protected Event(Instant startTimestamp, @Nullable Instant endTimestamp, IEventFactory eventFactory) {
+    Event(Instant startTimestamp, @Nullable Instant endTimestamp, IEventFactory eventFactory) {
         this.startTimestamp = startTimestamp;
         this.endTimestamp = endTimestamp;
+        this.eventFactory = eventFactory;
     }
 
-    protected Event(Instant startTimestamp, IEventFactory eventFactory) {
+    Event(Instant startTimestamp, IEventFactory eventFactory) {
         this(startTimestamp, null, eventFactory);
     }
 
-    protected Event(IEventFactory eventFactory) {
+    Event(IEventFactory eventFactory) {
         this(Instant.now(), eventFactory);
     }
 
     /**
      * Creates event with current time as start
+     * @param eventFactory
      * @return new event
      */
+    public static Event start(IEventFactory eventFactory) {
+        return eventFactory.start();
+    }
+    
+    /**
+     * Creates event with current time as start
+     * @return new event
+     */
+    @Deprecated
     public static Event start() {
+        // TODO eventFactory == null?
         return new Event(null);
     }
 
     /**
      * Creates event with passed time as start
+     * @param eventFactory
      * @return new event
      */
+    public static Event from(Instant startTimestamp, IEventFactory eventFactory) {
+        return eventFactory.from(startTimestamp);
+    }
+    
+    /**
+     * Creates event with passed time as start
+     * @return new event
+     */
+    @Deprecated
     public static Event from(Instant startTimestamp) {
+        // TODO eventFactory == null?
         return new Event(startTimestamp, null);
     }
 
@@ -185,7 +209,7 @@ public class Event {
      */
     @SuppressWarnings("NonBooleanMethodNameMayNotStartWithQuestion")
     public Event addSubEventWithSamePeriod() {
-        return addSubEvent(new Event(startTimestamp, endTimestamp, null));
+        return addSubEvent(eventFactory.from(startTimestamp, endTimestamp, eventFactory));
     }
 
     /**
