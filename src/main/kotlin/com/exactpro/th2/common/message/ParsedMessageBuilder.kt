@@ -40,20 +40,23 @@ class ParsedMessageBuilder() : MessageBuilder<Message>() {
         protocol = rawMessageMetadata.protocol
     }
 
-    override fun toProto(parentEventId: EventID): Message {
-        return Message.newBuilder()
-            .setParentEventId(parentEventId)
-            .setMetadata(
-                MessageMetadata.newBuilder().also {
-                    it.id = getMessageId()
-                    it.timestamp = getTimestamp()
-                    it.messageType = messageType
-                    it.putAllProperties(properties)
-                    it.protocol = protocol
-                }
-            )
-            .putAllFields(fields)
-            .build()
+    override fun toProto(parentEventId: EventID?): Message {
+        return Message.newBuilder().also { message ->
+            if (parentEventId != null) {
+                message.parentEventId = parentEventId
+            }
+            message
+                .setMetadata(
+                    MessageMetadata.newBuilder().also { metadata ->
+                        metadata.id = getMessageId()
+                        metadata.timestamp = getTimestamp()
+                        metadata.messageType = messageType
+                        metadata.putAllProperties(properties)
+                        metadata.protocol = protocol
+                    }
+                )
+                .putAllFields(fields)
+        }.build()
     }
 
     fun messageType(messageType: String): ParsedMessageBuilder {

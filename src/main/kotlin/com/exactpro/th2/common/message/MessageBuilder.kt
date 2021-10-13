@@ -31,7 +31,7 @@ abstract class MessageBuilder<T> {
     protected var properties = mutableMapOf<String, String>()
     protected lateinit var protocol: String
 
-    abstract fun toProto(parentEventId: EventID): T
+    abstract fun toProto(parentEventId: EventID?): T
 
     fun getMessageId(): MessageID {
         return MessageID.newBuilder()

@@ -37,10 +37,12 @@ class RawMessageBuilder() : MessageBuilder<RawMessage>() {
         protocol = messageMetadata.protocol
     }
 
-    override fun toProto(parentEventId: EventID): RawMessage {
-        return RawMessage.newBuilder()
-            .setParentEventId(parentEventId)
-            .setMetadata(
+    override fun toProto(parentEventId: EventID?): RawMessage {
+        return RawMessage.newBuilder().apply {
+            if (parentEventId != null) {
+                setParentEventId(parentEventId)
+            }
+            setMetadata(
                 RawMessageMetadata.newBuilder().also {
                     it.id = getMessageId()
                     it.timestamp = getTimestamp()
@@ -48,8 +50,8 @@ class RawMessageBuilder() : MessageBuilder<RawMessage>() {
                     it.protocol = protocol
                 }
             )
-            .setBody(ByteString.copyFrom(bytes))
-            .build()
+            body = ByteString.copyFrom(bytes)
+        }.build()
     }
 
     fun bytes(bytes: ByteArray): RawMessageBuilder {
