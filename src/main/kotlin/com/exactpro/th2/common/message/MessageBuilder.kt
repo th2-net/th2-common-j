@@ -29,7 +29,7 @@ abstract class MessageBuilder<T> {
     protected var subsequences = mutableListOf<Int>()
     protected var timestamp: Instant = Instant.now()
     protected var properties = mutableMapOf<String, String>()
-    protected lateinit var protocol: String
+    protected var protocol: String = ""
 
     abstract fun toProto(parentEventId: EventID?): T
 

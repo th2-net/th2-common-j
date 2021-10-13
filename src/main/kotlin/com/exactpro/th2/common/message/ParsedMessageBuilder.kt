@@ -25,7 +25,7 @@ import com.exactpro.th2.common.grpc.Value
 import java.time.Instant
 
 class ParsedMessageBuilder() : MessageBuilder<Message>() {
-    private lateinit var messageType: String
+    private var messageType: String = ""
     private var fields = mutableMapOf<String, Value>()
 
     constructor(rawMessageMetadata: RawMessageMetadata) : this() {
