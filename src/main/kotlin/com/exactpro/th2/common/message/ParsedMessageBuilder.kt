@@ -59,22 +59,22 @@ class ParsedMessageBuilder() : MessageBuilder<Message>() {
         }.build()
     }
 
-    fun messageType(messageType: String): ParsedMessageBuilder {
+    override fun messageType(messageType: String): ParsedMessageBuilder {
         this.messageType = messageType
         return this
     }
 
-    fun addNullField(field: String): ParsedMessageBuilder {
+    override fun addNullField(field: String): ParsedMessageBuilder {
         fields[field] = Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build()
         return this
     }
 
-    fun addSimpleField(field: String, value: String): ParsedMessageBuilder {
+    override fun addSimpleField(field: String, value: String): ParsedMessageBuilder {
         fields[field] = Value.newBuilder().setSimpleValue(value).build()
         return this
     }
 
-    fun addSimpleListField(field: String, values: List<String>): ParsedMessageBuilder {
+    override fun addSimpleListField(field: String, values: List<String>): ParsedMessageBuilder {
         fields[field] = Value
             .newBuilder()
             .setListValue(listValueFrom(values, Value.newBuilder()::setSimpleValue))
@@ -82,12 +82,12 @@ class ParsedMessageBuilder() : MessageBuilder<Message>() {
         return this
     }
 
-    fun addMessageField(field: String, message: Message): ParsedMessageBuilder {
+    override fun addMessageField(field: String, message: Message): ParsedMessageBuilder {
         fields[field] = Value.newBuilder().setMessageValue(message).build()
         return this
     }
 
-    fun addMessageListField(field: String, messages: List<Message>): ParsedMessageBuilder {
+    override fun addMessageListField(field: String, messages: List<Message>): ParsedMessageBuilder {
         fields[field] = Value
             .newBuilder()
             .setListValue(listValueFrom(messages, Value.newBuilder()::setMessageValue))

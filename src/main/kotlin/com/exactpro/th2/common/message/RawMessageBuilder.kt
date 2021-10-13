@@ -54,7 +54,7 @@ class RawMessageBuilder() : MessageBuilder<RawMessage>() {
         }.build()
     }
 
-    fun bytes(bytes: ByteArray): RawMessageBuilder {
+    override fun bytes(bytes: ByteArray): RawMessageBuilder {
         this.bytes = bytes
         return this
     }

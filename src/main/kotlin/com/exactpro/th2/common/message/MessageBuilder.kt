@@ -83,4 +83,32 @@ abstract class MessageBuilder<T> {
         this.protocol = protocol
         return this
     }
+
+    open fun messageType(messageType: String): MessageBuilder<T> {
+        return this
+    }
+
+    open fun addNullField(field: String): MessageBuilder<T> {
+        return this
+    }
+
+    open fun addSimpleField(field: String, value: String): MessageBuilder<T> {
+        return this
+    }
+
+    open fun addSimpleListField(field: String, values: List<String>): MessageBuilder<T> {
+        return this
+    }
+
+    open fun addMessageField(field: String, message: T): MessageBuilder<T> {
+        return this
+    }
+
+    open fun addMessageListField(field: String, messages: List<T>): MessageBuilder<T> {
+        return this
+    }
+
+    open fun bytes(bytes: ByteArray): MessageBuilder<T> {
+        return this
+    }
 }
