@@ -49,6 +49,11 @@ abstract class MessageBuilder<T> {
             .build()
     }
 
+    fun sessionAlias(sessionAlias: String): MessageBuilder<T> {
+        this.sessionAlias = sessionAlias
+        return this
+    }
+
     fun direction(direction: Int): MessageBuilder<T> {
         this.directionValue = direction
         return this
