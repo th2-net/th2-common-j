@@ -22,7 +22,7 @@ import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.google.protobuf.ByteString
 import java.time.Instant
 
-class RawMessageBuilder() : MessageBuilder<RawMessage>() {
+class RawMessageBuilder() : MessageBuilder<RawMessageBuilder>() {
     private lateinit var bytes: ByteArray
 
     constructor(messageMetadata: MessageMetadata) : this() {
@@ -37,7 +37,9 @@ class RawMessageBuilder() : MessageBuilder<RawMessage>() {
         protocol = messageMetadata.protocol
     }
 
-    override fun toProto(parentEventId: EventID?): RawMessage {
+    override fun builder() = this
+
+    fun toProto(parentEventId: EventID?): RawMessage {
         return RawMessage.newBuilder().apply {
             if (parentEventId != null) {
                 setParentEventId(parentEventId)
@@ -54,8 +56,8 @@ class RawMessageBuilder() : MessageBuilder<RawMessage>() {
         }.build()
     }
 
-    override fun bytes(bytes: ByteArray): RawMessageBuilder {
+    fun bytes(bytes: ByteArray): RawMessageBuilder {
         this.bytes = bytes
-        return this
+        return builder()
     }
 }

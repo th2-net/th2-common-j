@@ -17,12 +17,11 @@ package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
-abstract class MessageBuilder<T> {
+abstract class MessageBuilder<T : MessageBuilder<T>> {
     private lateinit var sessionAlias: String
     protected var directionValue: Int = Direction.SECOND_VALUE
     protected var sequence: Long = -1
@@ -31,7 +30,7 @@ abstract class MessageBuilder<T> {
     protected var properties = mutableMapOf<String, String>()
     protected var protocol: String = ""
 
-    abstract fun toProto(parentEventId: EventID?): T
+    protected abstract fun builder(): T
 
     fun getMessageId(): MessageID {
         return MessageID.newBuilder()
@@ -49,66 +48,38 @@ abstract class MessageBuilder<T> {
             .build()
     }
 
-    fun sessionAlias(sessionAlias: String): MessageBuilder<T> {
+    fun sessionAlias(sessionAlias: String): T {
         this.sessionAlias = sessionAlias
-        return this
+        return builder()
     }
 
-    fun direction(direction: Int): MessageBuilder<T> {
+    fun direction(direction: Int): T {
         this.directionValue = direction
-        return this
+        return builder()
     }
 
-    fun sequence(sequence: Long): MessageBuilder<T> {
+    fun sequence(sequence: Long): T {
         this.sequence = sequence
-        return this
+        return builder()
     }
 
-    fun addSubsequence(subsequence: Int): MessageBuilder<T> {
+    fun addSubsequence(subsequence: Int): T {
         subsequences.add(subsequence)
-        return this
+        return builder()
     }
 
-    fun timestamp(timestamp: Instant): MessageBuilder<T> {
+    fun timestamp(timestamp: Instant): T {
         this.timestamp = timestamp
-        return this
+        return builder()
     }
 
-    fun addProperty(propertyKey: String, propertyValue: String): MessageBuilder<T> {
+    fun addProperty(propertyKey: String, propertyValue: String): T {
         properties[propertyKey] = propertyValue
-        return this
+        return builder()
     }
 
-    fun protocol(protocol: String): MessageBuilder<T> {
+    fun protocol(protocol: String): T {
         this.protocol = protocol
-        return this
-    }
-
-    open fun messageType(messageType: String): MessageBuilder<T> {
-        return this
-    }
-
-    open fun addNullField(field: String): MessageBuilder<T> {
-        return this
-    }
-
-    open fun addSimpleField(field: String, value: String): MessageBuilder<T> {
-        return this
-    }
-
-    open fun addSimpleListField(field: String, values: List<String>): MessageBuilder<T> {
-        return this
-    }
-
-    open fun addMessageField(field: String, message: T): MessageBuilder<T> {
-        return this
-    }
-
-    open fun addMessageListField(field: String, messages: List<T>): MessageBuilder<T> {
-        return this
-    }
-
-    open fun bytes(bytes: ByteArray): MessageBuilder<T> {
-        return this
+        return builder()
     }
 }

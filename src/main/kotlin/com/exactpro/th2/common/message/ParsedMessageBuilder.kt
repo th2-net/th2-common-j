@@ -24,7 +24,7 @@ import com.exactpro.th2.common.grpc.RawMessageMetadata
 import com.exactpro.th2.common.grpc.Value
 import java.time.Instant
 
-class ParsedMessageBuilder() : MessageBuilder<Message>() {
+class ParsedMessageBuilder() : MessageBuilder<ParsedMessageBuilder>() {
     private var messageType: String = ""
     private var fields = mutableMapOf<String, Value>()
 
@@ -40,7 +40,9 @@ class ParsedMessageBuilder() : MessageBuilder<Message>() {
         protocol = rawMessageMetadata.protocol
     }
 
-    override fun toProto(parentEventId: EventID?): Message {
+    override fun builder() = this
+
+    fun toProto(parentEventId: EventID?): Message {
         return Message.newBuilder().also { message ->
             if (parentEventId != null) {
                 message.parentEventId = parentEventId
@@ -59,40 +61,40 @@ class ParsedMessageBuilder() : MessageBuilder<Message>() {
         }.build()
     }
 
-    override fun messageType(messageType: String): ParsedMessageBuilder {
+    fun messageType(messageType: String): ParsedMessageBuilder {
         this.messageType = messageType
-        return this
+        return builder()
     }
 
-    override fun addNullField(field: String): ParsedMessageBuilder {
+    fun addNullField(field: String): ParsedMessageBuilder {
         fields[field] = Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build()
-        return this
+        return builder()
     }
 
-    override fun addSimpleField(field: String, value: String): ParsedMessageBuilder {
+    fun addSimpleField(field: String, value: String): ParsedMessageBuilder {
         fields[field] = Value.newBuilder().setSimpleValue(value).build()
-        return this
+        return builder()
     }
 
-    override fun addSimpleListField(field: String, values: List<String>): ParsedMessageBuilder {
+    fun addSimpleListField(field: String, values: List<String>): ParsedMessageBuilder {
         fields[field] = Value
             .newBuilder()
             .setListValue(listValueFrom(values, Value.newBuilder()::setSimpleValue))
             .build()
-        return this
+        return builder()
     }
 
-    override fun addMessageField(field: String, message: Message): ParsedMessageBuilder {
+    fun addMessageField(field: String, message: Message): ParsedMessageBuilder {
         fields[field] = Value.newBuilder().setMessageValue(message).build()
-        return this
+        return builder()
     }
 
-    override fun addMessageListField(field: String, messages: List<Message>): ParsedMessageBuilder {
+    fun addMessageListField(field: String, messages: List<Message>): ParsedMessageBuilder {
         fields[field] = Value
             .newBuilder()
             .setListValue(listValueFrom(messages, Value.newBuilder()::setMessageValue))
             .build()
-        return this
+        return builder()
     }
 
     private fun <T> listValueFrom(values: List<T>, listValueBuilder: (T) -> Value.Builder) =
