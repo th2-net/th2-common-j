@@ -76,10 +76,10 @@ class ParsedMessageBuilder() : MessageBuilder<ParsedMessageBuilder>() {
         return builder()
     }
 
-    fun addSimpleListField(field: String, values: List<String>): ParsedMessageBuilder {
+    fun addSimpleListField(field: String, vararg values: String): ParsedMessageBuilder {
         fields[field] = Value
             .newBuilder()
-            .setListValue(listValueFrom(values, Value.newBuilder()::setSimpleValue))
+            .setListValue(listValueFrom(values.asList(), Value.newBuilder()::setSimpleValue))
             .build()
         return builder()
     }
@@ -89,10 +89,10 @@ class ParsedMessageBuilder() : MessageBuilder<ParsedMessageBuilder>() {
         return builder()
     }
 
-    fun addMessageListField(field: String, messages: List<Message>): ParsedMessageBuilder {
+    fun addMessageListField(field: String, vararg messages: Message): ParsedMessageBuilder {
         fields[field] = Value
             .newBuilder()
-            .setListValue(listValueFrom(messages, Value.newBuilder()::setMessageValue))
+            .setListValue(listValueFrom(messages.asList(), Value.newBuilder()::setMessageValue))
             .build()
         return builder()
     }
