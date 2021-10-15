@@ -19,4 +19,5 @@ package com.exactpro.th2.common.message
 interface IMessageFactory {
     fun createRawMessage(): RawMessageBuilder
     fun createParsedMessage(): ParsedMessageBuilder
+    fun createParsedInnerMessage(): ParsedInnerMessageBuilder
 }

@@ -18,6 +18,6 @@ package com.exactpro.th2.common.message
 
 class MessageFactory : IMessageFactory {
     override fun createRawMessage() = RawMessageBuilder()
-
     override fun createParsedMessage() = ParsedMessageBuilder()
+    override fun createParsedInnerMessage() = ParsedInnerMessageBuilder()
 }
