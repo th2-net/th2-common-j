@@ -22,32 +22,63 @@ import com.exactpro.th2.common.value.toListValue
 import com.exactpro.th2.common.value.toValue
 
 class ParsedInnerMessageBuilder {
-    private var fields = mutableMapOf<String, Value>()
+    private var fields = mutableMapOf<String, Field>()
 
     fun addNullField(field: String): ParsedInnerMessageBuilder {
-        fields[field] = nullValue()
+        fields[field] = NullField()
         return this
     }
 
     fun addSimpleField(field: String, value: String): ParsedInnerMessageBuilder {
-        fields[field] = value.toValue()
+        fields[field] = SimpleField(value)
         return this
     }
 
     fun addSimpleListField(field: String, vararg values: String): ParsedInnerMessageBuilder {
-        fields[field] = values.toListValue().toValue()
+        fields[field] = SimpleListField(*values)
         return this
     }
 
     fun addMessageField(field: String, builder: ParsedInnerMessageBuilder): ParsedInnerMessageBuilder {
-        fields[field] = builder.toProto().toValue()
+        fields[field] = MessageField(builder)
         return this
     }
 
     fun addMessageListField(field: String, vararg builders: ParsedInnerMessageBuilder): ParsedInnerMessageBuilder {
-        fields[field] = builders.map { it.toProto().toValue() }.toListValue().toValue()
+        fields[field] = MessageListField(*builders)
         return this
     }
 
-    internal fun toProto(): Message = Message.newBuilder().also { it.putAllFields(fields) }.build()
+    fun toValueMap() = fields.asSequence().map { it.key to it.value.toValue() }.toMap()
+
+    private fun toProto(): Message = Message
+        .newBuilder()
+        .also { it.putAllFields(toValueMap()) }
+        .build()
+
+    companion object {
+        private interface Field {
+            fun toValue(): Value
+        }
+
+        private class NullField : Field {
+            override fun toValue() = nullValue()
+        }
+
+        private class SimpleField(private val value: String) : Field {
+            override fun toValue() = value.toValue()
+        }
+
+        private class SimpleListField(private vararg val values: String) : Field {
+            override fun toValue(): Value = values.toListValue().toValue()
+        }
+
+        private class MessageField(private val builder: ParsedInnerMessageBuilder) : Field {
+            override fun toValue() = builder.toProto().toValue()
+        }
+
+        private class MessageListField(private vararg val builders: ParsedInnerMessageBuilder) : Field {
+            override fun toValue(): Value = builders.map { it.toProto().toValue() }.toListValue().toValue()
+        }
+    }
 }
