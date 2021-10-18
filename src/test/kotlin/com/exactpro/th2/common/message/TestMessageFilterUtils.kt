@@ -49,7 +49,7 @@ class TestMessageFilterUtils {
                 |"0":{"type":"row","columns":{"value":"fieldA"}},
                 |"1":{"type":"row","columns":{"value":"fieldB"}}}}""".trimMargin().replace("\n", "")
     private val timePrecision = """"
-            |time-precision":{"type":"row","columns":{"value":"5m 50s 150ms"}}""".trimMargin().replace("\n", "")
+            |time-precision":{"type":"row","columns":{"value":"5m 50.15s"}}""".trimMargin().replace("\n", "")
     private val decimalPrecision = """"
             |decimal-precision":{"type":"row","columns":{"value":"0.005"}}""".trimMargin().replace("\n", "")
     private val metadataFilterRows = """

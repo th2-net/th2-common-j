@@ -66,6 +66,7 @@ import com.exactpro.th2.common.value.updateOrAddList
 import com.exactpro.th2.common.value.updateOrAddMessage
 import com.exactpro.th2.common.value.updateOrAddString
 import com.exactpro.th2.common.value.updateString
+import com.google.protobuf.Duration
 import com.google.protobuf.Timestamp
 import com.google.protobuf.util.JsonFormat
 import java.math.BigDecimal
@@ -79,6 +80,7 @@ import java.util.TimeZone
 
 typealias FieldValues = Map<String, Value>
 typealias FieldValueFilters = Map<String, ValueFilter>
+typealias JavaDuration = java.time.Duration
 
 fun message() : Message.Builder = Message.newBuilder()
 fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType)
@@ -188,6 +190,8 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
+fun Duration.convert(): JavaDuration = JavaDuration.ofSeconds(seconds, nanos.toLong())
+fun JavaDuration.convert(): Duration = Duration.newBuilder().setSeconds(seconds).setNanos(nano).build()
 
 fun Message.toRootMessageFilter(
     rootKeyFields: List<String> = listOf(),
