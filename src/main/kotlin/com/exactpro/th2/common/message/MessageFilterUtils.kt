@@ -40,6 +40,11 @@ import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.google.protobuf.util.Durations
+import org.apache.commons.lang3.time.DurationFormatUtils
+
+const val DEFAULT_TIME_PRECISION_FORMAT = "d'd 'H'h 'm'm 's's' SSS'ms'"
+private val DEFAULT_TIME_PRECISION_REGEX = Regex("^0[dhms]+|\\s0[dhms]+|0{3}[dhms]+")
 
 @Deprecated(
         message = "The message type from MessageFilter will be removed in the future",
@@ -129,6 +134,17 @@ private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = Collecti
                 .build())
         }
     }.build())
+    if (hasTimePrecision()) {
+        val formattedDuration = DurationFormatUtils.formatDuration(Durations.toMillis(timePrecision), DEFAULT_TIME_PRECISION_FORMAT)
+        row("time-precision", RowBuilder()
+            .column(IgnoreFieldColumn(DEFAULT_TIME_PRECISION_REGEX.replace(formattedDuration, "").trim()))
+            .build())
+    }
+    if (decimalPrecision.isNotBlank()) {
+        row("decimal-precision", RowBuilder()
+            .column(IgnoreFieldColumn(decimalPrecision))
+            .build())
+    }
 }.build()
 
 private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
@@ -177,4 +193,4 @@ private data class MetadataField(
 ) : IColumn
 
 private data class MessageTypeColumn(val type: String) : IColumn
-private data class IgnoreFieldColumn(val name: String) : IColumn
+private data class IgnoreFieldColumn(val value: String) : IColumn
