@@ -36,5 +36,5 @@ data class ConnectionManagerConfiguration(
     var minConnectionRecoveryTimeout: Int = 10000,
     var maxConnectionRecoveryTimeout: Int = 60000,
     val prefetchCount: Int = 10,
-    val messageRecursionLimit: Int = 100
+    val messageRecursionLimit: Int = 500
 ) : Configuration()

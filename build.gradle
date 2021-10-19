@@ -156,7 +156,7 @@ test {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:3.1.0')
     api "com.exactpro.th2:cradle-core:${cradleVersion}"
     api 'com.exactpro.th2:grpc-common:3.8.0'
 
