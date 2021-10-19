@@ -15,9 +15,11 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.exception.CommonFactoryException;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
+import com.exactpro.th2.common.schema.util.ProtobufUtils;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.BlockedListener;
@@ -96,6 +98,12 @@ public class ConnectionManager implements AutoCloseable {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
 
+        try {
+            ProtobufUtils.changeRecursionLimit(configuration.getMessageRecursionLimit());
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new CommonFactoryException("Failed to change GRPC messageRecursionLimit", e);
+        }
+        
         String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
         if (StringUtils.isBlank(subscriberNameTmp)) {
             subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
