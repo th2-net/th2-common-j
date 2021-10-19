@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.26.4)
+# th2 common library (Java) (3.26.5)
 
 ## Usage
 
@@ -250,6 +250,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.26.5
++ Migrated `grpc-common` version from `3.7.0` to `3.8.0`
+    + Added `time_precision` and `decimal_precision` parameters to `RootComparisonSettings`
 
 ### 3.26.4
 + Migrated `grpc-common` version from `3.6.0` to `3.7.0`
