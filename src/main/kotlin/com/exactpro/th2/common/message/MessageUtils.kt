@@ -190,8 +190,8 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
-fun Duration.convert(): JavaDuration = JavaDuration.ofSeconds(seconds, nanos.toLong())
-fun JavaDuration.convert(): Duration = Duration.newBuilder().setSeconds(seconds).setNanos(nano).build()
+fun Duration.toJavaDuration(): JavaDuration = JavaDuration.ofSeconds(seconds, nanos.toLong())
+fun JavaDuration.toProtoDuration(): Duration = Duration.newBuilder().setSeconds(seconds).setNanos(nano).build()
 
 fun Message.toRootMessageFilter(
     rootKeyFields: List<String> = listOf(),

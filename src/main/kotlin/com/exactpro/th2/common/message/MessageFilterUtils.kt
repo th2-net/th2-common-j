@@ -132,7 +132,7 @@ private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = Collecti
         }
     }.build())
     if (hasTimePrecision()) {
-        val timePrecision = timePrecision.convert().toString().substring(2)
+        val timePrecision = timePrecision.toJavaDuration().toString().substring(2)
         row("time-precision", RowBuilder()
             .column(IgnoreFieldColumn(DEFAULT_TIME_PRECISION_REGEX.replace(timePrecision, "$1 ").toLowerCase()))
             .build())
