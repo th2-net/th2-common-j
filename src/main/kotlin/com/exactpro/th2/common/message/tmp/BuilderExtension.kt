@@ -34,7 +34,7 @@ class BodyBuilder(
     }
 
     infix fun String.toMessages(msgs: Collection<BodyBuilder.() -> Unit>) {
-//        builder.putMessages(this, msgs.map { action -> Consumer { BodyBuilder(it).action() } })
+        builder.putMessages(this, msgs.map { action -> Consumer<MessageBodyBuilder> { BodyBuilder(it).action() } })
     }
 
     operator fun String.plusAssign(msgSetup: BodyBuilder.() -> Unit) {
@@ -74,14 +74,14 @@ fun main() {
             "D" += {
                 "A" to 42
             }
-//            "E" toMessages listOf(
-//                {
-//                    "A" to 4
-//                },
-//                {
-//                    "A" to 5
-//                }
-//            )
+            "E" toMessages listOf<BodyBuilder.() -> Unit>(
+                {
+                    "A" to 4
+                },
+                {
+                    "A" to 5
+                }
+            )
         }
     }
     println(message.toJson(false))
