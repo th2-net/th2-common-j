@@ -16,15 +16,20 @@
 
 package com.exactpro.th2.common.tmp;
 
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
-import com.exactpro.th2.common.tmp.impl.RawMessageBuilderImpl;
+import java.time.Instant;
 
-public class MessageFactory {
-    public ParsedMessageBuilderImpl createParsedMessage() {
-        return new ParsedMessageBuilderImpl();
-    }
+public interface RawMetadataBuilder {
+    RawMetadataBuilder setSessionAlias(String alias);
 
-    public RawMessageBuilderImpl createRawMessage() {
-        return new RawMessageBuilderImpl();
-    }
+    RawMetadataBuilder setDirection(Direction direction);
+
+    RawMetadataBuilder setSequence(long sequence);
+
+    RawMetadataBuilder addSubsequence(int subSequence);
+
+    RawMetadataBuilder setTimestamp(Instant timestamp);
+
+    RawMetadataBuilder putProperty(String key, String value);
+
+    RawMetadataBuilder setProtocol(String protocol);
 }

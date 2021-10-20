@@ -19,24 +19,30 @@ package com.exactpro.th2.common.tmp;
 import java.time.Instant;
 import java.util.List;
 
-import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
+import com.exactpro.th2.common.tmp.impl.RawMessageBuilderImpl;
 
 public class Test {
     public static void main(String[] args) {
         MessageFactory factory = new MessageFactory();
+        testParsedMessage(factory);
+        testRawMessage(factory);
+    }
+
+    public static void testParsedMessage(MessageFactory factory) {
         ParsedMessageBuilderImpl message = factory.createParsedMessage()
-                .setParentEventId("eventId");
+                .setParentEventId("parentEventId");
         message.metadataBuilder()
-                .setSessionAlias("test")
+                .setSessionAlias("sessionAlias")
                 .setDirection(Direction.SECOND)
                 .setSequence(1L)
                 .addSubsequence(2)
                 .addSubsequence(3)
                 .setTimestamp(Instant.now())
-                .setMessageType("type")
-                .putProperty("propertyKey", "propertyValue")
+                .setMessageType("messageType")
+                .putProperty("propertyKey1", "propertyValue1")
+                .putProperty("propertyKey2", "propertyValue2")
                 .setProtocol("protocol");
         message.putSimpleField("A", 5)
                 .putSimpleField("B", List.of(5, 42))
@@ -65,8 +71,23 @@ public class Test {
                         msg -> msg.putSimpleField("A", 1),
                         msg -> msg.putSimpleField("A", 2)
                 ));
+        System.out.println(MessageUtils.toJson(message.build(), false));
+    }
 
-        Message protoMessage = message.build();
-        System.out.println(MessageUtils.toJson(protoMessage, false));
+    public static void testRawMessage(MessageFactory factory) {
+        RawMessageBuilderImpl message = factory.createRawMessage()
+                .setParentEventId("parentEventId")
+                .setBody("body".getBytes());
+        message.metadataBuilder()
+                .setSessionAlias("sessionAlias")
+                .setDirection(Direction.SECOND)
+                .setSequence(1L)
+                .addSubsequence(2)
+                .addSubsequence(3)
+                .setTimestamp(Instant.now())
+                .putProperty("propertyKey1", "propertyValue1")
+                .putProperty("propertyKey2", "propertyValue2")
+                .setProtocol("protocol");
+        System.out.println(MessageUtils.toJson(message.build(), false));
     }
 }

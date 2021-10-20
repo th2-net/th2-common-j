@@ -16,15 +16,12 @@
 
 package com.exactpro.th2.common.tmp;
 
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
-import com.exactpro.th2.common.tmp.impl.RawMessageBuilderImpl;
+public interface RawMessageBuilder<R> {
+    RawMessageBuilder<R> setParentEventId(String id);
 
-public class MessageFactory {
-    public ParsedMessageBuilderImpl createParsedMessage() {
-        return new ParsedMessageBuilderImpl();
-    }
+    RawMetadataBuilder metadataBuilder();
 
-    public RawMessageBuilderImpl createRawMessage() {
-        return new RawMessageBuilderImpl();
-    }
+    RawMessageBuilder<R> setBody(byte[] bytes);
+
+    R build();
 }

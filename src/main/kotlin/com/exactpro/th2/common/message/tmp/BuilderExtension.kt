@@ -17,13 +17,17 @@
 package com.exactpro.th2.common.message.tmp
 
 import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.tmp.Direction
 import com.exactpro.th2.common.tmp.MessageBodyBuilder
 import com.exactpro.th2.common.tmp.MessageFactory
 import com.exactpro.th2.common.tmp.ParsedMessageBuilder
 import com.exactpro.th2.common.tmp.ParsedMetadataBuilder
+import com.exactpro.th2.common.tmp.RawMessageBuilder
+import com.exactpro.th2.common.tmp.RawMetadataBuilder
 import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl
+import com.exactpro.th2.common.tmp.impl.RawMessageBuilderImpl
 import java.time.Instant
 import java.util.function.Consumer
 
@@ -31,6 +35,10 @@ import java.util.function.Consumer
 annotation class BuilderExtension
 
 operator fun ParsedMessageBuilderImpl.invoke(block: ParsedMessageBuilderImpl.() -> Unit): Message {
+    return this.also(block).build()
+}
+
+operator fun RawMessageBuilderImpl.invoke(block: RawMessageBuilderImpl.() -> Unit): RawMessage {
     return this.also(block).build()
 }
 
@@ -71,10 +79,22 @@ operator fun ParsedMetadataBuilder.invoke(block: ParsedMetadataBuilder.() -> Uni
 val ParsedMessageBuilderImpl.body: BodyBuilder
     get() = BodyBuilder(this)
 
-fun MessageFactory.createParsedMessage(block: ParsedMessageBuilderImpl.() -> Unit): Message = createParsedMessage().invoke(block)
+val RawMessageBuilder<*>.metadata: RawMetadataBuilder
+    get() = metadataBuilder()
+
+operator fun RawMetadataBuilder.invoke(block: RawMetadataBuilder.() -> Unit) = block()
+
+fun MessageFactory.createParsedMessage(block: ParsedMessageBuilderImpl.() -> Unit): Message = createParsedMessage()(block)
+
+fun MessageFactory.createRawMessage(block: RawMessageBuilderImpl.() -> Unit): RawMessage = createRawMessage()(block)
 
 fun main() {
     val factory = MessageFactory()
+    testParsedMessage(factory)
+    testRawMessage(factory)
+}
+
+fun testParsedMessage(factory: MessageFactory) {
     val message = factory.createParsedMessage {
         setParentEventId("eventId")
         metadata {
@@ -106,6 +126,24 @@ fun main() {
                     "A" to 5
                 }
             )
+        }
+    }
+    println(message.toJson(false))
+}
+
+fun testRawMessage(factory: MessageFactory) {
+    val message = factory.createRawMessage {
+        setParentEventId("eventId")
+        setBody("body".toByteArray())
+        metadata {
+            setSessionAlias("test")
+            setDirection(Direction.SECOND)
+            setSequence(1)
+            addSubsequence(2)
+            addSubsequence(3)
+            setTimestamp(Instant.now())
+            putProperty("propertyKey", "propertyValue")
+            setProtocol("protocol")
         }
     }
     println(message.toJson(false))
