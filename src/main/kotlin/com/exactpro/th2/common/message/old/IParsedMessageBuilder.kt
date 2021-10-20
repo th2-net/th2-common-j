@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message
+package com.exactpro.th2.common.message.old
 
 interface IParsedMessageBuilder<Message, Value> : IMessageBuilder<Message> {
     fun messageType(messageType: String): IParsedMessageBuilder<Message, Value>

@@ -14,22 +14,17 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp;
+package com.exactpro.th2.common.message;
 
-import java.time.Instant;
+import com.exactpro.th2.common.message.impl.ParsedMessageBuilderImpl;
+import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl;
 
-public interface RawMetadataBuilder {
-    RawMetadataBuilder setSessionAlias(String alias);
+public class MessageFactory {
+    public ParsedMessageBuilderImpl createParsedMessage() {
+        return new ParsedMessageBuilderImpl();
+    }
 
-    RawMetadataBuilder setDirection(Direction direction);
-
-    RawMetadataBuilder setSequence(long sequence);
-
-    RawMetadataBuilder addSubsequence(int subSequence);
-
-    RawMetadataBuilder setTimestamp(Instant timestamp);
-
-    RawMetadataBuilder putProperty(String key, String value);
-
-    RawMetadataBuilder setProtocol(String protocol);
+    public RawMessageBuilderImpl createRawMessage() {
+        return new RawMessageBuilderImpl();
+    }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp.impl;
+package com.exactpro.th2.common.message.impl;
 
 import java.util.Collection;
 import java.util.function.Consumer;
@@ -23,9 +23,9 @@ import java.util.stream.Collectors;
 import com.exactpro.th2.common.event.EventUtils;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.Value;
-import com.exactpro.th2.common.tmp.MessageBodyBuilder;
-import com.exactpro.th2.common.tmp.ParsedMessageBuilder;
-import com.exactpro.th2.common.tmp.ParsedMetadataBuilder;
+import com.exactpro.th2.common.message.MessageBodyBuilder;
+import com.exactpro.th2.common.message.ParsedMessageBuilder;
+import com.exactpro.th2.common.message.ParsedMetadataBuilder;
 
 import static com.exactpro.th2.common.value.ValueUtils.listValue;
 import static com.exactpro.th2.common.value.ValueUtils.toValue;

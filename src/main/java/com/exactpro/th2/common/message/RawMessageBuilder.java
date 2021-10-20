@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp;
+package com.exactpro.th2.common.message;
 
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
-import com.exactpro.th2.common.tmp.impl.RawMessageBuilderImpl;
+public interface RawMessageBuilder<R> {
+    RawMessageBuilder<R> setParentEventId(String id);
 
-public class MessageFactory {
-    public ParsedMessageBuilderImpl createParsedMessage() {
-        return new ParsedMessageBuilderImpl();
-    }
+    RawMetadataBuilder metadataBuilder();
 
-    public RawMessageBuilderImpl createRawMessage() {
-        return new RawMessageBuilderImpl();
-    }
+    RawMessageBuilder<R> setBody(byte[] bytes);
+
+    R build();
 }

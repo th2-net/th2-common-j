@@ -14,48 +14,48 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp.impl;
+package com.exactpro.th2.common.message.impl;
 
 import java.time.Instant;
 import java.util.Objects;
 
-import com.exactpro.th2.common.grpc.MessageMetadata.Builder;
-import com.exactpro.th2.common.tmp.Direction;
-import com.exactpro.th2.common.tmp.ParsedMetadataBuilder;
+import com.exactpro.th2.common.grpc.RawMessageMetadata;
+import com.exactpro.th2.common.message.Direction;
+import com.exactpro.th2.common.message.RawMetadataBuilder;
 
-public class ParsedMetadataBuilderImpl implements ParsedMetadataBuilder {
-    private final Builder builder;
+public class RawMetadataBuilderImpl implements RawMetadataBuilder {
+    private final RawMessageMetadata.Builder builder;
 
-    public ParsedMetadataBuilderImpl(Builder builder) {
+    public RawMetadataBuilderImpl(RawMessageMetadata.Builder builder) {
         this.builder = Objects.requireNonNull(builder, "'Builder' parameter");
     }
 
     @Override
-    public ParsedMetadataBuilder setSessionAlias(String alias) {
+    public RawMetadataBuilder setSessionAlias(String alias) {
         builder.getIdBuilder().getConnectionIdBuilder().setSessionAlias(alias);
         return this;
     }
 
     @Override
-    public ParsedMetadataBuilder setDirection(Direction direction) {
+    public RawMetadataBuilder setDirection(Direction direction) {
         builder.getIdBuilder().setDirection(com.exactpro.th2.common.grpc.Direction.forNumber(direction.getValue()));
         return this;
     }
 
     @Override
-    public ParsedMetadataBuilder setSequence(long sequence) {
+    public RawMetadataBuilder setSequence(long sequence) {
         builder.getIdBuilder().setSequence(sequence);
         return this;
     }
 
     @Override
-    public ParsedMetadataBuilder addSubsequence(int subSequence) {
+    public RawMetadataBuilder addSubsequence(int subSequence) {
         builder.getIdBuilder().addSubsequence(subSequence);
         return this;
     }
 
     @Override
-    public ParsedMetadataBuilder setTimestamp(Instant timestamp) {
+    public RawMetadataBuilder setTimestamp(Instant timestamp) {
         builder.setTimestamp(
                 builder.getTimestampBuilder()
                         .setSeconds(timestamp.getEpochSecond())
@@ -65,19 +65,13 @@ public class ParsedMetadataBuilderImpl implements ParsedMetadataBuilder {
     }
 
     @Override
-    public ParsedMetadataBuilder setMessageType(String messageType) {
-        builder.setMessageType(messageType);
-        return this;
-    }
-
-    @Override
-    public ParsedMetadataBuilder putProperty(String key, String value) {
+    public RawMetadataBuilder putProperty(String key, String value) {
         builder.putProperties(key, value);
         return this;
     }
 
     @Override
-    public ParsedMetadataBuilder setProtocol(String protocol) {
+    public RawMetadataBuilder setProtocol(String protocol) {
         builder.setProtocol(protocol);
         return this;
     }

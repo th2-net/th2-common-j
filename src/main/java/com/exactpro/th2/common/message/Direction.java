@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp;
+package com.exactpro.th2.common.message;
 
 public enum Direction {
     FIRST(0),

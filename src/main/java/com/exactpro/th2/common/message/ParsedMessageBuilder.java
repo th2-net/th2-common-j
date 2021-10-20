@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message
+package com.exactpro.th2.common.message;
 
-interface IRawMessageBuilder<RawMessage> : IMessageBuilder<RawMessage> {
-    fun bytes(bytes: ByteArray): IRawMessageBuilder<RawMessage>
+public interface ParsedMessageBuilder<R> extends MessageBodyBuilder {
+    ParsedMessageBuilder<R> setParentEventId(String id);
+
+    ParsedMetadataBuilder metadataBuilder();
+
+    R build();
 }

@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp;
+package com.exactpro.th2.common.message;
 
 import java.time.Instant;
 import java.util.List;
 
-import com.exactpro.th2.common.message.MessageUtils;
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
-import com.exactpro.th2.common.tmp.impl.RawMessageBuilderImpl;
+import com.exactpro.th2.common.message.impl.ParsedMessageBuilderImpl;
+import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl;
+import com.exactpro.th2.common.schema.factory.CommonFactory;
 
 public class Test {
     public static void main(String[] args) {
-        MessageFactory factory = new MessageFactory();
+        MessageFactory factory = CommonFactory
+                .createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+                .getMessageFactory();
         testParsedMessage(factory);
         testRawMessage(factory);
     }

@@ -14,10 +14,22 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message
+package com.exactpro.th2.common.message;
 
-interface IMessageFactory {
-    fun createRawMessage(): RawMessageBuilder
-    fun createParsedMessage(): ParsedMessageBuilder
-    fun createParsedInnerMessage(): ParsedInnerMessageBuilder
+import java.time.Instant;
+
+public interface RawMetadataBuilder {
+    RawMetadataBuilder setSessionAlias(String alias);
+
+    RawMetadataBuilder setDirection(Direction direction);
+
+    RawMetadataBuilder setSequence(long sequence);
+
+    RawMetadataBuilder addSubsequence(int subSequence);
+
+    RawMetadataBuilder setTimestamp(Instant timestamp);
+
+    RawMetadataBuilder putProperty(String key, String value);
+
+    RawMetadataBuilder setProtocol(String protocol);
 }

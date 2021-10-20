@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message
+package com.exactpro.th2.common.message.old
 
-class MessageFactory : IMessageFactory {
-    override fun createRawMessage() = RawMessageBuilder()
-    override fun createParsedMessage() = ParsedMessageBuilder()
-    override fun createParsedInnerMessage() = ParsedInnerMessageBuilder()
+interface IMessageFactory {
+    fun createRawMessage(): RawMessageBuilder
+    fun createParsedMessage(): ParsedMessageBuilder
+    fun createParsedInnerMessage(): ParsedInnerMessageBuilder
 }

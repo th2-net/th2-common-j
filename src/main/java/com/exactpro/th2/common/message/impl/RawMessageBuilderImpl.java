@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp.impl;
+package com.exactpro.th2.common.message.impl;
 
 import com.exactpro.th2.common.event.EventUtils;
 import com.exactpro.th2.common.grpc.RawMessage;
-import com.exactpro.th2.common.tmp.RawMessageBuilder;
-import com.exactpro.th2.common.tmp.RawMetadataBuilder;
+import com.exactpro.th2.common.message.RawMessageBuilder;
+import com.exactpro.th2.common.message.RawMetadataBuilder;
 import com.google.protobuf.ByteString;
 
 public class RawMessageBuilderImpl implements RawMessageBuilder<RawMessage> {

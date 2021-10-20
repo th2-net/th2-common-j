@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message
+package com.exactpro.th2.common.message.old
 
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction

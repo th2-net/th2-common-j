@@ -14,24 +14,10 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message
+package com.exactpro.th2.common.message.old
 
-import java.time.Instant
-
-interface IMessageBuilder<Message> {
-    fun sessionAlias(sessionAlias: String): IMessageBuilder<Message>
-
-    fun direction(direction: Int): IMessageBuilder<Message>
-
-    fun sequence(sequence: Long): IMessageBuilder<Message>
-
-    fun addSubsequence(subsequence: Int): IMessageBuilder<Message>
-
-    fun timestamp(timestamp: Instant): IMessageBuilder<Message>
-
-    fun addProperty(key: String, value: String): IMessageBuilder<Message>
-
-    fun protocol(protocol: String): IMessageBuilder<Message>
-
-    fun build(parentEventId: String?): Message
+class MessageFactory : IMessageFactory {
+    override fun createRawMessage() = RawMessageBuilder()
+    override fun createParsedMessage() = ParsedMessageBuilder()
+    override fun createParsedInnerMessage() = ParsedInnerMessageBuilder()
 }

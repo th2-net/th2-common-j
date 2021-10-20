@@ -14,12 +14,8 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp;
+package com.exactpro.th2.common.message.old
 
-public interface ParsedMessageBuilder<R> extends MessageBodyBuilder {
-    ParsedMessageBuilder<R> setParentEventId(String id);
-
-    ParsedMetadataBuilder metadataBuilder();
-
-    R build();
+interface IRawMessageBuilder<RawMessage> : IMessageBuilder<RawMessage> {
+    fun bytes(bytes: ByteArray): IRawMessageBuilder<RawMessage>
 }

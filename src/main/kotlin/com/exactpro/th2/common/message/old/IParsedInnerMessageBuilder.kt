@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message
+package com.exactpro.th2.common.message.old
 
 interface IParsedInnerMessageBuilder<Message, Value> {
     fun addNullField(field: String): IParsedInnerMessageBuilder<Message, Value>

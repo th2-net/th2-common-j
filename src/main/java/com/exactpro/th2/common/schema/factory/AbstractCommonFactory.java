@@ -27,7 +27,6 @@ import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.message.IMessageFactory;
 import com.exactpro.th2.common.message.MessageFactory;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricMonitor;
@@ -666,7 +665,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return new EventFactory();
     }
 
-    public IMessageFactory getMessageFactory() {
+    public MessageFactory getMessageFactory() {
         return new MessageFactory();
     }
 

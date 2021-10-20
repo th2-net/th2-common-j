@@ -14,20 +14,13 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message.tmp
+package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.message.toJson
-import com.exactpro.th2.common.tmp.Direction
-import com.exactpro.th2.common.tmp.MessageBodyBuilder
-import com.exactpro.th2.common.tmp.MessageFactory
-import com.exactpro.th2.common.tmp.ParsedMessageBuilder
-import com.exactpro.th2.common.tmp.ParsedMetadataBuilder
-import com.exactpro.th2.common.tmp.RawMessageBuilder
-import com.exactpro.th2.common.tmp.RawMetadataBuilder
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl
-import com.exactpro.th2.common.tmp.impl.RawMessageBuilderImpl
+import com.exactpro.th2.common.message.impl.ParsedMessageBuilderImpl
+import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl
+import com.exactpro.th2.common.schema.factory.CommonFactory
 import java.time.Instant
 import java.util.function.Consumer
 
@@ -89,7 +82,9 @@ fun MessageFactory.createParsedMessage(block: ParsedMessageBuilderImpl.() -> Uni
 fun MessageFactory.createRawMessage(block: RawMessageBuilderImpl.() -> Unit): RawMessage = createRawMessage()(block)
 
 fun main() {
-    val factory = MessageFactory()
+    val factory = CommonFactory
+        .createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+        .messageFactory
     testParsedMessage(factory)
     testRawMessage(factory)
 }

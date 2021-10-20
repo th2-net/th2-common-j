@@ -14,14 +14,24 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp;
+package com.exactpro.th2.common.message;
 
-public interface RawMessageBuilder<R> {
-    RawMessageBuilder<R> setParentEventId(String id);
+import java.time.Instant;
 
-    RawMetadataBuilder metadataBuilder();
+public interface ParsedMetadataBuilder {
+    ParsedMetadataBuilder setSessionAlias(String alias);
 
-    RawMessageBuilder<R> setBody(byte[] bytes);
+    ParsedMetadataBuilder setDirection(Direction direction);
 
-    R build();
+    ParsedMetadataBuilder setSequence(long sequence);
+
+    ParsedMetadataBuilder addSubsequence(int subSequence);
+
+    ParsedMetadataBuilder setTimestamp(Instant timestamp);
+
+    ParsedMetadataBuilder setMessageType(String messageType);
+
+    ParsedMetadataBuilder putProperty(String key, String value);
+
+    ParsedMetadataBuilder setProtocol(String protocol);
 }

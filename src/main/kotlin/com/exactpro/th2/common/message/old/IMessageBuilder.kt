@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.tmp;
+package com.exactpro.th2.common.message.old
 
-import java.time.Instant;
+import java.time.Instant
 
-public interface ParsedMetadataBuilder {
-    ParsedMetadataBuilder setSessionAlias(String alias);
+interface IMessageBuilder<Message> {
+    fun sessionAlias(sessionAlias: String): IMessageBuilder<Message>
 
-    ParsedMetadataBuilder setDirection(Direction direction);
+    fun direction(direction: Int): IMessageBuilder<Message>
 
-    ParsedMetadataBuilder setSequence(long sequence);
+    fun sequence(sequence: Long): IMessageBuilder<Message>
 
-    ParsedMetadataBuilder addSubsequence(int subSequence);
+    fun addSubsequence(subsequence: Int): IMessageBuilder<Message>
 
-    ParsedMetadataBuilder setTimestamp(Instant timestamp);
+    fun timestamp(timestamp: Instant): IMessageBuilder<Message>
 
-    ParsedMetadataBuilder setMessageType(String messageType);
+    fun addProperty(key: String, value: String): IMessageBuilder<Message>
 
-    ParsedMetadataBuilder putProperty(String key, String value);
+    fun protocol(protocol: String): IMessageBuilder<Message>
 
-    ParsedMetadataBuilder setProtocol(String protocol);
+    fun build(parentEventId: String?): Message
 }
