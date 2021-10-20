@@ -1,19 +1,43 @@
+/*
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.exactpro.th2.common.tmp;
 
+import java.time.Instant;
 import java.util.List;
 
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.message.MessageUtils;
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilder;
+import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
 
 public class Test {
     public static void main(String[] args) {
         MessageFactory factory = new MessageFactory();
-        ParsedMessageBuilder message = factory.createParsedMessage();
+        ParsedMessageBuilderImpl message = factory.createParsedMessage()
+                .setParentEventId("eventId");
         message.metadataBuilder()
                 .setSessionAlias("test")
                 .setDirection(Direction.SECOND)
-                .setSequence(1L);
+                .setSequence(1L)
+                .addSubsequence(2)
+                .addSubsequence(3)
+                .setTimestamp(Instant.now())
+                .setMessageType("type")
+                .putProperty("propertyKey", "propertyValue")
+                .setProtocol("protocol");
         message.putSimpleField("A", 5)
                 .putSimpleField("B", List.of(5, 42))
                 // sets message to a field

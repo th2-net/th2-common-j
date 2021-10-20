@@ -1,19 +1,36 @@
+/*
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.exactpro.th2.common.message.tmp
 
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.tmp.Direction
 import com.exactpro.th2.common.tmp.MessageBodyBuilder
-import com.exactpro.th2.common.tmp.MessageBuilder
 import com.exactpro.th2.common.tmp.MessageFactory
-import com.exactpro.th2.common.tmp.MetadataBuilder
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilder
+import com.exactpro.th2.common.tmp.ParsedMessageBuilder
+import com.exactpro.th2.common.tmp.ParsedMetadataBuilder
+import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl
+import java.time.Instant
 import java.util.function.Consumer
 
 @DslMarker
 annotation class BuilderExtension
 
-operator fun ParsedMessageBuilder.invoke(block: ParsedMessageBuilder.() -> Unit): Message {
+operator fun ParsedMessageBuilderImpl.invoke(block: ParsedMessageBuilderImpl.() -> Unit): Message {
     return this.also(block).build()
 }
 
@@ -46,23 +63,30 @@ class BodyBuilder(
     operator fun invoke(block: BodyBuilder.() -> Unit) = block()
 }
 
-val MessageBuilder<*>.metadata: MetadataBuilder
+val ParsedMessageBuilder<*>.metadata: ParsedMetadataBuilder
     get() = metadataBuilder()
 
-operator fun MetadataBuilder.invoke(block: MetadataBuilder.() -> Unit) = block()
+operator fun ParsedMetadataBuilder.invoke(block: ParsedMetadataBuilder.() -> Unit) = block()
 
-val ParsedMessageBuilder.body: BodyBuilder
+val ParsedMessageBuilderImpl.body: BodyBuilder
     get() = BodyBuilder(this)
 
-fun MessageFactory.createParsedMessage(block: ParsedMessageBuilder.() -> Unit): Message = createParsedMessage().invoke(block)
+fun MessageFactory.createParsedMessage(block: ParsedMessageBuilderImpl.() -> Unit): Message = createParsedMessage().invoke(block)
 
 fun main() {
     val factory = MessageFactory()
     val message = factory.createParsedMessage {
+        setParentEventId("eventId")
         metadata {
-            setDirection(Direction.SECOND)
             setSessionAlias("test")
+            setDirection(Direction.SECOND)
             setSequence(1)
+            addSubsequence(2)
+            addSubsequence(3)
+            setTimestamp(Instant.now())
+            setMessageType("type")
+            putProperty("propertyKey", "propertyValue")
+            setProtocol("protocol")
         }
         body {
             "A" to 5

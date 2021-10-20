@@ -16,10 +16,10 @@
 
 package com.exactpro.th2.common.tmp;
 
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
+public interface ParsedMessageBuilder<R> extends MessageBodyBuilder {
+    ParsedMessageBuilder<R> setParentEventId(String id);
 
-public class MessageFactory {
-    public ParsedMessageBuilderImpl createParsedMessage() {
-        return new ParsedMessageBuilderImpl();
-    }
+    ParsedMetadataBuilder metadataBuilder();
+
+    R build();
 }

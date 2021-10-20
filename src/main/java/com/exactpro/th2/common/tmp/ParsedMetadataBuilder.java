@@ -16,10 +16,22 @@
 
 package com.exactpro.th2.common.tmp;
 
-import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilderImpl;
+import java.time.Instant;
 
-public class MessageFactory {
-    public ParsedMessageBuilderImpl createParsedMessage() {
-        return new ParsedMessageBuilderImpl();
-    }
+public interface ParsedMetadataBuilder {
+    ParsedMetadataBuilder setSessionAlias(String alias);
+
+    ParsedMetadataBuilder setDirection(Direction direction);
+
+    ParsedMetadataBuilder setSequence(long sequence);
+
+    ParsedMetadataBuilder addSubsequence(int subSequence);
+
+    ParsedMetadataBuilder setTimestamp(Instant timestamp);
+
+    ParsedMetadataBuilder setMessageType(String messageType);
+
+    ParsedMetadataBuilder putProperty(String key, String value);
+
+    ParsedMetadataBuilder setProtocol(String protocol);
 }
