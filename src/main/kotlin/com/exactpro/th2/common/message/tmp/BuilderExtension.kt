@@ -1,8 +1,8 @@
 package com.exactpro.th2.common.message.tmp
 
-import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.tmp.Direction
 import com.exactpro.th2.common.tmp.MessageBodyBuilder
 import com.exactpro.th2.common.tmp.MessageBuilder
 import com.exactpro.th2.common.tmp.MessageFactory

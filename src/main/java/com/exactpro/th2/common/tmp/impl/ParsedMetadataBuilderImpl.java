@@ -2,8 +2,8 @@ package com.exactpro.th2.common.tmp.impl;
 
 import java.util.Objects;
 
-import com.exactpro.th2.common.grpc.Direction;
 import com.exactpro.th2.common.grpc.MessageMetadata.Builder;
+import com.exactpro.th2.common.tmp.Direction;
 import com.exactpro.th2.common.tmp.MetadataBuilder;
 
 public class ParsedMetadataBuilderImpl implements MetadataBuilder {
@@ -27,7 +27,7 @@ public class ParsedMetadataBuilderImpl implements MetadataBuilder {
 
     @Override
     public MetadataBuilder setDirection(Direction direction) {
-        builder.getIdBuilder().setDirection(direction);
+        builder.getIdBuilder().setDirection(com.exactpro.th2.common.grpc.Direction.forNumber(direction.getValue()));
         return this;
     }
 }

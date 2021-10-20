@@ -2,7 +2,6 @@ package com.exactpro.th2.common.tmp;
 
 import java.util.List;
 
-import com.exactpro.th2.common.grpc.Direction;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.tmp.impl.ParsedMessageBuilder;
