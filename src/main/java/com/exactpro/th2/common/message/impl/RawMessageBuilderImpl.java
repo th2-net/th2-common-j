@@ -16,25 +16,29 @@
 
 package com.exactpro.th2.common.message.impl;
 
-import com.exactpro.th2.common.event.EventUtils;
+import java.util.Objects;
+
 import com.exactpro.th2.common.grpc.RawMessage;
 import com.exactpro.th2.common.message.RawMessageBuilder;
 import com.exactpro.th2.common.message.RawMetadataBuilder;
 import com.google.protobuf.ByteString;
 
-public class RawMessageBuilderImpl implements RawMessageBuilder<RawMessage> {
-    private final RawMessage.Builder messageBuilder = RawMessage.newBuilder();
-    private final RawMetadataBuilder metadataBuilder = new RawMetadataBuilderImpl(messageBuilder.getMetadataBuilder());
+public class RawMessageBuilderImpl
+        extends MessageBuilderImpl<RawMessageBuilderImpl, RawMetadataBuilder, RawMessage>
+        implements RawMessageBuilder<RawMessage> {
+    private final RawMessage.Builder messageBuilder;
 
-    @Override
-    public RawMessageBuilderImpl setParentEventId(String id) {
-        messageBuilder.setParentEventId(EventUtils.toEventID(id));
-        return this;
+    public RawMessageBuilderImpl() {
+        this(RawMessage.newBuilder());
     }
 
-    @Override
-    public RawMetadataBuilder metadataBuilder() {
-        return metadataBuilder;
+    private RawMessageBuilderImpl(RawMessage.Builder messageBuilder) {
+        super(
+                messageBuilder::setParentEventId,
+                new RawMetadataBuilderImpl(messageBuilder.getMetadataBuilder()),
+                messageBuilder::build
+        );
+        this.messageBuilder = Objects.requireNonNull(messageBuilder, "`messageBuilder` cannot be null");
     }
 
     @Override
@@ -44,7 +48,7 @@ public class RawMessageBuilderImpl implements RawMessageBuilder<RawMessage> {
     }
 
     @Override
-    public RawMessage build() {
-        return messageBuilder.build();
+    protected RawMessageBuilderImpl builder() {
+        return this;
     }
 }

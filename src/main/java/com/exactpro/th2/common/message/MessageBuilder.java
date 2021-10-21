@@ -16,6 +16,10 @@
 
 package com.exactpro.th2.common.message;
 
-public interface ParsedMessageBuilder<R> extends MessageBuilder<ParsedMessageBuilder<R>, ParsedMetadataBuilder, R>,
-        MessageBodyBuilder {
+public interface MessageBuilder<Builder extends MessageBuilder<Builder, MB, R>, MB extends MetadataBuilder<MB>, R> {
+    Builder setParentEventId(String id);
+
+    MB metadataBuilder();
+
+    R build();
 }

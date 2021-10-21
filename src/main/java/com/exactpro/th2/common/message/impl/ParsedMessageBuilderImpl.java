@@ -17,10 +17,10 @@
 package com.exactpro.th2.common.message.impl;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import com.exactpro.th2.common.event.EventUtils;
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.Value;
 import com.exactpro.th2.common.message.MessageBodyBuilder;
@@ -30,19 +30,22 @@ import com.exactpro.th2.common.message.ParsedMetadataBuilder;
 import static com.exactpro.th2.common.value.ValueUtils.listValue;
 import static com.exactpro.th2.common.value.ValueUtils.toValue;
 
-public class ParsedMessageBuilderImpl implements ParsedMessageBuilder<Message> {
-    private final Message.Builder messageBuilder = Message.newBuilder();
-    private final ParsedMetadataBuilder metadataBuilder = new ParsedMetadataBuilderImpl(messageBuilder.getMetadataBuilder());
+public class ParsedMessageBuilderImpl
+        extends MessageBuilderImpl<ParsedMessageBuilderImpl, ParsedMetadataBuilder, Message>
+        implements ParsedMessageBuilder<Message> {
+    private final Message.Builder messageBuilder;
 
-    @Override
-    public ParsedMessageBuilderImpl setParentEventId(String id) {
-        messageBuilder.setParentEventId(EventUtils.toEventID(id));
-        return this;
+    public ParsedMessageBuilderImpl() {
+        this(Message.newBuilder());
     }
 
-    @Override
-    public ParsedMetadataBuilder metadataBuilder() {
-        return metadataBuilder;
+    private ParsedMessageBuilderImpl(Message.Builder messageBuilder) {
+        super(
+                messageBuilder::setParentEventId,
+                new ParsedMetadataBuilderImpl(messageBuilder.getMetadataBuilder()),
+                messageBuilder::build
+        );
+        this.messageBuilder = Objects.requireNonNull(messageBuilder, "`messageBuilder` cannot be null");
     }
 
     @Override
@@ -86,11 +89,6 @@ public class ParsedMessageBuilderImpl implements ParsedMessageBuilder<Message> {
         return this;
     }
 
-    @Override
-    public Message build() {
-        return messageBuilder.build();
-    }
-
     private static Message createSubMessage(Consumer<MessageBodyBuilder> setup) {
         var builder = new ParsedMessageBuilderImpl();
         setup.accept(builder);
@@ -99,5 +97,10 @@ public class ParsedMessageBuilderImpl implements ParsedMessageBuilder<Message> {
 
     private static Value createSubMessageValue(Consumer<MessageBodyBuilder> setup) {
         return toValue(createSubMessage(setup));
+    }
+
+    @Override
+    protected ParsedMessageBuilderImpl builder() {
+        return this;
     }
 }

@@ -16,12 +16,6 @@
 
 package com.exactpro.th2.common.message;
 
-public interface RawMessageBuilder<R> {
-    RawMessageBuilder<R> setParentEventId(String id);
-
-    RawMetadataBuilder metadataBuilder();
-
+public interface RawMessageBuilder<R> extends MessageBuilder<RawMessageBuilder<R>, RawMetadataBuilder, R> {
     RawMessageBuilder<R> setBody(byte[] bytes);
-
-    R build();
 }
