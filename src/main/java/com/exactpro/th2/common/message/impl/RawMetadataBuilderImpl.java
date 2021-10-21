@@ -16,63 +16,23 @@
 
 package com.exactpro.th2.common.message.impl;
 
-import java.time.Instant;
-import java.util.Objects;
-
-import com.exactpro.th2.common.grpc.RawMessageMetadata;
-import com.exactpro.th2.common.message.Direction;
+import com.exactpro.th2.common.grpc.RawMessageMetadata.Builder;
 import com.exactpro.th2.common.message.RawMetadataBuilder;
 
-public class RawMetadataBuilderImpl implements RawMetadataBuilder {
-    private final RawMessageMetadata.Builder builder;
-
-    public RawMetadataBuilderImpl(RawMessageMetadata.Builder builder) {
-        this.builder = Objects.requireNonNull(builder, "'Builder' parameter");
-    }
-
-    @Override
-    public RawMetadataBuilder setSessionAlias(String alias) {
-        builder.getIdBuilder().getConnectionIdBuilder().setSessionAlias(alias);
-        return this;
-    }
-
-    @Override
-    public RawMetadataBuilder setDirection(Direction direction) {
-        builder.getIdBuilder().setDirection(com.exactpro.th2.common.grpc.Direction.forNumber(direction.getValue()));
-        return this;
-    }
-
-    @Override
-    public RawMetadataBuilder setSequence(long sequence) {
-        builder.getIdBuilder().setSequence(sequence);
-        return this;
-    }
-
-    @Override
-    public RawMetadataBuilder addSubsequence(int subSequence) {
-        builder.getIdBuilder().addSubsequence(subSequence);
-        return this;
-    }
-
-    @Override
-    public RawMetadataBuilder setTimestamp(Instant timestamp) {
-        builder.setTimestamp(
-                builder.getTimestampBuilder()
-                        .setSeconds(timestamp.getEpochSecond())
-                        .setNanos(timestamp.getNano())
+public class RawMetadataBuilderImpl
+        extends MetadataBuilderImpl<RawMetadataBuilderImpl>
+        implements RawMetadataBuilder {
+    public RawMetadataBuilderImpl(Builder builder) {
+        super(
+                builder.getIdBuilder(),
+                builder::setTimestamp,
+                builder::putProperties,
+                builder::setProtocol
         );
-        return this;
     }
 
     @Override
-    public RawMetadataBuilder putProperty(String key, String value) {
-        builder.putProperties(key, value);
-        return this;
-    }
-
-    @Override
-    public RawMetadataBuilder setProtocol(String protocol) {
-        builder.setProtocol(protocol);
+    protected RawMetadataBuilderImpl builder() {
         return this;
     }
 }

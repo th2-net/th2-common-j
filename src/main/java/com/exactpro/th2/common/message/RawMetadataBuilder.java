@@ -16,20 +16,5 @@
 
 package com.exactpro.th2.common.message;
 
-import java.time.Instant;
-
-public interface RawMetadataBuilder {
-    RawMetadataBuilder setSessionAlias(String alias);
-
-    RawMetadataBuilder setDirection(Direction direction);
-
-    RawMetadataBuilder setSequence(long sequence);
-
-    RawMetadataBuilder addSubsequence(int subSequence);
-
-    RawMetadataBuilder setTimestamp(Instant timestamp);
-
-    RawMetadataBuilder putProperty(String key, String value);
-
-    RawMetadataBuilder setProtocol(String protocol);
+public interface RawMetadataBuilder extends MetadataBuilder<RawMetadataBuilder> {
 }

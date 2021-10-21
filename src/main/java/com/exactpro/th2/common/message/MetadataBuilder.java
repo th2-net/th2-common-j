@@ -16,6 +16,20 @@
 
 package com.exactpro.th2.common.message;
 
-public interface ParsedMetadataBuilder extends MetadataBuilder<ParsedMetadataBuilder> {
-    ParsedMetadataBuilder setMessageType(String messageType);
+import java.time.Instant;
+
+public interface MetadataBuilder<Builder extends MetadataBuilder<Builder>> {
+    Builder setSessionAlias(String alias);
+
+    Builder setDirection(Direction direction);
+
+    Builder setSequence(long sequence);
+
+    Builder addSubsequence(int subSequence);
+
+    Builder setTimestamp(Instant timestamp);
+
+    Builder putProperty(String key, String value);
+
+    Builder setProtocol(String protocol);
 }
