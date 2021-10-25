@@ -16,7 +16,10 @@
 
 package com.exactpro.th2.common.message
 
+import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.Message
+import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.impl.ParsedMessageBuilderImpl
 import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl
@@ -87,6 +90,7 @@ fun main() {
         .messageFactory
     testParsedMessage(factory)
     testRawMessage(factory)
+    testEvent()
 }
 
 fun testParsedMessage(factory: MessageFactory) {
@@ -142,4 +146,15 @@ fun testRawMessage(factory: MessageFactory) {
         }
     }
     println(message.toJson(false))
+}
+
+fun testEvent() {
+    val event = Event.start()
+        .status(Event.Status.PASSED)
+        .name("name")
+        .type("type")
+        .bodyData(EventUtils.createMessageBean("bodyData"))
+        .messageID(MessageID.newBuilder().build())
+        .toProto(null)
+    println(event.toJson(false))
 }

@@ -19,17 +19,22 @@ package com.exactpro.th2.common.message;
 import java.time.Instant;
 import java.util.List;
 
+import com.exactpro.th2.common.event.Event;
+import com.exactpro.th2.common.event.EventUtils;
+import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.message.impl.ParsedMessageBuilderImpl;
 import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl;
 import com.exactpro.th2.common.schema.factory.CommonFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 public class Test {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws JsonProcessingException {
         MessageFactory factory = CommonFactory
                 .createFromArguments("-c", "src/test/resources/test_load_dictionaries")
                 .getMessageFactory();
         testParsedMessage(factory);
         testRawMessage(factory);
+        testEvent();
     }
 
     public static void testParsedMessage(MessageFactory factory) {
@@ -91,5 +96,16 @@ public class Test {
                 .putProperty("propertyKey2", "propertyValue2")
                 .setProtocol("protocol");
         System.out.println(MessageUtils.toJson(message.build(), false));
+    }
+
+    public static void testEvent() throws JsonProcessingException {
+        com.exactpro.th2.common.grpc.Event event = Event.start()
+                .status(Event.Status.PASSED)
+                .name("name")
+                .type("type")
+                .bodyData(EventUtils.createMessageBean("bodyData"))
+                .messageID(MessageID.newBuilder().build())
+                .toProto(null);
+        System.out.println(MessageUtils.toJson(event, false));
     }
 }
