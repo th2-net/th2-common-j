@@ -18,6 +18,7 @@ package com.exactpro.th2.common.message
 
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.EventUtils
+import com.exactpro.th2.common.event.IEventFactory
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
@@ -85,23 +86,24 @@ fun MessageFactory.createParsedMessage(block: ParsedMessageBuilderImpl.() -> Uni
 fun MessageFactory.createRawMessage(block: RawMessageBuilderImpl.() -> Unit): RawMessage = createRawMessage()(block)
 
 fun main() {
-    val factory = CommonFactory
-        .createFromArguments("-c", "src/test/resources/test_load_dictionaries")
-        .messageFactory
-    testParsedMessage(factory)
-    testRawMessage(factory)
-    testEvent()
+    val commonFactory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+    val messageFactory = commonFactory.messageFactory
+    val bookName = commonFactory.boxConfiguration.bookName!!
+    testParsedMessage(messageFactory, bookName)
+    testRawMessage(messageFactory, bookName)
+    testEvent(commonFactory.eventFactory, bookName)
 }
 
-fun testParsedMessage(factory: MessageFactory) {
+fun testParsedMessage(factory: MessageFactory, bookName: String) {
     val message = factory.createParsedMessage {
-        setParentEventId("eventId")
+        setParentEventId("eventId", bookName)
         metadata {
             setSessionAlias("test")
             setDirection(Direction.SECOND)
             setSequence(1)
             addSubsequence(2)
             addSubsequence(3)
+            setBookName(bookName)
             setTimestamp(Instant.now())
             setMessageType("type")
             putProperty("propertyKey", "propertyValue")
@@ -130,9 +132,9 @@ fun testParsedMessage(factory: MessageFactory) {
     println(message.toJson(false))
 }
 
-fun testRawMessage(factory: MessageFactory) {
+fun testRawMessage(factory: MessageFactory, bookName: String) {
     val message = factory.createRawMessage {
-        setParentEventId("eventId")
+        setParentEventId("eventId", bookName)
         setBody("body".toByteArray())
         metadata {
             setSessionAlias("test")
@@ -140,6 +142,7 @@ fun testRawMessage(factory: MessageFactory) {
             setSequence(1)
             addSubsequence(2)
             addSubsequence(3)
+            setBookName(bookName)
             setTimestamp(Instant.now())
             putProperty("propertyKey", "propertyValue")
             setProtocol("protocol")
@@ -148,8 +151,9 @@ fun testRawMessage(factory: MessageFactory) {
     println(message.toJson(false))
 }
 
-fun testEvent() {
-    val event = Event.start()
+fun testEvent(eventFactory: IEventFactory, bookName: String) {
+    val event = Event.start(eventFactory)
+        .bookName(bookName)
         .status(Event.Status.PASSED)
         .name("name")
         .type("type")

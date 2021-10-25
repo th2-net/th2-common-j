@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,11 +38,18 @@ public class EventUtils {
 
     @Contract("null -> null; !null -> !null")
     public static @Nullable EventID toEventID(@Nullable String id) {
+        return toEventID(id, null);
+    }
+
+    @Contract("null, null -> null; null, !null -> null; !null, !null -> !null; !null, null -> !null")
+    public static @Nullable EventID toEventID(@Nullable String id, @Nullable String bookName) {
         if (id == null) {
             return null;
         }
-        return EventID.newBuilder()
-                .setId(id)
-                .build();
+        EventID.Builder builder = EventID.newBuilder().setId(id);
+        if (bookName != null) {
+            builder.setBookName(bookName);
+        }
+        return builder.build();
     }
 }

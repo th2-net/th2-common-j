@@ -39,8 +39,8 @@ public abstract class MessageBuilderImpl<Builder extends MessageBuilderImpl<Buil
 
     protected abstract Builder builder();
 
-    public Builder setParentEventId(String id) {
-        parentEventIdSetup.accept(EventUtils.toEventID(id));
+    public Builder setParentEventId(String id, String bookName) {
+        parentEventIdSetup.accept(EventUtils.toEventID(id, bookName));
         return builder();
     }
 

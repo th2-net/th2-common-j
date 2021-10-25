@@ -27,6 +27,8 @@ public interface MetadataBuilder<Builder extends MetadataBuilder<Builder>> {
 
     Builder addSubsequence(int subSequence);
 
+    Builder setBookName(String bookName);
+
     Builder setTimestamp(Instant timestamp);
 
     Builder putProperty(String key, String value);

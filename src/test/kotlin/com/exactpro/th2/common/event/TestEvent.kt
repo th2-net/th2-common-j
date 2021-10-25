@@ -36,7 +36,7 @@ typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
 
-    private val parentEventId: EventID = toEventID("parentEventId")!!
+    private val parentEventId: EventID = toEventID("parentEventId", "bookName")!!
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))

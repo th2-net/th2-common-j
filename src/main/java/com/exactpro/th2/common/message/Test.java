@@ -21,6 +21,7 @@ import java.util.List;
 
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.event.EventUtils;
+import com.exactpro.th2.common.event.IEventFactory;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.message.impl.ParsedMessageBuilderImpl;
 import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl;
@@ -29,23 +30,24 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 
 public class Test {
     public static void main(String[] args) throws JsonProcessingException {
-        MessageFactory factory = CommonFactory
-                .createFromArguments("-c", "src/test/resources/test_load_dictionaries")
-                .getMessageFactory();
-        testParsedMessage(factory);
-        testRawMessage(factory);
-        testEvent();
+        CommonFactory commonFactory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries");
+        MessageFactory messageFactory = commonFactory.getMessageFactory();
+        String bookName = commonFactory.getBoxConfiguration().getBookName();
+        testParsedMessage(messageFactory, bookName);
+        testRawMessage(messageFactory, bookName);
+        testEvent(commonFactory.getEventFactory(), bookName);
     }
 
-    public static void testParsedMessage(MessageFactory factory) {
+    public static void testParsedMessage(MessageFactory factory, String bookName) {
         ParsedMessageBuilderImpl message = factory.createParsedMessage()
-                .setParentEventId("parentEventId");
+                .setParentEventId("parentEventId", bookName);
         message.metadataBuilder()
                 .setSessionAlias("sessionAlias")
                 .setDirection(Direction.SECOND)
                 .setSequence(1L)
                 .addSubsequence(2)
                 .addSubsequence(3)
+                .setBookName(bookName)
                 .setTimestamp(Instant.now())
                 .setMessageType("messageType")
                 .putProperty("propertyKey1", "propertyValue1")
@@ -81,9 +83,9 @@ public class Test {
         System.out.println(MessageUtils.toJson(message.build(), false));
     }
 
-    public static void testRawMessage(MessageFactory factory) {
+    public static void testRawMessage(MessageFactory factory, String bookName) {
         RawMessageBuilderImpl message = factory.createRawMessage()
-                .setParentEventId("parentEventId")
+                .setParentEventId("parentEventId", bookName)
                 .setBody("body".getBytes());
         message.metadataBuilder()
                 .setSessionAlias("sessionAlias")
@@ -91,6 +93,7 @@ public class Test {
                 .setSequence(1L)
                 .addSubsequence(2)
                 .addSubsequence(3)
+                .setBookName(bookName)
                 .setTimestamp(Instant.now())
                 .putProperty("propertyKey1", "propertyValue1")
                 .putProperty("propertyKey2", "propertyValue2")
@@ -98,8 +101,9 @@ public class Test {
         System.out.println(MessageUtils.toJson(message.build(), false));
     }
 
-    public static void testEvent() throws JsonProcessingException {
-        com.exactpro.th2.common.grpc.Event event = Event.start()
+    public static void testEvent(IEventFactory eventFactory, String bookName) throws JsonProcessingException {
+        com.exactpro.th2.common.grpc.Event event = Event.start(eventFactory)
+                .bookName(bookName)
                 .status(Event.Status.PASSED)
                 .name("name")
                 .type("type")
