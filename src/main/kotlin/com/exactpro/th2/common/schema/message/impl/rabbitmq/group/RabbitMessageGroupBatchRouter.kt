@@ -16,14 +16,20 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.metrics.DIRECTION_LABEL
+import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
+import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
+import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
+import com.exactpro.th2.common.metrics.incrementDroppedMetrics
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractFilterStrategy
 import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
+import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import com.google.protobuf.Message
 import com.google.protobuf.TextFormat
 import io.prometheus.client.Counter
@@ -36,7 +42,8 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
 
     override fun splitAndFilter(
         message: MessageGroupBatch,
-        pinConfiguration: @NotNull QueueConfiguration
+        pinConfiguration: @NotNull QueueConfiguration,
+        pinName: PinName
     ): @NotNull MessageGroupBatch {
         if (pinConfiguration.filters.isEmpty()) {
             return message
@@ -46,31 +53,39 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         message.groupsList.forEach { group ->
             if (group.messagesList.all { filterMessage(it, pinConfiguration.filters) }) {
                 builder.addGroups(group)
+            } else {
+                incrementDroppedMetrics(
+                    group.messagesList,
+                    pinName,
+                    MESSAGE_DROPPED_PUBLISH_TOTAL,
+                    MESSAGE_GROUP_DROPPED_PUBLISH_TOTAL
+                )
             }
         }
         return builder.build()
     }
 
-    override fun createSender(pinConfig: QueueConfiguration): MessageSender<MessageGroupBatch> {
-        return RabbitMessageGroupBatchSender().apply {
-            init(connectionManager, pinConfig.exchange, pinConfig.routingKey)
-        }
+    override fun createSender(pinConfig: QueueConfiguration, pinName: PinName): MessageSender<MessageGroupBatch> {
+        return RabbitMessageGroupBatchSender(
+            connectionManager,
+            pinConfig.exchange,
+            pinConfig.routingKey,
+            pinName
+        )
     }
 
-    override fun createSubscriber(pinConfig: QueueConfiguration): MessageSubscriber<MessageGroupBatch> {
+    override fun createSubscriber(
+        pinConfig: QueueConfiguration,
+        pinName: PinName
+    ): MessageSubscriber<MessageGroupBatch> {
         return RabbitMessageGroupBatchSubscriber(
+            connectionManager,
+            pinConfig.queue,
+            FilterFunction { msg: Message, filters: List<RouterFilter> -> filterMessage(msg, filters) },
+            pinName,
             pinConfig.filters,
             connectionManager.configuration.messageRecursionLimit
-        ).apply {
-            init(
-                connectionManager,
-                SubscribeTarget(
-                    pinConfig.queue,
-                    pinConfig.routingKey,
-                    pinConfig.exchange
-                )
-            ) { msg: Message, filters: List<RouterFilter> -> filterMessage(msg, filters) }
-        }
+        )
     }
 
     override fun MessageGroupBatch.toErrorString(): String {
@@ -92,5 +107,19 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
     companion object {
         private val OUTGOING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_batch_quantity", "Quantity of outgoing message group batches").register()
         private val OUTGOING_MSG_GROUP_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_quantity", "Quantity of outgoing message groups").register()
+
+        const val MESSAGE_GROUP_TYPE = "MESSAGE_GROUP"
+
+        private val MESSAGE_DROPPED_PUBLISH_TOTAL: Counter = Counter.build()
+            .name("th2_message_dropped_publish_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
+            .help("Quantity of published raw or parsed messages dropped after filters")
+            .register()
+
+        private val MESSAGE_GROUP_DROPPED_PUBLISH_TOTAL: Counter = Counter.build()
+            .name("th2_message_group_dropped_publish_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+            .help("Quantity of published message groups dropped after filters")
+            .register()
     }
 }

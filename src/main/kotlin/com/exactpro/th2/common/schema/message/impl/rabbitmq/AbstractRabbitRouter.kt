@@ -121,7 +121,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
      * @param message a source message which can be reduced according to pin configuration
      * @return the source message, part of them, or null if the message is matched to the pin configuration: fully, partially, not match accordingly
      */
-    protected abstract fun splitAndFilter(message: T, pinConfiguration: PinConfiguration): T
+    protected abstract fun splitAndFilter(message: T, pinConfiguration: PinConfiguration, pinName: PinName): T
 
     /**
      * Returns default set of attributes for send operations
@@ -134,10 +134,10 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     protected open fun getRequiredSubscribeAttributes() = REQUIRED_SUBSCRIBE_ATTRIBUTES
 
     //TODO: implement common sender
-    protected abstract fun createSender(pinConfig: PinConfiguration): MessageSender<T>
+    protected abstract fun createSender(pinConfig: PinConfiguration, pinName: PinName): MessageSender<T>
 
     //TODO: implement common subscriber
-    protected abstract fun createSubscriber(pinConfig: PinConfiguration): MessageSubscriber<T>
+    protected abstract fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T>
 
     protected abstract fun T.toErrorString(): String
 
@@ -154,7 +154,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         val packages: List<Triple<PinName, PinConfiguration, T>> = configuration.queues.asSequence()
             .filter { it.value.attributes.containsAll(pintAttributes) }
             .map { (pinName, pinConfig) ->
-                Triple(pinName, pinConfig, splitAndFilter(message, pinConfig))
+                Triple(pinName, pinConfig, splitAndFilter(message, pinConfig, pinName))
             }
             .toList()
             .also(check)
@@ -226,7 +226,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             "The $pinName isn't writable, configuration: $pinConfig"
         }
 
-        return@computeIfAbsent createSender(pinConfig)
+        return@computeIfAbsent createSender(pinConfig, pinName)
     }
 
     private fun ConcurrentHashMap<Queue, MessageSubscriber<T>>.getSubscriber(
@@ -237,7 +237,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             "The $pinName isn't readable, configuration: $pinConfig"
         }
 
-        return@computeIfAbsent createSubscriber(pinConfig)
+        return@computeIfAbsent createSubscriber(pinConfig, pinName)
     }
 
     companion object {

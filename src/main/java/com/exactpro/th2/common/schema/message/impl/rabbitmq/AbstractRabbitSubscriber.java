@@ -25,9 +25,14 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Subscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
+
+import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
 import io.prometheus.client.Histogram.Timer;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -39,59 +44,105 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.exactpro.th2.common.schema.message.FilterFunction.DEFAULT_FILTER_FUNCTION;
+import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
 
+    private static final Counter MESSAGE_SIZE_SUBSCRIBE_BYTES = Counter.build()
+            .name("th2_rabbitmq_message_size_subscribe_bytes")
+            .labelNames(TH2_PIN_LABEL, TH2_TYPE_LABEL, QUEUE_LABEL)
+            .help("Number of bytes received from RabbitMQ, it includes bytes of messages dropped after filters. " +
+                    "For information about the number of dropped messages, please refer to 'th2_message_dropped_subscribe_total' and 'th2_message_group_dropped_subscribe_total'. " +
+                    "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
+            .register();
+
+    private static final Histogram MESSAGE_PROCESS_DURATION_SECONDS = Histogram.build()
+            .buckets(DEFAULT_BUCKETS)
+            .name("th2_rabbitmq_message_process_duration_seconds")
+            .labelNames(TH2_PIN_LABEL, TH2_TYPE_LABEL, QUEUE_LABEL)
+            .help("Time of message processing during subscription from RabbitMQ in seconds. " +
+                    "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
+            .register();
+
+    protected final String th2Pin;
     private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
-    private final AtomicReference<SubscribeTarget> subscribeTarget = new AtomicReference<>();
+    private final String queue;
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
     private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
+    private final String th2Type;
 
     private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTarget) {
-        this.init(connectionManager, new SubscribeTarget(subscribeTarget.getQueue(), subscribeTarget.getRoutingKey(), exchangeName), DEFAULT_FILTER_FUNCTION);
+    public AbstractRabbitSubscriber(
+            @NotNull ConnectionManager connectionManager,
+            @NotNull String queue,
+            @NotNull FilterFunction filterFunc,
+            @NotNull String th2Pin,
+            @NotNull String th2Type
+    ) {
+        this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
+        this.queue = requireNonNull(queue, "Queue can not be null");
+        this.filterFunc.set(requireNonNull(filterFunc, "Filter function can not be null"));
+        this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
+        this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
     }
 
+    @Deprecated
+    @Override
+    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets) {
+        throw new UnsupportedOperationException("Method is deprecated, please use constructor");
+    }
+
+    @Deprecated
     @Override
     public void init(@NotNull ConnectionManager connectionManager, @NotNull SubscribeTarget subscribeTarget, @NotNull FilterFunction filterFunc) {
-        Objects.requireNonNull(connectionManager, "Connection can not be null");
-        Objects.requireNonNull(subscribeTarget, "Subscriber target can not be null");
-        Objects.requireNonNull(filterFunc, "Filter function can not be null");
-
-
-        if (this.connectionManager.get() != null || this.subscribeTarget.get() != null || this.filterFunc.get() != null) {
-            throw new IllegalStateException("Subscriber is already initialize");
-        }
-
-        this.connectionManager.set(connectionManager);
-        this.subscribeTarget.set(subscribeTarget);
-        this.filterFunc.set(filterFunc);
+        throw new UnsupportedOperationException("Method is deprecated, please use constructor");
     }
 
     @Override
     public void start() throws Exception {
         ConnectionManager connectionManager = this.connectionManager.get();
-        SubscribeTarget target = subscribeTarget.get();
-
-        if (connectionManager == null || target == null) {
+        if (connectionManager == null) {
             throw new IllegalStateException("Subscriber is not initialized");
         }
 
         try {
-            var queue = target.getQueue();
-            var routingKey = target.getRoutingKey();
-            var exchangeName = target.getExchange();
-
             consumerMonitor.updateAndGet(monitor -> {
                 if (monitor == null) {
                     try {
-                        monitor = connectionManager.basicConsume(queue, this::handle, this::canceled);
-                        LOGGER.info("Start listening exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+                        monitor = connectionManager.basicConsume(
+                                queue,
+                                (consumeTag, delivery) -> {
+                                    Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
+                                            .labels(th2Pin, th2Type, queue)
+                                            .startTimer();
+                                    MESSAGE_SIZE_SUBSCRIBE_BYTES
+                                            .labels(th2Pin, th2Type, queue)
+                                            .inc(delivery.getBody().length);
+                                    try {
+                                        T value;
+                                        try {
+                                            value = valueFromBytes(delivery.getBody());
+                                        } catch (Exception e) {
+                                            throw new IOException(
+                                                    String.format(
+                                                            "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
+                                                            delivery.getEnvelope(), queue, th2Pin
+                                                    ),
+                                                    e
+                                            );
+                                        }
+                                        handle(consumeTag, delivery, value);
+                                    } finally {
+                                        processTimer.observeDuration();
+                                    }
+                                },
+                                this::canceled
+                        );
+                        LOGGER.info("Start listening queue name='{}'", queue);
                     } catch (IOException e) {
                         throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
                     }
@@ -134,7 +185,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         return filterFunction.apply(message, filters);
     }
 
-    protected abstract List<T> valueFromBytes(byte[] body) throws Exception;
+    protected abstract T valueFromBytes(byte[] body) throws Exception;
 
     protected abstract String toShortTraceString(T value);
 
@@ -153,77 +204,51 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected abstract int extractCountFrom(T batch);
 
-    private void handle(String consumeTag, Delivery delivery) {
-        Timer processTimer = getProcessingTimer().startTimer();
-
+    protected void handle(String consumeTag, Delivery delivery, T value) {
         try {
-            List<T> values = valueFromBytes(delivery.getBody());
+            requireNonNull(value, "Received value is null");
 
-            for (T value : values) {
-                Objects.requireNonNull(value, "Received value is null");
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Received message: {}", toShortTraceString(value));
+            } else if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Received message: {}", toShortDebugString(value));
+            }
 
-                String[] labels = extractLabels(value);
-                Objects.requireNonNull(labels, "Labels list extracted from received value is null");
+            var filteredValue = filter(value);
 
-                Counter counter = getDeliveryCounter();
-                Counter contentCounter = getContentCounter();
+            if (Objects.isNull(filteredValue)) {
+                LOGGER.debug("Message is filtered");
+                return;
+            }
 
-                if (labels.length == 0) {
-                    counter.inc();
-                    contentCounter.inc(extractCountFrom(value));
-                } else {
-                    counter.labels(labels).inc();
-                    contentCounter.labels(labels).inc(extractCountFrom(value));
-                }
-
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Received message: {}", toShortTraceString(value));
-                } else if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("Received message: {}", toShortDebugString(value));
-                }
-
-                var filteredValue = filter(value);
-
-                if (Objects.isNull(filteredValue)) {
-                    LOGGER.debug("Message is filtered");
-                    return;
-                }
-
-                for (MessageListener<T> listener : listeners) {
-                    try {
-                        listener.handler(consumeTag, filteredValue);
-                    } catch (Exception listenerExc) {
-                        LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
-                    }
+            for (MessageListener<T> listener : listeners) {
+                try {
+                    listener.handler(consumeTag, filteredValue);
+                } catch (Exception listenerExc) {
+                    LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
                 }
             }
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
-        } finally {
-            processTimer.observeDuration();
         }
     }
 
     private void resubscribe() {
-        SubscribeTarget target = subscribeTarget.get();
-        var queue = target.getQueue();
-        var routingKey = target.getRoutingKey();
-        var exchangeName = target.getExchange();
-        LOGGER.info("Try to resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+        LOGGER.info("Try to resubscribe subscriber for queue name='{}'", queue);
 
         SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
         if (monitor != null) {
             try {
                 monitor.unsubscribe();
             } catch (Exception e) {
-                LOGGER.info("Can not unsubscribe on resubscribe for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+                LOGGER.info("Can not unsubscribe on resubscribe for queue name='{}'", queue);
             }
         }
 
         try {
             start();
         } catch (Exception e) {
-            LOGGER.error("Can not resubscribe subscriber for exchangeName='{}', routing key='{}', queue name='{}'", exchangeName, routingKey, queue);
+            LOGGER.error("Can not resubscribe subscriber for queue name='{}'", queue);
             healthMetrics.disable();
         }
     }
@@ -233,5 +258,4 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         healthMetrics.getReadinessMonitor().disable();
         resubscribe();
     }
-
 }

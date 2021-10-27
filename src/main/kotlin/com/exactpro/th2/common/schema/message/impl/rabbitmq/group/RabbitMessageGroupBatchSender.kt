@@ -19,11 +19,38 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.metrics.DIRECTION_LABEL
+import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
+import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
+import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
+import com.exactpro.th2.common.metrics.incrementTotalMetrics
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
+import io.prometheus.client.Counter
+import io.prometheus.client.Gauge
 
-class RabbitMessageGroupBatchSender : AbstractRabbitSender<MessageGroupBatch>() {
+class RabbitMessageGroupBatchSender(
+    connectionManager: ConnectionManager,
+    exchangeName: String,
+    routingKey: String,
+    th2Pin: String
+) : AbstractRabbitSender<MessageGroupBatch>(connectionManager, exchangeName, routingKey, th2Pin, MESSAGE_GROUP_TYPE) {
+    override fun send(value: MessageGroupBatch) {
+        incrementTotalMetrics(
+            value,
+            th2Pin,
+            MESSAGE_PUBLISH_TOTAL,
+            MESSAGE_GROUP_PUBLISH_TOTAL,
+            MESSAGE_GROUP_SEQUENCE_PUBLISH
+        )
+        super.send(value)
+    }
+
     override fun valueToBytes(value: MessageGroupBatch): ByteArray = value.toByteArray()
+
     override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
+
     override fun toShortDebugString(value: MessageGroupBatch): String = "MessageGroupBatch: " +
         run {
             val sessionAliasAndDirection = getSessionAliasAndDirection(value.groupsList[0].messagesList[0])
@@ -36,4 +63,24 @@ class RabbitMessageGroupBatchSender : AbstractRabbitSender<MessageGroupBatch>() 
                 else -> ""
             }
         }
+    
+    companion object {
+        private val MESSAGE_PUBLISH_TOTAL = Counter.build()
+            .name("th2_message_publish_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
+            .help("Quantity of published raw or parsed messages")
+            .register()
+
+        private val MESSAGE_GROUP_PUBLISH_TOTAL = Counter.build()
+            .name("th2_message_group_publish_total")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+            .help("Quantity of published message groups")
+            .register()
+
+        private val MESSAGE_GROUP_SEQUENCE_PUBLISH = Gauge.build()
+            .name("th2_message_group_sequence_publish")
+            .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+            .help("Last published sequence")
+            .register()
+    }
 }
