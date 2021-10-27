@@ -25,30 +25,13 @@ import com.rabbitmq.client.Delivery;
 import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
 import static com.exactpro.th2.common.schema.event.EventBatchRouter.EVENT_TYPE;
 import io.prometheus.client.Counter;
-import io.prometheus.client.Histogram;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static com.exactpro.th2.common.message.MessageUtils.toJson;
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
-
-    private static final Counter INCOMING_EVENT_BATCH_QUANTITY = Counter.build()
-            .name("th2_mq_incoming_event_batch_quantity")
-            .help("Quantity of incoming event batches")
-            .register();
-    private static final Counter INCOMING_EVENT_QUANTITY = Counter.build()
-            .name("th2_mq_incoming_event_quantity")
-            .help("Quantity of incoming events")
-            .register();
-    private static final Histogram EVENT_PROCESSING_TIME = Histogram.build()
-            .buckets(DEFAULT_BUCKETS)
-            .name("th2_mq_event_processing_time")
-            .help("Time of processing events")
-            .register();
-
     private static final Counter EVENT_SUBSCRIBE_TOTAL = Counter.build()
             .name("th2_event_subscribe_total")
             .labelNames(TH2_PIN_LABEL)
@@ -62,33 +45,6 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
             @NotNull String th2Pin
     ) {
         super(connectionManager, queue, filterFunc, th2Pin, EVENT_TYPE);
-    }
-
-    private static final String[] NO_LABELS = {};
-
-    @Override
-    protected Counter getDeliveryCounter() {
-        return INCOMING_EVENT_BATCH_QUANTITY;
-    }
-
-    @Override
-    protected Counter getContentCounter() {
-        return INCOMING_EVENT_QUANTITY;
-    }
-
-    @Override
-    protected Histogram getProcessingTimer() {
-        return EVENT_PROCESSING_TIME;
-    }
-
-    @Override
-    protected String[] extractLabels(EventBatch batch) {
-        return NO_LABELS;
-    }
-
-    @Override
-    protected int extractCountFrom(EventBatch batch) {
-        return batch.getEventsCount();
     }
 
     @Override

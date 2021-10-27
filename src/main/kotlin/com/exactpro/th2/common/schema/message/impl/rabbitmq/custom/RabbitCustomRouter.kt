@@ -24,8 +24,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
-import io.prometheus.client.Counter
-import io.prometheus.client.Histogram
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 
 /**
@@ -48,8 +46,6 @@ class RabbitCustomRouter<T : Any>(
             addAll(defaultSubscribeAttributes)
         }
 
-    private val metricsHolder = MetricsHolder(customTag, labels)
-
     override fun getRequiredSendAttributes(): Set<String> {
         return requiredSendAttributes
     }
@@ -69,9 +65,7 @@ class RabbitCustomRouter<T : Any>(
             pinConfig.routingKey,
             pinName,
             customTag,
-            converter,
-            metricsHolder.outgoingDeliveryCounter,
-            metricsHolder.outgoingDataCounter
+            converter
         )
     }
 
@@ -82,27 +76,12 @@ class RabbitCustomRouter<T : Any>(
             FilterFunction.DEFAULT_FILTER_FUNCTION,
             pinName,
             customTag,
-            converter,
-            metricsHolder.incomingDeliveryCounter,
-            metricsHolder.processingTimer,
-            metricsHolder.incomingDataCounter
+            converter
         )
     }
 
     override fun T.toErrorString(): String {
         return this.toString()
-    }
-
-    override fun getDeliveryCounter(): Counter {
-        return metricsHolder.outgoingDeliveryCounter
-    }
-
-    override fun getContentCounter(): Counter {
-        return metricsHolder.outgoingDataCounter
-    }
-
-    override fun extractCountFrom(batch: T): Int {
-        return converter.extractCount(batch)
     }
 
     private class Sender<T : Any>(
@@ -111,9 +90,7 @@ class RabbitCustomRouter<T : Any>(
         routingKey: String,
         th2Pin: String,
         customTag: String,
-        private val converter: MessageConverter<T>,
-        private val deliveryCounter: Counter,
-        private val dataCounter: Counter
+        private val converter: MessageConverter<T>
     ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
@@ -128,10 +105,7 @@ class RabbitCustomRouter<T : Any>(
         filterFunction: FilterFunction,
         th2Pin: String,
         customTag: String,
-        private val converter: MessageConverter<T>,
-        private val deliveryCounter: Counter,
-        private val timer: Histogram,
-        private val dataCounter: Counter
+        private val converter: MessageConverter<T>
     ) : AbstractRabbitSubscriber<T>(connectionManager, queue, filterFunction, th2Pin, customTag) {
         override fun valueFromBytes(body: ByteArray): T = converter.fromByteArray(body)
 
@@ -141,18 +115,5 @@ class RabbitCustomRouter<T : Any>(
 
         // FIXME: the filtering is not working for custom objects
         override fun filter(value: T): T = value
-
-        //region Prometheus stats
-        override fun getDeliveryCounter(): Counter = deliveryCounter
-
-        override fun getContentCounter(): Counter = dataCounter
-
-        override fun getProcessingTimer(): Histogram = timer
-
-        override fun extractCountFrom(batch: T): Int = converter.extractCount(batch)
-
-        override fun extractLabels(batch: T): Array<String> = converter.getLabels(batch)
-
-        //endregion
     }
 }

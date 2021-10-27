@@ -24,7 +24,6 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.google.protobuf.Message
-import io.prometheus.client.Counter
 import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
@@ -140,12 +139,6 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     protected abstract fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T>
 
     protected abstract fun T.toErrorString(): String
-
-    protected abstract fun getDeliveryCounter(): Counter
-
-    protected abstract fun getContentCounter(): Counter
-
-    protected abstract fun extractCountFrom(batch: T): Int
 
     private fun send(
         message: T, pintAttributes: Set<String>,

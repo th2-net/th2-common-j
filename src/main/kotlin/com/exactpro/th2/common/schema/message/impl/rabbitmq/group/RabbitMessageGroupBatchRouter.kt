@@ -92,22 +92,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         return TextFormat.shortDebugString(this)
     }
 
-    override fun getDeliveryCounter(): Counter {
-        return OUTGOING_MSG_GROUP_BATCH_QUANTITY
-    }
-
-    override fun getContentCounter(): Counter {
-        return OUTGOING_MSG_GROUP_QUANTITY
-    }
-
-    override fun extractCountFrom(batch: MessageGroupBatch): Int {
-        return batch.groupsCount
-    }
-
     companion object {
-        private val OUTGOING_MSG_GROUP_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_batch_quantity", "Quantity of outgoing message group batches").register()
-        private val OUTGOING_MSG_GROUP_QUANTITY = Counter.build("th2_mq_outgoing_msg_group_quantity", "Quantity of outgoing message groups").register()
-
         const val MESSAGE_GROUP_TYPE = "MESSAGE_GROUP"
 
         private val MESSAGE_DROPPED_PUBLISH_TOTAL: Counter = Counter.build()

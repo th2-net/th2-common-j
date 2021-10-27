@@ -192,16 +192,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected abstract Counter getDeliveryCounter();
-
-    protected abstract Counter getContentCounter();
-
-    protected abstract Histogram getProcessingTimer();
-
-    protected abstract String[] extractLabels(T batch);
-
-    protected abstract int extractCountFrom(T batch);
-
     protected void handle(String consumeTag, Delivery delivery, T value) {
         try {
             requireNonNull(value, "Received value is null");
