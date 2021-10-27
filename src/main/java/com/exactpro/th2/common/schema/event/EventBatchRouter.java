@@ -29,16 +29,11 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter;
 import com.google.protobuf.TextFormat;
 
-import io.prometheus.client.Counter;
-
 public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
     protected static final String EVENT_TYPE = "EVENT";
 
     private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.EVENT.toString(), QueueAttribute.PUBLISH.toString());
-
-    private static final Counter OUTGOING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_event_batch_quantity", "Quantity of outgoing event batches").register();
-    private static final Counter OUTGOING_EVENT_QUANTITY = Counter.build("th2_mq_outgoing_event_quantity", "Quantity of outgoing events").register();
 
     @NotNull
     @Override
@@ -88,22 +83,5 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
     @Override
     protected String toErrorString(EventBatch eventBatch) {
         return TextFormat.shortDebugString(eventBatch);
-    }
-
-    @NotNull
-    @Override
-    protected Counter getDeliveryCounter() {
-        return OUTGOING_EVENT_BATCH_QUANTITY;
-    }
-
-    @NotNull
-    @Override
-    protected Counter getContentCounter() {
-        return OUTGOING_EVENT_QUANTITY;
-    }
-
-    @Override
-    protected int extractCountFrom(EventBatch batch) {
-        return batch.getEventsCount();
     }
 }
