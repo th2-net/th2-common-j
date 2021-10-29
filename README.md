@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.26.5)
+# th2 common library (Java) (3.27.0)
 
 ## Usage
 
@@ -250,6 +250,9 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 
 ## Release notes
+
+### 3.27.0
++ Updated `messageRecursionLimit` default value from `100` to `500`
 
 ### 3.26.5
 + Migrated `grpc-common` version from `3.7.0` to `3.8.0`
