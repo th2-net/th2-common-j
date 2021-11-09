@@ -25,6 +25,7 @@ import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
 import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
 import com.exactpro.th2.common.metrics.incrementTotalMetrics
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
 import io.prometheus.client.Counter
@@ -32,10 +33,9 @@ import io.prometheus.client.Gauge
 
 class RabbitMessageGroupBatchSender(
     connectionManager: ConnectionManager,
-    exchangeName: String,
-    routingKey: String,
+    pinConfig: PinConfiguration,
     th2Pin: String
-) : AbstractRabbitSender<MessageGroupBatch>(connectionManager, exchangeName, routingKey, th2Pin, MESSAGE_GROUP_TYPE) {
+) : AbstractRabbitSender<MessageGroupBatch>(connectionManager, pinConfig, th2Pin, MESSAGE_GROUP_TYPE) {
     override fun send(value: MessageGroupBatch) {
         incrementTotalMetrics(
             value,

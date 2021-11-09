@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.common.schema.message.MessageSender;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.EXCHANGE_LABEL;
@@ -51,21 +52,27 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             .register();
 
     protected final String th2Pin;
+    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<String> routingKey = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+    private final String queueName;
+    private final long sizeLimit;
+    private final int recheckSizeTimeoutSeconds;
     private final String th2Type;
 
     public AbstractRabbitSender(
             @NotNull ConnectionManager connectionManager,
-            @NotNull String exchangeName,
-            @NotNull String routingKey,
+            @NotNull QueueConfiguration queueConfiguration,
             @NotNull String th2Pin,
             @NotNull String th2Type
     ) {
         this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
-        this.exchangeName.set(requireNonNull(exchangeName, "Exchange name can not be null"));
-        this.routingKey.set(requireNonNull(routingKey, "Routing key can not be null"));
+        requireNonNull(queueConfiguration, "Queue configuration can not be null");
+        exchangeName.set(requireNonNull(queueConfiguration.getExchange(), "Exchange name can not be null"));
+        routingKey.set(requireNonNull(queueConfiguration.getRoutingKey(), "Routing key can not be null"));
+        queueName = requireNonNull(queueConfiguration.getQueue(), "Queue name can not be null");
+        sizeLimit = queueConfiguration.getSizeLimit();
+        recheckSizeTimeoutSeconds = queueConfiguration.getRecheckSizeTimeoutSeconds();
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
         this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
     }
@@ -81,7 +88,20 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         requireNonNull(value, "Value for send can not be null");
 
         try {
-            ConnectionManager connection = this.connectionManager.get();
+            ConnectionManager connectionManager = this.connectionManager.get();
+            long messageCount = connectionManager.getMessageCount(queueName);
+            while (messageCount >= sizeLimit) {
+                LOGGER.info(
+                        "There are {} message(s) in '{}' which is more or equal than size limit = {}, waiting {} seconds before recheck",
+                        messageCount,
+                        queueName,
+                        sizeLimit,
+                        recheckSizeTimeoutSeconds
+                );
+                Thread.sleep(recheckSizeTimeoutSeconds * 1000L);
+                messageCount = connectionManager.getMessageCount(queueName);
+            }
+
             byte[] bytes = valueToBytes(value);
             MESSAGE_SIZE_PUBLISH_BYTES
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
@@ -89,7 +109,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             MESSAGE_PUBLISH_TOTAL
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
                     .inc();
-            connection.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
+            connectionManager.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",

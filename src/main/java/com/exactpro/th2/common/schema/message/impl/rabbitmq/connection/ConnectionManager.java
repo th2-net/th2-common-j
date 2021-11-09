@@ -294,6 +294,10 @@ public class ConnectionManager implements AutoCloseable {
         return new RabbitMqSubscriberMonitor(holder, tag, this::basicCancel);
     }
 
+    public long getMessageCount(String queue) throws IOException {
+        return getChannelFor(PinId.forQueue(queue)).mapWithLock(channel -> channel.messageCount(queue));
+    }
+
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
     }

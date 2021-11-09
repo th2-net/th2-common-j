@@ -42,7 +42,9 @@ data class QueueConfiguration(
     @JsonProperty(required = true) @JsonAlias("labels", "tags") var attributes: List<String> = emptyList(),
     var filters: List<MqRouterFilterConfiguration> = emptyList(),
     @JsonProperty(value = "read") var isReadable: Boolean = true,
-    @JsonProperty(value = "write") var isWritable: Boolean = true
+    @JsonProperty(value = "write") var isWritable: Boolean = true,
+    @JsonProperty var sizeLimit: Long = 10000,
+    @JsonProperty var recheckSizeTimeoutSeconds: Int = 10
 ) : Configuration()
 
 data class MqRouterFilterConfiguration(

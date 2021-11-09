@@ -68,8 +68,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
     override fun createSender(pinConfig: QueueConfiguration, pinName: PinName): MessageSender<MessageGroupBatch> {
         return RabbitMessageGroupBatchSender(
             connectionManager,
-            pinConfig.exchange,
-            pinConfig.routingKey,
+            pinConfig,
             pinName
         )
     }

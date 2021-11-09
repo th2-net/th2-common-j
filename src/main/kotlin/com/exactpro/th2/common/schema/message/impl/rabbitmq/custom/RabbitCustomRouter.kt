@@ -61,8 +61,7 @@ class RabbitCustomRouter<T : Any>(
     override fun createSender(pinConfig: PinConfiguration, pinName: PinName): MessageSender<T> {
         return Sender(
             connectionManager,
-            pinConfig.exchange,
-            pinConfig.routingKey,
+            pinConfig,
             pinName,
             customTag,
             converter
@@ -86,12 +85,11 @@ class RabbitCustomRouter<T : Any>(
 
     private class Sender<T : Any>(
         connectionManager: ConnectionManager,
-        exchangeName: String,
-        routingKey: String,
+        pinConfig: PinConfiguration,
         th2Pin: String,
         customTag: String,
         private val converter: MessageConverter<T>
-    ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag) {
+    ) : AbstractRabbitSender<T>(connectionManager, pinConfig, th2Pin, customTag) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)

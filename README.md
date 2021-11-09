@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.27.0)
+# th2 common library (Java) (3.28.0)
 
 ## Usage
 
@@ -273,6 +273,12 @@ EVENTS METRICS:
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 3.28.0
+
++ Added parameters to `mq.json`
+    + `sizeLimit`: max queue size when sending is available, 10000 by default
+    + `recheckSizeTimeoutSeconds`: time in seconds before next check for queue size , 10 by default
 
 ### 3.27.0
 
