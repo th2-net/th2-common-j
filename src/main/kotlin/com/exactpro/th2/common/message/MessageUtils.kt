@@ -67,6 +67,7 @@ import com.exactpro.th2.common.value.updateOrAddMessage
 import com.exactpro.th2.common.value.updateOrAddString
 import com.exactpro.th2.common.value.updateString
 import com.google.protobuf.Duration
+import com.google.protobuf.TextFormat.shortDebugString
 import com.google.protobuf.Timestamp
 import com.google.protobuf.util.JsonFormat
 import java.math.BigDecimal
@@ -332,13 +333,18 @@ var Message.Builder.sequence
 
 fun getSessionAliasAndDirection(messageID: MessageID): Array<String> = arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
 
-private val unknownLabels = arrayOf("unknown", "unknown")
-
 fun getSessionAliasAndDirection(anyMessage: AnyMessage): Array<String> = when {
     anyMessage.hasMessage() -> getSessionAliasAndDirection(anyMessage.message.metadata.id)
     anyMessage.hasRawMessage() -> getSessionAliasAndDirection(anyMessage.rawMessage.metadata.id)
-    else -> unknownLabels
+    else -> error("Message ${shortDebugString(anyMessage)} doesn't have message or rawMessage")
 }
+
+val AnyMessage.sequence: Long
+    get() = when {
+        hasMessage() -> message.metadata.id.sequence
+        hasRawMessage() -> rawMessage.metadata.id.sequence
+        else -> error("Message ${shortDebugString(this)} doesn't have message or rawMessage")
+    }
 
 fun getDebugString(className: String, ids: List<MessageID>): String {
     val sessionAliasAndDirection = getSessionAliasAndDirection(ids[0])

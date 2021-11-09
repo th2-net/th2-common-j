@@ -16,29 +16,41 @@
 
 package com.exactpro.th2.common.schema.event;
 
+import java.io.IOException;
+
+import org.jetbrains.annotations.NotNull;
+
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
+import static com.exactpro.th2.common.schema.event.EventBatchRouter.EVENT_TYPE;
 import io.prometheus.client.Counter;
 
 public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
+    private static final Counter EVENT_PUBLISH_TOTAL = Counter.build()
+            .name("th2_event_publish_total")
+            .labelNames(TH2_PIN_LABEL)
+            .help("Quantity of published events")
+            .register();
 
-    private static final Counter OUTGOING_EVENT_BATCH_QUANTITY = Counter.build("th2_mq_outgoing_event_batch_quantity", "Quantity of outgoing event batches").register();
-    private static final Counter OUTGOING_EVENT_QUANTITY = Counter.build("th2_mq_outgoing_event_quantity", "Quantity of outgoing events").register();
-
-    @Override
-    protected Counter getDeliveryCounter() {
-        return OUTGOING_EVENT_BATCH_QUANTITY;
+    public EventBatchSender(
+            @NotNull ConnectionManager connectionManager,
+            @NotNull String exchangeName,
+            @NotNull String routingKey,
+            @NotNull String th2Pin
+    ) {
+        super(connectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE);
     }
 
     @Override
-    protected Counter getContentCounter() {
-        return OUTGOING_EVENT_QUANTITY;
-    }
-
-    @Override
-    protected int extractCountFrom(EventBatch batch) {
-        return batch.getEventsCount();
+    public void send(EventBatch value) throws IOException {
+        EVENT_PUBLISH_TOTAL
+                .labels(th2Pin)
+                .inc(value.getEventsCount());
+        super.send(value);
     }
 
     @Override
