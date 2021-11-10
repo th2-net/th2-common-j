@@ -37,6 +37,7 @@ public class EventUtils {
     }
 
     @Contract("null -> null; !null -> !null")
+    @Deprecated
     public static @Nullable EventID toEventID(@Nullable String id) {
         return toEventID(id, null);
     }
