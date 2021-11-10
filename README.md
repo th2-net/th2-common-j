@@ -117,6 +117,8 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
+    * virtualQueueLimit - MQ router calculates destination queues and compares their current size to this value. The router blocks the current thread to repeat the comparison if the size of any destination queues exceeds the virtual limit
+    * maxIntervalToCheckVirtualQueueLimit - max time in seconds between comparing actual destination queues size and expected virtual limit during sending a message
     
 Filters format: 
 * fieldName - a field's name
@@ -276,9 +278,7 @@ EVENTS METRICS:
 
 ### 3.28.0
 
-+ Added parameters to `mq.json`
-    + `sizeLimit`: max queue size when sending is available, 10000 by default
-    + `recheckSizeTimeoutSeconds`: time in seconds before next check for queue size , 10 by default
++ Added parameters `virtualQueueLimit` and `maxIntervalToCheckVirtualQueueLimit` to `mq.json`
 
 ### 3.27.0
 

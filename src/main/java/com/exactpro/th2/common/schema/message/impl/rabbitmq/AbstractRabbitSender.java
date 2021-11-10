@@ -56,8 +56,8 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicReference<String> routingKey = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final String queueName;
-    private final long sizeLimit;
-    private final int recheckSizeTimeoutSeconds;
+    private final long virtualQueueLimit;
+    private final int maxIntervalToCheckVirtualQueueLimit;
     private final String th2Type;
 
     public AbstractRabbitSender(
@@ -71,8 +71,8 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         exchangeName.set(requireNonNull(queueConfiguration.getExchange(), "Exchange name can not be null"));
         routingKey.set(requireNonNull(queueConfiguration.getRoutingKey(), "Routing key can not be null"));
         queueName = requireNonNull(queueConfiguration.getQueue(), "Queue name can not be null");
-        sizeLimit = queueConfiguration.getSizeLimit();
-        recheckSizeTimeoutSeconds = queueConfiguration.getRecheckSizeTimeoutSeconds();
+        virtualQueueLimit = queueConfiguration.getVirtualQueueLimit();
+        maxIntervalToCheckVirtualQueueLimit = queueConfiguration.getMaxIntervalToCheckVirtualQueueLimit();
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
         this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
     }
@@ -90,15 +90,15 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         try {
             ConnectionManager connectionManager = this.connectionManager.get();
             long messageCount = connectionManager.getMessageCount(queueName);
-            while (messageCount >= sizeLimit) {
+            while (messageCount >= virtualQueueLimit) {
                 LOGGER.info(
                         "There are {} message(s) in '{}' which is more or equal than size limit = {}, waiting {} seconds before recheck",
                         messageCount,
                         queueName,
-                        sizeLimit,
-                        recheckSizeTimeoutSeconds
+                        virtualQueueLimit,
+                        maxIntervalToCheckVirtualQueueLimit
                 );
-                Thread.sleep(recheckSizeTimeoutSeconds * 1000L);
+                Thread.sleep(maxIntervalToCheckVirtualQueueLimit * 1000L);
                 messageCount = connectionManager.getMessageCount(queueName);
             }
 
