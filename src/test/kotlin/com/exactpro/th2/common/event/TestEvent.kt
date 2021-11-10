@@ -22,7 +22,6 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
-import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import org.junit.jupiter.api.Assertions
@@ -40,16 +39,16 @@ class TestEvent {
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
-    private val commonFactory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+    private val eventFactory: IEventFactory = EventFactory()
 
     @Test
     fun `call the toProto method on a simple event`() {
-        Event.start(commonFactory.eventFactory).toProto(null).run {
+        Event.start(eventFactory).toProto(null).run {
             checkDefaultEventFields()
             assertFalse(hasParentId())
         }
 
-        Event.start(commonFactory.eventFactory).toProto(parentEventId).run {
+        Event.start(eventFactory).toProto(parentEventId).run {
             checkDefaultEventFields()
             assertEquals(parentEventId, parentId)
         }
@@ -57,7 +56,7 @@ class TestEvent {
 
     @Test
     fun `set parent to the toListProto method`() {
-        val event = Event.start(commonFactory.eventFactory)
+        val event = Event.start(eventFactory)
 
         val toListProtoWithParent = event.toListProto(parentEventId)
         val toListProtoWithoutParent = event.toListProto(null)
@@ -71,7 +70,7 @@ class TestEvent {
 
     @Test
     fun `negative or zero max size`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
         assertAll(
             { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(-1, parentEventId) } },
             { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(0, parentEventId) } }
@@ -80,7 +79,7 @@ class TestEvent {
 
     @Test
     fun `too low max size`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data)
 
         assertAll(
@@ -90,7 +89,7 @@ class TestEvent {
 
     @Test
     fun `every event to distinct batch`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
                     .bodyData(data)
@@ -105,7 +104,7 @@ class TestEvent {
 
     @Test
     fun `problem events`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
                     .bodyData(data)
@@ -120,7 +119,7 @@ class TestEvent {
 
     @Test
     fun `several events at the end of hierarchy`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
                     .bodyData(data)
@@ -151,7 +150,7 @@ class TestEvent {
 
     @Test
     fun `batch structure`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data)
         val subEvent1 = rootEvent.addSubEventWithSamePeriod()
             .bodyData(data)
@@ -175,7 +174,7 @@ class TestEvent {
 
     @Test
     fun `event with children is after the event without children`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
                     .bodyData(data)
@@ -195,7 +194,7 @@ class TestEvent {
     fun `root event to list batch proto with size limit`() {
         val rootName = "root"
         val childName = "child"
-        val rootEvent = Event.start(commonFactory.eventFactory).apply {
+        val rootEvent = Event.start(eventFactory).apply {
             name = rootName
             bodyData(data).apply {
                 addSubEventWithSamePeriod().apply {
@@ -217,7 +216,7 @@ class TestEvent {
     fun `root event to list batch proto without size limit`() {
         val rootName = "root"
         val childName = "child"
-        val rootEvent = Event.start(commonFactory.eventFactory).apply {
+        val rootEvent = Event.start(eventFactory).apply {
             name = rootName
             bodyData(data).apply {
                 addSubEventWithSamePeriod().apply {
@@ -234,7 +233,7 @@ class TestEvent {
 
     @Test
     fun `event with children is before the event without children`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
                     .bodyData(data).apply {
@@ -252,7 +251,7 @@ class TestEvent {
 
     @Test
     fun `pack event tree to single batch`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
                     .bodyData(data).apply {
@@ -270,7 +269,7 @@ class TestEvent {
 
     @Test
     fun `pack single event single batch`() {
-        val rootEvent = Event.start(commonFactory.eventFactory)
+        val rootEvent = Event.start(eventFactory)
 
         val batch = rootEvent.toBatchProto(parentEventId)
         assertFalse(batch.hasParentEventId())
