@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ public class TestVerification extends BaseTest {
         verificationEntry.setKey(false);
         verificationEntry.setActual("value");
         verificationEntry.setExpected("*");
+        verificationEntry.setHint("Hint for not empty field");
 
 
         verification.setFields(new HashMap<>() {{
@@ -53,7 +54,8 @@ public class TestVerification extends BaseTest {
                 "        \"status\": \"PASSED\",\n" +
                 "        \"key\": false,\n" +
                 "        \"actual\": \"value\",\n" +
-                "        \"expected\": \"*\"\n" +
+                "        \"expected\": \"*\",\n" +
+                "        \"hint\": \"Hint for not empty field\"\n" +
                 "      }" +
                 "   }" +
                 "}" +
@@ -73,6 +75,7 @@ public class TestVerification extends BaseTest {
         verificationEntry.setKey(false);
         verificationEntry.setActual("1");
         verificationEntry.setExpected("1");
+        verificationEntry.setHint("Hint for collection");
 
         VerificationEntry verificationEntryInner = new VerificationEntry();
         verificationEntryInner.setType("field");
@@ -81,6 +84,7 @@ public class TestVerification extends BaseTest {
         verificationEntryInner.setKey(false);
         verificationEntryInner.setActual("9");
         verificationEntryInner.setExpected("9");
+        verificationEntryInner.setHint("Hint for inner entry");
 
         verificationEntry.setFields(new HashMap<>() {{
             put("Field C", verificationEntryInner);
@@ -103,6 +107,7 @@ public class TestVerification extends BaseTest {
                 "        \"key\": false,\n" +
                 "        \"actual\": \"1\",\n" +
                 "        \"expected\": \"1\",\n" +
+                "        \"hint\": \"Hint for collection\",\n" +
                 "        \"fields\": {\n" +
                 "          \"Field C\": {\n" +
                 "            \"type\": \"field\",\n" +
@@ -110,7 +115,8 @@ public class TestVerification extends BaseTest {
                 "            \"status\": \"FAILED\",\n" +
                 "            \"key\": false,\n" +
                 "            \"actual\": \"9\",\n" +
-                "            \"expected\": \"9\"\n" +
+                "            \"expected\": \"9\",\n" +
+                "            \"hint\": \"Hint for inner entry\"\n" +
                 "          }\n" +
                 "        }\n" +
                 "      }\n" +
