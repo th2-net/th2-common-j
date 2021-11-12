@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.27.0)
+# th2 common library (Java) (3.28.0)
 
 ## Usage
 
@@ -273,6 +273,10 @@ EVENTS METRICS:
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 3.28.0
+
++ Added new parameter `hint` for `VerificationEntry`
 
 ### 3.27.0
 
