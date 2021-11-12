@@ -34,7 +34,6 @@ public class TestVerification extends BaseTest {
         verificationEntry.setKey(false);
         verificationEntry.setActual("value");
         verificationEntry.setExpected("*");
-        verificationEntry.setHint("Hint for not empty field");
 
 
         verification.setFields(new HashMap<>() {{
@@ -54,8 +53,7 @@ public class TestVerification extends BaseTest {
                 "        \"status\": \"PASSED\",\n" +
                 "        \"key\": false,\n" +
                 "        \"actual\": \"value\",\n" +
-                "        \"expected\": \"*\",\n" +
-                "        \"hint\": \"Hint for not empty field\"\n" +
+                "        \"expected\": \"*\"\n" +
                 "      }" +
                 "   }" +
                 "}" +
