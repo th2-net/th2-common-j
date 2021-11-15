@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.28.0)
+# th2 common library (Java) (3.29.0)
 
 ## Usage
 
@@ -273,6 +273,10 @@ EVENTS METRICS:
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 3.29.0
+
++ Update Cradle version from `2.13.0` to `2.20.0`
 
 ### 3.28.0
 
