@@ -33,7 +33,7 @@ class AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
 
                 val metadata = message.message.metadata
                 result[AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
-                result[AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY] = message.message.descriptorForType.name
+                result[AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY] = metadata.messageType
                 result[AbstractTh2MsgFilterStrategy.DIRECTION_KEY] = metadata.id.direction.name
             }
             message.hasRawMessage() -> {

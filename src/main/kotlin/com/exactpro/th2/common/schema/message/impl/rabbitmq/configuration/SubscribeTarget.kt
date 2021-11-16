@@ -15,4 +15,5 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
 
+@Deprecated(message = "For deprecated MessageSubscriber.init() methods, please use constructor with param queue: String")
 data class SubscribeTarget(val queue: String, val routingKey: String, val exchange: String)

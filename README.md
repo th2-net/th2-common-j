@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.27.0)
+# th2 common library (Java) (3.30.0)
 
 ## Usage
 
@@ -53,7 +53,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     var factory = CommonFactory.createFromKubernetes(namespace, boxName);
     ```
     It also can be called by using `createFromArguments(args)` with arguments `--namespace` and `--boxName`.
-1. Create factory with a namespace in Kubernetes, the name of the target th2 box from Kubernetes and the name of context to choose the context from Kube config: 
+1. Create factory with a namespace in Kubernetes, the name of the target th2 box from Kubernetes and the name of context to choose from Kube config: 
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
     ```
@@ -120,12 +120,12 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     
 Filters format: 
 * fieldName - a field's name
-* expectedValue - expected field's value (used not for all operations)
+* expectedValue - expected field's value (not used for all operations)
 * operation - operation's type
-    * `EQUAL` - filter is pass if the field equals exact value
-    * `NOT_EQUAL` - filter is pass if the field doesn't equal exact value
-    * `EMPTY` - filter is pass if the field is empty
-    * `NOT_EMPTY` - filter is pass if the field isn't empty
+    * `EQUAL` - the filter passes if the field is equal to the exact value
+    * `NOT_EQUAL` - the filter passes if the field does not equal the exact value
+    * `EMPTY` - the filter passes if the field is empty
+    * `NOT_EMPTY` - the filter passes if the field is not empty
     * `WILDCARD` - filters the field by wildcard expression
 
 ```json
@@ -195,7 +195,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 
 1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again. 
 
-1. User needs to have authentication with service account token that has necessary access to read CRs and secrets from the specified namespace. 
+1. User needs to have authentication with service account token that has the necessary access to read CRs and secrets from the specified namespace. 
 
 After that you can receive various Routers through factory properties:
 ```
@@ -214,7 +214,7 @@ With the router created, you can subscribe to pins (by specifying the callback f
 ```
 router.subscribe(callback)  # subscribe to only one pin 
 router.subscribeAll(callback)  # subscribe to one or several pins
-router.send(message)  # send to only one pim
+router.send(message)  # send to only one pin
 router.sendAll(message)  # send to one or several pins
 ```
 You can perform these actions by providing pin attributes in addition to the default ones.
@@ -248,11 +248,53 @@ NOTES:
 
 * in order for the metrics to be exported, you also will need to create an instance of CommonFactory
 * common JVM metrics will also be exported alongside common service metrics
+* some metric labels are enumerations (`th2_type`: `MESSAGE_GROUP`, `EVENT`, `<customTag>`;`message_type`: `RAW_MESSAGE`, `MESSAGE`)
+
+ABSTRACT METRICS:
+* th2_rabbitmq_message_size_publish_bytes (`th2_pin`, `th2_type`, `exchange`, `routing_key`): number of published message bytes to RabbitMQ. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+* th2_rabbitmq_message_publish_total (`th2_pin`, `th2_type`, `exchange`, `routing_key`): quantity of published messages to RabbitMQ. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+* th2_rabbitmq_message_size_subscribe_bytes (`th2_pin`, `th2_type`, `queue`): number of bytes received from RabbitMQ, it includes bytes of messages dropped after filters. For information about the number of dropped messages, please refer to 'th2_message_dropped_subscribe_total' and 'th2_message_group_dropped_subscribe_total'. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+* th2_rabbitmq_message_process_duration_seconds (`th2_pin`, `th2_type`, `queue`): time of message processing during subscription from RabbitMQ in seconds. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+
+MESSAGES METRICS:
+* th2_message_publish_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of published raw or parsed messages
+* th2_message_subscribe_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of received raw or parsed messages, includes dropped after filters. For information about the number of dropped messages, please refer to 'th2_message_dropped_subscribe_total'
+* th2_message_dropped_publish_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of published raw or parsed messages dropped after filters
+* th2_message_dropped_subscribe_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of received raw or parsed messages dropped after filters
+* th2_message_group_publish_total (`th2_pin`, `session_alias`, `direction`): quantity of published message groups 
+* th2_message_group_subscribe_total (`th2_pin`, `session_alias`, `direction`): quantity of received message groups, includes dropped after filters. For information about the number of dropped messages, please refer to 'th2_message_group_dropped_subscribe_total'
+* th2_message_group_dropped_publish_total (`th2_pin`, `session_alias`, `direction`): quantity of published message groups dropped after filters
+* th2_message_group_dropped_subscribe_total (`th2_pin`, `session_alias`, `direction`): quantity of received message groups dropped after filters
+* th2_message_group_sequence_publish (`th2_pin`, `session_alias`, `direction`): last published sequence
+* th2_message_group_sequence_subscribe (`th2_pin`, `session_alias`, `direction`): last received sequence
+
+EVENTS METRICS:
+* th2_event_publish_total (`th2_pin`): quantity of published events 
+* th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
 
-### 3.27.0
+### 3.30.0
+
 + Updated `messageRecursionLimit` default value from `100` to `500`
+
+### 3.29.1
+
++ Fix problem with filtering by `message_type` in MessageGroupBatch router
+
+### 3.29.0
+
++ Update Cradle version from `2.13.0` to `2.20.0`
+
+### 3.28.0
+
++ Added new parameter `hint` for `VerificationEntry`
+
+### 3.27.0
+
++ Added new abstract router `AbstractRabbitRouter`, removed `MessageQueue` hierarchy
++ Parsed/raw routers work with `MessageGroupBatch` router
++ Added new metrics and removed old
 
 ### 3.26.5
 + Migrated `grpc-common` version from `3.7.0` to `3.8.0`
@@ -295,7 +337,7 @@ NOTES:
 + Fixed `messageRecursionLimit` setting for all kind of RabbitMQ subscribers
 
 ### 3.24.0
-+ Added setting `messageRecursionLimit`(default 100) to RabbitMQ configuration that denotes how deep nested protobuf messages might be.
++ Added setting `messageRecursionLimit`(the default value is set to 100) to RabbitMQ configuration that denotes how deep nested protobuf messages might be.
 
 ### 3.23.0
 + Update the grpc-common version to 3.4.0
@@ -359,7 +401,7 @@ NOTES:
 
 ### 3.16.3
 
-+ Change the way channels are stored (they mapped to the pin instead of the thread).
++ Change the way that channels are stored (they are mapped to the pin instead of to the thread).
   It might increase the average number of channels used by the box, but it also limits the max number of channels to the number of pins
 
 ### 3.16.2
