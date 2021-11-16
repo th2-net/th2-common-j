@@ -25,6 +25,8 @@ import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.message.impl.EventIdBuilderImpl;
+import com.exactpro.th2.common.message.impl.MessageIdBuilderImpl;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
@@ -656,6 +658,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return connectionManager;
         });
+    }
+
+    public MessageIdBuilderImpl getMessageIdBuilder() {
+        return new MessageIdBuilderImpl();
+    }
+
+    public EventIdBuilderImpl getEventIdBuilder() {
+        return new EventIdBuilderImpl();
     }
 
     @Override
