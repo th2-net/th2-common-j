@@ -48,6 +48,12 @@ public class MessageIdBuilderImpl implements MessageIdBuilder<MessageIdBuilderIm
     }
 
     @Override
+    public MessageIdBuilderImpl setBookName(String bookName) {
+        idBuilder.setBookName(bookName);
+        return this;
+    }
+
+    @Override
     public MessageID build() {
         return idBuilder.build();
     }

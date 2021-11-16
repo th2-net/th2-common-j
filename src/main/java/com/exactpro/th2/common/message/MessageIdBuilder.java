@@ -25,5 +25,7 @@ public interface MessageIdBuilder<Builder extends MessageIdBuilder<Builder, Mess
 
     Builder addSubsequence(int subSequence);
 
+    Builder setBookName(String bookName);
+
     MessageId build();
 }

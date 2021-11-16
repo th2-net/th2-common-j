@@ -19,5 +19,7 @@ package com.exactpro.th2.common.message;
 public interface EventIdBuilder<Builder extends EventIdBuilder<Builder, EventId>, EventId> {
     Builder setId(String id);
 
+    Builder setBookName(String bookName);
+
     EventId build();
 }

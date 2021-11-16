@@ -33,6 +33,7 @@ public class Test {
                 .setDirection(Direction.FIRST)
                 .setSequence(1)
                 .addSubsequence(2)
+                .setBookName("book")
                 .build();
         System.out.println(MessageUtils.toJson(messageId, false));
     }
@@ -40,6 +41,7 @@ public class Test {
     public static void testEventId(CommonFactory commonFactory) {
         EventID eventId = commonFactory.getEventIdBuilder()
                 .setId("id")
+                .setBookName("book")
                 .build();
         System.out.println(MessageUtils.toJson(eventId, false));
     }

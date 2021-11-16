@@ -29,6 +29,12 @@ public class EventIdBuilderImpl implements EventIdBuilder<EventIdBuilderImpl, Ev
     }
 
     @Override
+    public EventIdBuilderImpl setBookName(String bookName) {
+        idBuilder.setBookName(bookName);
+        return this;
+    }
+
+    @Override
     public EventID build() {
         return idBuilder.build();
     }
