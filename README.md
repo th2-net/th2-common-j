@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.29.0)
+# th2 common library (Java) (3.29.1)
 
 ## Usage
 
@@ -273,6 +273,10 @@ EVENTS METRICS:
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 3.29.1
+
++ Fix problem with filtering by `message_type` in MessageGroupBatch router
 
 ### 3.29.0
 
