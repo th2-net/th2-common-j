@@ -51,6 +51,7 @@ import com.exactpro.th2.common.grpc.Value.KindCase.NULL_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import com.exactpro.th2.common.grpc.ValueFilter
 import com.exactpro.th2.common.grpc.ValueOrBuilder
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
 import com.exactpro.th2.common.value.getDouble
@@ -343,6 +344,13 @@ val AnyMessage.sequence: Long
     get() = when {
         hasMessage() -> message.metadata.id.sequence
         hasRawMessage() -> rawMessage.metadata.id.sequence
+        else -> error("Message ${shortDebugString(this)} doesn't have message or rawMessage")
+    }
+
+val AnyMessage.bookName: BookName
+    get() = when {
+        hasMessage() -> message.metadata.id.bookName
+        hasRawMessage() -> rawMessage.metadata.id.bookName
         else -> error("Message ${shortDebugString(this)} doesn't have message or rawMessage")
     }
 

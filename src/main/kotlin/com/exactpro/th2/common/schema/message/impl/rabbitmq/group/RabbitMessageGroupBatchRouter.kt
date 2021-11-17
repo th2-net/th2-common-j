@@ -29,6 +29,7 @@ import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import com.google.protobuf.Message
 import com.google.protobuf.TextFormat
@@ -65,12 +66,17 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         return builder.build()
     }
 
-    override fun createSender(pinConfig: QueueConfiguration, pinName: PinName): MessageSender<MessageGroupBatch> {
+    override fun createSender(
+        pinConfig: QueueConfiguration,
+        pinName: PinName,
+        bookName: BookName
+    ): MessageSender<MessageGroupBatch> {
         return RabbitMessageGroupBatchSender(
             connectionManager,
             pinConfig.exchange,
             pinConfig.routingKey,
-            pinName
+            pinName,
+            bookName
         )
     }
 

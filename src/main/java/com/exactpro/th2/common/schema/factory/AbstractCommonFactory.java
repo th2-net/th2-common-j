@@ -289,7 +289,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(new DefaultMessageRouterContext(getRabbitMqConnectionManager(), MessageRouterMonitor.DEFAULT_MONITOR, getMessageRouterConfiguration()));
+                    router.init(new DefaultMessageRouterContext(
+                            getRabbitMqConnectionManager(),
+                            MessageRouterMonitor.DEFAULT_MONITOR,
+                            getMessageRouterConfiguration(),
+                            getBoxConfiguration()
+                    ));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
@@ -634,7 +639,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                        contextMonitor = new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), rootEventId));
                    }
 
-                   return new DefaultMessageRouterContext(getRabbitMqConnectionManager(), contextMonitor, getMessageRouterConfiguration());
+                   return new DefaultMessageRouterContext(
+                           getRabbitMqConnectionManager(),
+                           contextMonitor,
+                           getMessageRouterConfiguration(),
+                           getBoxConfiguration()
+                   );
                } catch (Exception e) {
                    throw new CommonFactoryException("Can not create message router context", e);
                }
