@@ -67,8 +67,8 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     override fun send(message: T, vararg attributes: String) {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSendAttributes() }
         send(message, pintAttributes) {
-            check(size == 1) {
-                "Found incorrect number of pins ${map(Triple<PinName, PinConfiguration, T>::first)} to the send operation by attributes $pintAttributes and filters, expected 1, actual $size"
+            check(size == 1 || (size > 0 && oneOrNoneWithData())) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to the send operation by attributes $pintAttributes and filters, expected 1, actual $size"
             }
         }
     }
@@ -77,7 +77,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSendAttributes() }
         send(message, pintAttributes) {
             check(isNotEmpty()) {
-                "Found incorrect number of pins ${map(Triple<PinName, PinConfiguration, T>::first)} to send all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to send all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
             }
         }
     }
@@ -86,7 +86,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(size == 1) {
-                "Found incorrect number of pins ${map(Pair<PinName, PinConfiguration>::first)} to subscribe operation by attributes $pintAttributes and filters, expected 1, actual $size"
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $pintAttributes and filters, expected 1, actual $size"
             }
         }
     }
@@ -95,7 +95,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(isNotEmpty()) {
-                "Found incorrect number of pins ${map(Pair<PinName, PinConfiguration>::first)} to subscribe all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
             }
         }
     }
@@ -120,7 +120,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
      * @param message a source message which can be reduced according to pin configuration
      * @return the source message, part of them, or null if the message is matched to the pin configuration: fully, partially, not match accordingly
      */
-    protected abstract fun splitAndFilter(message: T, pinConfiguration: PinConfiguration, pinName: PinName): T
+    protected abstract fun splitAndFilter(message: T, pinConfiguration: PinConfiguration, pinName: PinName): T?
 
     /**
      * Returns default set of attributes for send operations
@@ -142,18 +142,22 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     private fun send(
         message: T, pintAttributes: Set<String>,
-        check: List<Triple<PinName, PinConfiguration, T>>.() -> Unit
+        check: List<PinPublication<T>>.() -> Unit
     ) {
-        val packages: List<Triple<PinName, PinConfiguration, T>> = configuration.queues.asSequence()
+        val packages: List<PinPublication<T>> = configuration.queues.asSequence()
             .filter { it.value.attributes.containsAll(pintAttributes) }
             .map { (pinName, pinConfig) ->
-                Triple(pinName, pinConfig, splitAndFilter(message, pinConfig, pinName))
+                PinPublication(pinName, pinConfig, splitAndFilter(message, pinConfig, pinName))
             }
             .toList()
             .also(check)
 
         val exceptions: MutableMap<PinName, Throwable> = mutableMapOf()
-        packages.forEach { (pinName: PinName, pinConfig: PinConfiguration, message: T) ->
+        packages.forEach { (pinName: PinName, pinConfig: PinConfiguration, message: T?) ->
+            if (message == null) {
+                LOGGER.debug { "Publication to pin $pinName with attributes ${pinConfig.attributes} was dropped because all content was filtered" }
+                return@forEach
+            }
             try {
                 senders.getSender(pinName, pinConfig)
                     .send(message)
@@ -168,11 +172,11 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     private fun subscribe(
         pintAttributes: Set<String>,
         messageListener: MessageListener<T>,
-        check: List<Pair<PinName, PinConfiguration>>.() -> Unit
+        check: List<PinInfo>.() -> Unit
     ): SubscriberMonitor {
-        val packages: List<Pair<PinName, PinConfiguration>> = configuration.queues.asSequence()
+        val packages: List<PinInfo> = configuration.queues.asSequence()
             .filter { it.value.attributes.containsAll(pintAttributes) }
-            .map { (pinName, pinConfig) -> Pair(pinName, pinConfig) }
+            .map { (pinName, pinConfig) -> PinInfo(pinName, pinConfig) }
             .toList()
             .also(check)
 
@@ -233,9 +237,37 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         return@computeIfAbsent createSubscriber(pinConfig, pinName)
     }
 
-    companion object {
-        private val LOGGER = KotlinLogging.logger {}
+    private open class PinInfo(
+        val pinName: PinName,
+        val pinConfig: PinConfiguration
+    ) {
+        operator fun component1(): PinName = pinName
+        operator fun component2(): PinConfiguration = pinConfig
 
+        override fun toString(): String {
+            return "pinName=$pinName; pinConfig=$pinConfig"
+        }
+    }
+
+    private class PinPublication<T>(
+        pinName: PinName,
+        pinConfig: PinConfiguration,
+        val data: T?
+    ) : PinInfo(pinName, pinConfig) {
+        operator fun component3(): T? = data
+
+        override fun toString(): String {
+            return "${super.toString()}; data=$data"
+        }
+    }
+
+    private fun List<PinPublication<*>>.oneOrNoneWithData(): Boolean {
+        return count { it.data != null } <= 1
+    }
+
+    companion object {
+
+        private val LOGGER = KotlinLogging.logger {}
         private val REQUIRED_SEND_ATTRIBUTES = setOf(PUBLISH.toString())
         private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(SUBSCRIBE.toString())
     }
