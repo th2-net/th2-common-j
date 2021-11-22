@@ -275,7 +275,7 @@ EVENTS METRICS:
 ### 4.0.0
 
 + Adaptation to books/pages cradleapi 4.0.0
-+ Removed `cradleInstanceName` parameter from `cradle_confidential.json`
++ Removed `cradleInstanceName` parameter from `cradle.json`
 
 ### 3.29.1
 
