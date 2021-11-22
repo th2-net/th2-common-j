@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.29.1)
+# th2 common library (Java) (4.0.0)
 
 ## Usage
 
@@ -271,6 +271,11 @@ EVENTS METRICS:
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 4.0.0
+
++ Adaptation to books/pages cradleapi 4.0.0
++ Removed `cradleInstanceName` parameter from `cradle_confidential.json`
 
 ### 3.29.1
 
