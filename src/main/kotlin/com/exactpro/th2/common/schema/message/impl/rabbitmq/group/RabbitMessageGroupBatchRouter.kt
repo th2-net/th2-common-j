@@ -44,7 +44,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         message: MessageGroupBatch,
         pinConfiguration: @NotNull QueueConfiguration,
         pinName: PinName
-    ): @NotNull MessageGroupBatch {
+    ): MessageGroupBatch? {
         if (pinConfiguration.filters.isEmpty()) {
             return message
         }
@@ -62,7 +62,8 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
                 )
             }
         }
-        return builder.build()
+        // should not return an empty batch
+        return if (builder.groupsCount > 0) builder.build() else null
     }
 
     override fun createSender(pinConfig: QueueConfiguration, pinName: PinName): MessageSender<MessageGroupBatch> {

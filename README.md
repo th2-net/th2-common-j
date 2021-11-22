@@ -277,6 +277,10 @@ EVENTS METRICS:
 + Adaptation to books/pages cradleapi 4.0.0
 + Removed `cradleInstanceName` parameter from `cradle.json`
 
+### 3.29.2
+
++ Do not publish messages if the whole batch was filtered
+
 ### 3.29.1
 
 + Fix problem with filtering by `message_type` in MessageGroupBatch router
