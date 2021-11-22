@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.29.3)
+# th2 common library (Java) (3.30.0)
 
 ## Usage
 
@@ -274,7 +274,7 @@ EVENTS METRICS:
 
 ## Release notes
 
-### 3.29.3
+### 3.30.0
 
 + Added util methods from store-common to use in estore/mstore
 

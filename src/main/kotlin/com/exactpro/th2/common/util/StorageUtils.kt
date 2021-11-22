@@ -22,6 +22,8 @@ import com.exactpro.th2.common.grpc.Direction
 import com.google.protobuf.TimestampOrBuilder
 import java.time.Instant
 
+//FIXME: this code should be extracted to a separate library together with cradle extraction.
+
 fun Direction.toCradleDirection(): com.exactpro.cradle.Direction = when (this) {
     Direction.FIRST -> com.exactpro.cradle.Direction.FIRST
     Direction.SECOND -> com.exactpro.cradle.Direction.SECOND
