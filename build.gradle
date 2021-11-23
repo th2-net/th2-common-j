@@ -29,7 +29,7 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '4.0.0-TH2-2150-1411749626-SNAPSHOT'
+    cradleVersion       = '4.0.0-TH2-2150-1493588338-SNAPSHOT'
     junitVersion      = '5.7.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
