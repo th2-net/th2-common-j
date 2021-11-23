@@ -51,23 +51,27 @@ class RabbitMessageGroupBatchSender(
             MESSAGE_GROUP_PUBLISH_TOTAL,
             MESSAGE_GROUP_SEQUENCE_PUBLISH
         )
-        val batchBuilder = MessageGroupBatch.newBuilder()
-        value.groupsList.forEach { messageGroup ->
-            val groupBuilder = MessageGroup.newBuilder()
-            messageGroup.messagesList.forEach { message ->
-                val messageBuilder = message.toBuilder()
-                if (message.bookName.isEmpty()) {
-                    if (messageBuilder.hasMessage()) {
-                        messageBuilder.messageBuilder.metadataBuilder.idBuilder.bookName = bookName
-                    } else if (messageBuilder.hasRawMessage()) {
-                        messageBuilder.rawMessageBuilder.metadataBuilder.idBuilder.bookName = bookName
+        if (value.groupsList.any { group -> group.messagesList.any { message -> message.bookName.isEmpty() } }) {
+            val batchBuilder = MessageGroupBatch.newBuilder()
+            value.groupsList.forEach { messageGroup ->
+                val groupBuilder = MessageGroup.newBuilder()
+                messageGroup.messagesList.forEach { message ->
+                    val messageBuilder = message.toBuilder()
+                    if (message.bookName.isEmpty()) {
+                        if (messageBuilder.hasMessage()) {
+                            messageBuilder.messageBuilder.metadataBuilder.idBuilder.bookName = bookName
+                        } else if (messageBuilder.hasRawMessage()) {
+                            messageBuilder.rawMessageBuilder.metadataBuilder.idBuilder.bookName = bookName
+                        }
                     }
+                    groupBuilder.addMessages(messageBuilder)
                 }
-                groupBuilder.addMessages(messageBuilder)
+                batchBuilder.addGroups(groupBuilder)
             }
-            batchBuilder.addGroups(groupBuilder)
+            super.send(batchBuilder.build())
+        } else {
+            super.send(value)
         }
-        super.send(batchBuilder.build())
     }
 
     override fun valueToBytes(value: MessageGroupBatch): ByteArray = value.toByteArray()

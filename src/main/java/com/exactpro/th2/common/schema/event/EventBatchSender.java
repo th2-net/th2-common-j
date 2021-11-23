@@ -53,15 +53,19 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
         EVENT_PUBLISH_TOTAL
                 .labels(th2Pin)
                 .inc(value.getEventsCount());
-        EventBatch.Builder eventBatchBuilder = EventBatch.newBuilder();
-        value.getEventsList().forEach(event -> {
-            Event.Builder eventBuilder = event.toBuilder();
-            if (event.getId().getBookName().isEmpty()) {
-                eventBuilder.getIdBuilder().setBookName(bookName);
-            }
-            eventBatchBuilder.addEvents(eventBuilder);
-        });
-        super.send(eventBatchBuilder.build());
+        if (value.getEventsList().stream().anyMatch(event -> event.getId().getBookName().isEmpty())) {
+            EventBatch.Builder eventBatchBuilder = EventBatch.newBuilder();
+            value.getEventsList().forEach(event -> {
+                Event.Builder eventBuilder = event.toBuilder();
+                if (event.getId().getBookName().isEmpty()) {
+                    eventBuilder.getIdBuilder().setBookName(bookName);
+                }
+                eventBatchBuilder.addEvents(eventBuilder);
+            });
+            super.send(eventBatchBuilder.build());
+        } else {
+            super.send(value);
+        }
     }
 
     @Override
