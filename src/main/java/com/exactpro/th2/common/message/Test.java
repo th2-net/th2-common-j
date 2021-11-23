@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.message;
 
+import com.exactpro.th2.common.grpc.ConnectionID;
+import com.exactpro.th2.common.grpc.Direction;
 import com.exactpro.th2.common.grpc.EventID;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.schema.factory.CommonFactory;
@@ -28,8 +30,8 @@ public class Test {
     }
 
     public static void testMessageId(CommonFactory commonFactory) {
-        MessageID messageId = commonFactory.getMessageIdBuilder()
-                .setSessionAlias("alias")
+        MessageID messageId = commonFactory.newMessageIDBuilder()
+                .setConnectionId(ConnectionID.newBuilder().setSessionAlias("alias"))
                 .setDirection(Direction.FIRST)
                 .setSequence(1)
                 .addSubsequence(2)
@@ -39,7 +41,7 @@ public class Test {
     }
 
     public static void testEventId(CommonFactory commonFactory) {
-        EventID eventId = commonFactory.getEventIdBuilder()
+        EventID eventId = commonFactory.newEventIDBuilder()
                 .setId("id")
                 .setBookName("book")
                 .build();

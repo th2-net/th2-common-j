@@ -22,11 +22,11 @@ import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.EventID;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.message.impl.EventIdBuilderImpl;
-import com.exactpro.th2.common.message.impl.MessageIdBuilderImpl;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
@@ -670,12 +670,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         });
     }
 
-    public MessageIdBuilderImpl getMessageIdBuilder() {
-        return new MessageIdBuilderImpl();
+    public MessageID.Builder newMessageIDBuilder() {
+        return MessageID.newBuilder()
+                .setBookName(getBoxConfiguration().getBookName());
     }
 
-    public EventIdBuilderImpl getEventIdBuilder() {
-        return new EventIdBuilderImpl();
+    public EventID.Builder newEventIDBuilder() {
+        return EventID.newBuilder()
+                .setBookName(getBoxConfiguration().getBookName());
     }
 
     @Override
