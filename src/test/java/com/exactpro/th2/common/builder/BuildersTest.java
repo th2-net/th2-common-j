@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.message;
+package com.exactpro.th2.common.builder;
+
+import org.junit.jupiter.api.Test;
 
 import com.exactpro.th2.common.grpc.ConnectionID;
 import com.exactpro.th2.common.grpc.Direction;
 import com.exactpro.th2.common.grpc.EventID;
 import com.exactpro.th2.common.grpc.MessageID;
+import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.factory.CommonFactory;
 
-public class Test {
-    public static void main(String[] args) {
-        CommonFactory commonFactory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries");
-        testMessageId(commonFactory);
-        testEventId(commonFactory);
-    }
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    public static void testMessageId(CommonFactory commonFactory) {
+public class BuildersTest {
+    private final CommonFactory commonFactory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries");
+
+    @Test
+    public void testMessageId() {
         MessageID messageId = commonFactory.newMessageIDBuilder()
                 .setConnectionId(ConnectionID.newBuilder().setSessionAlias("alias"))
                 .setDirection(Direction.FIRST)
@@ -37,14 +39,32 @@ public class Test {
                 .addSubsequence(2)
                 .setBookName("book")
                 .build();
-        System.out.println(MessageUtils.toJson(messageId, false));
+        assertEquals(
+                "{\n" +
+                        "  \"connectionId\": {\n" +
+                        "    \"sessionAlias\": \"alias\"\n" +
+                        "  },\n" +
+                        "  \"direction\": \"FIRST\",\n" +
+                        "  \"sequence\": \"1\",\n" +
+                        "  \"subsequence\": [2],\n" +
+                        "  \"bookName\": \"book\"\n" +
+                        "}",
+                MessageUtils.toJson(messageId, false)
+        );
     }
 
-    public static void testEventId(CommonFactory commonFactory) {
+    @Test
+    public void testEventId() {
         EventID eventId = commonFactory.newEventIDBuilder()
                 .setId("id")
                 .setBookName("book")
                 .build();
-        System.out.println(MessageUtils.toJson(eventId, false));
+        assertEquals(
+                "{\n" +
+                        "  \"id\": \"id\",\n" +
+                        "  \"bookName\": \"book\"\n" +
+                        "}",
+                MessageUtils.toJson(eventId, false)
+        );
     }
 }
