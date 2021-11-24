@@ -15,6 +15,8 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
+import java.util.Set;
+
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import io.grpc.BindableService;
@@ -39,7 +41,17 @@ public interface GrpcRouter extends AutoCloseable {
      * @param cls service class
      * @return service
      */
-    <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException;
+    <T> T getService(@NotNull Class<T> cls);
+
+    /**
+     * Returns the gRPC service for each endpoint specified for passed class
+     * @param <T> the type of gRPC service to create
+     * @param serviceClass the class of corresponding service
+     * @return the service for each endpoint specified in the configuration
+     */
+    default <T> Set<T> getServices(@NotNull Class<T> serviceClass) {
+        throw new UnsupportedOperationException("get services does not support by default");
+    }
 
     /**
      * Start server of service

@@ -25,17 +25,16 @@ import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
-import com.exactpro.th2.service.StubStorage;
+import com.exactpro.th2.common.schema.grpc.router.AbstractStubStorage;
 import com.google.protobuf.Message;
 
-import io.grpc.CallOptions;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.AbstractStub;
+import io.grpc.stub.AbstractStub.StubFactory;
 
 @ThreadSafe
-public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorage<T> {
+public class DefaultStubStorage<T extends AbstractStub<T>> extends AbstractStubStorage<T> {
 
-    private final GrpcServiceConfiguration serviceConfiguration;
+    protected final GrpcServiceConfiguration serviceConfiguration;
     private final Map<String, T> stubs = new ConcurrentHashMap<>();
 
     public DefaultStubStorage(@NotNull GrpcServiceConfiguration serviceConfiguration) {
@@ -44,7 +43,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
 
     @NotNull
     @Override
-    public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory) {
+    public T getStub(@NotNull Message message, @NotNull StubFactory<T> stubFactory) {
         String endpointLabel = serviceConfiguration.getStrategy().getEndpoint(message);
         return stubs.computeIfAbsent(endpointLabel, key -> {
             GrpcEndpointConfiguration endpoint = serviceConfiguration.getEndpoints().get(key);
@@ -54,7 +53,8 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                         "that matches the provided alias: " + key);
             }
 
-            return stubFactory.newStub(ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort()).usePlaintext().build(), CallOptions.DEFAULT);
+            return createStub(stubFactory, endpoint);
         });
     }
+
 }

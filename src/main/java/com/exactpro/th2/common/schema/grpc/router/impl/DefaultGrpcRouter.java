@@ -15,6 +15,21 @@
 
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
@@ -24,24 +39,12 @@ import com.exactpro.th2.proto.service.generator.core.antlr.annotation.GrpcStub;
 import com.exactpro.th2.service.RetryPolicy;
 import com.exactpro.th2.service.StubStorage;
 import com.google.protobuf.Message;
+
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Proxy;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.ServiceLoader;
-import java.util.ServiceLoader.Provider;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * Default implementation for {@link GrpcRouter}
@@ -59,14 +62,12 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     /**
      * Creates a service instance according to the filters in {@link GrpcConfiguration}
      *
-     * @param cls class of service
      * @param <T> type of service
+     * @param cls class of service
      * @return service instance
-     * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
-    public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
-        List<Provider<T>> implementations = ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
-                .stream().collect(Collectors.toList());
+    public <T> T getService(@NotNull Class<T> cls) {
+        List<Class<? extends T>> implementations = loadImplementations(cls);
 
         if (implementations.size() > 1) {
             throw new IllegalStateException("Can not choose implementation. Fount " + implementations.size() + " implementations");
@@ -77,32 +78,70 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
             return getProxyService(cls);
         }
 
-        Class<? extends T> th2ImplClass = implementations.get(0).type();
+        Class<? extends T> th2ImplClass = implementations.get(0);
 
+        return createService(cls, th2ImplClass);
+    }
+
+    @Override
+    public <T> Set<T> getServices(@NotNull Class<T> serviceClass) {
+        List<Class<? extends T>> implementationClasses = loadImplementations(serviceClass);
+        if (implementationClasses.size() > 1) {
+            throw new IllegalStateException("Can not choose implementation for " + serviceClass +
+                    ". Fount " + implementationClasses.size() + " implementations");
+        }
+
+        if (implementationClasses.isEmpty()) {
+            throw new IllegalStateException("Cannot find any implementation for " + serviceClass);
+        }
+
+        Class<? extends T> th2ImplClass = implementationClasses.get(0);
+        GrpcServiceConfiguration serviceConfig = getServiceConfig(serviceClass);
+        return serviceConfig.getEndpoints().values().stream()
+                .map(endpoint -> {
+                    try {
+                        return createService(serviceClass, th2ImplClass, new SingleEndpointStubStorage<>(endpoint));
+                    } catch (RuntimeException ex) {
+                        throw new IllegalStateException("Problem for endpoint " + endpoint.getHost() + ":" + endpoint.getPort(), ex);
+                    }
+                })
+                .collect(Collectors.toSet());
+    }
+
+    @NotNull
+    private <T> T createService(@NotNull Class<T> cls, Class<? extends T> th2ImplClass) {
+        StubStorage<?> stubStorage = stubsStorages.computeIfAbsent(cls, key -> new DefaultStubStorage<>(getServiceConfig(key)));
+        return createService(cls, th2ImplClass, stubStorage);
+    }
+
+    @NotNull
+    private <T> T createService(@NotNull Class<T> cls, Class<? extends T> th2ImplClass, StubStorage<?> stubStorage) {
         try {
             return th2ImplClass.getConstructor(RetryPolicy.class, StubStorage.class)
-                    .newInstance(
-                            configuration.getRetryConfiguration(),
-                            stubsStorages.computeIfAbsent(cls, key ->
-                                    new DefaultStubStorage<>(getServiceConfig(key))
-                            )
-                    );
+                    .newInstance(configuration.getRetryConfiguration(), stubStorage);
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new IllegalStateException("Can not create new instance of service from class " + cls, e);
         }
     }
 
+    @NotNull
+    private <T> List<Class<? extends T>> loadImplementations(@NotNull Class<T> cls) {
+        return ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
+                .stream()
+                .map(Provider::type)
+                .collect(Collectors.toList());
+    }
 
     @SuppressWarnings("unchecked")
     protected <T> T getProxyService(Class<T> proxyService) {
-        return (T) Proxy.newProxyInstance(
+        return (T)Proxy.newProxyInstance(
                 proxyService.getClassLoader(),
-                new Class[]{proxyService},
+                new Class[] { proxyService },
                 (o, method, args) -> {
                     try {
                         validateArgs(args);
 
-                        var message = (Message) args[0];
+                        var message = (Message)args[0];
 
                         var stub = getGrpcStubToSend(proxyService, message);
 
@@ -148,7 +187,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
         return getStubInstanceOrCreate(proxyService, grpcStubAnn.value(), message);
     }
 
-    protected  <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<?> proxyService, Class<T> stubClass, Message message) {
+    protected <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<?> proxyService, Class<T> stubClass, Message message) {
         var serviceConfig = getServiceConfig(proxyService);
 
         String endpointName = serviceConfig.getStrategy().getEndpoint(message);
