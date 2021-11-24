@@ -24,16 +24,17 @@ import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter
 import java.nio.file.Path
-
 
 data class FactorySettings @JvmOverloads constructor(
     var messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>> = RabbitParsedBatchRouter::class.java,
     var messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>> = RabbitRawBatchRouter::class.java,
     var messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>> = RabbitMessageGroupBatchRouter::class.java,
     var eventBatchRouterClass: Class<out MessageRouter<EventBatch>> = EventBatchRouter::class.java,
+    var notificationEventBatchRouterClass: Class<out MessageRouter<EventBatch>> = NotificationEventBatchRouter::class.java,
     var grpcRouterClass: Class<out GrpcRouter> = DefaultGrpcRouter::class.java,
     var rabbitMQ: Path? = null,
     var routerMQ: Path? = null,
@@ -46,7 +47,8 @@ data class FactorySettings @JvmOverloads constructor(
     var boxConfiguration: Path? = null,
     var custom: Path? = null,
     var dictionariesDir: Path? = null,
-    var oldDictionariesDir: Path? = null) {
+    var oldDictionariesDir: Path? = null
+) {
     private val _variables: MutableMap<String, String> = HashMap()
     val variables: Map<String, String> = _variables
 

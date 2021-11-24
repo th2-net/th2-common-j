@@ -35,6 +35,7 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -111,37 +112,49 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
-    protected CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-                            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                            Class<? extends GrpcRouter> grpcRouterClass,
-                            @Nullable Path custom,
-                            @Nullable Path dictionariesDir,
-                            @Nullable Path oldDictionariesDir,
-                            Map<String, String> environmentVariables,
-                            ConfigurationManager configurationManager) {
-        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
-
+    protected CommonFactory(
+            Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass,
+            @Nullable Path custom,
+            @Nullable Path dictionariesDir,
+            @Nullable Path oldDictionariesDir,
+            Map<String, String> environmentVariables,
+            ConfigurationManager configurationManager
+    ) {
+        super(
+                messageRouterParsedBatchClass,
+                messageRouterRawBatchClass,
+                messageRouterMessageGroupBatchClass,
+                eventBatchRouterClass,
+                notificationEventBatchRouterClass,
+                grpcRouterClass,
+                environmentVariables
+        );
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
         this.dictionariesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_DIR_NAME);
         this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
-
         start();
     }
 
     public CommonFactory(FactorySettings settings) {
-        this(settings.getMessageRouterParsedBatchClass(),
+        this(
+                settings.getMessageRouterParsedBatchClass(),
                 settings.getMessageRouterRawBatchClass(),
                 settings.getMessageRouterMessageGroupBatchClass(),
                 settings.getEventBatchRouterClass(),
+                settings.getNotificationEventBatchRouterClass(),
                 settings.getGrpcRouterClass(),
                 settings.getCustom(),
                 settings.getDictionariesDir(),
                 settings.getOldDictionariesDir(),
                 settings.getVariables(),
-                createConfigurationManager(settings));
+                createConfigurationManager(settings)
+        );
     }
 
 
@@ -149,17 +162,29 @@ public class CommonFactory extends AbstractCommonFactory {
      * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
      */
     @Deprecated(since = "3.10.0", forRemoval = true)
-    public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                         Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                         Class<? extends GrpcRouter> grpcRouterClass,
-                         Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
+    public CommonFactory(
+            Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass,
+            Path rabbitMQ,
+            Path routerMQ,
+            Path routerGRPC,
+            Path cradle,
+            Path custom,
+            Path prometheus,
+            Path dictionariesDir,
+            Path boxConfiguration
+    ) {
 
-        this(new FactorySettings(messageRouterParsedBatchClass,
+        this(new FactorySettings(
+                messageRouterParsedBatchClass,
                 messageRouterRawBatchClass,
                 messageRouterMessageGroupBatchClass,
                 eventBatchRouterClass,
+                notificationEventBatchRouterClass,
                 grpcRouterClass,
                 rabbitMQ,
                 routerMQ,
@@ -171,28 +196,62 @@ public class CommonFactory extends AbstractCommonFactory {
                 prometheus,
                 boxConfiguration,
                 custom,
-                dictionariesDir));
+                dictionariesDir
+        ));
     }
 
     /**
      * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
      */
     @Deprecated(since = "3.10.0", forRemoval = true)
-    public CommonFactory(Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
-        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class,
-                rabbitMQ ,routerMQ ,routerGRPC ,cradle ,custom ,dictionariesDir ,prometheus ,boxConfiguration);
+    public CommonFactory(
+            Path rabbitMQ,
+            Path routerMQ,
+            Path routerGRPC,
+            Path cradle,
+            Path custom,
+            Path prometheus,
+            Path dictionariesDir,
+            Path boxConfiguration
+    ) {
+        this(
+                RabbitParsedBatchRouter.class,
+                RabbitRawBatchRouter.class,
+                RabbitMessageGroupBatchRouter.class,
+                EventBatchRouter.class,
+                NotificationEventBatchRouter.class,
+                DefaultGrpcRouter.class,
+                rabbitMQ,
+                routerMQ,
+                routerGRPC,
+                cradle,
+                custom,
+                dictionariesDir,
+                prometheus,
+                boxConfiguration
+        );
     }
 
     /**
      * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
      */
     @Deprecated(since = "3.10.0", forRemoval = true)
-    public CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                         Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                         Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-                         Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                         Class<? extends GrpcRouter> grpcRouterClass) {
-        this(new FactorySettings(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass));
+    public CommonFactory(
+            Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+            Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
+            Class<? extends GrpcRouter> grpcRouterClass
+    ) {
+        this(new FactorySettings(
+                messageRouterParsedBatchClass,
+                messageRouterRawBatchClass,
+                messageRouterMessageGroupBatchClass,
+                eventBatchRouterClass,
+                notificationEventBatchRouterClass,
+                grpcRouterClass
+        ));
     }
 
     public CommonFactory() {

@@ -57,6 +57,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
@@ -137,6 +138,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
+    private final Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
     private final AtomicReference<ConnectionManager> rabbitMqConnectionManager = new AtomicReference<>();
     private final AtomicReference<MessageRouterContext> routerContext = new AtomicReference<>();
@@ -144,6 +146,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
+    private final AtomicReference<MessageRouter<EventBatch>> notificationEventBatchRouter = new AtomicReference<>();
     private final AtomicReference<String> rootEventId = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
@@ -159,44 +162,67 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * Create factory with default implementation schema classes
      */
     public AbstractCommonFactory() {
-        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class);
+        this(
+                RabbitParsedBatchRouter.class,
+                RabbitRawBatchRouter.class,
+                RabbitMessageGroupBatchRouter.class,
+                EventBatchRouter.class,
+                NotificationEventBatchRouter.class,
+                DefaultGrpcRouter.class
+        );
     }
 
     /**
      * Create factory with non-default implementations schema classes
-     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
-     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
-     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
-     * @param grpcRouterClass               Class for {@link GrpcRouter}
+     * @param messageRouterParsedBatchClass     Class for {@link MessageRouter} which work with {@link MessageBatch}
+     * @param messageRouterRawBatchClass        Class for {@link MessageRouter} which work with {@link RawMessageBatch}
+     * @param eventBatchRouterClass             Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param notificationEventBatchRouterClass Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param grpcRouterClass                   Class for {@link GrpcRouter}
      */
-    public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    public AbstractCommonFactory(
+            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
-        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass,
-                eventBatchRouterClass, grpcRouterClass, emptyMap());
+            @NotNull Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
+            @NotNull Class<? extends GrpcRouter> grpcRouterClass
+    ) {
+        this(
+                messageRouterParsedBatchClass, 
+                messageRouterRawBatchClass, 
+                messageRouterMessageGroupBatchClass,
+                eventBatchRouterClass,
+                notificationEventBatchRouterClass,
+                grpcRouterClass, 
+                emptyMap()
+        );
     }
 
     /**
      * Create factory with non-default implementations schema classes
      *
-     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
-     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
-     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
-     * @param grpcRouterClass               Class for {@link GrpcRouter}
-     * @param environmentVariables          map with additional environment variables
+     * @param messageRouterParsedBatchClass     Class for {@link MessageRouter} which work with {@link MessageBatch}
+     * @param messageRouterRawBatchClass        Class for {@link MessageRouter} which work with {@link RawMessageBatch}
+     * @param eventBatchRouterClass             Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param notificationEventBatchRouterClass Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param grpcRouterClass                   Class for {@link GrpcRouter}
+     * @param environmentVariables              map with additional environment variables
      */
-    protected AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    protected AbstractCommonFactory(
+            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            @NotNull Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass,
-            @NotNull Map<String, String> environmentVariables) {
+            @NotNull Map<String, String> environmentVariables
+    ) {
         this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
         this.messageRouterRawBatchClass = messageRouterRawBatchClass;
         this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
         this.eventBatchRouterClass = eventBatchRouterClass;
+        this.notificationEventBatchRouterClass = notificationEventBatchRouterClass;
         this.grpcRouterClass = grpcRouterClass;
         this.stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(environmentVariables.get(key), System.getenv(key)));
     }
@@ -297,6 +323,25 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     ));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
+                }
+            }
+            return router;
+        });
+    }
+
+    /**
+     * @return Initialized {@link MessageRouter} which works with {@link EventBatch}
+     * @throws CommonFactoryException if can not call default constructor from class
+     * @throws IllegalStateException  if can not read configuration
+     */
+    public MessageRouter<EventBatch> getNotificationEventBatchRouter() {
+        return notificationEventBatchRouter.updateAndGet(router -> {
+            if (router == null) {
+                try {
+                    router = notificationEventBatchRouterClass.getConstructor().newInstance();
+                    router.init(getMessageRouterContext());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    throw new CommonFactoryException("Can not create notification router", e);
                 }
             }
             return router;
