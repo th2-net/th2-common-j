@@ -366,10 +366,10 @@ var RawMessage.Builder.subsequence
     }
 
 val Message.logId: String
-    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ":$it" }}"
+    get() = "$sessionAlias.${direction.toString().toLowerCase()}.$sequence${subsequence.joinToString("") { ".$it" }}"
 
 val RawMessage.logId: String
-    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ":$it" }}"
+    get() = "$sessionAlias.${direction.toString().toLowerCase()}.$sequence${subsequence.joinToString("") { ".$it" }}"
 
 val AnyMessage.logId: String
     get() = when (kindCase) {
