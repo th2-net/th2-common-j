@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
@@ -268,7 +269,8 @@ class TestRabbitMessageGroupBatchRouter {
             init(DefaultMessageRouterContext(
                 connectionManager,
                 mock { },
-                MessageRouterConfiguration(pins)
+                MessageRouterConfiguration(pins),
+                BoxConfiguration()
             ))
         }
 }

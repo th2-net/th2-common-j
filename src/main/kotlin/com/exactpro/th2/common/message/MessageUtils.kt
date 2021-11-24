@@ -51,6 +51,7 @@ import com.exactpro.th2.common.grpc.Value.KindCase.NULL_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import com.exactpro.th2.common.grpc.ValueFilter
 import com.exactpro.th2.common.grpc.ValueOrBuilder
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
@@ -150,7 +151,14 @@ fun Message.copy(): Message.Builder = Message.newBuilder().setMetadata(metadata)
 
 fun Message.Builder.copy(): Message.Builder = Message.newBuilder().setMetadata(metadata).putAllFields(fieldsMap).setParentEventId(parentEventId)
 
-fun Message.Builder.setMetadata(messageType: String? = null, direction: Direction? = null, sessionAlias: String? = null, sequence: Long? = null, timestamp: Instant? = null): Message.Builder =
+fun Message.Builder.setMetadata(
+    messageType: String? = null,
+    direction: Direction? = null,
+    sessionAlias: String? = null,
+    sequence: Long? = null,
+    timestamp: Instant? = null,
+    bookName: String = BoxConfiguration.DEFAULT_BOOK_NAME
+): Message.Builder =
     setMetadata(MessageMetadata.newBuilder().also {
         if (messageType != null) {
             it.messageType = messageType
@@ -167,6 +175,7 @@ fun Message.Builder.setMetadata(messageType: String? = null, direction: Directio
                 if (sequence != null) {
                     this.sequence = sequence
                 }
+                this.bookName = bookName
             }.build()
         }
     })
