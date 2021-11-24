@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.schema.message;
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
@@ -41,8 +42,7 @@ public interface MessageRouter<T> extends AutoCloseable {
     default void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration) {
         Objects.requireNonNull(connectionManager, "Connection owner can not be null");
         Objects.requireNonNull(configuration, "Configuration cannot be null");
-
-        init(new DefaultMessageRouterContext(connectionManager, MessageRouterMonitor.DEFAULT_MONITOR, configuration));
+        init(new DefaultMessageRouterContext(connectionManager, MessageRouterMonitor.DEFAULT_MONITOR, configuration, new BoxConfiguration()));
     }
 
     default void init(@NotNull MessageRouterContext context, @NotNull MessageRouter<MessageGroupBatch> groupBatchRouter) {

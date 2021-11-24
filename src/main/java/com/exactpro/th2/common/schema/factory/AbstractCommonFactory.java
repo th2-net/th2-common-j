@@ -22,8 +22,10 @@ import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.EventID;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricMonitor;
@@ -287,7 +289,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(new DefaultMessageRouterContext(getRabbitMqConnectionManager(), MessageRouterMonitor.DEFAULT_MONITOR, getMessageRouterConfiguration()));
+                    router.init(new DefaultMessageRouterContext(
+                            getRabbitMqConnectionManager(),
+                            MessageRouterMonitor.DEFAULT_MONITOR,
+                            getMessageRouterConfiguration(),
+                            getBoxConfiguration()
+                    ));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
@@ -640,7 +647,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                        contextMonitor = new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), rootEventId));
                    }
 
-                   return new DefaultMessageRouterContext(getRabbitMqConnectionManager(), contextMonitor, getMessageRouterConfiguration());
+                   return new DefaultMessageRouterContext(
+                           getRabbitMqConnectionManager(),
+                           contextMonitor,
+                           getMessageRouterConfiguration(),
+                           getBoxConfiguration()
+                   );
                } catch (Exception e) {
                    throw new CommonFactoryException("Can not create message router context", e);
                }
@@ -664,6 +676,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return connectionManager;
         });
+    }
+
+    public MessageID.Builder newMessageIDBuilder() {
+        return MessageID.newBuilder()
+                .setBookName(getBoxConfiguration().getBookName());
+    }
+
+    public EventID.Builder newEventIDBuilder() {
+        return EventID.newBuilder()
+                .setBookName(getBoxConfiguration().getBookName());
     }
 
     @Override

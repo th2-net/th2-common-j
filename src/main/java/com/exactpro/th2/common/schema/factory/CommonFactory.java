@@ -445,9 +445,6 @@ public class CommonFactory extends AbstractCommonFactory {
             }
 
             if (generatedConfigsDirFile.exists()) {
-                BoxConfiguration box = new BoxConfiguration();
-                box.setBoxName(boxName);
-
                 settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_FILE_NAME, rabbitMqData));
                 settings.setRouterMQ(writeFile(configPath, ROUTER_MQ_FILE_NAME, boxData));
                 settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
@@ -463,10 +460,13 @@ public class CommonFactory extends AbstractCommonFactory {
 
                 String boxConfig = boxData.get(BOX_FILE_NAME);
 
-                if (boxConfig != null)
+                if (boxConfig != null) {
                     writeFile(boxConfigurationPath, boxConfig);
-                else
+                } else {
+                    BoxConfiguration box = new BoxConfiguration();
+                    box.setBoxName(boxName);
                     writeToJson(boxConfigurationPath, box);
+                }
 
                 writeDictionaries(boxName, configPath, dictionaryPath, dictionaries, configMaps.list());
             }

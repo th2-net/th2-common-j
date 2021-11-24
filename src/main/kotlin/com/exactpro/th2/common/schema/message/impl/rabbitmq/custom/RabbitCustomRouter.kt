@@ -22,6 +22,7 @@ import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
@@ -58,12 +59,13 @@ class RabbitCustomRouter<T : Any>(
         return message
     }
 
-    override fun createSender(pinConfig: PinConfiguration, pinName: PinName): MessageSender<T> {
+    override fun createSender(pinConfig: PinConfiguration, pinName: PinName, bookName: BookName): MessageSender<T> {
         return Sender(
             connectionManager,
             pinConfig.exchange,
             pinConfig.routingKey,
             pinName,
+            bookName,
             customTag,
             converter
         )
@@ -89,9 +91,10 @@ class RabbitCustomRouter<T : Any>(
         exchangeName: String,
         routingKey: String,
         th2Pin: String,
+        bookName: BookName,
         customTag: String,
         private val converter: MessageConverter<T>
-    ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag) {
+    ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag, bookName) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)
