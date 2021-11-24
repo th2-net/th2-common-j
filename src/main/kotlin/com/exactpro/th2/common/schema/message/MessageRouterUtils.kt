@@ -22,11 +22,16 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventBatch
-import com.google.protobuf.MessageOrBuilder
+import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.direction
+import com.exactpro.th2.common.message.sequence
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
+import com.google.protobuf.MessageOrBuilder
 import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
@@ -70,5 +75,36 @@ fun appendAttributes(
     }
     return mutableSetOf(*attributes).apply {
         addAll(requiredAttributes())
+    }
+}
+
+fun MessageGroupBatch.toShortDebugString(): String {
+    val sessionAliases = mutableListOf<String>()
+    val directions = mutableListOf<Direction>()
+    val sequences = mutableListOf<Long>()
+
+    groupsList.forEach { group ->
+        group.messagesList.forEach { message ->
+            when {
+                message.hasMessage() -> message.message.run {
+                    sessionAliases += sessionAlias
+                    directions += direction
+                    sequences += sequence
+                }
+                message.hasRawMessage() -> message.rawMessage.metadata.id.run {
+                    sessionAliases += connectionId.sessionAlias
+                    directions += direction
+                    sequences += sequence
+                }
+                else -> error("Unsupported message kind '${message.kindCase}': ${message.toJson()}")
+            }
+        }
+    }
+
+    return buildString {
+        append("MessageGroupBatch: ")
+        append("session aliases = $sessionAliases, ")
+        append("directions = $directions, ")
+        append("sequences = $sequences")
     }
 }
