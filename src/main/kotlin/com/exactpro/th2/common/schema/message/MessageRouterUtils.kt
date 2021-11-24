@@ -22,18 +22,15 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
-import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.message.direction
-import com.exactpro.th2.common.message.sequence
-import com.exactpro.th2.common.message.sessionAlias
+import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.google.protobuf.MessageOrBuilder
 import org.apache.commons.lang3.exception.ExceptionUtils
-import java.util.TreeSet
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
@@ -79,33 +76,14 @@ fun appendAttributes(
     }
 }
 
-fun MessageGroupBatch.toShortDebugString(): String {
-    val sessionAliases = TreeSet<String>()
-    val directions = TreeSet<Direction>()
-    val sequences = TreeSet<Long>()
+fun MessageGroupBatch.toShortDebugString(): String = buildString {
+    append("MessageGroupBatch(ids = ")
 
-    groupsList.forEach { group ->
-        group.messagesList.forEach { message ->
-            when {
-                message.hasMessage() -> message.message.run {
-                    sessionAliases += sessionAlias
-                    directions += direction
-                    sequences += sequence
-                }
-                message.hasRawMessage() -> message.rawMessage.metadata.id.run {
-                    sessionAliases += connectionId.sessionAlias
-                    directions += direction
-                    sequences += sequence
-                }
-                else -> error("Unsupported message kind '${message.kindCase}': ${message.toJson()}")
-            }
-        }
-    }
+    groupsList.asSequence()
+        .flatMap { it.messagesList.asSequence() }
+        .map(AnyMessage::logId)
+        .toSortedSet()
+        .apply { append(this) }
 
-    return buildString {
-        append("MessageGroupBatch: ")
-        append("session aliases = $sessionAliases, ")
-        append("directions = $directions, ")
-        append("sequences = $sequences")
-    }
+    append(')')
 }

@@ -25,6 +25,8 @@ import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
 import com.exactpro.th2.common.event.bean.builder.RowBuilder
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.FailUnexpected
@@ -298,11 +300,15 @@ val Message.direction
 var Message.Builder.direction
     get(): Direction = metadata.id.direction
     set(value) {
-        setMetadata(MessageMetadata.newBuilder(metadata).apply {
-            setId(MessageID.newBuilder(id).apply {
-                direction = value
-            })
-        })
+        metadataBuilder.idBuilder.direction = value
+    }
+
+val RawMessage.direction
+    get(): Direction = metadata.id.direction
+var RawMessage.Builder.direction
+    get(): Direction = metadata.id.direction
+    set(value) {
+        metadataBuilder.idBuilder.direction = value
     }
 
 val Message.sessionAlias
@@ -310,13 +316,15 @@ val Message.sessionAlias
 var Message.Builder.sessionAlias
     get(): String = metadata.id.connectionId.sessionAlias
     set(value) {
-        setMetadata(MessageMetadata.newBuilder(metadata).apply {
-            setId(MessageID.newBuilder(id).apply {
-                setConnectionId(ConnectionID.newBuilder(connectionId).apply {
-                    sessionAlias = value
-                })
-            })
-        })
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionAlias = value
+    }
+
+val RawMessage.sessionAlias
+    get(): String = metadata.id.connectionId.sessionAlias
+var RawMessage.Builder.sessionAlias
+    get(): String = metadata.id.connectionId.sessionAlias
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionAlias = value
     }
 
 val Message.sequence
@@ -324,11 +332,50 @@ val Message.sequence
 var Message.Builder.sequence
     get(): Long = metadata.id.sequence
     set(value) {
-        setMetadata(MessageMetadata.newBuilder(metadata).apply {
-            setId(MessageID.newBuilder(id).apply {
-                sequence = value
-            })
-        })
+        metadataBuilder.idBuilder.sequence = value
+    }
+
+val RawMessage.sequence
+    get(): Long = metadata.id.sequence
+var RawMessage.Builder.sequence
+    get(): Long = metadata.id.sequence
+    set(value) {
+        metadataBuilder.idBuilder.sequence = value
+    }
+
+val Message.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+var Message.Builder.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+    set(value) {
+        metadataBuilder.idBuilder.apply {
+            clearSubsequence()
+            addAllSubsequence(value)
+        }
+    }
+
+val RawMessage.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+var RawMessage.Builder.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+    set(value) {
+        metadataBuilder.idBuilder.apply {
+            clearSubsequence()
+            addAllSubsequence(value)
+        }
+    }
+
+val Message.logId: String
+    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ":$it" }}"
+
+val RawMessage.logId: String
+    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ":$it" }}"
+
+val AnyMessage.logId: String
+    get() = when (kindCase) {
+        MESSAGE -> message.logId
+        RAW_MESSAGE -> rawMessage.logId
+        else -> error("Cannot get log id from $kindCase message: ${toJson()}")
     }
 
 fun getSessionAliasAndDirection(messageID: MessageID): Array<String> = arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)

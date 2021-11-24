@@ -275,9 +275,10 @@ EVENTS METRICS:
 
 ## Release notes
 
-### 3.30.1
+### 3.31.0
 
 + Fix printing of empty MessageGroupBatch in debug logs of MessageGroupBatch router
++ Print message ids of MessageGroupBatch in debug logs of MessageGroupBatch router
 
 ### 3.30.0
 
