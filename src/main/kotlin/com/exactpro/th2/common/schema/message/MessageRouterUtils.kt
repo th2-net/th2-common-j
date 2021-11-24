@@ -33,6 +33,7 @@ import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.google.protobuf.MessageOrBuilder
 import org.apache.commons.lang3.exception.ExceptionUtils
+import java.util.TreeSet
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
@@ -79,9 +80,9 @@ fun appendAttributes(
 }
 
 fun MessageGroupBatch.toShortDebugString(): String {
-    val sessionAliases = mutableListOf<String>()
-    val directions = mutableListOf<Direction>()
-    val sequences = mutableListOf<Long>()
+    val sessionAliases = TreeSet<String>()
+    val directions = TreeSet<Direction>()
+    val sequences = TreeSet<Long>()
 
     groupsList.forEach { group ->
         group.messagesList.forEach { message ->
