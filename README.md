@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.29.1)
+# th2 common library (Java) (4.0.0)
 
 ## Usage
 
@@ -167,7 +167,6 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
 * username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
 * password - the required setting defines the password that will be used for connecting to Cassandra.
-* cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra set as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
 * timeout - this option defines connection timeout in milliseconds. If set to 0 or ommited, the default value of 5000 is used.
@@ -181,7 +180,6 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "keyspace": "<keyspace>",
   "username": "<username>",
   "password": "<password>",
-  "cradleInstanceName": "<cradle instance name>",
   "cradleMaxEventBatchSize": 1048576,
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
@@ -273,6 +271,15 @@ EVENTS METRICS:
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 4.0.0
+
++ Adaptation to books/pages cradleapi 4.0.0
++ Removed `cradleInstanceName` parameter from `cradle.json`
+
+### 3.29.2
+
++ Do not publish messages if the whole batch was filtered
 
 ### 3.29.1
 

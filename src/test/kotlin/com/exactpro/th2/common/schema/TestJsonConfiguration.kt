@@ -206,8 +206,7 @@ class TestJsonConfiguration {
             "keyspace",
             1234,
             "user",
-            "pass",
-            "instance"
+            "pass"
         )
 
         private val CRADLE_NON_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_non_confidential")

@@ -17,7 +17,7 @@ package com.exactpro.th2.common.schema.factory;
 
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
-import com.exactpro.cradle.cassandra.connection.CassandraConnection;
+import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.event.Event;
@@ -100,8 +100,8 @@ import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_CONSISTENCY_LEVEL;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_TIMEOUT;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -459,35 +459,43 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (manager == null) {
                 try {
                     CradleConfidentialConfiguration confidentialConfiguration = getCradleConfidentialConfiguration();
-                    CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
-
                     CassandraConnectionSettings cassandraConnectionSettings = new CassandraConnectionSettings(
-                            confidentialConfiguration.getDataCenter(),
                             confidentialConfiguration.getHost(),
                             confidentialConfiguration.getPort(),
-                            confidentialConfiguration.getKeyspace());
-
+                            confidentialConfiguration.getDataCenter()
+                    );
                     if (StringUtils.isNotEmpty(confidentialConfiguration.getUsername())) {
                         cassandraConnectionSettings.setUsername(confidentialConfiguration.getUsername());
                     }
-
                     if (StringUtils.isNotEmpty(confidentialConfiguration.getPassword())) {
                         cassandraConnectionSettings.setPassword(confidentialConfiguration.getPassword());
                     }
 
-                    if (nonConfidentialConfiguration.getTimeout() > 0) {
-                        cassandraConnectionSettings.setTimeout(nonConfidentialConfiguration.getTimeout());
-                    }
-
+                    CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
+                    CassandraStorageSettings cassandraStorageSettings = new CassandraStorageSettings(
+                            null,
+                            nonConfidentialConfiguration.getTimeout() > 0
+                                    ? nonConfidentialConfiguration.getTimeout()
+                                    : DEFAULT_TIMEOUT,
+                            DEFAULT_CONSISTENCY_LEVEL,
+                            DEFAULT_CONSISTENCY_LEVEL
+                    );
                     if (nonConfidentialConfiguration.getPageSize() > 0) {
-                        cassandraConnectionSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
+                        cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
+                    }
+                    if (nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
+                        cassandraStorageSettings.setMaxMessageBatchSize(nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
+                    }
+                    if (nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
+                        cassandraStorageSettings.setMaxTestEventBatchSize(nonConfidentialConfiguration.getCradleMaxEventBatchSize());
                     }
 
-                    manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
-                    manager.init(defaultIfBlank(confidentialConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME), true /* FIXME: should be `false` when db manipulations are moved to operator */,
-                            nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0 ? nonConfidentialConfiguration.getCradleMaxMessageBatchSize() : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
-                            nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0 ? nonConfidentialConfiguration.getCradleMaxEventBatchSize() : DEFAULT_MAX_EVENT_BATCH_SIZE);
-                } catch (CradleStorageException | RuntimeException e) {
+                    manager = new CassandraCradleManager(
+                            cassandraConnectionSettings,
+                            cassandraStorageSettings,
+                            false
+                    );
+                } catch (CradleStorageException | RuntimeException | IOException e) {
                     throw new CommonFactoryException("Cannot create Cradle manager", e);
                 }
             }
@@ -754,9 +762,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         cradleManager.getAndUpdate(manager -> {
             if (manager != null) {
                 try {
-                    manager.dispose();
+                    manager.close();
                 } catch (Exception e) {
-                    LOGGER.error("Failed to dispose Cradle manager", e);
+                    LOGGER.error("Failed to close Cradle manager", e);
                 }
             }
 

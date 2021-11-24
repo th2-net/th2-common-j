@@ -29,7 +29,7 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '2.20.0'
+    cradleVersion       = '4.0.0-TH2-2150-1493588338-SNAPSHOT'
     junitVersion      = '5.7.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
@@ -202,6 +202,7 @@ dependencies {
     implementation 'io.fabric8:kubernetes-client:4.13.0'
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
 }
 
 jar {
