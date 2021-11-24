@@ -37,6 +37,7 @@ public class MessageEventIdBuildersTest {
     private static final int DEFAULT_SEQUENCE = 1;
     private static final int DEFAULT_SUBSEQUENCE = 2;
     private static final String DEFAULT_ID = "id";
+    private static final String DEFAULT_SCOPE = "scope";
 
     private CommonFactory commonFactory;
 
@@ -79,7 +80,8 @@ public class MessageEventIdBuildersTest {
         assertEquals(
                 "{\n" +
                         "  \"id\": \"" + DEFAULT_ID + "\",\n" +
-                        "  \"bookName\": \"" + bookName + "\"\n" +
+                        "  \"bookName\": \"" + bookName + "\",\n" +
+                        "  \"scope\": \"" + DEFAULT_SCOPE + "\"\n" +
                         "}",
                 toJson(eventIdBuilder.build(), false)
         );
@@ -95,6 +97,7 @@ public class MessageEventIdBuildersTest {
 
     private EventID.Builder defaultEventIdBuilder() {
         return commonFactory.newEventIDBuilder()
-                .setId(DEFAULT_ID);
+                .setId(DEFAULT_ID)
+                .setScope(DEFAULT_SCOPE);
     }
 }
