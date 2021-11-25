@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.30.1)
+# th2 common library (Java) (3.32.0)
 
 ## Usage
 
@@ -274,6 +274,10 @@ EVENTS METRICS:
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 3.32.0
+
++ Add method for getting gRPC services for all registered endpoints
 
 ### 3.31.0
 
