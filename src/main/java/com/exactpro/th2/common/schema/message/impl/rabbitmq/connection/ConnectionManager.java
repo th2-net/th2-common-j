@@ -298,6 +298,19 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicCancel(consumerTag);
     }
 
+    public String queueDeclare(String queue) throws IOException {
+        return getChannelFor(PinId.forQueue(queue))
+                .getChannel()
+                .queueDeclare()
+                .getQueue();
+    }
+
+    public void queueBind(String queue, String exchange, String routingKey) throws IOException {
+        getChannelFor(PinId.forQueue(queue))
+                .getChannel()
+                .queueBind(queue, exchange, routingKey);
+    }
+
     private void shutdownSharedExecutor(int closeTimeout) {
         sharedExecutor.shutdown();
         try {

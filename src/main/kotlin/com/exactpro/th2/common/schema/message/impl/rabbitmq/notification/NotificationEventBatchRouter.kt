@@ -15,26 +15,71 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 
-import com.exactpro.th2.common.schema.event.EventBatchRouter
-import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
-import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
-import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
+import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.schema.exception.RouterException
+import com.exactpro.th2.common.schema.message.MessageListener
+import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.MessageRouterContext
+import com.exactpro.th2.common.schema.message.SubscriberMonitor
+import mu.KotlinLogging
 
-private const val NOTIFICATION_ATTRIBUTE = "global-notification"
-private val REQUIRED_SEND_ATTRIBUTES = setOf(EVENT.toString(), PUBLISH.toString(), NOTIFICATION_ATTRIBUTE)
-private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(EVENT.toString(), SUBSCRIBE.toString(), NOTIFICATION_ATTRIBUTE)
+private const val NOTIFICATION_EXCHANGE = "global-notification"
 private const val NOTIFICATION_QUEUE = "global-notification-queue"
 
-class NotificationEventBatchRouter : EventBatchRouter() {
-    override fun getRequiredSendAttributes() = REQUIRED_SEND_ATTRIBUTES
+class NotificationEventBatchRouter : MessageRouter<EventBatch> {
+    private lateinit var queue: String
+    private lateinit var sender: NotificationEventBatchSender
+    private lateinit var subscriber: NotificationEventBatchSubscriber
 
-    override fun getRequiredSubscribeAttributes() = REQUIRED_SUBSCRIBE_ATTRIBUTES
+    override fun init(context: MessageRouterContext) {
+        sender = NotificationEventBatchSender(context.connectionManager, NOTIFICATION_EXCHANGE)
+        queue = context.connectionManager.queueDeclare(NOTIFICATION_QUEUE)
+        context.connectionManager.queueBind(queue, NOTIFICATION_EXCHANGE, "")
+        subscriber = NotificationEventBatchSubscriber(context.connectionManager, queue)
+    }
 
-    override fun createSender(pinConfig: QueueConfiguration, pinName: String, bookName: String) =
-        NotificationEventBatchSender(connectionManager, pinConfig.exchange)
+    override fun subscribe(callback: MessageListener<EventBatch>, vararg attributes: String) =
+        internalSubscribe(callback)
 
-    override fun createSubscriber(pinConfig: PinConfiguration, pinName: String) =
-        NotificationEventBatchSubscriber(connectionManager, NOTIFICATION_QUEUE)
+    override fun subscribeAll(callback: MessageListener<EventBatch>, vararg attributes: String) =
+        internalSubscribe(callback)
+
+    private fun internalSubscribe(
+        callback: MessageListener<EventBatch>
+    ): SubscriberMonitor {
+        try {
+            subscriber.addListener(callback)
+            subscriber.start()
+        } catch (e: Exception) {
+            val errorMessage = "Listener can't be subscribed via the queue $queue"
+            LOGGER.error(e) { errorMessage }
+            throw RouterException(errorMessage)
+        }
+        return SubscriberMonitor { }
+    }
+
+    override fun send(message: EventBatch, vararg attributes: String) {
+        internalSend(message)
+    }
+
+    override fun sendAll(message: EventBatch, vararg attributes: String) {
+        internalSend(message)
+    }
+
+    private fun internalSend(message: EventBatch) {
+        try {
+            sender.send(message)
+        } catch (e: Exception) {
+            val errorMessage = "Notification cannot be send through the queue $queue"
+            LOGGER.error(e) { errorMessage }
+            throw RouterException(errorMessage)
+        }
+    }
+
+    override fun close() {
+    }
+
+    companion object {
+        private val LOGGER = KotlinLogging.logger {}
+    }
 }
