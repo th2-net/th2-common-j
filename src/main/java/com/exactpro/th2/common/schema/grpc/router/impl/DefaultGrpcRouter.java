@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,35 +68,24 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * @return service instance
      */
     public <T> T getService(@NotNull Class<T> cls) {
-        List<Class<? extends T>> implementations = loadImplementations(cls);
+        Class<? extends T> th2ImplClass = findSingleImplementationOrNull(cls);
 
-        if (implementations.size() > 1) {
-            throw new IllegalStateException("Can not choose implementation. Fount " + implementations.size() + " implementations");
-        }
-
-        if (implementations.isEmpty()) {
+        if (th2ImplClass == null) {
             //FIXME: Remove in future releases
             return getProxyService(cls);
         }
-
-        Class<? extends T> th2ImplClass = implementations.get(0);
 
         return createService(cls, th2ImplClass);
     }
 
     @Override
     public <T> Set<T> getServices(@NotNull Class<T> serviceClass) {
-        List<Class<? extends T>> implementationClasses = loadImplementations(serviceClass);
-        if (implementationClasses.size() > 1) {
-            throw new IllegalStateException("Can not choose implementation for " + serviceClass +
-                    ". Fount " + implementationClasses.size() + " implementations");
-        }
+        Class<? extends T> th2ImplClass = findSingleImplementationOrNull(serviceClass);
 
-        if (implementationClasses.isEmpty()) {
+        // TODO: when we remove the old gRPC loading move this check to `findSingleImplementationOrNull` and rename method to `findSingleImplementation`
+        if (th2ImplClass == null) {
             throw new IllegalStateException("Cannot find any implementation for " + serviceClass);
         }
-
-        Class<? extends T> th2ImplClass = implementationClasses.get(0);
         GrpcServiceConfiguration serviceConfig = getServiceConfig(serviceClass);
         return serviceConfig.getEndpoints().values().stream()
                 .map(endpoint -> {
@@ -106,6 +96,20 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                     }
                 })
                 .collect(Collectors.toSet());
+    }
+
+    @Nullable
+    private <T> Class<? extends T> findSingleImplementationOrNull(@NotNull Class<T> serviceClass) {
+        List<Class<? extends T>> implementations = loadImplementations(serviceClass);
+        if (implementations.size() > 1) {
+            throw new IllegalStateException("Can not choose implementation for " + serviceClass +
+                    ". Fount " + implementations.size() + " implementations: " + implementations);
+        }
+
+        if (implementations.isEmpty()) {
+            return null;
+        }
+        return implementations.get(0);
     }
 
     @NotNull
