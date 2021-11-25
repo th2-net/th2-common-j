@@ -35,7 +35,7 @@ class NotificationEventBatchSender(
 
     override fun send(message: EventBatch) {
         try {
-            connectionManager.basicPublish(exchange, "", null, message.toByteArray())
+            connectionManager.basicPublish(exchange, NOTIFICATION_ROUTING_KEY, null, message.toByteArray())
         } catch (e: Exception) {
             throw IOException(
                 "Can not send notification message: EventBatch: parent_event_id = ${message.parentEventId.id}",

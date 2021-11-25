@@ -23,8 +23,9 @@ import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import mu.KotlinLogging
 
-private const val NOTIFICATION_EXCHANGE = "global-notification"
-private const val NOTIFICATION_QUEUE = "global-notification-queue"
+const val NOTIFICATION_EXCHANGE = "global-notification"
+const val NOTIFICATION_QUEUE = "global-notification-queue"
+const val NOTIFICATION_ROUTING_KEY = ""
 
 class NotificationEventBatchRouter : MessageRouter<EventBatch> {
     private lateinit var queue: String
@@ -35,7 +36,7 @@ class NotificationEventBatchRouter : MessageRouter<EventBatch> {
         sender = NotificationEventBatchSender(context.connectionManager, NOTIFICATION_EXCHANGE)
         queue = context.connectionManager.queueDeclare(NOTIFICATION_QUEUE)
         LOGGER.info { "Created '$queue' notification queue" }
-        context.connectionManager.queueBind(queue, NOTIFICATION_EXCHANGE, "")
+        context.connectionManager.queueBind(queue, NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY)
         subscriber = NotificationEventBatchSubscriber(context.connectionManager, queue)
     }
 
