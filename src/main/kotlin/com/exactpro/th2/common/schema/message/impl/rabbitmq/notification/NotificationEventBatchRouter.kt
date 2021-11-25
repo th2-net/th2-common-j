@@ -15,32 +15,26 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 
-import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.event.EventBatchRouter
-import com.exactpro.th2.common.schema.message.MessageSender
-import com.exactpro.th2.common.schema.message.MessageSubscriber
+import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
+import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
+import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 
-class NotificationEventBatchRouter : EventBatchRouter() {
-    override fun createSender(
-        pinConfig: QueueConfiguration,
-        pinName: String,
-        bookName: String
-    ): MessageSender<EventBatch> {
-        return NotificationEventBatchSender(
-            connectionManager,
-            pinConfig.exchange
-        )
-    }
+private const val NOTIFICATION_ATTRIBUTE = "global-notification"
+private val REQUIRED_SEND_ATTRIBUTES = setOf(EVENT.toString(), PUBLISH.toString(), NOTIFICATION_ATTRIBUTE)
+private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(EVENT.toString(), SUBSCRIBE.toString(), NOTIFICATION_ATTRIBUTE)
+private const val NOTIFICATION_QUEUE = "global-notification-queue"
 
-    override fun createSubscriber(
-        pinConfig: PinConfiguration,
-        pinName: String
-    ): MessageSubscriber<EventBatch> {
-        return NotificationEventBatchSubscriber(
-            connectionManager,
-            pinConfig.queue
-        )
-    }
+class NotificationEventBatchRouter : EventBatchRouter() {
+    override fun getRequiredSendAttributes() = REQUIRED_SEND_ATTRIBUTES
+
+    override fun getRequiredSubscribeAttributes() = REQUIRED_SUBSCRIBE_ATTRIBUTES
+
+    override fun createSender(pinConfig: QueueConfiguration, pinName: String, bookName: String) =
+        NotificationEventBatchSender(connectionManager, pinConfig.exchange)
+
+    override fun createSubscriber(pinConfig: PinConfiguration, pinName: String) =
+        NotificationEventBatchSubscriber(connectionManager, NOTIFICATION_QUEUE)
 }
