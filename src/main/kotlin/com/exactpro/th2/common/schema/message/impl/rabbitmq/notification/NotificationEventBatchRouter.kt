@@ -78,6 +78,7 @@ class NotificationEventBatchRouter : MessageRouter<EventBatch> {
     }
 
     override fun close() {
+        subscriber.close()
     }
 
     companion object {
