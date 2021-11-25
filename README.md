@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.29.2)
+# th2 common library (Java) (3.30.1)
 
 ## Usage
 
@@ -269,10 +269,20 @@ MESSAGES METRICS:
 * th2_message_group_sequence_subscribe (`th2_pin`, `session_alias`, `direction`): last received sequence
 
 EVENTS METRICS:
-* th2_event_publish_total (`th2_pin`): quantity of published events 
+
+* th2_event_publish_total (`th2_pin`): quantity of published events
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
 ## Release notes
+
+### 3.31.0
+
++ Fix printing of empty MessageGroupBatch in debug logs of MessageGroupBatch router
++ Print message ids of MessageGroupBatch in debug logs of MessageGroupBatch router
+
+### 3.30.0
+
++ Added util methods from store-common to use in estore/mstore
 
 ### 3.29.2
 
