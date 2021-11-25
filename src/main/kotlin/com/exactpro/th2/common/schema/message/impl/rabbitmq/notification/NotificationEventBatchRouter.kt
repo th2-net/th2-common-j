@@ -34,6 +34,7 @@ class NotificationEventBatchRouter : MessageRouter<EventBatch> {
     override fun init(context: MessageRouterContext) {
         sender = NotificationEventBatchSender(context.connectionManager, NOTIFICATION_EXCHANGE)
         queue = context.connectionManager.queueDeclare(NOTIFICATION_QUEUE)
+        LOGGER.info { "Created '$queue' notification queue" }
         context.connectionManager.queueBind(queue, NOTIFICATION_EXCHANGE, "")
         subscriber = NotificationEventBatchSubscriber(context.connectionManager, queue)
     }
