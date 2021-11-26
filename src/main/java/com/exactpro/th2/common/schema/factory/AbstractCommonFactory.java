@@ -139,8 +139,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
     private final Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
-    private final Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
+    private final Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass;
     private final AtomicReference<ConnectionManager> rabbitMqConnectionManager = new AtomicReference<>();
     private final AtomicReference<MessageRouterContext> routerContext = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
@@ -160,72 +160,83 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Create factory with default implementation schema classes
+     * Create factory with non-default implementations schema classes
+     * @param settings {@link FactorySettings}
      */
+    public AbstractCommonFactory(FactorySettings settings) {
+        messageRouterParsedBatchClass = settings.getMessageRouterParsedBatchClass();
+        messageRouterRawBatchClass = settings.getMessageRouterRawBatchClass();
+        messageRouterMessageGroupBatchClass = settings.getMessageRouterMessageGroupBatchClass();
+        eventBatchRouterClass = settings.getEventBatchRouterClass();
+        grpcRouterClass = settings.getGrpcRouterClass();
+        notificationEventBatchRouterClass = settings.getNotificationEventBatchRouterClass();
+        stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(settings.getVariables().get(key), System.getenv(key)));
+    }
+
+    /**
+     * Create factory with default implementation schema classes
+     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
+     */
+    @Deprecated(since = "4.0.0", forRemoval = true)
     public AbstractCommonFactory() {
-        this(
+        this(new FactorySettings(
                 RabbitParsedBatchRouter.class,
                 RabbitRawBatchRouter.class,
                 RabbitMessageGroupBatchRouter.class,
                 EventBatchRouter.class,
-                NotificationEventBatchRouter.class,
                 DefaultGrpcRouter.class
-        );
+        ));
     }
 
     /**
      * Create factory with non-default implementations schema classes
-     * @param messageRouterParsedBatchClass     Class for {@link MessageRouter} which work with {@link MessageBatch}
-     * @param messageRouterRawBatchClass        Class for {@link MessageRouter} which work with {@link RawMessageBatch}
-     * @param eventBatchRouterClass             Class for {@link MessageRouter} which work with {@link EventBatch}
-     * @param notificationEventBatchRouterClass Class for {@link NotificationRouter} which work with {@link EventBatch}
-     * @param grpcRouterClass                   Class for {@link GrpcRouter}
+     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
+     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
+     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param grpcRouterClass               Class for {@link GrpcRouter}
+     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
-    public AbstractCommonFactory(
-            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-            @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-            @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-            @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            @NotNull Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass,
-            @NotNull Class<? extends GrpcRouter> grpcRouterClass
-    ) {
-        this(
+    @Deprecated(since = "4.0.0", forRemoval = true)
+    public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+                                 @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+                                 @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+                                 @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+                                 @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+        this(new FactorySettings(
                 messageRouterParsedBatchClass,
                 messageRouterRawBatchClass,
                 messageRouterMessageGroupBatchClass,
                 eventBatchRouterClass,
-                notificationEventBatchRouterClass,
-                grpcRouterClass,
-                emptyMap()
-        );
+                grpcRouterClass
+        ));
     }
 
     /**
      * Create factory with non-default implementations schema classes
      *
-     * @param messageRouterParsedBatchClass     Class for {@link MessageRouter} which work with {@link MessageBatch}
-     * @param messageRouterRawBatchClass        Class for {@link MessageRouter} which work with {@link RawMessageBatch}
-     * @param eventBatchRouterClass             Class for {@link MessageRouter} which work with {@link EventBatch}
-     * @param notificationEventBatchRouterClass Class for {@link NotificationRouter} which work with {@link EventBatch}
-     * @param grpcRouterClass                   Class for {@link GrpcRouter}
-     * @param environmentVariables              map with additional environment variables
+     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
+     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
+     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
+     * @param grpcRouterClass               Class for {@link GrpcRouter}
+     * @param environmentVariables          map with additional environment variables
+     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
-    protected AbstractCommonFactory(
-            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    @Deprecated(since = "4.0.0", forRemoval = true)
+    protected AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            @NotNull Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass,
-            @NotNull Map<String, String> environmentVariables
-    ) {
-        this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
-        this.messageRouterRawBatchClass = messageRouterRawBatchClass;
-        this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
-        this.eventBatchRouterClass = eventBatchRouterClass;
-        this.notificationEventBatchRouterClass = notificationEventBatchRouterClass;
-        this.grpcRouterClass = grpcRouterClass;
-        this.stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(environmentVariables.get(key), System.getenv(key)));
+            @NotNull Map<String, String> environmentVariables) {
+        this(new FactorySettings(
+                messageRouterParsedBatchClass,
+                messageRouterRawBatchClass,
+                messageRouterMessageGroupBatchClass,
+                eventBatchRouterClass,
+                grpcRouterClass,
+                NotificationEventBatchRouter.class,
+                environmentVariables
+        ));
     }
 
     public void start() {
@@ -331,25 +342,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * @return Initialized {@link NotificationRouter} which works with {@link EventBatch}
-     * @throws CommonFactoryException if can not call default constructor from class
-     * @throws IllegalStateException  if can not read configuration
-     */
-    public NotificationRouter<EventBatch> getNotificationEventBatchRouter() {
-        return notificationEventBatchRouter.updateAndGet(router -> {
-            if (router == null) {
-                try {
-                    router = notificationEventBatchRouterClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                    throw new CommonFactoryException("Can not create notification router", e);
-                }
-            }
-            return router;
-        });
-    }
-
-    /**
      * @return Initialized {@link GrpcRouter}
      * @throws CommonFactoryException if can not call default constructor from class
      * @throws IllegalStateException  if can not read configuration
@@ -365,6 +357,25 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 }
             }
 
+            return router;
+        });
+    }
+
+    /**
+     * @return Initialized {@link NotificationRouter} which works with {@link EventBatch}
+     * @throws CommonFactoryException if cannot call default constructor from class
+     * @throws IllegalStateException  if cannot read configuration
+     */
+    public NotificationRouter<EventBatch> getNotificationEventBatchRouter() {
+        return notificationEventBatchRouter.updateAndGet(router -> {
+            if (router == null) {
+                try {
+                    router = notificationEventBatchRouterClass.getConstructor().newInstance();
+                    router.init(getMessageRouterContext());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    throw new CommonFactoryException("Can not create notification router", e);
+                }
+            }
             return router;
         });
     }

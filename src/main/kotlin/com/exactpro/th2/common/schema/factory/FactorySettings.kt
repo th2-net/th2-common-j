@@ -35,8 +35,9 @@ data class FactorySettings @JvmOverloads constructor(
     var messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>> = RabbitRawBatchRouter::class.java,
     var messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>> = RabbitMessageGroupBatchRouter::class.java,
     var eventBatchRouterClass: Class<out MessageRouter<EventBatch>> = EventBatchRouter::class.java,
-    var notificationEventBatchRouterClass: Class<out NotificationRouter<EventBatch>> = NotificationEventBatchRouter::class.java,
     var grpcRouterClass: Class<out GrpcRouter> = DefaultGrpcRouter::class.java,
+    var notificationEventBatchRouterClass: Class<out NotificationRouter<EventBatch>> = NotificationEventBatchRouter::class.java,
+    var variables: MutableMap<String, String> = HashMap(),
     var rabbitMQ: Path? = null,
     var routerMQ: Path? = null,
     var connectionManagerSettings: Path? = null,
@@ -50,10 +51,7 @@ data class FactorySettings @JvmOverloads constructor(
     var dictionariesDir: Path? = null,
     var oldDictionariesDir: Path? = null
 ) {
-    private val _variables: MutableMap<String, String> = HashMap()
-    val variables: Map<String, String> = _variables
-
     fun putVariable(key: String, value: String): String? {
-        return _variables.put(key, value)
+        return variables.put(key, value)
     }
 }
