@@ -59,7 +59,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
-
+    public static final String EXCLUSIVE_ROUTING_KEY = "";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
     private final Connection connection;
@@ -298,17 +298,15 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicCancel(consumerTag);
     }
 
-    public String queueDeclare(String queue) throws IOException {
-        return getChannelFor(PinId.forQueue(queue))
-                .getChannel()
-                .queueDeclare()
-                .getQueue();
-    }
-
-    public void queueBind(String queue, String exchange, String routingKey) throws IOException {
-        getChannelFor(PinId.forQueue(queue))
-                .getChannel()
-                .queueBind(queue, exchange, routingKey);
+    /**
+     * @param prefix is ignored currently
+     */
+    public String queueExclusiveDeclareAndBind(String prefix, String exchange) throws IOException {
+        Channel channel = getChannelFor(new PinId(prefix, EXCLUSIVE_ROUTING_KEY)).getChannel();
+        String queue = channel.queueDeclare().getQueue();
+        channel.queueBind(queue, exchange, EXCLUSIVE_ROUTING_KEY);
+        LOGGER.info("Declared the '{}' queue to listen to the '{}'", queue, exchange);
+        return queue;
     }
 
     private void shutdownSharedExecutor(int closeTimeout) {
