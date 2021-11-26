@@ -23,6 +23,7 @@ import com.exactpro.th2.common.schema.event.EventBatchRouter
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter
 import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.NotificationRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter
@@ -34,7 +35,7 @@ data class FactorySettings @JvmOverloads constructor(
     var messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>> = RabbitRawBatchRouter::class.java,
     var messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>> = RabbitMessageGroupBatchRouter::class.java,
     var eventBatchRouterClass: Class<out MessageRouter<EventBatch>> = EventBatchRouter::class.java,
-    var notificationEventBatchRouterClass: Class<out MessageRouter<EventBatch>> = NotificationEventBatchRouter::class.java,
+    var notificationEventBatchRouterClass: Class<out NotificationRouter<EventBatch>> = NotificationEventBatchRouter::class.java,
     var grpcRouterClass: Class<out GrpcRouter> = DefaultGrpcRouter::class.java,
     var rabbitMQ: Path? = null,
     var routerMQ: Path? = null,

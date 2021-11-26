@@ -18,8 +18,8 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.exception.RouterException
 import com.exactpro.th2.common.schema.message.MessageListener
-import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
+import com.exactpro.th2.common.schema.message.NotificationRouter
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import mu.KotlinLogging
 
@@ -27,7 +27,7 @@ const val NOTIFICATION_EXCHANGE = "global-notification"
 const val NOTIFICATION_QUEUE = "global-notification-queue"
 const val NOTIFICATION_ROUTING_KEY = ""
 
-class NotificationEventBatchRouter : MessageRouter<EventBatch> {
+class NotificationEventBatchRouter : NotificationRouter<EventBatch> {
     private lateinit var queue: String
     private lateinit var sender: NotificationEventBatchSender
     private lateinit var subscriber: NotificationEventBatchSubscriber
@@ -40,15 +40,17 @@ class NotificationEventBatchRouter : MessageRouter<EventBatch> {
         subscriber = NotificationEventBatchSubscriber(context.connectionManager, queue)
     }
 
-    override fun subscribe(callback: MessageListener<EventBatch>, vararg attributes: String) =
-        internalSubscribe(callback)
+    override fun send(message: EventBatch) {
+        try {
+            sender.send(message)
+        } catch (e: Exception) {
+            val errorMessage = "Notification cannot be send through the queue $queue"
+            LOGGER.error(e) { errorMessage }
+            throw RouterException(errorMessage)
+        }
+    }
 
-    override fun subscribeAll(callback: MessageListener<EventBatch>, vararg attributes: String) =
-        internalSubscribe(callback)
-
-    private fun internalSubscribe(
-        callback: MessageListener<EventBatch>
-    ): SubscriberMonitor {
+    override fun subscribe(callback: MessageListener<EventBatch>): SubscriberMonitor {
         try {
             subscriber.addListener(callback)
             subscriber.start()
@@ -58,24 +60,6 @@ class NotificationEventBatchRouter : MessageRouter<EventBatch> {
             throw RouterException(errorMessage)
         }
         return SubscriberMonitor { }
-    }
-
-    override fun send(message: EventBatch, vararg attributes: String) {
-        internalSend(message)
-    }
-
-    override fun sendAll(message: EventBatch, vararg attributes: String) {
-        internalSend(message)
-    }
-
-    private fun internalSend(message: EventBatch) {
-        try {
-            sender.send(message)
-        } catch (e: Exception) {
-            val errorMessage = "Notification cannot be send through the queue $queue"
-            LOGGER.error(e) { errorMessage }
-            throw RouterException(errorMessage)
-        }
     }
 
     override fun close() {

@@ -31,6 +31,7 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
 import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
+import com.exactpro.th2.common.schema.message.NotificationRouter;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -117,7 +118,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
+            Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass,
             Class<? extends GrpcRouter> grpcRouterClass,
             @Nullable Path custom,
             @Nullable Path dictionariesDir,
@@ -167,7 +168,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
+            Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass,
             Class<? extends GrpcRouter> grpcRouterClass,
             Path rabbitMQ,
             Path routerMQ,
@@ -241,7 +242,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            Class<? extends MessageRouter<EventBatch>> notificationEventBatchRouterClass,
+            Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass,
             Class<? extends GrpcRouter> grpcRouterClass
     ) {
         this(new FactorySettings(
