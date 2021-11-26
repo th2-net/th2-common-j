@@ -25,7 +25,10 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import org.apache.commons.collections4.MultiMapUtils
 import org.apache.commons.collections4.MultiValuedMap
 
-data class MessageRouterConfiguration(var queues: Map<String, QueueConfiguration> = emptyMap()) : Configuration() {
+data class MessageRouterConfiguration(
+    var queues: Map<String, QueueConfiguration> = emptyMap(),
+    var globalNotification: GlobalNotificationConfiguration
+) : Configuration() {
 
     fun getQueueByAlias(queueAlias: String): QueueConfiguration? {
         return queues[queueAlias]
@@ -91,3 +94,7 @@ enum class FieldFilterOperation {
     NOT_EMPTY,
     WILDCARD
 }
+
+data class GlobalNotificationConfiguration(
+    @JsonProperty(required = true) var exchange: String
+) : Configuration()

@@ -25,6 +25,7 @@ import com.exactpro.th2.common.schema.grpc.configuration.GrpcServerConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
+import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -196,7 +197,8 @@ class TestJsonConfiguration {
                         )
                     )
                 )
-            })
+            }),
+            GlobalNotificationConfiguration("global-notification")
         )
 
         private val CRADLE_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_confidential")
