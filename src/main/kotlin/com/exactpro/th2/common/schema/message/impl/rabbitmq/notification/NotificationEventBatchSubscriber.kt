@@ -20,6 +20,7 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageSubscriber
+import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.rabbitmq.client.Delivery
@@ -31,6 +32,7 @@ class NotificationEventBatchSubscriber(
     private val queue: String
 ) : MessageSubscriber<EventBatch> {
     private val listeners = CopyOnWriteArrayList<MessageListener<EventBatch>>()
+    private lateinit var monitor: SubscriberMonitor
 
     @Deprecated(
         "Method is deprecated, please use constructor",
@@ -53,7 +55,7 @@ class NotificationEventBatchSubscriber(
     }
 
     override fun start() {
-        connectionManager.basicConsume(
+        monitor = connectionManager.basicConsume(
             queue,
             { consumerTag: String, delivery: Delivery ->
                 for (listener in listeners) {
@@ -77,6 +79,7 @@ class NotificationEventBatchSubscriber(
     }
 
     override fun close() {
+        monitor.unsubscribe()
         listeners.forEach(MessageListener<EventBatch>::onClose)
         listeners.clear()
     }
