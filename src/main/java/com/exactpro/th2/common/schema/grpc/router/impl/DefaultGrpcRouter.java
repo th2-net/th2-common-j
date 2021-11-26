@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -79,7 +78,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     }
 
     @Override
-    public <T> Set<T> getServices(@NotNull Class<T> serviceClass) {
+    public <T> List<T> getServices(@NotNull Class<T> serviceClass) {
         Class<? extends T> th2ImplClass = findSingleImplementationOrNull(serviceClass);
 
         // TODO: when we remove the old gRPC loading move this check to `findSingleImplementationOrNull` and rename method to `findSingleImplementation`
@@ -95,7 +94,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                         throw new IllegalStateException("Problem for endpoint " + endpoint.getHost() + ":" + endpoint.getPort(), ex);
                     }
                 })
-                .collect(Collectors.toSet());
+                .collect(Collectors.toUnmodifiableList());
     }
 
     @Nullable

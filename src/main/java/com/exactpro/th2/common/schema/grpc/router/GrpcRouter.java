@@ -15,13 +15,15 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
-import java.util.Set;
+import java.util.List;
+
+import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+
 import io.grpc.BindableService;
 import io.grpc.Server;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Interface used for creating services for managing connections
@@ -49,7 +51,7 @@ public interface GrpcRouter extends AutoCloseable {
      * @param serviceClass the class of corresponding service
      * @return the service for each endpoint specified in the configuration
      */
-    default <T> Set<T> getServices(@NotNull Class<T> serviceClass) {
+    default <T> List<T> getServices(@NotNull Class<T> serviceClass) {
         throw new UnsupportedOperationException("get services does not support by default");
     }
 
