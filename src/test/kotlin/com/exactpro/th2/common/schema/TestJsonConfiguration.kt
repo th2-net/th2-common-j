@@ -198,7 +198,7 @@ class TestJsonConfiguration {
                     )
                 )
             }),
-            GlobalNotificationConfiguration("global-notification")
+            GlobalNotificationConfiguration()
         )
 
         private val CRADLE_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_confidential")

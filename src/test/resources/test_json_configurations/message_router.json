@@ -43,8 +43,5 @@
         }
       ]
     }
-  },
-  "globalNotification": {
-    "exchange": "global-notification"
   }
 }

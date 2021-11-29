@@ -27,7 +27,7 @@ import org.apache.commons.collections4.MultiValuedMap
 
 data class MessageRouterConfiguration(
     var queues: Map<String, QueueConfiguration> = emptyMap(),
-    var globalNotification: GlobalNotificationConfiguration
+    var globalNotification: GlobalNotificationConfiguration = GlobalNotificationConfiguration()
 ) : Configuration() {
 
     fun getQueueByAlias(queueAlias: String): QueueConfiguration? {
@@ -96,5 +96,5 @@ enum class FieldFilterOperation {
 }
 
 data class GlobalNotificationConfiguration(
-    @JsonProperty(required = true) var exchange: String
+    @JsonProperty var exchange: String = "global-notification"
 ) : Configuration()

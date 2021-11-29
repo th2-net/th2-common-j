@@ -270,7 +270,7 @@ class TestRabbitMessageGroupBatchRouter {
             init(DefaultMessageRouterContext(
                 connectionManager,
                 mock { },
-                MessageRouterConfiguration(pins, GlobalNotificationConfiguration("global-notification")),
+                MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
                 BoxConfiguration()
             ))
         }
