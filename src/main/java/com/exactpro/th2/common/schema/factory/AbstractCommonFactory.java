@@ -36,12 +36,10 @@ import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
-import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
 import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
@@ -57,9 +55,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -178,13 +173,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
     public AbstractCommonFactory() {
-        this(new FactorySettings(
-                RabbitParsedBatchRouter.class,
-                RabbitRawBatchRouter.class,
-                RabbitMessageGroupBatchRouter.class,
-                EventBatchRouter.class,
-                DefaultGrpcRouter.class
-        ));
+        this(new FactorySettings());
     }
 
     /**
@@ -197,17 +186,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
     public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-                                 @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-                                 @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-                                 @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-                                 @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
-        this(new FactorySettings(
-                messageRouterParsedBatchClass,
-                messageRouterRawBatchClass,
-                messageRouterMessageGroupBatchClass,
-                eventBatchRouterClass,
-                grpcRouterClass
-        ));
+            @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
+            @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
+            @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
+            @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+        this(new FactorySettings()
+                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
+                .messageRouterRawBatchClass(messageRouterRawBatchClass)
+                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
+                .eventBatchRouterClass(eventBatchRouterClass)
+                .grpcRouterClass(grpcRouterClass)
+        );
     }
 
     /**
@@ -227,14 +216,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass,
             @NotNull Map<String, String> environmentVariables) {
-        this(new FactorySettings(
-                messageRouterParsedBatchClass,
-                messageRouterRawBatchClass,
-                messageRouterMessageGroupBatchClass,
-                eventBatchRouterClass,
-                grpcRouterClass,
-                environmentVariables
-        ));
+        this(new FactorySettings()
+                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
+                .messageRouterRawBatchClass(messageRouterRawBatchClass)
+                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
+                .eventBatchRouterClass(eventBatchRouterClass)
+                .grpcRouterClass(grpcRouterClass)
+                .variables(environmentVariables)
+        );
     }
 
     public void start() {

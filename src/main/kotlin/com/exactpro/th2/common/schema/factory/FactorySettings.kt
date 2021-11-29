@@ -37,7 +37,6 @@ data class FactorySettings @JvmOverloads constructor(
     var eventBatchRouterClass: Class<out MessageRouter<EventBatch>> = EventBatchRouter::class.java,
     var grpcRouterClass: Class<out GrpcRouter> = DefaultGrpcRouter::class.java,
     var notificationEventBatchRouterClass: Class<out NotificationRouter<EventBatch>> = NotificationEventBatchRouter::class.java,
-    var variables: MutableMap<String, String> = HashMap(),
     var rabbitMQ: Path? = null,
     var routerMQ: Path? = null,
     var connectionManagerSettings: Path? = null,
@@ -49,78 +48,103 @@ data class FactorySettings @JvmOverloads constructor(
     var boxConfiguration: Path? = null,
     var custom: Path? = null,
     var dictionariesDir: Path? = null,
-    var oldDictionariesDir: Path? = null
+    var oldDictionariesDir: Path? = null,
+    var variables: MutableMap<String, String> = HashMap()
 ) {
-    constructor(
-        messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>,
-        messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>>,
-        messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>>,
-        eventBatchRouterClass: Class<out MessageRouter<EventBatch>>,
-        grpcRouterClass: Class<out GrpcRouter>,
-        variables: MutableMap<String, String>
-    ) : this(
-        messageRouterParsedBatchClass,
-        messageRouterRawBatchClass,
-        messageRouterMessageGroupBatchClass,
-        eventBatchRouterClass,
-        grpcRouterClass,
-        variables = variables,
-        rabbitMQ = null
-    )
+    fun messageRouterParsedBatchClass(messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>): FactorySettings {
+        this.messageRouterParsedBatchClass = messageRouterParsedBatchClass
+        return this
+    }
 
-    constructor(
-        messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>,
-        messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>>,
-        messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>>,
-        eventBatchRouterClass: Class<out MessageRouter<EventBatch>>,
-        grpcRouterClass: Class<out GrpcRouter>,
-        variables: MutableMap<String, String>,
-        custom: Path?,
-        dictionariesDir: Path?,
-        oldDictionariesDir: Path?
-    ) : this(
-        messageRouterParsedBatchClass,
-        messageRouterRawBatchClass,
-        messageRouterMessageGroupBatchClass,
-        eventBatchRouterClass,
-        grpcRouterClass,
-        variables = variables,
-        rabbitMQ = null,
-        custom = custom,
-        dictionariesDir = dictionariesDir,
-        oldDictionariesDir = oldDictionariesDir
-    )
+    fun messageRouterRawBatchClass(messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>>): FactorySettings {
+        this.messageRouterRawBatchClass = messageRouterRawBatchClass
+        return this
+    }
 
-    constructor(
-        messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>,
-        messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>>,
-        messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>>,
-        eventBatchRouterClass: Class<out MessageRouter<EventBatch>>,
-        grpcRouterClass: Class<out GrpcRouter>,
-        rabbitMQ: Path,
-        routerMQ: Path,
-        routerGRPC: Path,
-        cradleConfidential: Path,
-        prometheus: Path,
-        custom: Path,
-        dictionariesDir: Path,
-        oldDictionariesDir: Path
-    ) : this(
-        messageRouterParsedBatchClass,
-        messageRouterRawBatchClass,
-        messageRouterMessageGroupBatchClass,
-        eventBatchRouterClass,
-        grpcRouterClass,
-        rabbitMQ = rabbitMQ,
-        routerMQ = routerMQ,
-        grpc = null,
-        routerGRPC = routerGRPC,
-        cradleConfidential = cradleConfidential,
-        prometheus = prometheus,
-        custom = custom,
-        dictionariesDir = dictionariesDir,
-        oldDictionariesDir = oldDictionariesDir
-    )
+    fun messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>>): FactorySettings {
+        this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass
+        return this
+    }
+
+    fun eventBatchRouterClass(eventBatchRouterClass: Class<out MessageRouter<EventBatch>>): FactorySettings {
+        this.eventBatchRouterClass = eventBatchRouterClass
+        return this
+    }
+
+    fun grpcRouterClass(grpcRouterClass: Class<out GrpcRouter>): FactorySettings {
+        this.grpcRouterClass = grpcRouterClass
+        return this
+    }
+
+    fun notificationEventBatchRouterClass(notificationEventBatchRouterClass: Class<out NotificationRouter<EventBatch>>): FactorySettings {
+        this.notificationEventBatchRouterClass = notificationEventBatchRouterClass
+        return this
+    }
+
+    fun rabbitMQ(rabbitMQ: Path): FactorySettings {
+        this.rabbitMQ = rabbitMQ
+        return this
+    }
+
+    fun routerMQ(routerMQ: Path): FactorySettings {
+        this.routerMQ = routerMQ
+        return this
+    }
+
+    fun connectionManagerSettings(connectionManagerSettings: Path): FactorySettings {
+        this.connectionManagerSettings = connectionManagerSettings
+        return this
+    }
+
+    fun grpc(grpc: Path): FactorySettings {
+        this.grpc = grpc
+        return this
+    }
+
+    fun routerGRPC(routerGRPC: Path): FactorySettings {
+        this.routerGRPC = routerGRPC
+        return this
+    }
+
+    fun cradleConfidential(cradleConfidential: Path): FactorySettings {
+        this.cradleConfidential = cradleConfidential
+        return this
+    }
+
+    fun cradleNonConfidential(cradleNonConfidential: Path): FactorySettings {
+        this.cradleNonConfidential = cradleNonConfidential
+        return this
+    }
+
+    fun prometheus(prometheus: Path): FactorySettings {
+        this.prometheus = prometheus
+        return this
+    }
+
+    fun boxConfiguration(boxConfiguration: Path): FactorySettings {
+        this.boxConfiguration = boxConfiguration
+        return this
+    }
+
+    fun custom(custom: Path?): FactorySettings {
+        this.custom = custom
+        return this
+    }
+
+    fun dictionariesDir(dictionariesDir: Path?): FactorySettings {
+        this.dictionariesDir = dictionariesDir
+        return this
+    }
+
+    fun oldDictionariesDir(oldDictionariesDir: Path?): FactorySettings {
+        this.oldDictionariesDir = oldDictionariesDir
+        return this
+    }
+
+    fun variables(variables: MutableMap<String, String>): FactorySettings {
+        this.variables = variables
+        return this
+    }
 
     fun putVariable(key: String, value: String): String? {
         return variables.put(key, value)
