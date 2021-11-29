@@ -299,7 +299,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     /**
-     * @param prefix is ignored currently
+     * @param prefix used to build cache key but is ignored for queue declaring currently
      */
     public String queueExclusiveDeclareAndBind(String prefix, String exchange) throws IOException {
         Channel channel = getChannelFor(new PinId(prefix, EMPTY_ROUTING_KEY)).getChannel();
