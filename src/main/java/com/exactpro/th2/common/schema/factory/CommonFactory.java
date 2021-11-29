@@ -35,7 +35,6 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -132,17 +131,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 messageRouterMessageGroupBatchClass,
                 eventBatchRouterClass,
                 grpcRouterClass,
-                NotificationEventBatchRouter.class,
                 environmentVariables,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
                 custom,
                 dictionariesDir,
                 oldDictionariesDir
@@ -174,15 +163,10 @@ public class CommonFactory extends AbstractCommonFactory {
                 messageRouterMessageGroupBatchClass,
                 eventBatchRouterClass,
                 grpcRouterClass,
-                NotificationEventBatchRouter.class,
-                new HashMap<>(),
                 rabbitMQ,
                 routerMQ,
-                null,
                 routerGRPC,
-                null,
                 cradle,
-                null,
                 prometheus,
                 boxConfiguration,
                 custom,

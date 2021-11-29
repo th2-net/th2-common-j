@@ -58,7 +58,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
@@ -234,7 +233,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 messageRouterMessageGroupBatchClass,
                 eventBatchRouterClass,
                 grpcRouterClass,
-                NotificationEventBatchRouter.class,
                 environmentVariables
         ));
     }

@@ -51,6 +51,77 @@ data class FactorySettings @JvmOverloads constructor(
     var dictionariesDir: Path? = null,
     var oldDictionariesDir: Path? = null
 ) {
+    constructor(
+        messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>,
+        messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>>,
+        messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>>,
+        eventBatchRouterClass: Class<out MessageRouter<EventBatch>>,
+        grpcRouterClass: Class<out GrpcRouter>,
+        variables: MutableMap<String, String>
+    ) : this(
+        messageRouterParsedBatchClass,
+        messageRouterRawBatchClass,
+        messageRouterMessageGroupBatchClass,
+        eventBatchRouterClass,
+        grpcRouterClass,
+        variables = variables,
+        rabbitMQ = null
+    )
+
+    constructor(
+        messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>,
+        messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>>,
+        messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>>,
+        eventBatchRouterClass: Class<out MessageRouter<EventBatch>>,
+        grpcRouterClass: Class<out GrpcRouter>,
+        variables: MutableMap<String, String>,
+        custom: Path?,
+        dictionariesDir: Path?,
+        oldDictionariesDir: Path?
+    ) : this(
+        messageRouterParsedBatchClass,
+        messageRouterRawBatchClass,
+        messageRouterMessageGroupBatchClass,
+        eventBatchRouterClass,
+        grpcRouterClass,
+        variables = variables,
+        rabbitMQ = null,
+        custom = custom,
+        dictionariesDir = dictionariesDir,
+        oldDictionariesDir = oldDictionariesDir
+    )
+
+    constructor(
+        messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>,
+        messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>>,
+        messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>>,
+        eventBatchRouterClass: Class<out MessageRouter<EventBatch>>,
+        grpcRouterClass: Class<out GrpcRouter>,
+        rabbitMQ: Path,
+        routerMQ: Path,
+        routerGRPC: Path,
+        cradleConfidential: Path,
+        prometheus: Path,
+        custom: Path,
+        dictionariesDir: Path,
+        oldDictionariesDir: Path
+    ) : this(
+        messageRouterParsedBatchClass,
+        messageRouterRawBatchClass,
+        messageRouterMessageGroupBatchClass,
+        eventBatchRouterClass,
+        grpcRouterClass,
+        rabbitMQ = rabbitMQ,
+        routerMQ = routerMQ,
+        grpc = null,
+        routerGRPC = routerGRPC,
+        cradleConfidential = cradleConfidential,
+        prometheus = prometheus,
+        custom = custom,
+        dictionariesDir = dictionariesDir,
+        oldDictionariesDir = oldDictionariesDir
+    )
+
     fun putVariable(key: String, value: String): String? {
         return variables.put(key, value)
     }
