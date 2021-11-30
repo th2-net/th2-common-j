@@ -59,7 +59,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
-
+    public static final String EMPTY_ROUTING_KEY = "";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
     private final Connection connection;
@@ -296,6 +296,17 @@ public class ConnectionManager implements AutoCloseable {
 
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
+    }
+
+    /**
+     * @param prefix used to build cache key but is ignored for queue declaring currently
+     */
+    public String queueExclusiveDeclareAndBind(String prefix, String exchange) throws IOException {
+        Channel channel = getChannelFor(new PinId(prefix, EMPTY_ROUTING_KEY)).getChannel();
+        String queue = channel.queueDeclare().getQueue();
+        channel.queueBind(queue, exchange, EMPTY_ROUTING_KEY);
+        LOGGER.info("Declared the '{}' queue to listen to the '{}'", queue, exchange);
+        return queue;
     }
 
     private void shutdownSharedExecutor(int closeTimeout) {

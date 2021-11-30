@@ -117,7 +117,10 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
-    
+
+* globalNotification - notification exchange in RabbitMQ
+    * exchange - `global-notification` by default
+
 Filters format: 
 * fieldName - a field's name
 * expectedValue - expected field's value (not used for all operations)
@@ -155,6 +158,9 @@ Filters format:
           }
         ]
       }
+    },
+    "globalNotification": {
+      "exchange": "global-notification"
     }
   }
 }
