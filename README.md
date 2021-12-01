@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.31.1)
+# th2 common library (Java) (3.32.0)
 
 ## Usage
 
@@ -170,8 +170,9 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra set as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
-* timeout - this option defines connection timeout in milliseconds. If set to 0 or ommited, the default value of 5000 is used.
-* pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or ommited, the default value of 5000 is used.
+* timeout - this option defines connection timeout in milliseconds. If set to 0 or omitted, the default value of 5000 is used.
+* pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or omitted, the default value of 5000 is used.
+* prepareStorage - this option defines Cassandra storage can be created. If omitted, the default value false is used.
 
 ```json
 {
@@ -287,6 +288,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.32.0
+
++ Added `prepareStorage` property to cradle.json
 
 ### 3.31.1
 + Feature as test assertion methods for messages from fixtures
