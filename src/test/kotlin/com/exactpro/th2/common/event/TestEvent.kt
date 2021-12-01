@@ -22,6 +22,7 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import org.junit.jupiter.api.Assertions
@@ -35,7 +36,7 @@ typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
 
-    private val parentEventId: EventID = toEventID("parentEventId")!!
+    private val parentEventId: EventID = toEventID("parentEventId", DEFAULT_BOOK_NAME)!!
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))

@@ -18,6 +18,7 @@ package com.exactpro.th2.common.event;
 import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
+import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.protobuf.TextFormat.shortDebugString;
 import static java.util.Objects.requireNonNull;
@@ -64,6 +65,7 @@ public class Event {
     protected final List<MessageID> attachedMessageIDS = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
     protected final Instant startTimestamp;
+    protected String bookName = DEFAULT_BOOK_NAME;
     protected Instant endTimestamp;
     protected String type;
     protected String name;
@@ -108,6 +110,16 @@ public class Event {
                 .setSeconds(instant.getEpochSecond())
                 .setNanos(instant.getNano())
                 .build();
+    }
+
+    public Event bookName(String bookName) {
+        if (isNotBlank(bookName)) {
+            if (this.bookName != null) {
+                throw new IllegalStateException(formatStateException("Book name", this.bookName));
+            }
+            this.bookName = bookName;
+        }
+        return this;
     }
 
     public Event endTimestamp() {
@@ -245,7 +257,7 @@ public class Event {
      */
     @Deprecated
     public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(@Nullable String parentID) throws JsonProcessingException {
-        return toListProto(toEventID(parentID));
+        return toListProto(toEventID(parentID, bookName));
     }
 
 
@@ -258,7 +270,7 @@ public class Event {
      */
     @Deprecated
     public com.exactpro.th2.common.grpc.Event toProtoEvent(@Nullable String parentID) throws JsonProcessingException {
-        return toProto(toEventID(parentID));
+        return toProto(toEventID(parentID, bookName));
     }
 
     public com.exactpro.th2.common.grpc.Event toProto(@Nullable EventID parentID) throws JsonProcessingException {
@@ -271,7 +283,7 @@ public class Event {
                     .append(description);
         }
         var eventBuilder = com.exactpro.th2.common.grpc.Event.newBuilder()
-                .setId(toEventID(id))
+                .setId(toEventID(id, bookName))
                 .setName(nameBuilder.toString())
                 .setType(defaultIfBlank(type, UNKNOWN_EVENT_TYPE))
                 .setStartTimestamp(toTimestamp(startTimestamp))
@@ -349,13 +361,13 @@ public class Event {
      */
     @Deprecated
     protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable String parentID) throws JsonProcessingException {
-        return collectSubEvents(protoEvents, toEventID(parentID));
+        return collectSubEvents(protoEvents, toEventID(parentID, bookName));
     }
 
     protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable EventID parentID) throws JsonProcessingException {
         protoEvents.add(toProto(parentID)); // collect current level
         for (Event subEvent : subEvents) {
-            subEvent.collectSubEvents(protoEvents, toEventID(id)); // collect sub level
+            subEvent.collectSubEvents(protoEvents, toEventID(id, bookName)); // collect sub level
         }
         return protoEvents;
     }

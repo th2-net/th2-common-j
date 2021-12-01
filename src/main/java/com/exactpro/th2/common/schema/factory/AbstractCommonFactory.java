@@ -635,12 +635,15 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return rootEventId.updateAndGet(id -> {
             if (id == null) {
                 try {
-                    String boxName = getBoxConfiguration().getBoxName();
+                    BoxConfiguration boxConfiguration = getBoxConfiguration();
+                    String boxName = boxConfiguration.getBoxName();
                     if (boxName == null) {
                         return null;
                     }
 
-                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start().endTimestamp()
+                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start()
+                            .bookName(boxConfiguration.getBookName())
+                            .endTimestamp()
                             .name(boxName + " " + Instant.now())
                             .description("Root event")
                             .status(Event.Status.PASSED)
