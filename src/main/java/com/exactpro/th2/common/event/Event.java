@@ -344,6 +344,10 @@ public class Event {
         return toBatchesProtoWithLimit(Integer.MAX_VALUE, parentID);
     }
 
+    public String getBookName() {
+        return bookName;
+    }
+
     public String getId() {
         return id;
     }
