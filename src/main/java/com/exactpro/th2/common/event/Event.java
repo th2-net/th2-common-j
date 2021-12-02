@@ -289,7 +289,7 @@ public class Event {
                     .append(description);
         }
         var eventBuilder = com.exactpro.th2.common.grpc.Event.newBuilder()
-                .setId(toEventID(bookName, id))
+                .setId(getEventId())
                 .setName(nameBuilder.toString())
                 .setType(defaultIfBlank(type, UNKNOWN_EVENT_TYPE))
                 .setStartTimestamp(toTimestamp(startTimestamp))
@@ -388,7 +388,7 @@ public class Event {
     ) throws JsonProcessingException {
         protoEvents.add(toProto(parentId)); // collect current level
         for (Event subEvent : subEvents) {
-            subEvent.collectSubEvents(protoEvents, toEventID(bookName, id)); // collect sub level
+            subEvent.collectSubEvents(protoEvents, getEventId()); // collect sub level
         }
         return protoEvents;
     }
