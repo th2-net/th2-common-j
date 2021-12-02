@@ -21,10 +21,12 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
+import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -268,7 +270,8 @@ class TestRabbitMessageGroupBatchRouter {
             init(DefaultMessageRouterContext(
                 connectionManager,
                 mock { },
-                MessageRouterConfiguration(pins)
+                MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
+                BoxConfiguration()
             ))
         }
 }

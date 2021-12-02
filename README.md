@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.32.0)
+# th2 common library (Java) (4.0.0)
 
 ## Usage
 
@@ -117,7 +117,10 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
-    
+
+* globalNotification - notification exchange in RabbitMQ
+    * exchange - `global-notification` by default
+
 Filters format: 
 * fieldName - a field's name
 * expectedValue - expected field's value (not used for all operations)
@@ -155,6 +158,9 @@ Filters format:
           }
         ]
       }
+    },
+    "globalNotification": {
+      "exchange": "global-notification"
     }
   }
 }
@@ -167,7 +173,6 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * keyspace - the required setting defines the keyspace (top-level database object) in the Cassandra data center.
 * username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
 * password - the required setting defines the password that will be used for connecting to Cassandra.
-* cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra set as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
 * timeout - this option defines connection timeout in milliseconds. If set to 0 or omitted, the default value of 5000 is used.
@@ -182,7 +187,6 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "keyspace": "<keyspace>",
   "username": "<username>",
   "password": "<password>",
-  "cradleInstanceName": "<cradle instance name>",
   "cradleMaxEventBatchSize": 1048576,
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
@@ -289,9 +293,11 @@ dependencies {
 
 ## Release notes
 
-### 3.32.0
+### 4.0.0
 
-+ Added `prepareStorage` property to cradle.json
++ Adaptation to books/pages cradleapi 4.0.0
++ Removed `cradleInstanceName` parameter from `cradle.json`
++ Added `prepareStorage` property to `cradle.json`
 
 ### 3.31.1
 + Feature as test assertion methods for messages from fixtures

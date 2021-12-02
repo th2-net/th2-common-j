@@ -17,13 +17,15 @@ package com.exactpro.th2.common.schema.factory;
 
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
-import com.exactpro.cradle.cassandra.connection.CassandraConnection;
+import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
 import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.EventID;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.metrics.MetricMonitor;
@@ -34,15 +36,14 @@ import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
-import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
-import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
 import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
+import com.exactpro.th2.common.schema.message.NotificationRouter;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
@@ -54,9 +55,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -98,8 +96,8 @@ import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_CONSISTENCY_LEVEL;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_TIMEOUT;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -136,12 +134,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass;
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
+    private final Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass;
     private final AtomicReference<ConnectionManager> rabbitMqConnectionManager = new AtomicReference<>();
     private final AtomicReference<MessageRouterContext> routerContext = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
+    private final AtomicReference<NotificationRouter<EventBatch>> notificationEventBatchRouter = new AtomicReference<>();
     private final AtomicReference<String> rootEventId = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
@@ -154,10 +154,26 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Create factory with default implementation schema classes
+     * Create factory with non-default implementations schema classes
+     * @param settings {@link FactorySettings}
      */
+    public AbstractCommonFactory(FactorySettings settings) {
+        messageRouterParsedBatchClass = settings.getMessageRouterParsedBatchClass();
+        messageRouterRawBatchClass = settings.getMessageRouterRawBatchClass();
+        messageRouterMessageGroupBatchClass = settings.getMessageRouterMessageGroupBatchClass();
+        eventBatchRouterClass = settings.getEventBatchRouterClass();
+        grpcRouterClass = settings.getGrpcRouterClass();
+        notificationEventBatchRouterClass = settings.getNotificationEventBatchRouterClass();
+        stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(settings.getVariables().get(key), System.getenv(key)));
+    }
+
+    /**
+     * Create factory with default implementation schema classes
+     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
+     */
+    @Deprecated(since = "4.0.0", forRemoval = true)
     public AbstractCommonFactory() {
-        this(RabbitParsedBatchRouter.class, RabbitRawBatchRouter.class, RabbitMessageGroupBatchRouter.class, EventBatchRouter.class, DefaultGrpcRouter.class);
+        this(new FactorySettings());
     }
 
     /**
@@ -166,14 +182,21 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
      * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
      * @param grpcRouterClass               Class for {@link GrpcRouter}
+     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
+    @Deprecated(since = "4.0.0", forRemoval = true)
     public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
-        this(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass,
-                eventBatchRouterClass, grpcRouterClass, emptyMap());
+        this(new FactorySettings()
+                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
+                .messageRouterRawBatchClass(messageRouterRawBatchClass)
+                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
+                .eventBatchRouterClass(eventBatchRouterClass)
+                .grpcRouterClass(grpcRouterClass)
+        );
     }
 
     /**
@@ -184,19 +207,23 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
      * @param grpcRouterClass               Class for {@link GrpcRouter}
      * @param environmentVariables          map with additional environment variables
+     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
+    @Deprecated(since = "4.0.0", forRemoval = true)
     protected AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass,
             @NotNull Map<String, String> environmentVariables) {
-        this.messageRouterParsedBatchClass = messageRouterParsedBatchClass;
-        this.messageRouterRawBatchClass = messageRouterRawBatchClass;
-        this.messageRouterMessageGroupBatchClass = messageRouterMessageGroupBatchClass;
-        this.eventBatchRouterClass = eventBatchRouterClass;
-        this.grpcRouterClass = grpcRouterClass;
-        this.stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(environmentVariables.get(key), System.getenv(key)));
+        this(new FactorySettings()
+                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
+                .messageRouterRawBatchClass(messageRouterRawBatchClass)
+                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
+                .eventBatchRouterClass(eventBatchRouterClass)
+                .grpcRouterClass(grpcRouterClass)
+                .variables(environmentVariables)
+        );
     }
 
     public void start() {
@@ -287,7 +314,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(new DefaultMessageRouterContext(getRabbitMqConnectionManager(), MessageRouterMonitor.DEFAULT_MONITOR, getMessageRouterConfiguration()));
+                    router.init(new DefaultMessageRouterContext(
+                            getRabbitMqConnectionManager(),
+                            MessageRouterMonitor.DEFAULT_MONITOR,
+                            getMessageRouterConfiguration(),
+                            getBoxConfiguration()
+                    ));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
@@ -312,6 +344,25 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 }
             }
 
+            return router;
+        });
+    }
+
+    /**
+     * @return Initialized {@link NotificationRouter} which works with {@link EventBatch}
+     * @throws CommonFactoryException if cannot call default constructor from class
+     * @throws IllegalStateException  if cannot read configuration
+     */
+    public NotificationRouter<EventBatch> getNotificationEventBatchRouter() {
+        return notificationEventBatchRouter.updateAndGet(router -> {
+            if (router == null) {
+                try {
+                    router = notificationEventBatchRouterClass.getConstructor().newInstance();
+                    router.init(getMessageRouterContext());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    throw new CommonFactoryException("Can not create notification router", e);
+                }
+            }
             return router;
         });
     }
@@ -452,42 +503,43 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (manager == null) {
                 try {
                     CradleConfidentialConfiguration confidentialConfiguration = getCradleConfidentialConfiguration();
-                    CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
-
                     CassandraConnectionSettings cassandraConnectionSettings = new CassandraConnectionSettings(
-                            confidentialConfiguration.getDataCenter(),
                             confidentialConfiguration.getHost(),
                             confidentialConfiguration.getPort(),
-                            confidentialConfiguration.getKeyspace());
-
+                            confidentialConfiguration.getDataCenter()
+                    );
                     if (StringUtils.isNotEmpty(confidentialConfiguration.getUsername())) {
                         cassandraConnectionSettings.setUsername(confidentialConfiguration.getUsername());
                     }
-
                     if (StringUtils.isNotEmpty(confidentialConfiguration.getPassword())) {
                         cassandraConnectionSettings.setPassword(confidentialConfiguration.getPassword());
                     }
 
-                    if (nonConfidentialConfiguration.getTimeout() > 0) {
-                        cassandraConnectionSettings.setTimeout(nonConfidentialConfiguration.getTimeout());
-                    }
-
-                    if (nonConfidentialConfiguration.getPageSize() > 0) {
-                        cassandraConnectionSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
-                    }
-
-                    manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
-                    manager.init(
-                            defaultIfBlank(confidentialConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME),
-                            nonConfidentialConfiguration.getPrepareStorage(),
-                            nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0
-                                    ? nonConfidentialConfiguration.getCradleMaxMessageBatchSize()
-                                    : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
-                            nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0
-                                    ? nonConfidentialConfiguration.getCradleMaxEventBatchSize()
-                                    : DEFAULT_MAX_EVENT_BATCH_SIZE
+                    CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
+                    CassandraStorageSettings cassandraStorageSettings = new CassandraStorageSettings(
+                            null,
+                            nonConfidentialConfiguration.getTimeout() > 0
+                                    ? nonConfidentialConfiguration.getTimeout()
+                                    : DEFAULT_TIMEOUT,
+                            DEFAULT_CONSISTENCY_LEVEL,
+                            DEFAULT_CONSISTENCY_LEVEL
                     );
-                } catch (CradleStorageException | RuntimeException e) {
+                    if (nonConfidentialConfiguration.getPageSize() > 0) {
+                        cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
+                    }
+                    if (nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
+                        cassandraStorageSettings.setMaxMessageBatchSize(nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
+                    }
+                    if (nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
+                        cassandraStorageSettings.setMaxTestEventBatchSize(nonConfidentialConfiguration.getCradleMaxEventBatchSize());
+                    }
+
+                    manager = new CassandraCradleManager(
+                            cassandraConnectionSettings,
+                            cassandraStorageSettings,
+                            nonConfidentialConfiguration.getPrepareStorage()
+                    );
+                } catch (CradleStorageException | RuntimeException | IOException e) {
                     throw new CommonFactoryException("Cannot create Cradle manager", e);
                 }
             }
@@ -639,7 +691,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                        contextMonitor = new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), rootEventId));
                    }
 
-                   return new DefaultMessageRouterContext(getRabbitMqConnectionManager(), contextMonitor, getMessageRouterConfiguration());
+                   return new DefaultMessageRouterContext(
+                           getRabbitMqConnectionManager(),
+                           contextMonitor,
+                           getMessageRouterConfiguration(),
+                           getBoxConfiguration()
+                   );
                } catch (Exception e) {
                    throw new CommonFactoryException("Can not create message router context", e);
                }
@@ -663,6 +720,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
             return connectionManager;
         });
+    }
+
+    public MessageID.Builder newMessageIDBuilder() {
+        return MessageID.newBuilder()
+                .setBookName(getBoxConfiguration().getBookName());
+    }
+
+    public EventID.Builder newEventIDBuilder() {
+        return EventID.newBuilder()
+                .setBookName(getBoxConfiguration().getBookName());
     }
 
     @Override
@@ -739,9 +806,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         cradleManager.getAndUpdate(manager -> {
             if (manager != null) {
                 try {
-                    manager.dispose();
+                    manager.close();
                 } catch (Exception e) {
-                    LOGGER.error("Failed to dispose Cradle manager", e);
+                    LOGGER.error("Failed to close Cradle manager", e);
                 }
             }
 
