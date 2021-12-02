@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.31.1)
+# th2 common library (Java) (3.32.0)
 
 ## Usage
 
@@ -287,6 +287,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.32.0
+
++ Improve `messageRecursionLimit` applying mechanism
 
 ### 3.31.1
 + Feature as test assertion methods for messages from fixtures
