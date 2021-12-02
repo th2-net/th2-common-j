@@ -277,12 +277,28 @@ EVENTS METRICS:
 * th2_event_publish_total (`th2_pin`): quantity of published events
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
+###Test extensions:
+
+To be able to use test extensions please fill build.gradle as in example below: 
+```groovy
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    testImplementation testFixtures("com.exactpro.th2:common:3.31.1")
+}
+```
+
 ## Release notes
 
 ### 4.0.0
 
 + Adaptation to books/pages cradleapi 4.0.0
 + Removed `cradleInstanceName` parameter from `cradle.json`
+
+### 3.31.1
++ Feature as test assertion methods for messages from fixtures
 
 ### 3.31.0
 
