@@ -79,7 +79,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
-* messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 500
+* messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
 
 ```json
 {
@@ -95,7 +95,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   "minConnectionRecoveryTimeout": 10000,
   "maxConnectionRecoveryTimeout": 60000,
   "prefetchCount": 10,
-  "messageRecursionLimit": 500
+  "messageRecursionLimit": 100
 }
 ```
 
