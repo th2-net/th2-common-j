@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
+import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 
 public class MessageTest extends BaseTest {
@@ -33,7 +34,7 @@ public class MessageTest extends BaseTest {
                 .build();
 
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(message).toProtoEvent(DEFAULT_BOOK_NAME, "id");
+                Event.start().bodyData(message).toProto(toEventID(DEFAULT_BOOK_NAME, "id"));
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -51,5 +52,4 @@ public class MessageTest extends BaseTest {
             new MessageBuilder().text(null).build();
         });
     }
-
 }

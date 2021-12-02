@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.HashMap;
 
+import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 
 public class TestVerification extends BaseTest {
@@ -44,7 +45,7 @@ public class TestVerification extends BaseTest {
         }});
 
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).toProtoEvent(DEFAULT_BOOK_NAME, "id");
+                Event.start().bodyData(verification).toProto(toEventID(DEFAULT_BOOK_NAME, "id"));
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -96,7 +97,7 @@ public class TestVerification extends BaseTest {
         }});
 
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).toProtoEvent(DEFAULT_BOOK_NAME, "id");
+                Event.start().bodyData(verification).toProto(toEventID(DEFAULT_BOOK_NAME, "id"));
 
         String expectedJson = "[\n" +
                 "  {\n" +

@@ -24,6 +24,7 @@ import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
@@ -35,19 +36,17 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
-    parentBookName: String,
-    parentId: String? = null
+    parentId: EventID? = null
 ): Event = event.apply {
     sendAll(
-        EventBatch.newBuilder().addEvents(toProtoEvent(parentBookName, parentId)).build(),
+        EventBatch.newBuilder().addEvents(toProto(parentId)).build(),
         PUBLISH.toString(),
         EVENT.toString()
     )
 }
 
 fun MessageRouter<EventBatch>.storeEvent(
-    parentBookName: String,
-    parentId: String,
+    parentId: EventID,
     name: String,
     type: String,
     cause: Throwable? = null,
@@ -66,7 +65,7 @@ fun MessageRouter<EventBatch>.storeEvent(
         error = error.cause
     }
 
-    storeEvent(this, parentBookName, parentId)
+    storeEvent(this, parentId)
 }
 
 @Deprecated(message = "Please use MessageUtils.toJson", replaceWith = ReplaceWith("toJson(true)", imports = ["com.exactpro.th2.common.message.toJson"]), level = DeprecationLevel.WARNING)

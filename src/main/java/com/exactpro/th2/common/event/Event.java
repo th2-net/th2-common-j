@@ -132,7 +132,7 @@ public class Event {
 
     /**
      * Sets event name if passed {@code eventName} is not blank.
-     * The {@link #UNKNOWN_EVENT_NAME} value will be used as default in the {@link #toProtoEvent(String, String)} and {@link #toProtoEvents(String, String)} methods if this property isn't set
+     * The {@link #UNKNOWN_EVENT_NAME} value will be used as default in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      * @return current event
      * @throws IllegalStateException if name already set
      */
@@ -148,7 +148,7 @@ public class Event {
 
     /**
      * Sets event description if passed {@code description} is not blank.
-     * This property value will be appended to the end of event name and added into event body in the {@link #toProtoEvent(String, String)} and {@link #toProtoEvents(String, String)} methods if this property isn't set
+     * This property value will be appended to the end of event name and added into event body in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      * @return current event
      * @throws IllegalStateException if description already set
      */
@@ -165,7 +165,7 @@ public class Event {
 
     /**
      * Sets event type if passed {@code eventType} is not blank.
-     * The {@link #UNKNOWN_EVENT_TYPE} value will be used as default in the {@link #toProtoEvent(String, String)} and {@link #toProtoEvents(String, String)} methods if this property isn't set
+     * The {@link #UNKNOWN_EVENT_TYPE} value will be used as default in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      * @return current event
      * @throws IllegalStateException if type already set
      */
@@ -252,31 +252,8 @@ public class Event {
         return this;
     }
 
-    /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #toListProto(EventID)} method
-     */
-    @Deprecated
-    public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(
-            String parentBookName,
-            @Nullable String parentId
-    ) throws JsonProcessingException {
-        return toListProto(toEventID(parentBookName, parentId));
-    }
-
-
     public List<com.exactpro.th2.common.grpc.Event> toListProto(@Nullable EventID parentID) throws JsonProcessingException {
         return collectSubEvents(new ArrayList<>(), parentID);
-    }
-
-    /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #toProto(EventID)} method
-     */
-    @Deprecated
-    public com.exactpro.th2.common.grpc.Event toProtoEvent(
-            String parentBookName,
-            @Nullable String parentId
-    ) throws JsonProcessingException {
-        return toProto(toEventID(parentBookName, parentId));
     }
 
     public com.exactpro.th2.common.grpc.Event toProto(@Nullable EventID parentID) throws JsonProcessingException {
@@ -370,18 +347,6 @@ public class Event {
         return endTimestamp;
     }
 
-    /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #collectSubEvents(List, EventID)} method
-     */
-    @Deprecated
-    protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(
-            List<com.exactpro.th2.common.grpc.Event> protoEvents,
-            String parentBookName,
-            @Nullable String parentId
-    ) throws JsonProcessingException {
-        return collectSubEvents(protoEvents, toEventID(parentBookName, parentId));
-    }
-
     protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(
             List<com.exactpro.th2.common.grpc.Event> protoEvents,
             @Nullable EventID parentId
@@ -399,14 +364,6 @@ public class Event {
 
     protected String formatStateException(String fieldName, Object value) {
         return fieldName + " in event '" + id + "' already sed with value '" + value + '\'';
-    }
-
-    /**
-     * @deprecated use {@link #getAggregatedStatus} instead
-     */
-    @Deprecated(forRemoval = true)
-    protected Status getAggrigatedStatus() {
-        return getAggregatedStatus();
     }
 
     @NotNull
