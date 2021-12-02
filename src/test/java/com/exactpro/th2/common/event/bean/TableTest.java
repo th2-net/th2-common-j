@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
-import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 
 public class TableTest extends BaseTest {
 
@@ -44,7 +43,7 @@ public class TableTest extends BaseTest {
         Table table = tableBuilder.row(row1)
                 .row(row2).build();
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(table).toProto(toEventID(DEFAULT_BOOK_NAME, "id"));
+                Event.start().bodyData(table).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[\n" +
                 "  {\n" +

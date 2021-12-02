@@ -46,6 +46,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 
 class TestRabbitMessageGroupBatchRouter {
+    private val boxConfiguration = BoxConfiguration()
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val monitor: SubscriberMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
@@ -103,7 +104,7 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(
                 MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message1", Direction.FIRST, "test-alias") }
+                        .apply { this += message(boxConfiguration.bookName, "test-message1", Direction.FIRST, "test-alias") }
                     ).build()
             )
 
@@ -114,7 +115,7 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes to the correct pin according to attributes`() {
             val batch = MessageGroupBatch.newBuilder()
                 .addGroups(MessageGroup.newBuilder()
-                    .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                    .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
                 ).build()
             router.send(batch, "test")
 
@@ -131,7 +132,7 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
                     ).build())
             }.apply {
                 Assertions.assertEquals(
@@ -146,7 +147,7 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
                     ).build(),
                     "unexpected"
                 )
@@ -162,7 +163,7 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes to all correct pin according to attributes`() {
             val batch = MessageGroupBatch.newBuilder()
                 .addGroups(MessageGroup.newBuilder()
-                    .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                    .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
                 ).build()
             router.sendAll(batch)
 
@@ -271,7 +272,7 @@ class TestRabbitMessageGroupBatchRouter {
                 connectionManager,
                 mock { },
                 MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
-                BoxConfiguration()
+                boxConfiguration
             ))
         }
 }

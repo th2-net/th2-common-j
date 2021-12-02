@@ -22,7 +22,7 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import org.junit.jupiter.api.Assertions
@@ -35,20 +35,20 @@ import org.junit.jupiter.api.assertAll
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
-
-    private val parentEventId: EventID = toEventID(DEFAULT_BOOK_NAME, "parentEventId")!!
+    private val bookName = BoxConfiguration().bookName
+    private val parentEventId: EventID = toEventID(bookName, "parentEventId")!!
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
 
     @Test
     fun `call the toProto method on a simple event`() {
-        Event.start().toProto(null).run {
+        Event.start().bookName(bookName).toProto(null).run {
             checkDefaultEventFields()
             assertFalse(hasParentId())
         }
 
-        Event.start().toProto(parentEventId).run {
+        Event.start().bookName(bookName).toProto(parentEventId).run {
             checkDefaultEventFields()
             assertEquals(parentEventId, parentId)
         }
@@ -56,7 +56,7 @@ class TestEvent {
 
     @Test
     fun `set parent to the toListProto method`() {
-        val event = Event.start()
+        val event = Event.start().bookName(bookName)
 
         val toListProtoWithParent = event.toListProto(parentEventId)
         val toListProtoWithoutParent = event.toListProto(null)
@@ -70,7 +70,7 @@ class TestEvent {
 
     @Test
     fun `negative or zero max size`() {
-        val rootEvent = Event.start()
+        val rootEvent = Event.start().bookName(bookName)
         assertAll(
             { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(-1, parentEventId) } },
             { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(0, parentEventId) } }
@@ -80,6 +80,7 @@ class TestEvent {
     @Test
     fun `too low max size`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data)
 
         assertAll(
@@ -90,10 +91,13 @@ class TestEvent {
     @Test
     fun `every event to distinct batch`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
                     .addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
             }
 
@@ -105,10 +109,13 @@ class TestEvent {
     @Test
     fun `problem events`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
                     .addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(bigData)
             }
 
@@ -120,14 +127,19 @@ class TestEvent {
     @Test
     fun `several events at the end of hierarchy`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(bigData)
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
             }
 
@@ -151,10 +163,13 @@ class TestEvent {
     @Test
     fun `batch structure`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data)
         val subEvent1 = rootEvent.addSubEventWithSamePeriod()
+            .bookName(bookName)
             .bodyData(data)
         val subEvent2 = rootEvent.addSubEventWithSamePeriod()
+            .bookName(bookName)
             .bodyData(data)
 
         val batches = rootEvent.toBatchesProtoWithLimit(1024 * 1024, parentEventId)
@@ -175,12 +190,16 @@ class TestEvent {
     @Test
     fun `event with children is after the event without children`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data).apply {
                         addSubEventWithSamePeriod()
+                            .bookName(bookName)
                             .bodyData(data)
                     }
             }
@@ -194,12 +213,14 @@ class TestEvent {
     fun `root event to list batch proto with size limit`() {
         val rootName = "root"
         val childName = "child"
-        val rootEvent = Event.start().apply {
-            name = rootName
-            bodyData(data).apply {
-                addSubEventWithSamePeriod().apply {
-                    name = childName
-                    bodyData(data)
+        val rootEvent = Event.start().also {
+            it.bookName = bookName
+            it.name = rootName
+            it.bodyData(data).apply {
+                addSubEventWithSamePeriod().also { subEvent ->
+                    subEvent.bookName = bookName
+                    subEvent.name = childName
+                    subEvent.bodyData(data)
                 }
             }
         }
@@ -216,12 +237,14 @@ class TestEvent {
     fun `root event to list batch proto without size limit`() {
         val rootName = "root"
         val childName = "child"
-        val rootEvent = Event.start().apply {
-            name = rootName
-            bodyData(data).apply {
-                addSubEventWithSamePeriod().apply {
-                    name = childName
-                    bodyData(data)
+        val rootEvent = Event.start().also {
+            it.bookName = bookName
+            it.name = rootName
+            it.bodyData(data).apply {
+                addSubEventWithSamePeriod().also { subEvent ->
+                    subEvent.bookName = bookName
+                    subEvent.name = childName
+                    subEvent.bodyData(data)
                 }
             }
         }
@@ -234,13 +257,17 @@ class TestEvent {
     @Test
     fun `event with children is before the event without children`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data).apply {
                         addSubEventWithSamePeriod()
+                            .bookName(bookName)
                             .bodyData(data)
                     }
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
             }
 
@@ -252,13 +279,17 @@ class TestEvent {
     @Test
     fun `pack event tree to single batch`() {
         val rootEvent = Event.start()
+            .bookName(bookName)
             .bodyData(data).apply {
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data).apply {
                         addSubEventWithSamePeriod()
+                            .bookName(bookName)
                             .bodyData(data)
                     }
                 addSubEventWithSamePeriod()
+                    .bookName(bookName)
                     .bodyData(data)
             }
 
@@ -269,7 +300,7 @@ class TestEvent {
 
     @Test
     fun `pack single event single batch`() {
-        val rootEvent = Event.start()
+        val rootEvent = Event.start().bookName(bookName)
 
         val batch = rootEvent.toBatchProto(parentEventId)
         assertFalse(batch.hasParentEventId())

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
  */
 package com.exactpro.th2.common.event.bean;
 
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.Assertions;
 
 import java.io.IOException;
@@ -24,7 +26,7 @@ import java.io.IOException;
 import static com.fasterxml.jackson.module.kotlin.ExtensionsKt.jacksonObjectMapper;
 
 public class BaseTest {
-
+    protected static final String BOOK_NAME = new BoxConfiguration().getBookName();
     private static final ObjectMapper jacksonMapper = jacksonObjectMapper();
 
     protected void assertCompareBytesAndJson(byte[] bytes, String jsonString) throws IOException {

@@ -18,7 +18,6 @@ package com.exactpro.th2.common.event;
 import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
-import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.protobuf.TextFormat.shortDebugString;
 import static java.util.Objects.requireNonNull;
@@ -65,7 +64,7 @@ public class Event {
     protected final List<MessageID> attachedMessageIDS = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
     protected final Instant startTimestamp;
-    protected String bookName = DEFAULT_BOOK_NAME;
+    protected String bookName;
     protected Instant endTimestamp;
     protected String type;
     protected String name;

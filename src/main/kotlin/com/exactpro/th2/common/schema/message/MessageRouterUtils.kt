@@ -28,7 +28,6 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.google.protobuf.MessageOrBuilder
@@ -47,10 +46,10 @@ fun MessageRouter<EventBatch>.storeEvent(
 
 fun MessageRouter<EventBatch>.storeEvent(
     parentId: EventID,
+    bookName: String,
     name: String,
     type: String,
-    cause: Throwable? = null,
-    bookName: String = DEFAULT_BOOK_NAME
+    cause: Throwable? = null
 ): Event = Event.start().apply {
     bookName(bookName)
     endTimestamp()
