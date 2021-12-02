@@ -537,7 +537,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     manager = new CassandraCradleManager(
                             cassandraConnectionSettings,
                             cassandraStorageSettings,
-                            false
+                            nonConfidentialConfiguration.getPrepareStorage()
                     );
                 } catch (CradleStorageException | RuntimeException | IOException e) {
                     throw new CommonFactoryException("Cannot create Cradle manager", e);

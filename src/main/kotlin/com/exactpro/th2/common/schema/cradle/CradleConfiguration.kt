@@ -31,7 +31,8 @@ data class CradleConfiguration(
     var timeout: Long,
     var pageSize: Int,
     var cradleMaxEventBatchSize: Int,
-    var cradleMaxMessageBatchSize: Int
+    var cradleMaxMessageBatchSize: Int,
+    var prepareStorage: Boolean
 ) : Configuration() {
     constructor(
         cradleConfidentialConfiguration: CradleConfidentialConfiguration,
@@ -46,7 +47,8 @@ data class CradleConfiguration(
         cradleNonConfidentialConfiguration.timeout,
         cradleNonConfidentialConfiguration.pageSize,
         cradleNonConfidentialConfiguration.cradleMaxEventBatchSize,
-        cradleNonConfidentialConfiguration.cradleMaxMessageBatchSize
+        cradleNonConfidentialConfiguration.cradleMaxMessageBatchSize,
+        cradleNonConfidentialConfiguration.prepareStorage
     )
 }
 
@@ -63,5 +65,6 @@ data class CradleNonConfidentialConfiguration(
     var timeout: Long = CassandraStorageSettings.DEFAULT_TIMEOUT,
     var pageSize: Int = 5000,
     var cradleMaxEventBatchSize: Int = CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE,
-    var cradleMaxMessageBatchSize: Int = CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE
+    var cradleMaxMessageBatchSize: Int = CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE,
+    var prepareStorage: Boolean = false
 ) : Configuration()
