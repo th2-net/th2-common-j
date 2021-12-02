@@ -350,6 +350,10 @@ public class Event {
         return toBatchesProtoWithLimit(Integer.MAX_VALUE, parentID);
     }
 
+    public EventID getEventId() {
+        return toEventID(bookName, id);
+    }
+
     public String getBookName() {
         return bookName;
     }
