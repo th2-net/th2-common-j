@@ -16,21 +16,21 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DIRECTION_LABEL
+import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
 import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
 import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
-import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
-import com.exactpro.th2.common.metrics.incrementTotalMetrics
 import com.exactpro.th2.common.metrics.incrementDroppedMetrics
+import com.exactpro.th2.common.metrics.incrementTotalMetrics
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
-import com.google.protobuf.CodedInputStream
-import com.rabbitmq.client.Delivery
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
+import com.exactpro.th2.common.schema.message.toShortDebugString
+import com.google.protobuf.CodedInputStream
+import com.rabbitmq.client.Delivery
 import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
 import mu.KotlinLogging
@@ -49,18 +49,7 @@ class RabbitMessageGroupBatchSubscriber(
 
     override fun toShortTraceString(value: MessageGroupBatch): String = value.toJson()
 
-    override fun toShortDebugString(value: MessageGroupBatch): String = "MessageGroupBatch: " +
-        run {
-            val sessionAliasAndDirection = getSessionAliasAndDirection(value.groupsList[0].messagesList[0])
-            "session alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}"
-        } +
-        value.groupsList.flatMap { it.messagesList }.joinToString(prefix = ", sequences = ") {
-            when {
-                it.hasMessage() -> it.message.metadata.id.sequence.toString()
-                it.hasRawMessage() -> it.rawMessage.metadata.id.sequence.toString()
-                else -> ""
-            }
-        }
+    override fun toShortDebugString(value: MessageGroupBatch): String = value.toShortDebugString()
 
     override fun filter(batch: MessageGroupBatch): MessageGroupBatch? {
         if (filters.isEmpty()) {

@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.30.0)
+# th2 common library (Java) (3.32.0)
 
 ## Usage
 
@@ -269,14 +269,44 @@ MESSAGES METRICS:
 * th2_message_group_sequence_subscribe (`th2_pin`, `session_alias`, `direction`): last received sequence
 
 EVENTS METRICS:
-* th2_event_publish_total (`th2_pin`): quantity of published events 
+
+* th2_event_publish_total (`th2_pin`): quantity of published events
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
+
+###Test extensions:
+
+To be able to use test extensions please fill build.gradle as in example below: 
+```groovy
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    testImplementation testFixtures("com.exactpro.th2:common:3.31.1")
+}
+```
 
 ## Release notes
 
+### 3.32.0
+
++ Improve `messageRecursionLimit` applying mechanism
+
+### 3.31.1
++ Feature as test assertion methods for messages from fixtures
+
+### 3.31.0
+
++ Fix printing of empty MessageGroupBatch in debug logs of MessageGroupBatch router
++ Print message ids of MessageGroupBatch in debug logs of MessageGroupBatch router
+
 ### 3.30.0
 
-+ Updated `messageRecursionLimit` default value from `100` to `500`
++ Added util methods from store-common to use in estore/mstore
+
+### 3.29.2
+
++ Do not publish messages if the whole batch was filtered
 
 ### 3.29.1
 
