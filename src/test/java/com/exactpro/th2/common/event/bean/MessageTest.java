@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@ package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+
+import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 
 public class MessageTest extends BaseTest {
     @Test
@@ -30,7 +33,7 @@ public class MessageTest extends BaseTest {
                 .build();
 
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(message).toProtoEvent("id");
+                Event.start().bodyData(message).toProtoEvent(DEFAULT_BOOK_NAME, "id");
 
         String expectedJson = "[\n" +
                 "  {\n" +

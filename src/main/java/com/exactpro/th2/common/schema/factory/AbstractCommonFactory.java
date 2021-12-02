@@ -142,7 +142,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<NotificationRouter<EventBatch>> notificationEventBatchRouter = new AtomicReference<>();
-    private final AtomicReference<String> rootEventId = new AtomicReference<>();
+    private final AtomicReference<EventID> rootEventId = new AtomicReference<>();
     private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
     private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
     private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
@@ -627,11 +627,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * If root event does not exist, it creates root event with its name = box name and timestamp
+     * If root event does not exist, it creates root event with its book name = box book name and name = box name and timestamp
      * @return root event id
      */
     @Nullable
-    public String getRootEventId() {
+    public EventID getRootEventId() {
         return rootEventId.updateAndGet(id -> {
             if (id == null) {
                 try {
@@ -648,11 +648,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                             .description("Root event")
                             .status(Event.Status.PASSED)
                             .type("Microservice")
-                            .toProtoEvent(null);
+                            .toProto(null);
 
                     try {
                         getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
-                        return rootEvent.getId().getId();
+                        return rootEvent.getId();
                     } catch (IOException e) {
                         throw new CommonFactoryException("Can not send root event", e);
                     }
@@ -685,13 +685,19 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return routerContext.updateAndGet(ctx -> {
            if (ctx == null) {
                try {
-
                    MessageRouterMonitor contextMonitor;
-                   String rootEventId = getRootEventId();
+                   EventID rootEventId = getRootEventId();
                    if (rootEventId == null) {
                        contextMonitor = new LogMessageRouterMonitor();
                    } else {
-                       contextMonitor = new BroadcastMessageRouterMonitor(new LogMessageRouterMonitor(), new EventMessageRouterMonitor(getEventBatchRouter(), rootEventId));
+                       contextMonitor = new BroadcastMessageRouterMonitor(
+                               new LogMessageRouterMonitor(),
+                               new EventMessageRouterMonitor(
+                                       getEventBatchRouter(),
+                                       rootEventId,
+                                       getBoxConfiguration().getBookName()
+                               )
+                       );
                    }
 
                    return new DefaultMessageRouterContext(

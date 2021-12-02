@@ -35,13 +35,18 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
+    parentBookName: String,
     parentId: String? = null
 ): Event = event.apply {
-    val batch = EventBatch.newBuilder().addEvents(toProtoEvent(parentId)).build()
-    sendAll(batch, PUBLISH.toString(), EVENT.toString())
+    sendAll(
+        EventBatch.newBuilder().addEvents(toProtoEvent(parentBookName, parentId)).build(),
+        PUBLISH.toString(),
+        EVENT.toString()
+    )
 }
 
 fun MessageRouter<EventBatch>.storeEvent(
+    parentBookName: String,
     parentId: String,
     name: String,
     type: String,
@@ -61,7 +66,7 @@ fun MessageRouter<EventBatch>.storeEvent(
         error = error.cause
     }
 
-    storeEvent(this, parentId)
+    storeEvent(this, parentBookName, parentId)
 }
 
 @Deprecated(message = "Please use MessageUtils.toJson", replaceWith = ReplaceWith("toJson(true)", imports = ["com.exactpro.th2.common.message.toJson"]), level = DeprecationLevel.WARNING)

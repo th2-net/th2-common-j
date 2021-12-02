@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.event.bean.builder.TableBuilder;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+
+import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 
 public class TableTest extends BaseTest {
 
@@ -40,7 +43,7 @@ public class TableTest extends BaseTest {
         Table table = tableBuilder.row(row1)
                 .row(row2).build();
         com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(table).toProtoEvent("id");
+                Event.start().bodyData(table).toProtoEvent(DEFAULT_BOOK_NAME, "id");
 
         String expectedJson = "[\n" +
                 "  {\n" +

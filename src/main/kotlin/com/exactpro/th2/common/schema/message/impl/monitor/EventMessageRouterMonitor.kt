@@ -18,12 +18,16 @@ package com.exactpro.th2.common.schema.message.impl.monitor
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor
 import org.slf4j.helpers.MessageFormatter.arrayFormat
 
-class EventMessageRouterMonitor(private val router: MessageRouter<EventBatch>, private val parentEventID: String?) :
+class EventMessageRouterMonitor(
+    private val router: MessageRouter<EventBatch>,
+    private val parentEventID: EventID?,
+    private val bookName: String
+) :
     MessageRouterMonitor {
 
     override fun onInfo(msg: String, vararg args: Any?) {
@@ -38,12 +42,7 @@ class EventMessageRouterMonitor(private val router: MessageRouter<EventBatch>, p
         router.send(createEventBatch("Error message in message router", arrayFormat(msg, args).message, Event.Status.FAILED))
     }
 
-    private fun createEventBatch(
-        name: String,
-        msg: String,
-        status: Event.Status,
-        bookName: String = DEFAULT_BOOK_NAME
-    ) = EventBatch.newBuilder().apply {
+    private fun createEventBatch(name: String, msg: String, status: Event.Status) = EventBatch.newBuilder().apply {
         addEvents(
             Event.start()
                 .bookName(bookName)
@@ -51,7 +50,7 @@ class EventMessageRouterMonitor(private val router: MessageRouter<EventBatch>, p
                 .bodyData(Message().apply { data = msg; type = "message" })
                 .status(status)
                 .type("event")
-                .toProtoEvent(parentEventID)
+                .toProto(parentEventID)
         )
     }.build()
 }
