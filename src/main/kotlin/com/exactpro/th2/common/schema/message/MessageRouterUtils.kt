@@ -46,12 +46,11 @@ fun MessageRouter<EventBatch>.storeEvent(
 
 fun MessageRouter<EventBatch>.storeEvent(
     parentId: EventID,
-    bookName: String,
     name: String,
     type: String,
     cause: Throwable? = null
 ): Event = Event.start().apply {
-    bookName(bookName)
+    bookName(parentId.bookName)
     endTimestamp()
     name(name)
     type(type)
