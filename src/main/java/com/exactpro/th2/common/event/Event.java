@@ -64,6 +64,7 @@ public class Event {
     protected final List<MessageID> attachedMessageIDS = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
     protected final Instant startTimestamp;
+    protected String bookName;
     protected Instant endTimestamp;
     protected String type;
     protected String name;
@@ -110,6 +111,16 @@ public class Event {
                 .build();
     }
 
+    public Event bookName(String bookName) {
+        if (isNotBlank(bookName)) {
+            if (this.bookName != null) {
+                throw new IllegalStateException(formatStateException("Book name", this.bookName));
+            }
+            this.bookName = bookName;
+        }
+        return this;
+    }
+
     public Event endTimestamp() {
         if (endTimestamp != null) {
             throw new IllegalStateException(formatStateException("End time", endTimestamp));
@@ -120,7 +131,7 @@ public class Event {
 
     /**
      * Sets event name if passed {@code eventName} is not blank.
-     * The {@link #UNKNOWN_EVENT_NAME} value will be used as default in the {@link #toProtoEvent(String)} and {@link #toProtoEvents(String)} methods if this property isn't set
+     * The {@link #UNKNOWN_EVENT_NAME} value will be used as default in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      * @return current event
      * @throws IllegalStateException if name already set
      */
@@ -136,7 +147,7 @@ public class Event {
 
     /**
      * Sets event description if passed {@code description} is not blank.
-     * This property value will be appended to the end of event name and added into event body in the {@link #toProtoEvent(String)} and {@link #toProtoEvents(String)} methods if this property isn't set
+     * This property value will be appended to the end of event name and added into event body in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      * @return current event
      * @throws IllegalStateException if description already set
      */
@@ -153,7 +164,7 @@ public class Event {
 
     /**
      * Sets event type if passed {@code eventType} is not blank.
-     * The {@link #UNKNOWN_EVENT_TYPE} value will be used as default in the {@link #toProtoEvent(String)} and {@link #toProtoEvents(String)} methods if this property isn't set
+     * The {@link #UNKNOWN_EVENT_TYPE} value will be used as default in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      * @return current event
      * @throws IllegalStateException if type already set
      */
@@ -240,25 +251,8 @@ public class Event {
         return this;
     }
 
-    /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #toListProto(EventID)} method
-     */
-    @Deprecated
-    public List<com.exactpro.th2.common.grpc.Event> toProtoEvents(@Nullable String parentID) throws JsonProcessingException {
-        return toListProto(toEventID(parentID));
-    }
-
-
     public List<com.exactpro.th2.common.grpc.Event> toListProto(@Nullable EventID parentID) throws JsonProcessingException {
         return collectSubEvents(new ArrayList<>(), parentID);
-    }
-
-    /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #toProto(EventID)} method
-     */
-    @Deprecated
-    public com.exactpro.th2.common.grpc.Event toProtoEvent(@Nullable String parentID) throws JsonProcessingException {
-        return toProto(toEventID(parentID));
     }
 
     public com.exactpro.th2.common.grpc.Event toProto(@Nullable EventID parentID) throws JsonProcessingException {
@@ -271,7 +265,7 @@ public class Event {
                     .append(description);
         }
         var eventBuilder = com.exactpro.th2.common.grpc.Event.newBuilder()
-                .setId(toEventID(id))
+                .setId(getEventId())
                 .setName(nameBuilder.toString())
                 .setType(defaultIfBlank(type, UNKNOWN_EVENT_TYPE))
                 .setStartTimestamp(toTimestamp(startTimestamp))
@@ -279,7 +273,7 @@ public class Event {
                 .setStatus(getAggregatedStatus().eventStatus)
                 .setBody(ByteString.copyFrom(buildBody()));
         if (parentID != null) {
-            eventBuilder. setParentId(parentID);
+            eventBuilder.setParentId(parentID);
         }
         for (MessageID messageID : attachedMessageIDS) {
             eventBuilder.addAttachedMessageIds(messageID);
@@ -332,6 +326,14 @@ public class Event {
         return toBatchesProtoWithLimit(Integer.MAX_VALUE, parentID);
     }
 
+    public EventID getEventId() {
+        return toEventID(bookName, id);
+    }
+
+    public String getBookName() {
+        return bookName;
+    }
+
     public String getId() {
         return id;
     }
@@ -344,18 +346,13 @@ public class Event {
         return endTimestamp;
     }
 
-    /**
-     * @deprecated prefer to use full object instead of part of them, use the {@link #collectSubEvents(List, EventID)} method
-     */
-    @Deprecated
-    protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable String parentID) throws JsonProcessingException {
-        return collectSubEvents(protoEvents, toEventID(parentID));
-    }
-
-    protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(List<com.exactpro.th2.common.grpc.Event> protoEvents, @Nullable EventID parentID) throws JsonProcessingException {
-        protoEvents.add(toProto(parentID)); // collect current level
+    protected List<com.exactpro.th2.common.grpc.Event> collectSubEvents(
+            List<com.exactpro.th2.common.grpc.Event> protoEvents,
+            @Nullable EventID parentId
+    ) throws JsonProcessingException {
+        protoEvents.add(toProto(parentId)); // collect current level
         for (Event subEvent : subEvents) {
-            subEvent.collectSubEvents(protoEvents, toEventID(id)); // collect sub level
+            subEvent.collectSubEvents(protoEvents, getEventId()); // collect sub level
         }
         return protoEvents;
     }
@@ -366,14 +363,6 @@ public class Event {
 
     protected String formatStateException(String fieldName, Object value) {
         return fieldName + " in event '" + id + "' already sed with value '" + value + '\'';
-    }
-
-    /**
-     * @deprecated use {@link #getAggregatedStatus} instead
-     */
-    @Deprecated(forRemoval = true)
-    protected Status getAggrigatedStatus() {
-        return getAggregatedStatus();
     }
 
     @NotNull

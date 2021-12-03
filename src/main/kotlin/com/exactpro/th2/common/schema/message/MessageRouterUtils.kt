@@ -24,6 +24,7 @@ import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
@@ -34,18 +35,22 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
-    parentId: String? = null
+    parentId: EventID? = null
 ): Event = event.apply {
-    val batch = EventBatch.newBuilder().addEvents(toProtoEvent(parentId)).build()
-    sendAll(batch, PUBLISH.toString(), EVENT.toString())
+    sendAll(
+        EventBatch.newBuilder().addEvents(toProto(parentId)).build(),
+        PUBLISH.toString(),
+        EVENT.toString()
+    )
 }
 
 fun MessageRouter<EventBatch>.storeEvent(
-    parentId: String,
+    parentId: EventID,
     name: String,
     type: String,
     cause: Throwable? = null
 ): Event = Event.start().apply {
+    bookName(parentId.bookName)
     endTimestamp()
     name(name)
     type(type)

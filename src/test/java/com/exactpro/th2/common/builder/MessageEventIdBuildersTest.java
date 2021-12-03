@@ -26,12 +26,11 @@ import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.schema.factory.CommonFactory;
 
 import static com.exactpro.th2.common.message.MessageUtils.toJson;
-import static com.exactpro.th2.common.schema.box.configuration.BoxConfiguration.DEFAULT_BOOK_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MessageEventIdBuildersTest {
     private static final String CONFIG_DIRECTORY = "src/test/resources/test_message_event_id_builders";
-    private static final String BOOK_NAME = "book";
+    private static final String CUSTOM_BOOK = "custom_book";
     private static final String DEFAULT_ALIAS = "alias";
     private static final Direction DEFAULT_DIRECTION = Direction.FIRST;
     private static final int DEFAULT_SEQUENCE = 1;
@@ -49,7 +48,7 @@ public class MessageEventIdBuildersTest {
     @Test
     public void testWithDefaultBookName() {
         commonFactory = CommonFactory.createFromArguments("-c", "");
-        assertIds(DEFAULT_BOOK_NAME, defaultMessageIdBuilder(), defaultEventIdBuilder());
+        assertIds(commonFactory.getBoxConfiguration().getBookName(), defaultMessageIdBuilder(), defaultEventIdBuilder());
     }
 
     @Test
@@ -61,7 +60,7 @@ public class MessageEventIdBuildersTest {
     @Test
     public void testWithBookName() {
         commonFactory = CommonFactory.createFromArguments("-c", CONFIG_DIRECTORY);
-        assertIds(BOOK_NAME, defaultMessageIdBuilder().setBookName(BOOK_NAME), defaultEventIdBuilder().setBookName(BOOK_NAME));
+        assertIds(CUSTOM_BOOK, defaultMessageIdBuilder().setBookName(CUSTOM_BOOK), defaultEventIdBuilder().setBookName(CUSTOM_BOOK));
     }
 
     private void assertIds(String bookName, MessageID.Builder messageIdBuilder, EventID.Builder eventIdBuilder) {
