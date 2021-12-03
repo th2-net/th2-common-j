@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.31.1)
+# th2 common library (Java) (3.31.2)
 
 ## Usage
 
@@ -287,6 +287,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.31.2
+
++ Update grpc-common from 3.8.0 to 3.9.0
 
 ### 3.31.1
 + Feature as test assertion methods for messages from fixtures
