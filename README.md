@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.31.2)
+# th2 common library (Java) (3.31.3)
 
 ## Usage
 
@@ -287,6 +287,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.31.3
+
++ Add support for `null_value` filter during conversion to table
 
 ### 3.31.2
 
