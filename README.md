@@ -295,7 +295,7 @@ dependencies {
 
 ### 4.0.0
 
-+ Adaptation to books/pages cradleapi 4.0.0
++ Migration to books/pages cradle 4.0.0
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
 
