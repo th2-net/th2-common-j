@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.FilterOperation.IN
 import com.exactpro.th2.common.grpc.FilterOperation.NOT_EQUAL
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
+import com.exactpro.th2.common.grpc.NullValue
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
 import com.fasterxml.jackson.databind.JsonNode
@@ -61,6 +62,8 @@ class TestMessageFilterUtils {
             |"MessageCollection":{"type":"collection","rows":{
                 |"0":{"type":"collection","rows":{${fieldFiltersJson}}}}}},
                 |"1":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}},
+            |"MessageWithNullValue":{"type":"collection","rows":{
+                |"NullValue":{"type":"row","columns":{"expected":"IS_NULL","key":false}}}},
             |"Message":{"type":"collection","rows":{
                 |"SimpleFilterList":{"type":"row","columns":{"expected":"IN '[val1, val2, val3]'","key":false}},
                 |${fieldFiltersJson}}}}}},
@@ -163,6 +166,9 @@ class TestMessageFilterUtils {
                     putFields("subMessageB", messageFilter { fillMessage(this) })
                 })
             })
+            putFields("MessageWithNullValue", messageFilter {
+                putFields("NullValue", nullValueFilter())
+            })
 
         }.build()
     }
@@ -176,6 +182,12 @@ class TestMessageFilterUtils {
     private fun simpleValueFilter(value: String = "", filterOperation: FilterOperation = EQUAL, isKey: Boolean = false) = ValueFilter.newBuilder().apply {
         operation = filterOperation
         simpleFilter = value
+        key = isKey
+    }.build()
+
+    private fun nullValueFilter(filterOperation: FilterOperation = EQUAL, isKey: Boolean = false) = ValueFilter.newBuilder().apply {
+        operation = filterOperation
+        nullValue = NullValue.NULL_VALUE
         key = isKey
     }.build()
 

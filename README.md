@@ -299,6 +299,14 @@ dependencies {
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
 
+### 3.31.3
+
++ Add support for `null_value` filter during conversion to table
+
+### 3.31.2
+
++ Update grpc-common from 3.8.0 to 3.9.0
+
 ### 3.31.1
 + Feature as test assertion methods for messages from fixtures
 
