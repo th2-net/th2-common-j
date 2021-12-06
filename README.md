@@ -190,7 +190,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "cradleMaxEventBatchSize": 1048576,
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
-  "pageSize": 5000
+  "pageSize": 5000,
+  "prepareStorage": false
 }
 ```
 
