@@ -190,7 +190,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "cradleMaxEventBatchSize": 1048576,
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
-  "pageSize": 5000
+  "pageSize": 5000,
+  "prepareStorage": false
 }
 ```
 
@@ -298,6 +299,14 @@ dependencies {
 + Migration to books/pages cradle 4.0.0
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
+
+### 3.31.3
+
++ Add support for `null_value` filter during conversion to table
+
+### 3.31.2
+
++ Update grpc-common from 3.8.0 to 3.9.0
 
 ### 3.31.1
 + Feature as test assertion methods for messages from fixtures
