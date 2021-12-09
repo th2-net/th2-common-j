@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.31.3)
+# th2 common library (Java) (3.31.4)
 
 ## Usage
 
@@ -287,6 +287,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.31.4
+
++ Ignore unknown fields in `box.json` and `prometheus.json`
 
 ### 3.31.3
 
