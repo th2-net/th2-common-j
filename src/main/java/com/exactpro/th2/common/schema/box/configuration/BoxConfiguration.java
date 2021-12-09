@@ -15,11 +15,12 @@
 
 package com.exactpro.th2.common.schema.box.configuration;
 
-import org.jetbrains.annotations.Nullable;
-
+import com.exactpro.th2.common.schema.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class BoxConfiguration {
+import org.jetbrains.annotations.Nullable;
+
+public class BoxConfiguration extends Configuration {
     public static final String DEFAULT_BOOK_NAME = "test_book";
 
     @JsonProperty

@@ -300,6 +300,10 @@ dependencies {
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
 
+### 3.31.4
+
++ Ignore unknown fields in `box.json` and `prometheus.json`
+
 ### 3.31.3
 
 + Add support for `null_value` filter during conversion to table
