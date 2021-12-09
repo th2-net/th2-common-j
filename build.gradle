@@ -159,7 +159,7 @@ test {
 dependencies {
     api platform('com.exactpro.th2:bom:3.0.0')
     api "com.exactpro.th2:cradle-core:${cradleVersion}"
-    api 'com.exactpro.th2:grpc-common:3.10.0-th2-2567-book_to_alias_to_direction-1558886209-SNAPSHOT'
+    api 'com.exactpro.th2:grpc-common:3.10.0-th2-2150-books-pages-1560044721-SNAPSHOT'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.1.12'
