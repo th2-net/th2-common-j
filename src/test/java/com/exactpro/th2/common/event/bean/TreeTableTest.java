@@ -25,8 +25,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static com.exactpro.th2.common.event.EventUtils.toEventID;
-
 public class TreeTableTest extends BaseTest {
 
     @Test
@@ -43,7 +41,7 @@ public class TreeTableTest extends BaseTest {
         com.exactpro.th2.common.grpc.Event event = Event
                 .start()
                 .bodyData(treeTable)
-                .toProto(toEventID(BOOK_NAME, "id"));
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[{\n" +
                 "    \"type\": \"treeTable\",\n" +
@@ -87,7 +85,7 @@ public class TreeTableTest extends BaseTest {
         com.exactpro.th2.common.grpc.Event event = Event
                 .start()
                 .bodyData(treeTable)
-                .toProto(toEventID(BOOK_NAME, "id"));
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -150,7 +148,7 @@ public class TreeTableTest extends BaseTest {
         com.exactpro.th2.common.grpc.Event event = Event
                 .start()
                 .bodyData(treeTable)
-                .toProto(toEventID(BOOK_NAME, "id"));
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -203,7 +201,7 @@ public class TreeTableTest extends BaseTest {
         com.exactpro.th2.common.grpc.Event event = Event
                 .start()
                 .bodyData(treeTable)
-                .toProto(toEventID(BOOK_NAME, "id"));
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +

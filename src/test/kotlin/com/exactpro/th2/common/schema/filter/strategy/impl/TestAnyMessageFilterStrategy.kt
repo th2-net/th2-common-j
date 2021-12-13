@@ -16,12 +16,12 @@
 
 package com.exactpro.th2.common.schema.filter.strategy.impl
 
+import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.toJson
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
@@ -90,8 +90,6 @@ class TestAnyMessageFilterStrategy {
     }
 
     companion object {
-        private val BOOK_NAME = BoxConfiguration().bookName
-
         private val PARSED_MESSAGE_MATCH = AnyMessage.newBuilder().setMessage(
             message(BOOK_NAME, "test", Direction.FIRST, "test-alias")
         ).build()

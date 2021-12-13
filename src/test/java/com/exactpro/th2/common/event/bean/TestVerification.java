@@ -16,18 +16,13 @@
 package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.HashMap;
 
-import static com.exactpro.th2.common.event.EventUtils.toEventID;
-
 public class TestVerification extends BaseTest {
-    private static final String BOOK_NAME = new BoxConfiguration().getBookName();
-    
     @Test
     public void testSerializationSimpleVerification() throws IOException {
         Verification verification = new Verification();
@@ -49,7 +44,7 @@ public class TestVerification extends BaseTest {
         com.exactpro.th2.common.grpc.Event event = Event
                 .start()
                 .bodyData(verification)
-                .toProto(toEventID(BOOK_NAME, "id"));
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -103,7 +98,7 @@ public class TestVerification extends BaseTest {
         com.exactpro.th2.common.grpc.Event event = Event
                 .start()
                 .bodyData(verification)
-                .toProto(toEventID(BOOK_NAME, "id"));
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[\n" +
                 "  {\n" +

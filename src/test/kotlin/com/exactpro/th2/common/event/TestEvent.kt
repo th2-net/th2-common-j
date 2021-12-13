@@ -18,11 +18,11 @@ package com.exactpro.th2.common.event
 import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_NAME
 import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_TYPE
 import com.exactpro.th2.common.event.EventUtils.toEventID
+import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import org.junit.jupiter.api.Assertions
@@ -35,15 +35,14 @@ import org.junit.jupiter.api.assertAll
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
-    private val bookName = BoxConfiguration().bookName
-    private val parentEventId: EventID = toEventID(bookName, "parentEventId")!!
+    private val parentEventId: EventID = toEventID(BOOK_NAME, "parentEventId")!!
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
 
     @Test
     fun `call the toProto method on a simple event`() {
-        Event.start().toProto(bookName).run {
+        Event.start().toProto(BOOK_NAME).run {
             checkDefaultEventFields()
             assertFalse(hasParentId())
         }
@@ -58,7 +57,7 @@ class TestEvent {
     fun `set parent to the toListProto method`() {
         val event = Event.start()
         val toListProtoWithParent = event.toListProto(parentEventId)
-        val toListProtoWithoutParent = event.toListProto(bookName)
+        val toListProtoWithoutParent = event.toListProto(BOOK_NAME)
         assertAll(
             { assertEquals(1, toListProtoWithParent.size) },
             { assertEquals(1, toListProtoWithoutParent.size) },
@@ -203,7 +202,7 @@ class TestEvent {
             }
         }
 
-        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, bookName)
+        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, BOOK_NAME)
         assertEquals(2, batches.size)
         checkEventStatus(batches, 2, 0)
 
@@ -225,7 +224,7 @@ class TestEvent {
             }
         }
 
-        val batch = rootEvent.toBatchProto(bookName)
+        val batch = rootEvent.toBatchProto(BOOK_NAME)
         checkEventStatus(listOf(batch), 2, 0)
         batch.checkEventBatch(false, listOf(rootName, childName))
     }

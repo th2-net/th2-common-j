@@ -16,12 +16,13 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
+import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
+import com.exactpro.th2.common.event.bean.BaseTest.BOX_CONFIGURATION
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
@@ -46,7 +47,6 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 
 class TestRabbitMessageGroupBatchRouter {
-    private val boxConfiguration = BoxConfiguration()
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val monitor: SubscriberMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
@@ -104,7 +104,7 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(
                 MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message(boxConfiguration.bookName, "test-message1", Direction.FIRST, "test-alias") }
+                        .apply { this += message(BOOK_NAME, "test-message1", Direction.FIRST, "test-alias") }
                     ).build()
             )
 
@@ -115,7 +115,7 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes to the correct pin according to attributes`() {
             val batch = MessageGroupBatch.newBuilder()
                 .addGroups(MessageGroup.newBuilder()
-                    .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
+                    .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                 ).build()
             router.send(batch, "test")
 
@@ -132,7 +132,7 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                     ).build())
             }.apply {
                 Assertions.assertEquals(
@@ -147,7 +147,7 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                     ).build(),
                     "unexpected"
                 )
@@ -163,7 +163,7 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes to all correct pin according to attributes`() {
             val batch = MessageGroupBatch.newBuilder()
                 .addGroups(MessageGroup.newBuilder()
-                    .apply { this += message(boxConfiguration.bookName, "test-message", Direction.FIRST, "test-alias") }
+                    .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                 ).build()
             router.sendAll(batch)
 
@@ -272,7 +272,7 @@ class TestRabbitMessageGroupBatchRouter {
                 connectionManager,
                 mock { },
                 MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
-                boxConfiguration
+                BOX_CONFIGURATION
             ))
         }
 }

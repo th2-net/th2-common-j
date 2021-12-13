@@ -23,8 +23,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static com.exactpro.th2.common.event.EventUtils.toEventID;
-
 public class MessageTest extends BaseTest {
     @Test
     public void testSerializationMessage() throws IOException {
@@ -35,7 +33,7 @@ public class MessageTest extends BaseTest {
         com.exactpro.th2.common.grpc.Event event = Event
                 .start()
                 .bodyData(message)
-                .toProto(toEventID(BOOK_NAME, "id"));
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[\n" +
                 "  {\n" +
