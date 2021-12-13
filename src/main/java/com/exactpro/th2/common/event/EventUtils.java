@@ -25,6 +25,9 @@ import com.exactpro.th2.common.grpc.EventID;
 import com.fasterxml.uuid.Generators;
 import com.fasterxml.uuid.NoArgGenerator;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.isBlank;
+
 @SuppressWarnings("ClassNamePrefixedWithPackageName")
 public class EventUtils {
     public static final NoArgGenerator TIME_BASED_UUID_GENERATOR = Generators.timeBasedGenerator();
@@ -42,7 +45,11 @@ public class EventUtils {
             @NotNull String bookName,
             @Nullable String id
     ) {
-        return internalToEventID(bookName, null, id);
+        return internalToEventID(
+                requireNonBlankBookName(bookName),
+                null,
+                id
+        );
     }
 
     @Contract("_, _, null -> !null; _, _, !null -> !null")
@@ -51,7 +58,11 @@ public class EventUtils {
             @NotNull String scope,
             @Nullable String id
     ) {
-        return internalToEventID(bookName, scope, id);
+        return internalToEventID(
+                requireNonBlankBookName(bookName),
+                requireNonBlankScope(scope),
+                id
+        );
     }
 
     private static @NotNull EventID internalToEventID(
@@ -69,5 +80,23 @@ public class EventUtils {
             builder.setId(id);
         }
         return builder.build();
+    }
+
+    static EventID requireNonNullParentId(EventID parentId) {
+        return requireNonNull(parentId, "Parent id cannot be null");
+    }
+
+    static String requireNonBlankBookName(String bookName) {
+        if (isBlank(bookName)) {
+            throw new IllegalArgumentException("Book name cannot be null or blank");
+        }
+        return bookName;
+    }
+
+    static String requireNonBlankScope(String scope) {
+        if (isBlank(scope)) {
+            throw new IllegalArgumentException("Scope cannot be null or blank");
+        }
+        return scope;
     }
 }

@@ -17,6 +17,9 @@ package com.exactpro.th2.common.event;
 
 import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
+import static com.exactpro.th2.common.event.EventUtils.requireNonBlankBookName;
+import static com.exactpro.th2.common.event.EventUtils.requireNonBlankScope;
+import static com.exactpro.th2.common.event.EventUtils.requireNonNullParentId;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.protobuf.TextFormat.shortDebugString;
@@ -278,7 +281,7 @@ public class Event {
     ) throws JsonProcessingException {
         protoEvents.add(toProto(parentId, bookName, scope)); // collect current level
         for (Event subEvent : subEvents) {
-            EventID eventId = (scope == null)
+            EventID eventId = isBlank(scope)
                     ? toEventID(bookName, id)
                     : toEventID(bookName, scope, id);
             subEvent.toListProto(protoEvents, eventId, bookName, scope); // collect sub level
@@ -326,7 +329,7 @@ public class Event {
             nameBuilder.append(" - ")
                     .append(description);
         }
-        EventID eventId = (scope == null)
+        EventID eventId = isBlank(scope)
                 ? toEventID(bookName, id)
                 : toEventID(bookName, scope, id);
         var eventBuilder = com.exactpro.th2.common.grpc.Event.newBuilder()
@@ -596,25 +599,6 @@ public class Event {
 
     private static int getContentSize(EventBatchOrBuilder eventBatch) {
         return eventBatch.getEventsList().stream().map(Event::getContentSize).mapToInt(Integer::intValue).sum();
-    }
-
-    private static EventID requireNonNullParentId(EventID parentId) {
-        return requireNonNull(parentId, "parentId cannot be null");
-    }
-    
-    private static String requireNonBlankBookName(String value) {
-        return requireNonBlank(value, "Book name");
-    }
-
-    private static String requireNonBlankScope(String value) {
-        return requireNonBlank(value, "Scope");
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        if (isBlank(value)) {
-            throw new IllegalArgumentException(name + " cannot be null or blank");
-        }
-        return value;
     }
 
     public enum Status {
