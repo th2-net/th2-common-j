@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event;
 
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.common.event.bean.Message;
@@ -36,14 +37,37 @@ public class EventUtils {
         return new MessageBuilder().text(text).build();
     }
 
-    @Contract("_, null -> null; _, !null -> !null")
-    public static @Nullable EventID toEventID(String bookName, @Nullable String id) {
-        if (id == null) {
-            return null;
+    @Contract("_, null -> !null; _, !null -> !null")
+    public static @NotNull EventID toEventID(
+            @NotNull String bookName,
+            @Nullable String id
+    ) {
+        return internalToEventID(bookName, null, id);
+    }
+
+    @Contract("_, _, null -> !null; _, _, !null -> !null")
+    public static @NotNull EventID toEventID(
+            @NotNull String bookName,
+            @NotNull String scope,
+            @Nullable String id
+    ) {
+        return internalToEventID(bookName, scope, id);
+    }
+
+    private static @NotNull EventID internalToEventID(
+            @NotNull String bookName,
+            @Nullable String scope,
+            @Nullable String id
+    ) {
+        EventID.Builder builder = EventID
+                .newBuilder()
+                .setBookName(bookName);
+        if (scope != null) {
+            builder.setScope(scope);
         }
-        return EventID.newBuilder()
-                .setBookName(bookName)
-                .setId(id)
-                .build();
+        if (id != null) {
+            builder.setId(id);
+        }
+        return builder.build();
     }
 }

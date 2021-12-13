@@ -642,13 +642,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     }
 
                     com.exactpro.th2.common.grpc.Event rootEvent = Event.start()
-                            .bookName(boxConfiguration.getBookName())
                             .endTimestamp()
                             .name(boxName + " " + Instant.now())
                             .description("Root event")
                             .status(Event.Status.PASSED)
                             .type("Microservice")
-                            .toProto(null);
+                            .toProto(boxConfiguration.getBookName());
 
                     try {
                         getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());

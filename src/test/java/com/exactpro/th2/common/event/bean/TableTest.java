@@ -42,8 +42,10 @@ public class TableTest extends BaseTest {
         TableBuilder<IRow> tableBuilder = new TableBuilder<>();
         Table table = tableBuilder.row(row1)
                 .row(row2).build();
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(table).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(table)
+                .toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[\n" +
                 "  {\n" +

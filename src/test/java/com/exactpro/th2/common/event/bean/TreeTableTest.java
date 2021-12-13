@@ -40,8 +40,10 @@ public class TreeTableTest extends BaseTest {
 
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("FirstRow", row).build();
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[{\n" +
                 "    \"type\": \"treeTable\",\n" +
@@ -82,8 +84,10 @@ public class TreeTableTest extends BaseTest {
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -143,8 +147,10 @@ public class TreeTableTest extends BaseTest {
                 .row("FirstRow", row)
                 .build();
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -194,8 +200,10 @@ public class TreeTableTest extends BaseTest {
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +

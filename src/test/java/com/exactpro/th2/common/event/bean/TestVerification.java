@@ -46,8 +46,10 @@ public class TestVerification extends BaseTest {
             put("Field A", verificationEntry);
         }});
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(verification)
+                .toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -98,8 +100,10 @@ public class TestVerification extends BaseTest {
             put("Sub message A", verificationEntry);
         }});
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).bookName(BOOK_NAME).toProto(toEventID(BOOK_NAME, "id"));
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(verification)
+                .toProto(toEventID(BOOK_NAME, "id"));
 
         String expectedJson = "[\n" +
                 "  {\n" +
