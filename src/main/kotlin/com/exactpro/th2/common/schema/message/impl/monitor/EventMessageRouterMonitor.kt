@@ -25,8 +25,7 @@ import org.slf4j.helpers.MessageFormatter.arrayFormat
 
 class EventMessageRouterMonitor(
     private val router: MessageRouter<EventBatch>,
-    private val parentEventId: EventID?,
-    private val boxBookName: String
+    private val parentEventId: EventID
 ) :
     MessageRouterMonitor {
 
@@ -42,18 +41,15 @@ class EventMessageRouterMonitor(
         router.send(createEventBatch("Error message in message router", arrayFormat(msg, args).message, Event.Status.FAILED))
     }
 
-    private fun createEventBatch(name: String, msg: String, status: Event.Status) = EventBatch.newBuilder().also {
-        val event = Event.start()
-            .name(name)
-            .bodyData(Message().apply { data = msg; type = "message" })
-            .status(status)
-            .type("event")
-        it.addEvents(
-            if (parentEventId == null) {
-                event.toProto(boxBookName)
-            } else {
-                event.toProto(parentEventId)
-            }
-        )
-    }.build()
+    private fun createEventBatch(name: String, msg: String, status: Event.Status) =
+        EventBatch.newBuilder().also {
+            it.addEvents(
+                Event.start()
+                    .name(name)
+                    .bodyData(Message().apply { data = msg; type = "message" })
+                    .status(status)
+                    .type("event")
+                    .toProto(parentEventId)
+            )
+        }.build()
 }
