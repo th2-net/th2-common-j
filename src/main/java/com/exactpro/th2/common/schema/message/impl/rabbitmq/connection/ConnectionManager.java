@@ -64,7 +64,6 @@ public class ConnectionManager implements AutoCloseable {
 
     private final Connection connection;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
-    private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
@@ -78,8 +77,6 @@ public class ConnectionManager implements AutoCloseable {
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
         public void handleRecovery(Recoverable recoverable) {
-            LOGGER.debug("Count tries to recovery connection reset to 0");
-            connectionRecoveryAttempts.set(0);
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
         }
@@ -176,39 +173,33 @@ public class ConnectionManager implements AutoCloseable {
         });
 
         factory.setAutomaticRecoveryEnabled(true);
-        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
-            if (connectionIsClosed.get()) {
-                return false;
-            }
-
-            int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
-
-            if (tmpCountTriesToRecovery < connectionManagerConfiguration.getMaxRecoveryAttempts()) {
-                LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
-                return true;
-            }
-            LOGGER.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
-            if (onFailedRecoveryConnection != null) {
-                onFailedRecoveryConnection.run();
-            } else {
-                // TODO: we should stop the execution of the application. Don't use System.exit!!!
-                throw new IllegalStateException("Cannot recover connection to RabbitMQ");
-            }
-            return false;
-        });
-
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
-                    int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
-
-                    int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
-                            + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
+                    if (connectionIsClosed.get()) {
+                        throw new IllegalStateException("Connection is already closed");
+                    }
+                    int attemptNumber = recoveryAttempts + 1;
+                    if (attemptNumber < connectionManagerConfiguration.getMaxRecoveryAttempts()) {
+                        int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
+                                + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
                                 ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
-                                    / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
-                                    * tmpCountTriesToRecovery
+                                / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
+                                * recoveryAttempts
                                 : 0);
-
-                    LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
-                    return recoveryDelay;
+                        LOGGER.info(
+                                "Attempt {} from {} to recover connection to RabbitMQ. Next attempt will be after {} ms",
+                                attemptNumber,
+                                connectionManagerConfiguration.getMaxRecoveryAttempts(),
+                                recoveryDelay
+                        );
+                        return recoveryDelay;
+                    } else {
+                        LOGGER.error("Can not connect to RabbitMQ after {} attempt(s)", attemptNumber);
+                        if (onFailedRecoveryConnection != null) {
+                            onFailedRecoveryConnection.run();
+                        }
+                        // TODO: we should stop the execution of the application. Don't use System.exit!!!
+                        throw new IllegalStateException("Cannot recover connection to RabbitMQ");
+                    }
                 }
         );
         factory.setSharedExecutor(sharedExecutor);
