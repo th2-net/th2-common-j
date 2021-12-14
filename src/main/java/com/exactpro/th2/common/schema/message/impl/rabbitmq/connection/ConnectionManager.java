@@ -128,8 +128,8 @@ public class ConnectionManager implements AutoCloseable {
             factory.setConnectionTimeout(connectionManagerConfiguration.getConnectionTimeout());
         }
         factory.setAutomaticRecoveryEnabled(true);
-        this.publishConnection = createConnection(PUBLISH_CONNECTION_NAME, factory, connectionManagerConfiguration, onFailedRecoveryConnection);
-        this.consumeConnection = createConnection(CONSUME_CONNECTION_NAME, factory, connectionManagerConfiguration, onFailedRecoveryConnection);
+        this.publishConnection = createConnection(PUBLISH_CONNECTION_NAME, factory, onFailedRecoveryConnection);
+        this.consumeConnection = createConnection(CONSUME_CONNECTION_NAME, factory, onFailedRecoveryConnection);
 
     }
 
@@ -258,7 +258,7 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicAck(deliveryTag, false);
     }
 
-    private Connection createConnection(String connectionName, ConnectionFactory factory, ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
+    private Connection createConnection(String connectionName, ConnectionFactory factory, Runnable onFailedRecoveryConnection) {
         factory.setExceptionHandler(new ExceptionHandler() {
             @Override
             public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
@@ -315,9 +315,9 @@ public class ConnectionManager implements AutoCloseable {
             }
         });
 
-        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get() && getConnectionRecoveryTriggeringCondition(connectionName, connectionManagerConfiguration, onFailedRecoveryConnection));
+        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get() && getConnectionRecoveryTriggeringCondition(connectionName, onFailedRecoveryConnection));
 
-        factory.setRecoveryDelayHandler(recoveryAttempts -> getRecoveryDelay(connectionName, connectionManagerConfiguration));
+        factory.setRecoveryDelayHandler(recoveryAttempts -> getRecoveryDelay(connectionName));
 
 
 
@@ -409,8 +409,7 @@ public class ConnectionManager implements AutoCloseable {
         };
     }
 
-    private boolean getConnectionRecoveryTriggeringCondition(String connectionName, ConnectionManagerConfiguration connectionManagerConfiguration,
-            Runnable onFailedRecoveryConnection) {
+    private boolean getConnectionRecoveryTriggeringCondition(String connectionName, Runnable onFailedRecoveryConnection) {
         int tmpCountTriesToRecovery;
 
         switch (connectionName) {
@@ -424,7 +423,7 @@ public class ConnectionManager implements AutoCloseable {
                 throw new IllegalStateException("Unexpected value: " + connectionName);
         }
 
-        if (tmpCountTriesToRecovery < connectionManagerConfiguration.getMaxRecoveryAttempts()) {
+        if (tmpCountTriesToRecovery < configuration.getMaxRecoveryAttempts()) {
             LOGGER.info("Try to recovery {} connection to RabbitMQ. Count tries = {}", connectionName, tmpCountTriesToRecovery + 1);
             return true;
         }
@@ -437,7 +436,7 @@ public class ConnectionManager implements AutoCloseable {
         return false;
     }
 
-    private int getRecoveryDelay(String connectionName, ConnectionManagerConfiguration connectionManagerConfiguration) {
+    private int getRecoveryDelay(String connectionName) {
         int tmpCountTriesToRecovery;
         switch (connectionName) {
         case PUBLISH_CONNECTION_NAME:
@@ -450,10 +449,10 @@ public class ConnectionManager implements AutoCloseable {
             throw new IllegalStateException("Unexpected value: " + connectionName);
         }
 
-        int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
-                + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
-                ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
-                / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
+        int recoveryDelay = configuration.getMinConnectionRecoveryTimeout()
+                + (configuration.getMaxRecoveryAttempts() > 1
+                ? (configuration.getMaxConnectionRecoveryTimeout() - configuration.getMinConnectionRecoveryTimeout())
+                / (configuration.getMaxRecoveryAttempts() - 1)
                 * tmpCountTriesToRecovery
                 : 0);
 
