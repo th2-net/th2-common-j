@@ -15,6 +15,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -45,7 +46,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,6 +57,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -72,11 +74,14 @@ public class ConnectionManager implements AutoCloseable {
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
 
+    private final MetricMonitor livenessMonitor;
     private final HealthMetrics metrics = new HealthMetrics(this);
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
         public void handleRecovery(Recoverable recoverable) {
+            livenessMonitor.enable();
+            LOGGER.debug("Set RabbitMQ liveness to true");
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
         }
@@ -89,9 +94,14 @@ public class ConnectionManager implements AutoCloseable {
         return configuration;
     }
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
-        Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
-        this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
+    public ConnectionManager(
+            @NotNull RabbitMQConfiguration rabbitMQConfiguration,
+            @NotNull ConnectionManagerConfiguration connectionManagerConfiguration,
+            @NotNull MetricMonitor livenessMonitor
+    ) {
+        requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
+        this.configuration = requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
+        this.livenessMonitor = requireNonNull(livenessMonitor, "Liveness monitor cannot be null");
 
         String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
         if (StringUtils.isBlank(subscriberNameTmp)) {
@@ -178,28 +188,25 @@ public class ConnectionManager implements AutoCloseable {
                         throw new IllegalStateException("Connection is already closed");
                     }
                     int attemptNumber = recoveryAttempts + 1;
-                    if (attemptNumber < connectionManagerConfiguration.getMaxRecoveryAttempts()) {
-                        int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
-                                + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
-                                ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
-                                / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
-                                * recoveryAttempts
-                                : 0);
-                        LOGGER.info(
-                                "Attempt {} from {} to recover connection to RabbitMQ. Next attempt will be after {} ms",
-                                attemptNumber,
-                                connectionManagerConfiguration.getMaxRecoveryAttempts(),
-                                recoveryDelay
+                    if (attemptNumber > connectionManagerConfiguration.getMaxRecoveryAttempts() && livenessMonitor.isEnabled()) {
+                        livenessMonitor.disable();
+                        LOGGER.error(
+                                "Can not connect to RabbitMQ after {} attempt(s). Set RabbitMQ liveness to false and try again",
+                                connectionManagerConfiguration.getMaxRecoveryAttempts()
                         );
-                        return recoveryDelay;
-                    } else {
-                        LOGGER.error("Can not connect to RabbitMQ after {} attempt(s)", attemptNumber);
-                        if (onFailedRecoveryConnection != null) {
-                            onFailedRecoveryConnection.run();
-                        }
-                        // TODO: we should stop the execution of the application. Don't use System.exit!!!
-                        throw new IllegalStateException("Cannot recover connection to RabbitMQ");
                     }
+                    int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
+                            + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
+                            ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
+                            / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
+                            * recoveryAttempts
+                            : 0);
+                    LOGGER.info(
+                            "Attempt #{} to recover connection to RabbitMQ. Next attempt will be after {} ms",
+                            attemptNumber,
+                            recoveryDelay
+                    );
+                    return recoveryDelay;
                 }
         );
         factory.setSharedExecutor(sharedExecutor);
@@ -314,7 +321,7 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             Channel channel = connection.createChannel();
-            Objects.requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
+            requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
             channel.basicQos(configuration.getPrefetchCount());
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
@@ -343,7 +350,8 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void waitForRecovery(ShutdownNotifier notifier) {
-        LOGGER.warn("Start waiting for connection recovery");
+        metrics.getReadinessMonitor().disable();
+        LOGGER.warn("Start waiting for connection recovery. Set RabbitMQ readiness to false");
         while (isConnectionRecovery(notifier)) {
             try {
                 Thread.sleep(1);
@@ -446,8 +454,8 @@ public class ConnectionManager implements AutoCloseable {
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker
         ) {
-            this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
-            this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
+            this.supplier = requireNonNull(supplier, "'Supplier' parameter");
+            this.reconnectionChecker = requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
