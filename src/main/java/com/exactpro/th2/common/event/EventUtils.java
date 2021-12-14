@@ -82,18 +82,18 @@ public class EventUtils {
         return builder.build();
     }
 
-    static EventID requireNonNullParentId(EventID parentId) {
+    public static EventID requireNonNullParentId(EventID parentId) {
         return requireNonNull(parentId, "Parent id cannot be null");
     }
 
-    static String requireNonBlankBookName(String bookName) {
+    public static String requireNonBlankBookName(String bookName) {
         if (isBlank(bookName)) {
             throw new IllegalArgumentException("Book name cannot be null or blank");
         }
         return bookName;
     }
 
-    static String requireNonBlankScope(String scope) {
+    public static String requireNonBlankScope(String scope) {
         if (isBlank(scope)) {
             throw new IllegalArgumentException("Scope cannot be null or blank");
         }
