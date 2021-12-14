@@ -299,6 +299,7 @@ dependencies {
 + Migration to books/pages cradle 4.0.0
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
++ `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
 
 ### 3.31.4
 

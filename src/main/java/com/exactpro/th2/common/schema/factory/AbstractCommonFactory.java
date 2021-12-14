@@ -66,7 +66,6 @@ import org.apache.commons.text.StringSubstitutor;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,7 +98,6 @@ import java.util.stream.StreamSupport;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_CONSISTENCY_LEVEL;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_TIMEOUT;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
@@ -630,25 +628,20 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * If root event does not exist, it creates root event with its book name = box book name and name = box name and timestamp
      * @return root event id
      */
-    @Nullable
+    @NotNull
     public EventID getRootEventId() {
         return rootEventId.updateAndGet(id -> {
             if (id == null) {
                 try {
                     BoxConfiguration boxConfiguration = getBoxConfiguration();
-                    String boxName = boxConfiguration.getBoxName();
-                    if (boxName == null) {
-                        return null;
-                    }
-
-                    com.exactpro.th2.common.grpc.Event rootEvent = Event.start()
-                            .bookName(boxConfiguration.getBookName())
+                    com.exactpro.th2.common.grpc.Event rootEvent = Event
+                            .start()
                             .endTimestamp()
-                            .name(boxName + " " + Instant.now())
+                            .name(boxConfiguration.getBoxName() + " " + Instant.now())
                             .description("Root event")
                             .status(Event.Status.PASSED)
                             .type("Microservice")
-                            .toProto(null);
+                            .toProto(boxConfiguration.getBookName());
 
                     try {
                         getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
@@ -685,20 +678,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return routerContext.updateAndGet(ctx -> {
            if (ctx == null) {
                try {
-                   MessageRouterMonitor contextMonitor;
-                   EventID rootEventId = getRootEventId();
-                   if (rootEventId == null) {
-                       contextMonitor = new LogMessageRouterMonitor();
-                   } else {
-                       contextMonitor = new BroadcastMessageRouterMonitor(
-                               new LogMessageRouterMonitor(),
-                               new EventMessageRouterMonitor(
-                                       getEventBatchRouter(),
-                                       rootEventId,
-                                       getBoxConfiguration().getBookName()
-                               )
-                       );
-                   }
+                   MessageRouterMonitor contextMonitor = new BroadcastMessageRouterMonitor(
+                           new LogMessageRouterMonitor(),
+                           new EventMessageRouterMonitor(
+                                   getEventBatchRouter(),
+                                   getRootEventId()
+                           )
+                   );
 
                    return new DefaultMessageRouterContext(
                            getRabbitMqConnectionManager(),

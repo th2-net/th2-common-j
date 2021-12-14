@@ -35,10 +35,21 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
-    parentId: EventID? = null
+    parentId: EventID
+) = storeEvent(event, event.toProto(parentId))
+
+
+fun MessageRouter<EventBatch>.storeEvent(
+    event: Event,
+    bookName: String
+) = storeEvent(event, event.toProto(bookName))
+
+private fun MessageRouter<EventBatch>.storeEvent(
+    event: Event,
+    protoEvent: com.exactpro.th2.common.grpc.Event
 ): Event = event.apply {
     sendAll(
-        EventBatch.newBuilder().addEvents(toProto(parentId)).build(),
+        EventBatch.newBuilder().addEvents(protoEvent).build(),
         PUBLISH.toString(),
         EVENT.toString()
     )
@@ -50,7 +61,6 @@ fun MessageRouter<EventBatch>.storeEvent(
     type: String,
     cause: Throwable? = null
 ): Event = Event.start().apply {
-    bookName(parentId.bookName)
     endTimestamp()
     name(name)
     type(type)

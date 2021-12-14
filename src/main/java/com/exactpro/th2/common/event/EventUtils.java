@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event;
 
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.exactpro.th2.common.event.bean.Message;
@@ -23,6 +24,9 @@ import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
 import com.exactpro.th2.common.grpc.EventID;
 import com.fasterxml.uuid.Generators;
 import com.fasterxml.uuid.NoArgGenerator;
+
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 @SuppressWarnings("ClassNamePrefixedWithPackageName")
 public class EventUtils {
@@ -36,14 +40,63 @@ public class EventUtils {
         return new MessageBuilder().text(text).build();
     }
 
-    @Contract("_, null -> null; _, !null -> !null")
-    public static @Nullable EventID toEventID(String bookName, @Nullable String id) {
-        if (id == null) {
-            return null;
+    @Contract("_, null -> !null; _, !null -> !null")
+    public static @NotNull EventID toEventID(
+            @NotNull String bookName,
+            @Nullable String id
+    ) {
+        return internalToEventID(
+                requireNonBlankBookName(bookName),
+                null,
+                id
+        );
+    }
+
+    @Contract("_, _, null -> !null; _, _, !null -> !null")
+    public static @NotNull EventID toEventID(
+            @NotNull String bookName,
+            @NotNull String scope,
+            @Nullable String id
+    ) {
+        return internalToEventID(
+                requireNonBlankBookName(bookName),
+                requireNonBlankScope(scope),
+                id
+        );
+    }
+
+    private static @NotNull EventID internalToEventID(
+            @NotNull String bookName,
+            @Nullable String scope,
+            @Nullable String id
+    ) {
+        EventID.Builder builder = EventID
+                .newBuilder()
+                .setBookName(bookName);
+        if (scope != null) {
+            builder.setScope(scope);
         }
-        return EventID.newBuilder()
-                .setBookName(bookName)
-                .setId(id)
-                .build();
+        if (id != null) {
+            builder.setId(id);
+        }
+        return builder.build();
+    }
+
+    public static EventID requireNonNullParentId(EventID parentId) {
+        return requireNonNull(parentId, "Parent id cannot be null");
+    }
+
+    public static String requireNonBlankBookName(String bookName) {
+        if (isBlank(bookName)) {
+            throw new IllegalArgumentException("Book name cannot be null or blank");
+        }
+        return bookName;
+    }
+
+    public static String requireNonBlankScope(String scope) {
+        if (isBlank(scope)) {
+            throw new IllegalArgumentException("Scope cannot be null or blank");
+        }
+        return scope;
     }
 }
