@@ -14,24 +14,17 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AMQP.BasicProperties;
-import com.rabbitmq.client.BlockedListener;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DeliverCallback;
-import com.rabbitmq.client.ExceptionHandler;
-import com.rabbitmq.client.Recoverable;
-import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
-import com.rabbitmq.client.TopologyRecoveryException;
 
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -44,14 +37,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -63,30 +53,13 @@ public class ConnectionManager implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
-    private static final String PUBLISH_CONNECTION_NAME = "Publish";
-    private static final String CONSUME_CONNECTION_NAME = "Consume";
-
-    private final Connection publishConnection;
-    private final Connection consumeConnection;
+    private final PublishConnectionManager publishConnectionManager;
+    private final ConsumeConnectionManager consumeConnectionManager;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
-    private final AtomicInteger publishConnectionRecoveryAttempts = new AtomicInteger(0);
-    private final AtomicInteger consumeConnectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
-    private final ExecutorService publishSharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-            .setNameFormat("rabbitmq-shared-pool-%d")
-            .build());
-    private final ExecutorService consumeSharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-            .setNameFormat("rabbitmq-shared-pool-%d")
-            .build());
-
-    private final HealthMetrics publishMetrics = new HealthMetrics(this);
-    private final HealthMetrics consumeMetrics = new HealthMetrics(this);
-
-    private final RecoveryListener publishRecoveryListener = getRecoveryListener(PUBLISH_CONNECTION_NAME);
-    private final RecoveryListener consumehRecoveryListener = getRecoveryListener(CONSUME_CONNECTION_NAME);
 
     public ConnectionManagerConfiguration getConfiguration() {
         return configuration;
@@ -128,13 +101,16 @@ public class ConnectionManager implements AutoCloseable {
             factory.setConnectionTimeout(connectionManagerConfiguration.getConnectionTimeout());
         }
         factory.setAutomaticRecoveryEnabled(true);
-        this.publishConnection = createConnection(PUBLISH_CONNECTION_NAME, factory, onFailedRecoveryConnection);
-        this.consumeConnection = createConnection(CONSUME_CONNECTION_NAME, factory, onFailedRecoveryConnection);
+
+        publishConnectionManager = new PublishConnectionManager(connectionManagerConfiguration, onFailedRecoveryConnection, factory);
+        consumeConnectionManager = new ConsumeConnectionManager(connectionManagerConfiguration, onFailedRecoveryConnection, factory);
+
 
     }
 
     public boolean isOpen() {
-        return (publishConnection.isOpen() || consumeConnection.isOpen()) && !connectionIsClosed.get();
+        //TODO Create correct condition
+        return (publishConnectionManager.getConnection().isOpen() || consumeConnectionManager.getConnection().isOpen()) && !connectionIsClosed.get();
     }
 
     @Override
@@ -142,22 +118,22 @@ public class ConnectionManager implements AutoCloseable {
         if (connectionIsClosed.getAndSet(true)) {
             return;
         }
-
         int closeTimeout = configuration.getConnectionCloseTimeout();
-        closeConnection(publishConnection, PUBLISH_CONNECTION_NAME, closeTimeout);
-        closeConnection(consumeConnection, CONSUME_CONNECTION_NAME, closeTimeout);
 
-        shutdownSharedExecutor(closeTimeout, publishSharedExecutor);
-        shutdownSharedExecutor(closeTimeout, consumeSharedExecutor);
+        publishConnectionManager.closeConnection(closeTimeout);
+        consumeConnectionManager.closeConnection(closeTimeout);
+
+        publishConnectionManager.shutdownSharedExecutor(closeTimeout);
+        consumeConnectionManager.shutdownSharedExecutor(closeTimeout);
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), publishConnection);
+        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), publishConnectionManager.getConnection());
         holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
     }
 
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-        ChannelHolder holder = getChannelFor(PinId.forQueue(queue), consumeConnection);
+        ChannelHolder holder = getChannelFor(PinId.forQueue(queue), consumeConnectionManager.getConnection());
         String tag = holder.mapWithLock(channel -> {
             return channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
                     try {
@@ -177,19 +153,6 @@ public class ConnectionManager implements AutoCloseable {
 
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
-    }
-
-    private static void shutdownSharedExecutor(int closeTimeout, ExecutorService sharedExecutor) {
-        sharedExecutor.shutdown();
-        try {
-            if (!sharedExecutor.awaitTermination(closeTimeout, TimeUnit.MILLISECONDS)) {
-                LOGGER.error("Executor is not terminated during {} millis", closeTimeout);
-                List<Runnable> runnables = sharedExecutor.shutdownNow();
-                LOGGER.error("{} task(s) was(were) not finished", runnables.size());
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     private ChannelHolder getChannelFor(PinId pinId, Connection currentConnection) {
@@ -256,220 +219,6 @@ public class ConnectionManager implements AutoCloseable {
      */
     private void basicAck(Channel channel, long deliveryTag) throws IOException {
         channel.basicAck(deliveryTag, false);
-    }
-
-    private Connection createConnection(String connectionName, ConnectionFactory factory, Runnable onFailedRecoveryConnection) {
-        factory.setExceptionHandler(new ExceptionHandler() {
-            @Override
-            public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
-                turnOffReadiness(exception);
-            }
-
-            @Override
-            public void handleReturnListenerException(Channel channel, Throwable exception) {
-                turnOffReadiness(exception);
-            }
-
-            @Override
-            public void handleConfirmListenerException(Channel channel, Throwable exception) {
-                turnOffReadiness(exception);
-            }
-
-            @Override
-            public void handleBlockedListenerException(Connection connection, Throwable exception) {
-                turnOffReadiness(exception);
-            }
-
-            @Override
-            public void handleConsumerException(Channel channel, Throwable exception, Consumer consumer, String consumerTag, String methodName) {
-                turnOffReadiness(exception);
-            }
-
-            @Override
-            public void handleConnectionRecoveryException(Connection conn, Throwable exception) {
-                turnOffReadiness(exception);
-            }
-
-            @Override
-            public void handleChannelRecoveryException(Channel ch, Throwable exception) {
-                turnOffReadiness(exception);
-            }
-
-            @Override
-            public void handleTopologyRecoveryException(Connection conn, Channel ch, TopologyRecoveryException exception) {
-                turnOffReadiness(exception);
-            }
-
-            private void turnOffReadiness(Throwable exception){
-                switch (connectionName) {
-                    case PUBLISH_CONNECTION_NAME:
-                        publishMetrics.getReadinessMonitor().disable();
-                        break;
-                    case CONSUME_CONNECTION_NAME:
-                        consumeMetrics.getReadinessMonitor().disable();
-                        break;
-                    default:
-                        throw new IllegalStateException("Unexpected value: " + connectionName);
-                }
-                LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
-            }
-        });
-
-        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get() && getConnectionRecoveryTriggeringCondition(connectionName, onFailedRecoveryConnection));
-
-        factory.setRecoveryDelayHandler(recoveryAttempts -> getRecoveryDelay(connectionName));
-
-
-
-        HealthMetrics tmpMetrics;
-        switch (connectionName) {
-            case PUBLISH_CONNECTION_NAME:
-                tmpMetrics = publishMetrics;
-                factory.setSharedExecutor(publishSharedExecutor);
-                break;
-            case CONSUME_CONNECTION_NAME:
-                tmpMetrics = consumeMetrics;
-                factory.setSharedExecutor(consumeSharedExecutor);
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + connectionName);
-        }
-        Connection tmpConnection;
-        try {
-            tmpConnection = factory.newConnection();
-            tmpMetrics.getReadinessMonitor().enable();
-            LOGGER.debug("Set RabbitMQ readiness to true");
-        } catch (IOException | TimeoutException e) {
-            tmpMetrics.getReadinessMonitor().disable();
-            LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection {}", connectionName, e);
-            throw new IllegalStateException(String.format("Failed to create RabbitMQ %s connection using configuration", connectionName), e);
-        }
-
-        attachBlockedListener(tmpConnection, connectionName);
-        attachRecoveryListener(tmpConnection, connectionName);
-        return tmpConnection;
-    }
-
-    private static void attachBlockedListener(Connection connection, String connectionName) {
-        connection.addBlockedListener(new BlockedListener() {
-            @Override
-            public void handleBlocked(String reason) {
-                LOGGER.warn("RabbitMQ blocked {} connection: {}", connectionName, reason);
-            }
-
-            @Override
-            public void handleUnblocked() {
-                LOGGER.warn("RabbitMQ unblocked {} connection", connectionName);
-            }
-        });
-    }
-
-    private void attachRecoveryListener(Connection connection, String connectionName) {
-        if (connection instanceof Recoverable) {
-            Recoverable recoverableConnection = (Recoverable)connection;
-            switch (connectionName) {
-                case PUBLISH_CONNECTION_NAME:
-                    recoverableConnection.addRecoveryListener(publishRecoveryListener);
-                    break;
-                case CONSUME_CONNECTION_NAME:
-                    recoverableConnection.addRecoveryListener(consumehRecoveryListener);
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected value: " + connectionName);
-            }
-            LOGGER.debug("Recovery listener was added to {} connection.", connectionName);
-        } else {
-            throw new IllegalStateException(connectionName + " connection does not implement Recoverable. Can not add RecoveryListener to it");
-        }
-    }
-
-    private RecoveryListener getRecoveryListener(String connectionName) {
-        return new RecoveryListener() {
-            @Override
-            public void handleRecovery(Recoverable recoverable) {
-                LOGGER.debug("Count tries to recovery {} connection reset to 0", connectionName);
-                switch (connectionName) {
-                    case PUBLISH_CONNECTION_NAME:
-                        publishConnectionRecoveryAttempts.set(0);
-                        publishMetrics.getReadinessMonitor().enable();
-                        break;
-                    case CONSUME_CONNECTION_NAME:
-                        consumeConnectionRecoveryAttempts.set(0);
-                        consumeMetrics.getReadinessMonitor().enable();
-                        break;
-                    default:
-                        throw new IllegalStateException("Unexpected value: " + connectionName);
-                }
-                LOGGER.debug("Set RabbitMQ readiness to true");
-            }
-
-            @Override
-            public void handleRecoveryStarted(Recoverable recoverable) {
-            }
-        };
-    }
-
-    private boolean getConnectionRecoveryTriggeringCondition(String connectionName, Runnable onFailedRecoveryConnection) {
-        int tmpCountTriesToRecovery;
-
-        switch (connectionName) {
-            case PUBLISH_CONNECTION_NAME:
-                tmpCountTriesToRecovery = publishConnectionRecoveryAttempts.get();
-                break;
-            case CONSUME_CONNECTION_NAME:
-                tmpCountTriesToRecovery = consumeConnectionRecoveryAttempts.get();
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + connectionName);
-        }
-
-        if (tmpCountTriesToRecovery < configuration.getMaxRecoveryAttempts()) {
-            LOGGER.info("Try to recovery {} connection to RabbitMQ. Count tries = {}", connectionName, tmpCountTriesToRecovery + 1);
-            return true;
-        }
-        LOGGER.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
-        if (onFailedRecoveryConnection == null) {
-            // TODO: we should stop the execution of the application. Don't use System.exit!!!
-            throw new IllegalStateException("Cannot recover connection to RabbitMQ");
-        }
-        onFailedRecoveryConnection.run();
-        return false;
-    }
-
-    private int getRecoveryDelay(String connectionName) {
-        int tmpCountTriesToRecovery;
-        switch (connectionName) {
-        case PUBLISH_CONNECTION_NAME:
-            tmpCountTriesToRecovery = publishConnectionRecoveryAttempts.getAndIncrement();
-            break;
-        case CONSUME_CONNECTION_NAME:
-            tmpCountTriesToRecovery = consumeConnectionRecoveryAttempts.getAndIncrement();
-            break;
-        default:
-            throw new IllegalStateException("Unexpected value: " + connectionName);
-        }
-
-        int recoveryDelay = configuration.getMinConnectionRecoveryTimeout()
-                + (configuration.getMaxRecoveryAttempts() > 1
-                ? (configuration.getMaxConnectionRecoveryTimeout() - configuration.getMinConnectionRecoveryTimeout())
-                / (configuration.getMaxRecoveryAttempts() - 1)
-                * tmpCountTriesToRecovery
-                : 0);
-
-        LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
-        return recoveryDelay;
-    }
-
-    private void closeConnection(Connection connection, String connectionName, int closeTimeout) {
-        if (connection.isOpen()) {
-            try {
-                // We close the connection and don't close channels
-                // because when a channel's connection is closed, so is the channel
-                connection.close(closeTimeout);
-            } catch (IOException e) {
-                LOGGER.error("Cannot close {} connection", connectionName, e);
-            }
-        }
     }
 
     private static class RabbitMqSubscriberMonitor implements SubscriberMonitor {
