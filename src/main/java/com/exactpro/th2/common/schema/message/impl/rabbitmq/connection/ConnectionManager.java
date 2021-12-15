@@ -15,7 +15,6 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -74,16 +73,12 @@ public class ConnectionManager implements AutoCloseable {
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
 
-    private final MetricMonitor livenessMonitor;
     private final HealthMetrics metrics = new HealthMetrics(this);
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
         public void handleRecovery(Recoverable recoverable) {
-            livenessMonitor.enable();
-            LOGGER.debug("Set RabbitMQ liveness to true");
-            metrics.getReadinessMonitor().enable();
-            LOGGER.debug("Set RabbitMQ readiness to true");
+            metrics.enable();
         }
 
         @Override
@@ -96,12 +91,10 @@ public class ConnectionManager implements AutoCloseable {
 
     public ConnectionManager(
             @NotNull RabbitMQConfiguration rabbitMQConfiguration,
-            @NotNull ConnectionManagerConfiguration connectionManagerConfiguration,
-            @NotNull MetricMonitor livenessMonitor
+            @NotNull ConnectionManagerConfiguration connectionManagerConfiguration
     ) {
         requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
-        this.livenessMonitor = requireNonNull(livenessMonitor, "Liveness monitor cannot be null");
 
         String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
         if (StringUtils.isBlank(subscriberNameTmp)) {
@@ -178,7 +171,7 @@ public class ConnectionManager implements AutoCloseable {
 
             private void turnOffReadiness(Throwable exception){
                 metrics.getReadinessMonitor().disable();
-                LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
+                LOGGER.debug("RabbitMQ error", exception);
             }
         });
 
@@ -188,10 +181,10 @@ public class ConnectionManager implements AutoCloseable {
                         throw new IllegalStateException("Connection is already closed");
                     }
                     int attemptNumber = recoveryAttempts + 1;
-                    if (attemptNumber > connectionManagerConfiguration.getMaxRecoveryAttempts() && livenessMonitor.isEnabled()) {
-                        livenessMonitor.disable();
+                    if (attemptNumber > connectionManagerConfiguration.getMaxRecoveryAttempts() && metrics.getLivenessMonitor().isEnabled()) {
+                        metrics.getLivenessMonitor().disable();
                         LOGGER.error(
-                                "Can not connect to RabbitMQ after {} attempt(s). Set RabbitMQ liveness to false and try again",
+                                "Can not connect to RabbitMQ after {} attempt(s), will try again",
                                 connectionManagerConfiguration.getMaxRecoveryAttempts()
                         );
                     }
@@ -213,11 +206,10 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             this.connection = factory.newConnection();
-            metrics.getReadinessMonitor().enable();
-            LOGGER.debug("Set RabbitMQ readiness to true");
+            metrics.enable();
         } catch (IOException | TimeoutException e) {
-            metrics.getReadinessMonitor().disable();
-            LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
+            metrics.disable();
+            LOGGER.debug("Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using configuration", e);
         }
 
@@ -351,7 +343,7 @@ public class ConnectionManager implements AutoCloseable {
 
     private void waitForRecovery(ShutdownNotifier notifier) {
         metrics.getReadinessMonitor().disable();
-        LOGGER.warn("Start waiting for connection recovery. Set RabbitMQ readiness to false");
+        LOGGER.warn("Start waiting for connection recovery");
         while (isConnectionRecovery(notifier)) {
             try {
                 Thread.sleep(1);

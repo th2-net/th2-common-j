@@ -15,6 +15,7 @@
  */
 package com.exactpro.th2.common.metrics
 
+import mu.KotlinLogging
 import org.apache.commons.lang3.builder.ToStringBuilder
 
 /**
@@ -40,17 +41,33 @@ class MetricMonitor(
     /**
      * Changes status of this monitor to `enabled`
      */
-    fun enable() = arbiter.enable(this)
+    fun enable() {
+        val wasDisabled = !arbiter.isEnabled
+        arbiter.enable(this)
+        if (wasDisabled) {
+            LOGGER.info { "$name is enabled" }
+        }
+    }
 
     /**
      * Changes status of this monitor to `disabled`
      */
-    fun disable() = arbiter.disable(this)
+    fun disable() {
+        val wasEnabled = arbiter.isEnabled
+        arbiter.disable(this)
+        if (wasEnabled) {
+            LOGGER.info { "$name is disabled" }
+        }
+    }
 
 
     override fun toString(): String {
         return ToStringBuilder(this)
             .append("name", name)
             .toString()
+    }
+    
+    companion object {
+        val LOGGER = KotlinLogging.logger {}
     }
 }
