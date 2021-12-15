@@ -202,7 +202,7 @@ public class ConnectionManager implements AutoCloseable {
                 LOGGER.info("Try to recovery {} connection to RabbitMQ. Count tries = {}", connectionName, tmpCountTriesToRecovery + 1);
                 return true;
             }
-            LOGGER.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
+            LOGGER.error("Can not connect to RabbitMQ for {} connection. Count tries = {}", connectionName, tmpCountTriesToRecovery);
             if (onFailedRecoveryConnection != null) {
                 onFailedRecoveryConnection.run();
             } else {
@@ -222,7 +222,7 @@ public class ConnectionManager implements AutoCloseable {
                                     * tmpCountTriesToRecovery
                                 : 0);
 
-                    LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
+                    LOGGER.info("Recovery delay for '{}' try for {} connection = {}", tmpCountTriesToRecovery, connectionName, recoveryDelay);
                     return recoveryDelay;
                 }
         );
