@@ -45,7 +45,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,6 +58,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectionManager implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
@@ -77,13 +77,21 @@ public class ConnectionManager implements AutoCloseable {
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
 
+    private final Map<String, HealthMetrics> connectionNameToMetrics = Map.of(
+            PUBLISH_CONNECTION_NAME, new HealthMetrics("amqp_" + PUBLISH_CONNECTION_NAME + "_connection"),
+            CONSUME_CONNECTION_NAME, new HealthMetrics("amqp_" + CONSUME_CONNECTION_NAME + "_connection")
+    );
+
     public ConnectionManagerConfiguration getConfiguration() {
         return configuration;
     }
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
-        Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
-        this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
+    public ConnectionManager(
+            @NotNull RabbitMQConfiguration rabbitMQConfiguration,
+            @NotNull ConnectionManagerConfiguration connectionManagerConfiguration
+    ) {
+        requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
+        this.configuration = requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
 
         String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
         if (StringUtils.isBlank(subscriberNameTmp)) {
@@ -119,24 +127,12 @@ public class ConnectionManager implements AutoCloseable {
 
         factory.setAutomaticRecoveryEnabled(true);
         factory.setSharedExecutor(sharedExecutor);
-        publishConnection = createConnection(
-                factory,
-                onFailedRecoveryConnection,
-                PUBLISH_CONNECTION_NAME
-        );
-        consumeConnection = createConnection(
-                factory,
-                onFailedRecoveryConnection,
-                CONSUME_CONNECTION_NAME
-        );
+        publishConnection = createConnection(factory, PUBLISH_CONNECTION_NAME);
+        consumeConnection = createConnection(factory, CONSUME_CONNECTION_NAME);
     }
 
-    private Connection createConnection(
-            ConnectionFactory factory,
-            Runnable onFailedRecoveryConnection,
-            String connectionName
-    ) {
-        HealthMetrics metrics = new HealthMetrics(this);
+    private Connection createConnection(ConnectionFactory factory, String connectionName) {
+        HealthMetrics metrics = connectionNameToMetrics.get(connectionName);
         factory.setExceptionHandler(new ExceptionHandler() {
             @Override
             public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
@@ -180,43 +176,35 @@ public class ConnectionManager implements AutoCloseable {
 
             private void turnOffReadiness(Throwable exception){
                 metrics.getReadinessMonitor().disable();
-                LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
+                LOGGER.debug("RabbitMQ error", exception);
             }
-        });
-
-        AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
-        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
-            if (connectionIsClosed.get()) {
-                return false;
-            }
-
-            int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
-
-            if (tmpCountTriesToRecovery < configuration.getMaxRecoveryAttempts()) {
-                LOGGER.info("Try to recovery {} connection to RabbitMQ. Count tries = {}", connectionName, tmpCountTriesToRecovery + 1);
-                return true;
-            }
-            LOGGER.error("Can not connect to RabbitMQ for {} connection. Count tries = {}", connectionName, tmpCountTriesToRecovery);
-            if (onFailedRecoveryConnection != null) {
-                onFailedRecoveryConnection.run();
-            } else {
-                // TODO: we should stop the execution of the application. Don't use System.exit!!!
-                throw new IllegalStateException(format("Cannot recover %s connection to RabbitMQ", connectionName));
-            }
-            return false;
         });
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
-                    int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
-
+                    if (connectionIsClosed.get()) {
+                        throw new IllegalStateException("Connection is already closed");
+                    }
+                    int attemptNumber = recoveryAttempts + 1;
+                    if (attemptNumber > configuration.getMaxRecoveryAttempts() && metrics.getLivenessMonitor().isEnabled()) {
+                        metrics.getLivenessMonitor().disable();
+                        LOGGER.error(
+                                "Can not connect to RabbitMQ for {} connection after {} attempt(s), will try again",
+                                connectionName,
+                                configuration.getMaxRecoveryAttempts()
+                        );
+                    }
                     int recoveryDelay = configuration.getMinConnectionRecoveryTimeout()
                             + (configuration.getMaxRecoveryAttempts() > 1
                                 ? (configuration.getMaxConnectionRecoveryTimeout() - configuration.getMinConnectionRecoveryTimeout())
                                     / (configuration.getMaxRecoveryAttempts() - 1)
-                                    * tmpCountTriesToRecovery
+                                    * recoveryAttempts
                                 : 0);
-
-                    LOGGER.info("Recovery delay for '{}' try for {} connection = {}", tmpCountTriesToRecovery, connectionName, recoveryDelay);
+                    LOGGER.info(
+                            "Attempt #{} to recover {} connection to RabbitMQ. Next attempt will be after {} ms",
+                            attemptNumber,
+                            connectionName,
+                            recoveryDelay
+                    );
                     return recoveryDelay;
                 }
         );
@@ -224,11 +212,10 @@ public class ConnectionManager implements AutoCloseable {
         Connection connection;
         try {
             connection = factory.newConnection(connectionName);
-            metrics.getReadinessMonitor().enable();
-            LOGGER.debug("Set RabbitMQ readiness to true");
+            metrics.enable();
         } catch (IOException | TimeoutException e) {
-            metrics.getReadinessMonitor().disable();
-            LOGGER.debug("Set RabbitMQ readiness to false. Can not create {} connection", connectionName, e);
+            metrics.disable();
+            LOGGER.debug("Can not create {} connection", connectionName, e);
             throw new IllegalStateException(format("Failed to create RabbitMQ %s connection using configuration", connectionName), e);
         }
 
@@ -246,7 +233,7 @@ public class ConnectionManager implements AutoCloseable {
 
         if (connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) connection;
-            recoverableConnection.addRecoveryListener(getRecoveryListener(connectionRecoveryAttempts, metrics));
+            recoverableConnection.addRecoveryListener(getRecoveryListener(metrics));
             LOGGER.debug("Recovery listener was added to {} connection.", connectionName);
         } else {
             throw new IllegalStateException(format("%s connection does not implement Recoverable. Can not add RecoveryListener to it", connectionName));
@@ -254,17 +241,11 @@ public class ConnectionManager implements AutoCloseable {
         return connection;
     }
 
-    private RecoveryListener getRecoveryListener(
-            AtomicInteger connectionRecoveryAttempts,
-            HealthMetrics metrics
-    ) {
+    private RecoveryListener getRecoveryListener(HealthMetrics metrics) {
         return new RecoveryListener() {
             @Override
             public void handleRecovery(Recoverable recoverable) {
-                LOGGER.debug("Count tries to recovery connection reset to 0");
-                connectionRecoveryAttempts.set(0);
-                metrics.getReadinessMonitor().enable();
-                LOGGER.debug("Set RabbitMQ readiness to true");
+                metrics.enable();
             }
 
             @Override
@@ -346,16 +327,19 @@ public class ConnectionManager implements AutoCloseable {
     private ChannelHolder getChannelFor(PinId pinId, Connection connection) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
-            return new ChannelHolder(() -> createChannel(connection), this::waitForConnectionRecovery);
+            return new ChannelHolder(
+                    () -> createChannel(connection),
+                    (notifier, waitForRecovery) -> waitForConnectionRecovery(notifier, waitForRecovery, connection.getClientProvidedName())
+            );
         });
     }
 
     private Channel createChannel(Connection connection) {
-        waitForConnectionRecovery(connection);
+        waitForConnectionRecovery(connection, connection.getClientProvidedName());
 
         try {
             Channel channel = connection.createChannel();
-            Objects.requireNonNull(channel, () -> format("No channels are available in the %s connection. Max channel number: %d", connection.getClientProvidedName(), connection.getChannelMax()));
+            requireNonNull(channel, () -> format("No channels are available in the %s connection. Max channel number: %d", connection.getClientProvidedName(), connection.getChannelMax()));
             channel.basicQos(configuration.getPrefetchCount());
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
@@ -365,16 +349,16 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private void waitForConnectionRecovery(ShutdownNotifier notifier) {
-        waitForConnectionRecovery(notifier, true);
+    private void waitForConnectionRecovery(ShutdownNotifier notifier, String connectionName) {
+        waitForConnectionRecovery(notifier, true, connectionName);
     }
 
-    private void waitForConnectionRecovery(ShutdownNotifier notifier, boolean waitForRecovery) {
+    private void waitForConnectionRecovery(ShutdownNotifier notifier, boolean waitForRecovery, String connectionName) {
         if (isConnectionRecovery(notifier)) {
             if (waitForRecovery) {
-                waitForRecovery(notifier);
+                waitForRecovery(notifier, connectionName);
             } else {
-                LOGGER.warn("Skip waiting for connection recovery");
+                LOGGER.warn("Skip waiting for {} connection recovery", connectionName);
             }
         }
 
@@ -383,17 +367,18 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private void waitForRecovery(ShutdownNotifier notifier) {
-        LOGGER.warn("Start waiting for connection recovery");
+    private void waitForRecovery(ShutdownNotifier notifier, String connectionName) {
+        connectionNameToMetrics.get(connectionName).getReadinessMonitor().disable();
+        LOGGER.warn("Start waiting for {} connection recovery", connectionName);
         while (isConnectionRecovery(notifier)) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
-                LOGGER.error("Wait for connection recovery was interrupted", e);
+                LOGGER.error("Wait for {} connection recovery was interrupted", connectionName, e);
                 break;
             }
         }
-        LOGGER.info("Stop waiting for connection recovery");
+        LOGGER.info("Stop waiting for {} connection recovery", connectionName);
     }
 
     private boolean isConnectionRecovery(ShutdownNotifier notifier) {
@@ -487,8 +472,8 @@ public class ConnectionManager implements AutoCloseable {
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker
         ) {
-            this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
-            this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
+            this.supplier = requireNonNull(supplier, "'Supplier' parameter");
+            this.reconnectionChecker = requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
