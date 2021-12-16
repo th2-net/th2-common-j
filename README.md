@@ -289,8 +289,8 @@ dependencies {
 ## Release notes
 
 ### 3.32.0
-
-+ Limited attempts for RabbitMQ connection recovery 
++ Split connection from `ConnectionManager` into publishing and consuming
++ Limited attempts for RabbitMQ connection recovery
 
 ### 3.31.4
 
