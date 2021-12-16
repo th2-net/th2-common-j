@@ -80,8 +80,6 @@ public class ConnectionManager implements AutoCloseable {
             .setNameFormat("rabbitmq-" + CONSUME_CONNECTION_NAME + "-shared-pool-%d")
             .build());
 
-    private final HealthMetrics metrics = new HealthMetrics(this);
-
     public ConnectionManagerConfiguration getConfiguration() {
         return configuration;
     }
@@ -122,6 +120,28 @@ public class ConnectionManager implements AutoCloseable {
             factory.setConnectionTimeout(connectionManagerConfiguration.getConnectionTimeout());
         }
 
+        factory.setAutomaticRecoveryEnabled(true);
+        publishConnection = createConnection(
+                factory,
+                onFailedRecoveryConnection,
+                publishSharedExecutor,
+                PUBLISH_CONNECTION_NAME
+        );
+        consumeConnection = createConnection(
+                factory,
+                onFailedRecoveryConnection,
+                consumeSharedExecutor,
+                CONSUME_CONNECTION_NAME
+        );
+    }
+
+    private Connection createConnection(
+            ConnectionFactory factory,
+            Runnable onFailedRecoveryConnection,
+            ExecutorService sharedExecutor,
+            String connectionName
+    ) {
+        HealthMetrics metrics = new HealthMetrics(this);
         factory.setExceptionHandler(new ExceptionHandler() {
             @Override
             public void handleUnexpectedConnectionDriverException(Connection conn, Throwable exception) {
@@ -169,27 +189,6 @@ public class ConnectionManager implements AutoCloseable {
             }
         });
 
-        factory.setAutomaticRecoveryEnabled(true);
-        publishConnection = createConnection(
-                factory,
-                onFailedRecoveryConnection,
-                publishSharedExecutor,
-                PUBLISH_CONNECTION_NAME
-        );
-        consumeConnection = createConnection(
-                factory,
-                onFailedRecoveryConnection,
-                consumeSharedExecutor,
-                CONSUME_CONNECTION_NAME
-        );
-    }
-
-    private Connection createConnection(
-            ConnectionFactory factory,
-            Runnable onFailedRecoveryConnection,
-            ExecutorService sharedExecutor,
-            String connectionName
-    ) {
         AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
         factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
             if (connectionIsClosed.get()) {
@@ -253,7 +252,7 @@ public class ConnectionManager implements AutoCloseable {
 
         if (connection instanceof Recoverable) {
             Recoverable recoverableConnection = (Recoverable) connection;
-            recoverableConnection.addRecoveryListener(getRecoveryListener(connectionRecoveryAttempts));
+            recoverableConnection.addRecoveryListener(getRecoveryListener(connectionRecoveryAttempts, metrics));
             LOGGER.debug("Recovery listener was added to {} connection.", connectionName);
         } else {
             throw new IllegalStateException(format("%s connection does not implement Recoverable. Can not add RecoveryListener to it", connectionName));
@@ -261,7 +260,10 @@ public class ConnectionManager implements AutoCloseable {
         return connection;
     }
 
-    private RecoveryListener getRecoveryListener(AtomicInteger connectionRecoveryAttempts) {
+    private RecoveryListener getRecoveryListener(
+            AtomicInteger connectionRecoveryAttempts,
+            HealthMetrics metrics
+    ) {
         return new RecoveryListener() {
             @Override
             public void handleRecovery(Recoverable recoverable) {
