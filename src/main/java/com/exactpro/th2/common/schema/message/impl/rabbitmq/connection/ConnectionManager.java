@@ -73,11 +73,8 @@ public class ConnectionManager implements AutoCloseable {
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
-    private final ExecutorService publishSharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-            .setNameFormat("rabbitmq-" + PUBLISH_CONNECTION_NAME + "-shared-pool-%d")
-            .build());
-    private final ExecutorService consumeSharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-            .setNameFormat("rabbitmq-" + CONSUME_CONNECTION_NAME + "-shared-pool-%d")
+    private final ExecutorService sharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+            .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
 
     public ConnectionManagerConfiguration getConfiguration() {
@@ -121,16 +118,15 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         factory.setAutomaticRecoveryEnabled(true);
+        factory.setSharedExecutor(sharedExecutor);
         publishConnection = createConnection(
                 factory,
                 onFailedRecoveryConnection,
-                publishSharedExecutor,
                 PUBLISH_CONNECTION_NAME
         );
         consumeConnection = createConnection(
                 factory,
                 onFailedRecoveryConnection,
-                consumeSharedExecutor,
                 CONSUME_CONNECTION_NAME
         );
     }
@@ -138,7 +134,6 @@ public class ConnectionManager implements AutoCloseable {
     private Connection createConnection(
             ConnectionFactory factory,
             Runnable onFailedRecoveryConnection,
-            ExecutorService sharedExecutor,
             String connectionName
     ) {
         HealthMetrics metrics = new HealthMetrics(this);
@@ -225,7 +220,6 @@ public class ConnectionManager implements AutoCloseable {
                     return recoveryDelay;
                 }
         );
-        factory.setSharedExecutor(sharedExecutor);
 
         Connection connection;
         try {
@@ -291,8 +285,7 @@ public class ConnectionManager implements AutoCloseable {
         }
         closeConnection(publishConnection);
         closeConnection(consumeConnection);
-        shutdownSharedExecutor(publishSharedExecutor);
-        shutdownSharedExecutor(consumeSharedExecutor);
+        shutdownSharedExecutor(sharedExecutor);
     }
 
     private void closeConnection(Connection connection) {
