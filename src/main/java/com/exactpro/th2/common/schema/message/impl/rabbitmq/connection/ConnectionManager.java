@@ -78,8 +78,8 @@ public class ConnectionManager implements AutoCloseable {
             .build());
 
     private final Map<String, HealthMetrics> connectionNameToMetrics = Map.of(
-            PUBLISH_CONNECTION_NAME, new HealthMetrics("amqp_connection_" + PUBLISH_CONNECTION_NAME),
-            CONSUME_CONNECTION_NAME, new HealthMetrics("amqp_connection_" + CONSUME_CONNECTION_NAME)
+            PUBLISH_CONNECTION_NAME, new HealthMetrics("amqp_" + PUBLISH_CONNECTION_NAME + "_connection"),
+            CONSUME_CONNECTION_NAME, new HealthMetrics("amqp_" + CONSUME_CONNECTION_NAME + "_connection")
     );
 
     public ConnectionManagerConfiguration getConfiguration() {
