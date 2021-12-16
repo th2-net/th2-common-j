@@ -73,7 +73,7 @@ public class ConnectionManager implements AutoCloseable {
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
 
-    private final HealthMetrics metrics = new HealthMetrics(this);
+    private final HealthMetrics metrics = new HealthMetrics("amqp_connection");
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
