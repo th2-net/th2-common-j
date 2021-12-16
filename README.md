@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.31.4)
+# th2 common library (Java) (3.32.0)
 
 ## Usage
 
@@ -287,6 +287,9 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.32.0
++ Split connection from `ConnectionManager` into publishing and consuming
 
 ### 3.31.4
 
