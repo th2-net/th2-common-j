@@ -31,11 +31,12 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import java.time.Instant
 
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
-    private val parentEventId: EventID = toEventID(BOOK_NAME, "parentEventId")!!
+    private val parentEventId: EventID = toEventID(Instant.now(), BOOK_NAME, "parentEventId")
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
@@ -277,7 +278,6 @@ class TestEvent {
             { assertTrue(hasId()) },
             { assertEquals(UNKNOWN_EVENT_NAME, name) },
             { assertEquals(UNKNOWN_EVENT_TYPE, type) },
-            { assertTrue(hasStartTimestamp()) },
             { assertTrue(hasEndTimestamp()) },
             { assertEquals(SUCCESS, status) },
             { assertEquals(ByteString.copyFrom("[]".toByteArray()), body) },

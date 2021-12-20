@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assertions;
 
 import java.io.IOException;
+import java.time.Instant;
 
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.fasterxml.jackson.module.kotlin.ExtensionsKt.jacksonObjectMapper;
@@ -30,7 +31,7 @@ import static com.fasterxml.jackson.module.kotlin.ExtensionsKt.jacksonObjectMapp
 public class BaseTest {
     public static final BoxConfiguration BOX_CONFIGURATION = new BoxConfiguration();
     public static final String BOOK_NAME = BOX_CONFIGURATION.getBookName();
-    public static final EventID PARENT_EVENT_ID = toEventID(BOOK_NAME, "id");
+    public static final EventID PARENT_EVENT_ID = toEventID(Instant.now(), BOOK_NAME, "id");
 
     private static final ObjectMapper jacksonMapper = jacksonObjectMapper();
 

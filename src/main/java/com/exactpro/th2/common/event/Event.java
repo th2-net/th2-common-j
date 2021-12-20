@@ -20,7 +20,9 @@ import static com.exactpro.th2.common.event.EventUtils.generateUUID;
 import static com.exactpro.th2.common.event.EventUtils.requireNonBlankBookName;
 import static com.exactpro.th2.common.event.EventUtils.requireNonBlankScope;
 import static com.exactpro.th2.common.event.EventUtils.requireNonNullParentId;
+import static com.exactpro.th2.common.event.EventUtils.requireNonNullTimestamp;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
+import static com.exactpro.th2.common.event.EventUtils.toTimestamp;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.protobuf.TextFormat.shortDebugString;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -51,7 +52,6 @@ import com.exactpro.th2.common.grpc.MessageID;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Timestamp;
 
 public class Event {
     private static final Logger LOGGER = LoggerFactory.getLogger(Event.class);
@@ -73,12 +73,15 @@ public class Event {
     protected String description;
     protected Status status = Status.PASSED;
 
-    protected Event(Instant startTimestamp, @Nullable Instant endTimestamp) {
-        this.startTimestamp = startTimestamp;
+    protected Event(
+            @NotNull Instant startTimestamp,
+            @Nullable Instant endTimestamp
+    ) {
+        this.startTimestamp = requireNonNullTimestamp(startTimestamp);
         this.endTimestamp = endTimestamp;
     }
 
-    protected Event(Instant startTimestamp) {
+    protected Event(@NotNull Instant startTimestamp) {
         this(startTimestamp, null);
     }
 
@@ -98,19 +101,8 @@ public class Event {
      * Creates event with passed time as start
      * @return new event
      */
-    public static Event from(Instant startTimestamp) {
+    public static Event from(@NotNull Instant startTimestamp) {
         return new Event(startTimestamp);
-    }
-
-    @Contract("null -> null")
-    private static @Nullable Timestamp toTimestamp(@Nullable Instant instant) {
-        if (instant == null) {
-            return null;
-        }
-        return Timestamp.newBuilder()
-                .setSeconds(instant.getEpochSecond())
-                .setNanos(instant.getNano())
-                .build();
     }
 
     public Event endTimestamp() {
@@ -282,8 +274,8 @@ public class Event {
         protoEvents.add(toProto(parentId, bookName, scope)); // collect current level
         for (Event subEvent : subEvents) {
             EventID eventId = isBlank(scope)
-                    ? toEventID(bookName, id)
-                    : toEventID(bookName, scope, id);
+                    ? toEventID(startTimestamp, bookName, id)
+                    : toEventID(startTimestamp, bookName, scope, id);
             subEvent.toListProto(protoEvents, eventId, bookName, scope); // collect sub level
         }
         return protoEvents;
@@ -330,13 +322,12 @@ public class Event {
                     .append(description);
         }
         EventID eventId = isBlank(scope)
-                ? toEventID(bookName, id)
-                : toEventID(bookName, scope, id);
+                ? toEventID(startTimestamp, bookName, id)
+                : toEventID(startTimestamp, bookName, scope, id);
         var eventBuilder = com.exactpro.th2.common.grpc.Event.newBuilder()
                 .setId(eventId)
                 .setName(nameBuilder.toString())
                 .setType(defaultIfBlank(type, UNKNOWN_EVENT_TYPE))
-                .setStartTimestamp(toTimestamp(startTimestamp))
                 .setEndTimestamp(toTimestamp(endTimestamp))
                 .setStatus(getAggregatedStatus().eventStatus)
                 .setBody(ByteString.copyFrom(buildBody()));
