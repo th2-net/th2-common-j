@@ -31,6 +31,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 @SuppressWarnings("ClassNamePrefixedWithPackageName")
 public class EventUtils {
     public static final NoArgGenerator TIME_BASED_UUID_GENERATOR = Generators.timeBasedGenerator();
+    public static final String DEFAULT_SCOPE = "th2-scope";
 
     public static String generateUUID() {
         return TIME_BASED_UUID_GENERATOR.generate().toString();
@@ -47,7 +48,7 @@ public class EventUtils {
     ) {
         return internalToEventID(
                 requireNonBlankBookName(bookName),
-                null,
+                DEFAULT_SCOPE,
                 id
         );
     }
@@ -67,15 +68,13 @@ public class EventUtils {
 
     private static @NotNull EventID internalToEventID(
             @NotNull String bookName,
-            @Nullable String scope,
+            @NotNull String scope,
             @Nullable String id
     ) {
         EventID.Builder builder = EventID
                 .newBuilder()
-                .setBookName(bookName);
-        if (scope != null) {
-            builder.setScope(scope);
-        }
+                .setBookName(bookName)
+                .setScope(scope);
         if (id != null) {
             builder.setId(id);
         }
