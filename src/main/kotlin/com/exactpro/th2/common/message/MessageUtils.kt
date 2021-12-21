@@ -165,9 +165,9 @@ fun Message.Builder.setMetadata(
         if (messageType != null) {
             it.messageType = messageType
         }
-        it.timestamp = (timestamp ?: Instant.now()).toTimestamp()
         if (direction != null || sessionAlias != null) {
             it.id = MessageID.newBuilder().apply {
+                this.timestamp = (timestamp ?: Instant.now()).toTimestamp()
                 if (direction != null) {
                     this.direction = direction
                 }

@@ -56,10 +56,10 @@ fun assertEqualBatches(expected: MessageBatch, actual: MessageBatch, lazyMessage
 fun assertEqualMessages(expected: Message, actual: Message, lazyMessage: () -> String? = {null}) {
     val ts = Timestamp.getDefaultInstance()
     val assertExpected = expected.toBuilder().apply {
-        metadataBuilder.timestamp = ts
+        metadataBuilder.idBuilder.timestamp = ts
     }.build()
     val assertActual = actual.toBuilder().apply {
-        metadataBuilder.timestamp = ts
+        metadataBuilder.idBuilder.timestamp = ts
     }.build()
     try {
         Assertions.assertEquals(assertExpected, assertActual, lazyMessage)
