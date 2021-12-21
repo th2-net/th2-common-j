@@ -15,6 +15,8 @@
  */
 package com.exactpro.th2.common.event;
 
+import java.time.Instant;
+
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,6 +26,7 @@ import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
 import com.exactpro.th2.common.grpc.EventID;
 import com.fasterxml.uuid.Generators;
 import com.fasterxml.uuid.NoArgGenerator;
+import com.google.protobuf.Timestamp;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -31,6 +34,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 @SuppressWarnings("ClassNamePrefixedWithPackageName")
 public class EventUtils {
     public static final NoArgGenerator TIME_BASED_UUID_GENERATOR = Generators.timeBasedGenerator();
+    public static final String DEFAULT_SCOPE = "th2-scope";
 
     public static String generateUUID() {
         return TIME_BASED_UUID_GENERATOR.generate().toString();
@@ -40,25 +44,29 @@ public class EventUtils {
         return new MessageBuilder().text(text).build();
     }
 
-    @Contract("_, null -> !null; _, !null -> !null")
+    @Contract("_, _, null -> !null; _, _, !null -> !null")
     public static @NotNull EventID toEventID(
+            @NotNull Instant startTimestamp,
             @NotNull String bookName,
             @Nullable String id
     ) {
         return internalToEventID(
+                startTimestamp,
                 requireNonBlankBookName(bookName),
-                null,
+                DEFAULT_SCOPE,
                 id
         );
     }
 
-    @Contract("_, _, null -> !null; _, _, !null -> !null")
+    @Contract("_, _, _, null -> !null; _, _, _, !null -> !null")
     public static @NotNull EventID toEventID(
+            @NotNull Instant startTimestamp,
             @NotNull String bookName,
             @NotNull String scope,
             @Nullable String id
     ) {
         return internalToEventID(
+                startTimestamp,
                 requireNonBlankBookName(bookName),
                 requireNonBlankScope(scope),
                 id
@@ -66,20 +74,33 @@ public class EventUtils {
     }
 
     private static @NotNull EventID internalToEventID(
+            @NotNull Instant startTimestamp,
             @NotNull String bookName,
-            @Nullable String scope,
+            @NotNull String scope,
             @Nullable String id
     ) {
         EventID.Builder builder = EventID
                 .newBuilder()
-                .setBookName(bookName);
-        if (scope != null) {
-            builder.setScope(scope);
-        }
+                .setStartTimestamp(toTimestamp(startTimestamp))
+                .setBookName(bookName)
+                .setScope(scope);
         if (id != null) {
             builder.setId(id);
         }
         return builder.build();
+    }
+
+    public static @NotNull Timestamp toTimestamp(@NotNull Instant timestamp) {
+        requireNonNullTimestamp(timestamp);
+        return Timestamp
+                .newBuilder()
+                .setSeconds(timestamp.getEpochSecond())
+                .setNanos(timestamp.getNano())
+                .build();
+    }
+
+    public static Instant requireNonNullTimestamp(Instant timestamp) {
+        return requireNonNull(timestamp, "Timestamp cannot be null");
     }
 
     public static EventID requireNonNullParentId(EventID parentId) {
