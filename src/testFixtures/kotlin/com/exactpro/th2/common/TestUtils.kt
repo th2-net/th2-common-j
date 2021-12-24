@@ -121,6 +121,12 @@ fun Message.assertList(name: String, expected: List<Value> ? = null): List<Value
     return actual
 }
 
+fun Message.assertList(name: String, block: Value.() -> Unit) {
+    this.assertContains(name)
+    val actual = this.getList(name)!!
+    actual.forEach(block)
+}
+
 fun Message.assertString(name: String, expected: String? = null): String {
     this.assertContains(name)
     val actual = this.getString(name)!!
