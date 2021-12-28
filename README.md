@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.31.5)
+# th2 common library (Java) (3.31.6)
 
 ## Usage
 
@@ -287,6 +287,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.31.6
+
++ Update Cradle version from `2.20.0` to `2.20.2`
 
 ### 3.31.4
 
