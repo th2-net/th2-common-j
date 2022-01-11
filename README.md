@@ -288,6 +288,11 @@ dependencies {
 
 ## Release notes
 
+### 3.32.0
+
++ Added new test utils for assertion of **AnyMessage** or **Groups** of messages
+
+
 ### 3.31.6
 
 + Update Cradle version from 2.20.0 to [2.20.2](https://github.com/th2-net/cradleapi/releases/tag/2.20.2)
