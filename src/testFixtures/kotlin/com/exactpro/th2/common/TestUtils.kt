@@ -16,8 +16,15 @@
 
 package com.exactpro.th2.common
 
+import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.AnyMessageOrBuilder
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageBatch
+import com.exactpro.th2.common.grpc.MessageBatchOrBuilder
+import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.MessageGroupBatchOrBuilder
+import com.exactpro.th2.common.grpc.MessageGroupOrBuilder
+import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.message.get
 import com.exactpro.th2.common.message.getBigDecimal
@@ -37,7 +44,7 @@ import org.junit.platform.commons.util.StringUtils
 import org.opentest4j.AssertionFailedError
 import java.math.BigDecimal
 
-fun assertEqualBatches(expected: MessageBatch, actual: MessageBatch, lazyMessage: () -> String? = {null}) {
+fun assertEqualBatches(expected: MessageBatchOrBuilder, actual: MessageBatchOrBuilder, lazyMessage: () -> String? = {null}) {
     Assertions.assertEquals(expected.messagesCount, actual.messagesCount) {"wrong count of messages in batch: \n${TextFormat.shortDebugString(actual)}"}
     expected.messagesList.forEachIndexed { i, message ->
         try {
@@ -53,25 +60,80 @@ fun assertEqualBatches(expected: MessageBatch, actual: MessageBatch, lazyMessage
     }
 }
 
-fun assertEqualMessages(expected: Message, actual: Message, lazyMessage: () -> String? = {null}) {
+fun assertEqualGroups(expected: MessageGroupOrBuilder, actual: MessageGroupOrBuilder, lazyMessage: () -> String? = {null}) {
+    Assertions.assertEquals(expected.messagesCount, actual.messagesCount) {"wrong count of messages in group: \n${TextFormat.shortDebugString(actual)}"}
+    expected.messagesList.forEachIndexed { i, message ->
+        try {
+            assertEqualMessages(message, actual.messagesList[i], lazyMessage)
+        } catch (e: AssertionFailedError) {
+            throw AssertionFailedError(
+                "Error in message from group with index '$i'.\n${e.message}",
+                e.expected,
+                e.actual,
+                e.cause
+            )
+        }
+    }
+}
+
+fun assertEqualGroupBatches(expected: MessageGroupBatchOrBuilder, actual: MessageGroupBatchOrBuilder, lazyMessage: () -> String? = {null}) {
+    Assertions.assertEquals(expected.groupsCount, actual.groupsCount) {"wrong count of groups in batch: \n${TextFormat.shortDebugString(actual)}"}
+    expected.groupsList.forEachIndexed { i, message ->
+        assertEqualGroups(message, actual.getGroups(i), lazyMessage)
+    }
+}
+
+fun assertEqualMessages(expected: AnyMessageOrBuilder, actual: AnyMessageOrBuilder, lazyMessage: () -> String? = {null}) {
+    Assertions.assertEquals(expected.kindCase, actual.kindCase) { "Wrong message kind" }
     val ts = Timestamp.getDefaultInstance()
-    val assertExpected = expected.toBuilder().apply {
-        metadataBuilder.timestamp = ts
-    }.build()
-    val assertActual = actual.toBuilder().apply {
-        metadataBuilder.timestamp = ts
-    }.build()
+
+    val assertExpected = when (expected.kindCase) {
+        AnyMessage.KindCase.MESSAGE -> {
+            expected.message.toBuilder().apply {
+                metadataBuilder.timestamp = ts
+            }.build()
+        }
+        AnyMessage.KindCase.RAW_MESSAGE -> {
+            expected.rawMessage.toBuilder().apply {
+                metadataBuilder.timestamp = ts
+            }.build()
+        }
+        else -> {
+            expected
+        }
+    }
+
+    val assertActual = when (actual.kindCase) {
+        AnyMessage.KindCase.MESSAGE -> {
+            actual.message.toBuilder().apply {
+                metadataBuilder.timestamp = ts
+            }.build()
+        }
+        AnyMessage.KindCase.RAW_MESSAGE -> {
+            actual.rawMessage.toBuilder().apply {
+                metadataBuilder.timestamp = ts
+            }.build()
+        }
+        else -> {
+            actual
+        }
+    }
+
     try {
         Assertions.assertEquals(assertExpected, assertActual, lazyMessage)
     } catch (e: AssertionFailedError) {
         throw AssertionFailedError(
-            "Error in message with type '${actual.messageType}'.\n${e.message}",
+            "Error in '${actual.kindCase}'.\n${e.message}",
             e.expected,
             e.actual,
             e.cause
         )
     }
 }
+
+fun assertEqualMessages(expected: RawMessage, actual: RawMessage, lazyMessage: () -> String? = {null}) = assertEqualMessages(AnyMessage.newBuilder().setRawMessage(expected), AnyMessage.newBuilder().setRawMessage(actual), lazyMessage)
+
+fun assertEqualMessages(expected: Message, actual: Message, lazyMessage: () -> String? = {null}) = assertEqualMessages(AnyMessage.newBuilder().setMessage(expected), AnyMessage.newBuilder().setMessage(actual), lazyMessage)
 
 fun buildPrefix(message: String?): String {
     return if (StringUtils.isNotBlank(message)) "$message ==> " else ""
