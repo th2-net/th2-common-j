@@ -78,8 +78,8 @@ fun assertEqualGroups(expected: MessageGroupOrBuilder, actual: MessageGroupOrBui
 
 fun assertEqualGroupBatches(expected: MessageGroupBatchOrBuilder, actual: MessageGroupBatchOrBuilder, lazyMessage: () -> String? = {null}) {
     Assertions.assertEquals(expected.groupsCount, actual.groupsCount) {"wrong count of groups in batch: \n${TextFormat.shortDebugString(actual)}"}
-    expected.groupsList.forEachIndexed { i, message ->
-        assertEqualGroups(message, actual.getGroups(i), lazyMessage)
+    expected.groupsList.forEachIndexed { i, group ->
+        assertEqualGroups(group, actual.getGroups(i), lazyMessage)
     }
 }
 
