@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,6 +24,7 @@ import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.EventExecutorGroup;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Abstract implementation for {@link GrpcRouter}
@@ -52,7 +54,9 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractGrpcRouter.class);
     private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryBuilder().setNameFormat("grpc-router-server-pool-%d").build();
-    protected List<Server> servers = new ArrayList<>();
+    protected final List<Server> servers = new ArrayList<>();
+    protected final List<EventExecutorGroup> loopGroups = new ArrayList<>();
+    protected final List<ExecutorService> executors = new ArrayList<>();
     protected GrpcConfiguration configuration;
 
     @Override
@@ -97,6 +101,8 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
         var server = builder.build();
 
+        executors.add(executor);
+        loopGroups.add(eventLoop);
         servers.add(server);
 
         return server;
@@ -125,5 +131,25 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
                 LOGGER.error("Failed to shutdown server: {}", server, e);
             }
         }
+
+        loopGroups.forEach(EventExecutorGroup::shutdownGracefully);
+        loopGroups.forEach(group -> {
+            if (!group.terminationFuture().awaitUninterruptibly(SERVER_SHUTDOWN_TIMEOUT_MS)) {
+                LOGGER.warn("Failed to shutdown event loop '{}' in {} ms. Forcing shutdown...", group, SERVER_SHUTDOWN_TIMEOUT_MS);
+                group.shutdownNow();
+            }
+        });
+
+        executors.forEach(ExecutorService::shutdown);
+        executors.forEach(executor -> {
+            try {
+                if (!executor.awaitTermination(SERVER_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                    LOGGER.warn("Failed to shutdown executor service '{}' in {} ms. Forcing shutdown...", executor, SERVER_SHUTDOWN_TIMEOUT_MS);
+                    executor.shutdownNow();
+                }
+            } catch (Exception e) {
+                LOGGER.error("Failed to shutdown executor service: {}", executor, e);
+            }
+        });
     }
 }
