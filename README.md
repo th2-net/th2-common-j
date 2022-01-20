@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.32.0)
+# th2 common library (Java) (3.33.0)
 
 ## Usage
 
@@ -287,6 +287,14 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.33.0
+
+#### Added:
+
++ Methods for subscription with manual acknowledgement
+  (if the **prefetch count** is requested and no messages are acknowledged the reading from the queue will be suspended).
+  Please, note that only one subscriber with manual acknowledgement can be subscribed to a queue
 
 ### 3.32.0
 
