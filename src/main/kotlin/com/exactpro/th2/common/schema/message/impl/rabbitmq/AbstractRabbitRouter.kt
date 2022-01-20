@@ -83,6 +83,14 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
+        return subscribeWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+    }
+
+    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
+        return subscribeAllWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+    }
+
+    override fun subscribeWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(size == 1) {
@@ -91,7 +99,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
+    override fun subscribeAllWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(isNotEmpty()) {
@@ -171,7 +179,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     private fun subscribe(
         pintAttributes: Set<String>,
-        messageListener: MessageListener<T>,
+        messageListener: ConfirmationMessageListener<T>,
         check: List<PinInfo>.() -> Unit
     ): SubscriberMonitor {
         val packages: List<PinInfo> = configuration.queues.asSequence()

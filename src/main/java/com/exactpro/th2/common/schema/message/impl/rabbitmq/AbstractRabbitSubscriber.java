@@ -16,8 +16,9 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.message.ConfirmationMessageListener;
 import com.exactpro.th2.common.schema.message.FilterFunction;
-import com.exactpro.th2.common.schema.message.MessageListener;
+import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
@@ -26,9 +27,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
 
-import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
-import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
-import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
 import io.prometheus.client.Histogram.Timer;
@@ -42,9 +40,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
+import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
@@ -67,12 +69,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             .register();
 
     protected final String th2Pin;
-    private final List<MessageListener<T>> listeners = new CopyOnWriteArrayList<>();
+    private final List<ConfirmationMessageListener<T>> listeners = new CopyOnWriteArrayList<>();
     private final String queue;
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
     private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
     private final String th2Type;
+    private final AtomicBoolean hasManualSubscriber = new AtomicBoolean();
 
     private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
@@ -115,7 +118,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     try {
                         monitor = connectionManager.basicConsume(
                                 queue,
-                                (consumeTag, delivery) -> {
+                                (consumeTag, delivery, confirmation) -> {
                                     Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
                                             .labels(th2Pin, th2Type, queue)
                                             .startTimer();
@@ -135,7 +138,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                                                     e
                                             );
                                         }
-                                        handle(consumeTag, delivery, value);
+                                        handle(consumeTag, delivery, value, confirmation);
                                     } finally {
                                         processTimer.observeDuration();
                                     }
@@ -156,7 +159,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
-    public void addListener(MessageListener<T> messageListener) {
+    public void addListener(ConfirmationMessageListener<T> messageListener) {
+        if (messageListener.getManualConfirmation()) {
+            if (hasManualSubscriber.compareAndSet(false, true)) {
+                throw new IllegalStateException("cannot subscribe listener " + messageListener
+                        + " because only one listener with manual confirmation is allowed per queue");
+            }
+        }
         listeners.add(messageListener);
     }
 
@@ -172,7 +181,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             monitor.unsubscribe();
         }
 
-        listeners.forEach(MessageListener::onClose);
+        listeners.forEach(ConfirmationMessageListener::onClose);
         listeners.clear();
     }
 
@@ -194,7 +203,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected void handle(String consumeTag, Delivery delivery, T value) {
+    protected void handle(String consumeTag, Delivery delivery, T value, Confirmation confirmation) {
         try {
             requireNonNull(value, "Received value is null");
 
@@ -211,12 +220,19 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 return;
             }
 
-            for (MessageListener<T> listener : listeners) {
+            boolean hasManulConfirmation = false;
+            for (ConfirmationMessageListener<T> listener : listeners) {
                 try {
-                    listener.handler(consumeTag, filteredValue);
+                    listener.handle(consumeTag, filteredValue, confirmation);
+                    if (!hasManulConfirmation) {
+                        hasManulConfirmation = listener.getManualConfirmation();
+                    }
                 } catch (Exception listenerExc) {
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
                 }
+            }
+            if (!hasManulConfirmation) {
+                confirmation.confirm();
             }
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);

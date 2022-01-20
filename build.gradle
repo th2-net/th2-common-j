@@ -184,6 +184,7 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-annotations"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
+    // TODO: need to update jackson kotlin module to get rid of kotlin-reflect 1.3.72
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"

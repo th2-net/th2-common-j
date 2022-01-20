@@ -15,6 +15,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -26,7 +27,6 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Consumer;
-import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.ExceptionHandler;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
@@ -275,21 +275,17 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
-    public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
+    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
-        String tag = holder.mapWithLock(channel -> {
-            return channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
+        String tag = holder.mapWithLock(channel ->
+                channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
                     try {
-                        try {
-                            deliverCallback.handle(tagTmp, delivery);
-                        } finally {
-                            holder.withLock(ch -> basicAck(ch, delivery.getEnvelope().getDeliveryTag()));
-                        }
+                        deliverCallback.handle(tagTmp, delivery,
+                                () -> holder.withLock(ch -> basicAck(ch, delivery.getEnvelope().getDeliveryTag())));
                     } catch (IOException | RuntimeException e) {
                         LOGGER.error("Cannot handle delivery for tag {}: {}", tagTmp, e.getMessage(), e);
                     }
-            }, cancelCallback);
-        });
+                }, cancelCallback));
 
         return new RabbitMqSubscriberMonitor(holder, tag, this::basicCancel);
     }
@@ -373,7 +369,7 @@ public class ConnectionManager implements AutoCloseable {
      *                deliveries must be acknowledged on the same channel they were received on.
      * @throws IOException
      */
-    private void basicAck(Channel channel, long deliveryTag) throws IOException {
+    private static void basicAck(Channel channel, long deliveryTag) throws IOException {
         channel.basicAck(deliveryTag, false);
     }
 
