@@ -239,11 +239,7 @@ sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
 }
 
-compileKotlin {
-    kotlinOptions.jvmTarget = "11"
-}
-
-compileTestKotlin {
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     kotlinOptions.jvmTarget = "11"
 }
 
