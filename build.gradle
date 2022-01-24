@@ -153,7 +153,16 @@ signing {
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags('integration-test')
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags('integration-test')
+    }
 }
 
 dependencies {
@@ -205,6 +214,8 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
+    testImplementation "org.testcontainers:testcontainers:1.16.2"
+    testImplementation "org.testcontainers:rabbitmq:1.16.2"
 
     testFixturesImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
     testFixturesImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'

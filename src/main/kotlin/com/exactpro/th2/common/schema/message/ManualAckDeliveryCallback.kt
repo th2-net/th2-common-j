@@ -19,7 +19,7 @@ package com.exactpro.th2.common.schema.message
 import com.rabbitmq.client.Delivery
 import java.io.IOException
 
-interface ManualAckDeliveryCallback {
+fun interface ManualAckDeliveryCallback {
     /**
      * Called when a delivery from queue is received
      * @param consumerTag the _consumer_ tag associated with the consumer

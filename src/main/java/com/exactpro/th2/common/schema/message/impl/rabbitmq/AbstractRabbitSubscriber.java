@@ -205,12 +205,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     protected void handle(String consumeTag, Delivery delivery, T value, Confirmation confirmation) {
         try {
-            requireNonNull(value, "Received value is null");
+            String routingKey = delivery.getEnvelope().getRoutingKey();
+            requireNonNull(value, () -> "Received value from " + routingKey + " is null");
 
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Received message: {}", toShortTraceString(value));
+                LOGGER.trace("Received message from {}: {}", routingKey, toShortTraceString(value));
             } else if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Received message: {}", toShortDebugString(value));
+                LOGGER.debug("Received message from {}: {}", routingKey, toShortDebugString(value));
             }
 
             var filteredValue = filter(value);
@@ -220,18 +221,18 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 return;
             }
 
-            boolean hasManulConfirmation = false;
+            boolean hasManualConfirmation = false;
             for (ConfirmationMessageListener<T> listener : listeners) {
                 try {
                     listener.handle(consumeTag, filteredValue, confirmation);
-                    if (!hasManulConfirmation) {
-                        hasManulConfirmation = listener.getManualConfirmation();
+                    if (!hasManualConfirmation) {
+                        hasManualConfirmation = listener.getManualConfirmation();
                     }
                 } catch (Exception listenerExc) {
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
                 }
             }
-            if (!hasManulConfirmation) {
+            if (!hasManualConfirmation) {
                 confirmation.confirm();
             }
         } catch (Exception e) {
