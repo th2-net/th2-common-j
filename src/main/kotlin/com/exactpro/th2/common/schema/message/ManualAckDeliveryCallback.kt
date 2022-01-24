@@ -29,8 +29,7 @@ fun interface ManualAckDeliveryCallback {
     @Throws(IOException::class)
     fun handle(consumerTag: String, delivery: Delivery, confirmProcessed: Confirmation)
 
-    @FunctionalInterface
-    interface Confirmation {
+    fun interface Confirmation {
         @Throws(IOException::class)
         fun confirm()
     }
