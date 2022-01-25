@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -32,6 +32,11 @@ import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+import com.rabbitmq.http.client.Client;
+import com.rabbitmq.http.client.ClientParameters;
+import com.rabbitmq.http.client.domain.BindingInfo;
+import com.rabbitmq.http.client.domain.QueueInfo;
+
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -43,9 +48,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,21 +62,28 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+import static com.rabbitmq.http.client.domain.DestinationType.QUEUE;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectionManager implements AutoCloseable {
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
+    private static final int RABBITMQ_MANAGEMENT_PORT = 15672;
+    private static final String RABBITMQ_API_URL_PART = "/api/";
 
     private final Connection connection;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
+    private final RabbitMQConfiguration rabbitMQConfiguration;
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
     private final ExecutorService sharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
+    private final Client client;
 
     private final HealthMetrics metrics = new HealthMetrics(this);
 
@@ -92,9 +104,13 @@ public class ConnectionManager implements AutoCloseable {
         return configuration;
     }
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
-        Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
-        this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
+    public ConnectionManager(
+            @NotNull RabbitMQConfiguration rabbitMQConfiguration,
+            @NotNull ConnectionManagerConfiguration connectionManagerConfiguration,
+            Runnable onFailedRecoveryConnection
+    ) {
+        this.rabbitMQConfiguration = requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
+        this.configuration = requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
 
         String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
         if (StringUtils.isBlank(subscriberNameTmp)) {
@@ -215,9 +231,15 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             this.connection = factory.newConnection();
+            client = new Client(
+                    new ClientParameters()
+                            .url("http://" + rabbitMQConfiguration.getHost() + ":" + RABBITMQ_MANAGEMENT_PORT + RABBITMQ_API_URL_PART)
+                            .username(rabbitMQConfiguration.getUsername())
+                            .password(rabbitMQConfiguration.getPassword())
+            );
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
-        } catch (IOException | TimeoutException e) {
+        } catch (IOException | TimeoutException | URISyntaxException e) {
             metrics.getReadinessMonitor().disable();
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using configuration", e);
@@ -294,12 +316,22 @@ public class ConnectionManager implements AutoCloseable {
         return new RabbitMqSubscriberMonitor(holder, tag, this::basicCancel);
     }
 
-    public long getMessageCount(String queue) throws IOException {
-        return getChannelFor(PinId.forQueue(queue)).mapWithLock(channel -> channel.messageCount(queue));
-    }
-
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
+    }
+
+    public List<QueueInfo> getExceededQueues(String exchange, String routingKey, long virtualQueueLimit) {
+        requireNonNull(exchange, "Exchange cannot be null");
+        requireNonNull(routingKey, "Routing key cannot be null");
+        List<String> queueNamesForRoutingKey = client.getBindingsBySource(rabbitMQConfiguration.getVHost(), exchange).stream()
+                .filter(bindingInfo -> bindingInfo.getDestinationType() == QUEUE)
+                .filter(bindingInfo -> routingKey.equals(bindingInfo.getRoutingKey()))
+                .map(BindingInfo::getDestination)
+                .collect(Collectors.toList());
+        return client.getQueues().stream()
+                .filter(queueInfo -> queueNamesForRoutingKey.contains(queueInfo.getName()))
+                .filter(queueInfo -> queueInfo.getTotalMessages() > virtualQueueLimit)
+                .collect(Collectors.toList());
     }
 
     private void shutdownSharedExecutor(int closeTimeout) {
@@ -327,7 +359,7 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             Channel channel = connection.createChannel();
-            Objects.requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
+            requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
             channel.basicQos(configuration.getPrefetchCount());
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
@@ -459,8 +491,8 @@ public class ConnectionManager implements AutoCloseable {
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker
         ) {
-            this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
-            this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
+            this.supplier = requireNonNull(supplier, "'Supplier' parameter");
+            this.reconnectionChecker = requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {

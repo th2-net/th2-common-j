@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -26,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.rabbitmq.http.client.domain.QueueInfo;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.EXCHANGE_LABEL;
 import static com.exactpro.th2.common.metrics.CommonMetrics.ROUTING_KEY_LABEL;
@@ -50,12 +54,13 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             .help("Quantity of published messages to RabbitMQ. " +
                     "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
             .register();
+    public static final int MIN_SLEEP_SHIFT = 10;
+    public static final int MAX_SLEEP_SHIFT = 100;
 
     protected final String th2Pin;
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<String> routingKey = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
-    private final String queueName;
     private final long virtualQueueLimit;
     private final int maxIntervalToCheckVirtualQueueLimit;
     private final String th2Type;
@@ -66,11 +71,10 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             @NotNull String th2Pin,
             @NotNull String th2Type
     ) {
-        this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
+        this.connectionManager.set(requireNonNull(connectionManager, "Connection manager can not be null"));
         requireNonNull(queueConfiguration, "Queue configuration can not be null");
         exchangeName.set(requireNonNull(queueConfiguration.getExchange(), "Exchange name can not be null"));
         routingKey.set(requireNonNull(queueConfiguration.getRoutingKey(), "Routing key can not be null"));
-        queueName = requireNonNull(queueConfiguration.getQueue(), "Queue name can not be null");
         virtualQueueLimit = queueConfiguration.getVirtualQueueLimit();
         maxIntervalToCheckVirtualQueueLimit = queueConfiguration.getMaxIntervalToCheckVirtualQueueLimit();
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
@@ -89,17 +93,22 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
         try {
             ConnectionManager connectionManager = this.connectionManager.get();
-            long messageCount = connectionManager.getMessageCount(queueName);
-            while (messageCount >= virtualQueueLimit) {
+            List<QueueInfo> exceededQueues = connectionManager.getExceededQueues(exchangeName.get(), routingKey.get(), virtualQueueLimit);
+            while (!exceededQueues.isEmpty()) {
+                int sleepInterval = /*Math.exp(?) + */MIN_SLEEP_SHIFT + new Random().nextInt(MAX_SLEEP_SHIFT - MIN_SLEEP_SHIFT + 1);
+                if (sleepInterval > maxIntervalToCheckVirtualQueueLimit) {
+                    sleepInterval = maxIntervalToCheckVirtualQueueLimit;
+                }
                 LOGGER.info(
-                        "There are {} message(s) in '{}' which is more or equal than size limit = {}, waiting {} seconds before recheck",
-                        messageCount,
-                        queueName,
+                        "There are {} which is more or equals than size limit = {}, waiting {} seconds before recheck",
+                        exceededQueues.stream()
+                                .map(queueInfo -> queueInfo.getTotalMessages() + " message(s) in '" + queueInfo.getName() + "'")
+                                .collect(Collectors.joining(", ")),
                         virtualQueueLimit,
-                        maxIntervalToCheckVirtualQueueLimit
+                        sleepInterval
                 );
-                Thread.sleep(maxIntervalToCheckVirtualQueueLimit * 1000L);
-                messageCount = connectionManager.getMessageCount(queueName);
+                Thread.sleep(sleepInterval * 1000L);
+                exceededQueues = connectionManager.getExceededQueues(exchangeName.get(), routingKey.get(), virtualQueueLimit);
             }
 
             byte[] bytes = valueToBytes(value);
