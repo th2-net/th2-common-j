@@ -76,9 +76,7 @@ public class ConnectionManager implements AutoCloseable {
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
-    private final ExecutorService sharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-            .setNameFormat("rabbitmq-shared-pool-%d")
-            .build());
+    private final ExecutorService sharedExecutor;
     private final ScheduledExecutorService channelChecker = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
             .setNameFormat("channel-checker-%d")
             .build());
@@ -221,6 +219,9 @@ public class ConnectionManager implements AutoCloseable {
                     return recoveryDelay;
                 }
         );
+        sharedExecutor = Executors.newFixedThreadPool(configuration.getWorkingThreads(), new ThreadFactoryBuilder()
+                .setNameFormat("rabbitmq-shared-pool-%d")
+                .build());
         factory.setSharedExecutor(sharedExecutor);
 
         try {
