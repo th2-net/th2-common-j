@@ -48,6 +48,7 @@ import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.impl.OnlyOnceConfirmation;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -298,15 +299,15 @@ public class ConnectionManager implements AutoCloseable {
                         String routingKey = envelope.getRoutingKey();
                         LOGGER.trace("Received delivery {} from queue={} routing_key={}", deliveryTag, queue, routingKey);
 
-                        Confirmation confirmation = () -> holder.withLock(ch -> {
+                        Confirmation confirmation = OnlyOnceConfirmation.wrap(() -> holder.withLock(ch -> {
                             try {
                                 basicAck(ch, deliveryTag);
                             } finally {
                                 holder.release(() -> metrics.getReadinessMonitor().enable());
                             }
-                        });
+                        }));
 
-                        holder.acquireAndSubmitCheck(() ->
+                        holder.withLock(() -> holder.acquireAndSubmitCheck(() ->
                                 channelChecker.schedule(() -> {
                                     holder.withLock(() -> {
                                         LOGGER.warn("The confirmation for delivery {} in queue={} routing_key={} was not invoked within the specified delay",
@@ -317,7 +318,7 @@ public class ConnectionManager implements AutoCloseable {
                                     });
                                     return false; // to cast to Callable
                                 }, configuration.getConfirmationTimeout().toMillis(), TimeUnit.MILLISECONDS)
-                        );
+                        ));
                         deliverCallback.handle(tagTmp, delivery, confirmation);
                     } catch (IOException | RuntimeException e) {
                         LOGGER.error("Cannot handle delivery for tag {}: {}", tagTmp, e.getMessage(), e);

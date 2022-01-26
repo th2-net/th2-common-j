@@ -39,7 +39,7 @@ data class ConnectionManagerConfiguration(
     val prefetchCount: Int = 10,
     val messageRecursionLimit: Int = 100,
     val workingThreads: Int = 1,
-    val confirmationTimeout: Duration = Duration.ofMinutes(15)
+    val confirmationTimeout: Duration = Duration.ofMinutes(5)
 ) : Configuration() {
     init {
         check(workingThreads > 0) { "expected 'workingThreads' greater than 0 but was $workingThreads" }
