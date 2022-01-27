@@ -156,7 +156,9 @@ Filters format:
             "operation": "WILDCARD"
           }
         ]
-      }
+      },
+      "virtualQueueLimit": 10000,
+      "maxIntervalToCheckVirtualQueueLimit": 10
     }
   }
 }
