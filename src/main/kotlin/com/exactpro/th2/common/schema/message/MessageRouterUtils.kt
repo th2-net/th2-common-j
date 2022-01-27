@@ -22,11 +22,14 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
-import com.google.protobuf.MessageOrBuilder
+import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
+import com.google.protobuf.MessageOrBuilder
 import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
@@ -71,4 +74,16 @@ fun appendAttributes(
     return mutableSetOf(*attributes).apply {
         addAll(requiredAttributes())
     }
+}
+
+fun MessageGroupBatch.toShortDebugString(): String = buildString {
+    append("MessageGroupBatch(ids = ")
+
+    groupsList.asSequence()
+        .flatMap { it.messagesList.asSequence() }
+        .map(AnyMessage::logId)
+        .toSortedSet()
+        .apply { append(this) }
+
+    append(')')
 }

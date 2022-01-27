@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 package com.exactpro.th2.common.event.bean;
 
 import java.util.Map;
@@ -24,6 +24,7 @@ public class VerificationEntry {
     private VerificationStatus status;
     private String operation;
     private boolean key;
+    private String hint;
     private Map<String, VerificationEntry> fields;
 
     public String getType() {
@@ -80,5 +81,13 @@ public class VerificationEntry {
 
     public void setFields(Map<String, VerificationEntry> fields) {
         this.fields = fields;
+    }
+
+    public String getHint() {
+        return hint;
+    }
+
+    public void setHint(String hint) {
+        this.hint = hint;
     }
 }

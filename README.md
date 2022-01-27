@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.28.0)
+# th2 common library (Java) (3.33.0)
 
 ## Usage
 
@@ -271,14 +271,77 @@ MESSAGES METRICS:
 * th2_message_group_sequence_subscribe (`th2_pin`, `session_alias`, `direction`): last received sequence
 
 EVENTS METRICS:
-* th2_event_publish_total (`th2_pin`): quantity of published events 
+
+* th2_event_publish_total (`th2_pin`): quantity of published events
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
+
+###Test extensions:
+
+To be able to use test extensions please fill build.gradle as in example below: 
+```groovy
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    testImplementation testFixtures("com.exactpro.th2:common:3.31.1")
+}
+```
 
 ## Release notes
 
-### 3.28.0
+### 3.33.0
 
 + Added parameters `virtualQueueLimit` and `maxIntervalToCheckVirtualQueueLimit` to `mq.json`
+
+### 3.32.0
+
++ Added new test utils for assertion of **AnyMessage** or **Groups** of messages
+
+
+### 3.31.6
+
++ Update Cradle version from 2.20.0 to [2.20.2](https://github.com/th2-net/cradleapi/releases/tag/2.20.2)
+
+### 3.31.4
+
++ Ignore unknown fields in `box.json` and `prometheus.json`
+
+### 3.31.3
+
++ Add support for `null_value` filter during conversion to table
+
+### 3.31.2
+
++ Update grpc-common from 3.8.0 to 3.9.0
+
+### 3.31.1
++ Feature as test assertion methods for messages from fixtures
+
+### 3.31.0
+
++ Fix printing of empty MessageGroupBatch in debug logs of MessageGroupBatch router
++ Print message ids of MessageGroupBatch in debug logs of MessageGroupBatch router
+
+### 3.30.0
+
++ Added util methods from store-common to use in estore/mstore
+
+### 3.29.2
+
++ Do not publish messages if the whole batch was filtered
+
+### 3.29.1
+
++ Fix problem with filtering by `message_type` in MessageGroupBatch router
+
+### 3.29.0
+
++ Update Cradle version from `2.13.0` to `2.20.0`
+
+### 3.28.0
+
++ Added new parameter `hint` for `VerificationEntry`
 
 ### 3.27.0
 
