@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.32.0)
+# th2 common library (Java) (3.33.0)
 
 ## Usage
 
@@ -287,6 +287,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.33.0
+
++ Added ability to read dictionaries by aliases and as group of all available dictionaries
+
 
 ### 3.32.0
 

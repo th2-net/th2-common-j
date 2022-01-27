@@ -524,6 +524,43 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * @return List of Dictionaries as {@link InputStream} or empty list
+     * @throws IllegalStateException if can not read dictionary
+     */
+    public List<InputStream> readDictionaries() {
+        try {
+            Path dictionaryFolder = getPathToDictionariesDir();
+            List<InputStream> dictionaries = new ArrayList<>();
+            if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
+                for (Path dictionary : Files.list(dictionaryFolder).collect(Collectors.toList())) {
+                    dictionaries.add(new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(dictionary))));
+                }
+            }
+            return dictionaries;
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary", e);
+        }
+    }
+
+    /**
+     * @param alias name of dictionary
+     * @return Dictionary as {@link InputStream}
+     * @throws IllegalStateException if can not read dictionary
+     */
+    public InputStream readDictionary(String alias) {
+        try {
+            Path dictionary = getPathToDictionariesDir().resolve(alias.toLowerCase());
+            if (Files.exists(dictionary) && Files.isRegularFile(dictionary)) {
+                return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(dictionary)));
+            } else {
+                throw new IllegalStateException("No dictionary found with name-alias '" + alias + "'");
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary", e);
+        }
+    }
+
+    /**
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
@@ -532,16 +569,18 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
      * @param dictionaryType desired type of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
+    @Deprecated(since = "3.33.0", forRemoval = true)
     public InputStream readDictionary(DictionaryType dictionaryType) {
         try {
             List<Path> dictionaries = null;
-            Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
-            if (Files.exists(dictionaryTypeDictionary) && Files.isDirectory(dictionaryTypeDictionary)) {
-                dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
+            Path typeFolder = dictionaryType.resolvePathFrom(getPathToDictionaryTypesDir());
+            if (Files.exists(typeFolder) && Files.isDirectory(typeFolder)) {
+                dictionaries = Files.list(typeFolder)
                         .filter(Files::isRegularFile)
                         .collect(Collectors.toList());
             }
@@ -610,9 +649,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected abstract Path getPathToCustomConfiguration();
 
     /**
-     * @return Path to dictionary
+     * @return Path to dictionaries dir
      */
     protected abstract Path getPathToDictionariesDir();
+
+    protected abstract Path getPathToDictionaryTypesDir();
 
     protected abstract Path getOldPathToDictionariesDir();
 

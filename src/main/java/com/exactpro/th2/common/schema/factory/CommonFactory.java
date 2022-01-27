@@ -92,7 +92,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
     private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
 
-    private static final String DICTIONARY_DIR_NAME = "dictionary";
+    private static final String DICTIONARY_TYPE_DIR_NAME = "dictionary";
+    private static final String DICTIONARY_ALIAS_DIR_NAME = "dictionaries";
 
     private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
     private static final String CASSANDRA_SECRET_NAME = "cassandra";
@@ -106,6 +107,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private final Path custom;
     private final Path dictionariesDir;
+    private final Path dictionaryTypesDir;
     private final Path oldDictionariesDir;
     private final ConfigurationManager configurationManager;
 
@@ -124,7 +126,8 @@ public class CommonFactory extends AbstractCommonFactory {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
-        this.dictionariesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_DIR_NAME);
+        this.dictionaryTypesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_TYPE_DIR_NAME);
+        this.dictionariesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_ALIAS_DIR_NAME);
         this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
 
@@ -207,6 +210,11 @@ public class CommonFactory extends AbstractCommonFactory {
     @Override
     protected Path getPathToDictionariesDir() {
         return dictionariesDir;
+    }
+
+    @Override
+    protected Path getPathToDictionaryTypesDir() {
+        return dictionaryTypesDir;
     }
 
     @Override
@@ -340,7 +348,7 @@ public class CommonFactory extends AbstractCommonFactory {
             settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
             settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
             settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
-            settings.setDictionariesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_DIR_NAME));
+            settings.setDictionariesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_TYPE_DIR_NAME));
 
             String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
             settings.setOldDictionariesDir(oldDictionariesDir == null ? (configs == null ? CONFIG_DEFAULT_PATH : Path.of(configs)) : Path.of(oldDictionariesDir));
@@ -394,7 +402,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
         Path configPath = Path.of(System.getProperty("user.dir"), GENERATED_CONFIG_DIR_NAME);
 
-        Path dictionaryPath = configPath.resolve(DICTIONARY_DIR_NAME);
+        Path dictionaryPath = configPath.resolve(DICTIONARY_TYPE_DIR_NAME);
         Path boxConfigurationPath = configPath.resolve(BOX_FILE_NAME);
 
         FactorySettings settings = new FactorySettings();
@@ -504,7 +512,7 @@ public class CommonFactory extends AbstractCommonFactory {
             for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
                 String configName = dictionaryConfigMap.getMetadata().getName();
                 if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
-                    Path dictionaryTypeDir = type.getDictionary(dictionariesDir);
+                    Path dictionaryTypeDir = type.resolvePathFrom(dictionariesDir);
 
                     if (Files.notExists(dictionaryTypeDir)) {
                         Files.createDirectories(dictionaryTypeDir);

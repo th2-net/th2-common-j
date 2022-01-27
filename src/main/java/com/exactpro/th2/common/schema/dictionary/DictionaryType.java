@@ -47,7 +47,7 @@ public enum DictionaryType {
      * @param parent parent directory
      * @return Path to a directory which contains dictionaries with this type
      */
-    public Path getDictionary(Path parent) {
+    public Path resolvePathFrom(Path parent) {
         return parent.resolve(name().toLowerCase());
     }
 }
