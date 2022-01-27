@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.message.MessageUtils;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 
@@ -38,11 +39,10 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
 
     public EventBatchSender(
             @NotNull ConnectionManager connectionManager,
-            @NotNull String exchangeName,
-            @NotNull String routingKey,
+            @NotNull QueueConfiguration queueConfiguration,
             @NotNull String th2Pin
     ) {
-        super(connectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE);
+        super(connectionManager, queueConfiguration, th2Pin, EVENT_TYPE);
     }
 
     @Override

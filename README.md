@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.32.0)
+# th2 common library (Java) (3.33.0)
 
 ## Usage
 
@@ -117,6 +117,8 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
+    * virtualQueueLimit - MQ router calculates destination queues and compares their current size to this value. The router blocks the current thread to repeat the comparison if the size of any destination queues exceeds the virtual limit
+    * maxIntervalToCheckVirtualQueueLimit - max time in seconds between comparing actual destination queues size and expected virtual limit during sending a message
     
 Filters format: 
 * fieldName - a field's name
@@ -154,7 +156,9 @@ Filters format:
             "operation": "WILDCARD"
           }
         ]
-      }
+      },
+      "virtualQueueLimit": 10000,
+      "maxIntervalToCheckVirtualQueueLimit": 10
     }
   }
 }
@@ -287,6 +291,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.33.0
+
++ Added parameters `virtualQueueLimit` and `maxIntervalToCheckVirtualQueueLimit` to `mq.json`
 
 ### 3.32.0
 
