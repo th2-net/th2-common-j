@@ -135,8 +135,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         loopGroups.forEach(EventExecutorGroup::shutdownGracefully);
         loopGroups.forEach(group -> {
             if (!group.terminationFuture().awaitUninterruptibly(SERVER_SHUTDOWN_TIMEOUT_MS)) {
-                LOGGER.warn("Failed to shutdown event loop '{}' in {} ms. Forcing shutdown...", group, SERVER_SHUTDOWN_TIMEOUT_MS);
-                group.shutdownNow();
+                LOGGER.error("Failed to shutdown event loop '{}' in {} ms.", group, SERVER_SHUTDOWN_TIMEOUT_MS);
             }
         });
 
