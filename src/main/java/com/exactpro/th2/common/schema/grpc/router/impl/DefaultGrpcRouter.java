@@ -184,7 +184,8 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                         "that matching the provided alias: " + key);
             }
 
-            return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort()).usePlaintext().build();
+            return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort())
+                    .usePlaintext().maxInboundMessageSize(grpcServer.getMaxMessageSize()).build();
         });
     }
 

@@ -19,6 +19,7 @@ import com.exactpro.th2.common.schema.configuration.Configuration
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy
 import com.exactpro.th2.service.RetryPolicy
 import com.fasterxml.jackson.annotation.JsonProperty
+import io.grpc.internal.GrpcUtil
 
 data class GrpcConfiguration(
     @JsonProperty var services: Map<String, GrpcServiceConfiguration> = emptyMap(),
@@ -35,6 +36,7 @@ data class GrpcServiceConfiguration(
 data class GrpcEndpointConfiguration(
     @JsonProperty(required = true) var host: String,
     @JsonProperty(required = true) var port: Int = 8080,
+    @JsonProperty var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
     var attributes: List<String?> = emptyList()
 ) : Configuration()
 

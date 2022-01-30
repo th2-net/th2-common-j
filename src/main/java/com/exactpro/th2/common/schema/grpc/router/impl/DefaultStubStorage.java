@@ -54,7 +54,8 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                         "that matches the provided alias: " + key);
             }
 
-            return stubFactory.newStub(ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort()).usePlaintext().build(), CallOptions.DEFAULT);
+            return stubFactory.newStub(ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())
+                    .usePlaintext().maxInboundMessageSize(endpoint.getMaxMessageSize()).build(), CallOptions.DEFAULT);
         });
     }
 }
