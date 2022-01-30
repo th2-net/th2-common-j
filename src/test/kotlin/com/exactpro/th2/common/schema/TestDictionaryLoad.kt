@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema
 
 import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import com.exactpro.th2.common.schema.factory.CommonFactory
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
 class TestDictionaryLoad {
@@ -36,6 +37,35 @@ class TestDictionaryLoad {
 
         factory.readDictionary(DictionaryType.LEVEL1).use {
             assert(String(it.readAllBytes()) == "test file")
+        }
+    }
+
+    @Test
+    fun `test folder load dictionaries by alias`() {
+        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+
+        Assertions.assertDoesNotThrow {
+            factory.loadDictionary("test_alias_2").use {
+                assert(String(it.readAllBytes()) == "test file")
+            }
+        }
+    }
+
+    @Test
+    fun `test folder load all dictionary aliases`() {
+        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+        val expectedNames = listOf("test_alias_1", "test_alias_2", "test_alias_3")
+        val names = factory.loadDictionaryAliases()
+        Assertions.assertEquals(3, names.size)
+        Assertions.assertTrue(names.containsAll(expectedNames))
+    }
+
+    @Test
+    fun `test folder load single dictionary`() {
+        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+
+        Assertions.assertThrows(IllegalStateException::class.java) {
+            factory.loadDictionary()
         }
     }
 

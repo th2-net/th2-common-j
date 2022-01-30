@@ -53,33 +53,39 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
- * Default implementation for {@link AbstractCommonFactory}
+ * Default (platform specific) implementation for {@link AbstractCommonFactory}
  */
 public class CommonFactory extends AbstractCommonFactory {
-
-    private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
     private static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
     private static final String ROUTER_MQ_FILE_NAME = "mq.json";
@@ -92,8 +98,11 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
     private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
 
+    @Deprecated
     private static final String DICTIONARY_TYPE_DIR_NAME = "dictionary";
     private static final String DICTIONARY_ALIAS_DIR_NAME = "dictionaries";
+
+    private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
     private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
     private static final String CASSANDRA_SECRET_NAME = "cassandra";
@@ -106,8 +115,8 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String GENERATED_CONFIG_DIR_NAME = "generated_configs";
 
     private final Path custom;
-    private final Path dictionariesDir;
     private final Path dictionaryTypesDir;
+    private final Path dictionaryAliasesDir;
     private final Path oldDictionariesDir;
     private final ConfigurationManager configurationManager;
 
@@ -119,15 +128,16 @@ public class CommonFactory extends AbstractCommonFactory {
                             Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
                             Class<? extends GrpcRouter> grpcRouterClass,
                             @Nullable Path custom,
-                            @Nullable Path dictionariesDir,
+                            @Nullable Path dictionaryTypesDir,
+                            @Nullable Path dictionaryAliasesDir,
                             @Nullable Path oldDictionariesDir,
                             Map<String, String> environmentVariables,
                             ConfigurationManager configurationManager) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
-        this.dictionaryTypesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_TYPE_DIR_NAME);
-        this.dictionariesDir = defaultPathIfNull(dictionariesDir, DICTIONARY_ALIAS_DIR_NAME);
+        this.dictionaryTypesDir = defaultPathIfNull(dictionaryTypesDir, DICTIONARY_TYPE_DIR_NAME);
+        this.dictionaryAliasesDir = defaultPathIfNull(dictionaryAliasesDir, DICTIONARY_TYPE_DIR_NAME);
         this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
 
@@ -141,7 +151,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.getEventBatchRouterClass(),
                 settings.getGrpcRouterClass(),
                 settings.getCustom(),
-                settings.getDictionariesDir(),
+                settings.getDictionaryTypesDir(),
+                settings.getDictionaryAliasesDir(),
                 settings.getOldDictionariesDir(),
                 settings.getVariables(),
                 createConfigurationManager(settings));
@@ -208,13 +219,13 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     @Override
-    protected Path getPathToDictionariesDir() {
-        return dictionariesDir;
+    protected Path getPathToDictionaryTypesDir() {
+        return dictionaryTypesDir;
     }
 
     @Override
-    protected Path getPathToDictionaryTypesDir() {
-        return dictionaryTypesDir;
+    protected Path getPathToDictionaryAliasesDir() {
+        return dictionaryAliasesDir;
     }
 
     @Override
@@ -348,8 +359,8 @@ public class CommonFactory extends AbstractCommonFactory {
             settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
             settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
             settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
-            settings.setDictionariesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_TYPE_DIR_NAME));
-
+            settings.setDictionaryTypesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_TYPE_DIR_NAME));
+            settings.setDictionaryAliasesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_ALIAS_DIR_NAME));
             String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
             settings.setOldDictionariesDir(oldDictionariesDir == null ? (configs == null ? CONFIG_DEFAULT_PATH : Path.of(configs)) : Path.of(oldDictionariesDir));
 
@@ -402,7 +413,9 @@ public class CommonFactory extends AbstractCommonFactory {
 
         Path configPath = Path.of(System.getProperty("user.dir"), GENERATED_CONFIG_DIR_NAME);
 
-        Path dictionaryPath = configPath.resolve(DICTIONARY_TYPE_DIR_NAME);
+        Path dictionaryTypePath = configPath.resolve(DICTIONARY_TYPE_DIR_NAME);
+        Path dictionaryAliasPath = configPath.resolve(DICTIONARY_ALIAS_DIR_NAME);
+
         Path boxConfigurationPath = configPath.resolve(BOX_FILE_NAME);
 
         FactorySettings settings = new FactorySettings();
@@ -467,7 +480,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.setCustom(writeFile(configPath, CUSTOM_FILE_NAME, boxData));
 
                 settings.setBoxConfiguration(boxConfigurationPath);
-                settings.setDictionariesDir(dictionaryPath);
+                settings.setDictionaryTypesDir(dictionaryTypePath);
+                settings.setDictionaryAliasesDir(dictionaryAliasPath);
 
                 String boxConfig = boxData.get(BOX_FILE_NAME);
 
@@ -476,13 +490,109 @@ public class CommonFactory extends AbstractCommonFactory {
                 else
                     writeToJson(boxConfigurationPath, box);
 
-                writeDictionaries(boxName, configPath, dictionaryPath, dictionaries, configMaps.list());
+                writeDictionaries(boxName, configPath, dictionaryTypePath, dictionaries, configMaps.list());
             }
 
             return new CommonFactory(settings);
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
             throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public InputStream loadDictionary() {
+        try {
+            Path dictionaryFolder = getPathToDictionaryAliasesDir();
+            Set<Path> dictionaries = null;
+            if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
+                dictionaries = Files.list(dictionaryFolder).collect(Collectors.toSet());
+            }
+
+            if (dictionaries==null || dictionaries.isEmpty()) {
+                throw new IllegalStateException("No dictionary found");
+            } else if (dictionaries.size() > 1) {
+                throw new IllegalStateException("Found several dictionaries");
+            }
+
+            var targetDictionary = dictionaries.iterator().next();
+
+            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary", e);
+        }
+    }
+
+    @Override
+    public Set<String> loadDictionaryAliases() {
+        try {
+            Path dictionaryFolder = getPathToDictionaryAliasesDir();
+            Set<String> dictionaries = new HashSet<>();
+            if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
+                for (Path dictionary : Files.list(dictionaryFolder).collect(Collectors.toList())) {
+                    dictionaries.add(FilenameUtils.removeExtension(dictionary.getFileName().toString()));
+                }
+            }
+
+            return dictionaries;
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary", e);
+        }
+    }
+
+    @Override
+    public InputStream loadDictionary(String alias) {
+        var dictionaryName = alias.toLowerCase();
+        try {
+            Path dictionary = getPathToDictionaryAliasesDir();
+            if (Files.exists(dictionary) && Files.isDirectory(dictionary)) {
+                for (Path pathToAlias : Files.list(dictionary).collect(Collectors.toList())) {
+                    String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
+                    if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
+                        return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
+                    }
+                }
+            }
+            throw new IllegalStateException("No dictionary found with name-alias '" + alias + "'");
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary", e);
+        }
+    }
+
+    @Override
+    public InputStream readDictionary() {
+        return readDictionary(DictionaryType.MAIN);
+    }
+
+    @Override
+    public InputStream readDictionary(DictionaryType dictionaryType) {
+        try {
+            List<Path> dictionaries = null;
+            Path typeFolder = dictionaryType.resolvePathFrom(getPathToDictionaryTypesDir());
+            if (Files.exists(typeFolder) && Files.isDirectory(typeFolder)) {
+                dictionaries = Files.list(typeFolder)
+                        .filter(Files::isRegularFile)
+                        .collect(Collectors.toList());
+            }
+
+            // Find with old format
+            if (dictionaries == null || dictionaries.isEmpty()) {
+                dictionaries = Files.list(getOldPathToDictionariesDir())
+                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+                        .collect(Collectors.toList());
+            }
+
+            if (dictionaries.isEmpty()) {
+                throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
+            } else if (dictionaries.size() > 1) {
+                throw new IllegalStateException("Found several dictionaries satisfying the '" + dictionaryType + "' type");
+            }
+
+            var targetDictionary = dictionaries.get(0);
+
+            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary", e);
         }
     }
 
@@ -531,8 +641,9 @@ public class CommonFactory extends AbstractCommonFactory {
                     }
 
                     String fileName = fileNameSet.stream().findFirst().orElse(null);
-                    writeFile(dictionaryTypeDir.resolve(fileName), dictionaryConfigMap.getData().get(fileName));
-
+                    Path dictionaryPath = dictionaryTypeDir.resolve(fileName);
+                    writeFile(dictionaryPath, dictionaryConfigMap.getData().get(fileName));
+                    LOGGER.debug("Dictionary written in folder: " + dictionaryPath);
                     break;
                 }
             }
