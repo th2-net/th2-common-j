@@ -137,7 +137,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
         this.dictionaryTypesDir = defaultPathIfNull(dictionaryTypesDir, DICTIONARY_TYPE_DIR_NAME);
-        this.dictionaryAliasesDir = defaultPathIfNull(dictionaryAliasesDir, DICTIONARY_TYPE_DIR_NAME);
+        this.dictionaryAliasesDir = defaultPathIfNull(dictionaryAliasesDir, DICTIONARY_ALIAS_DIR_NAME);
         this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
 
