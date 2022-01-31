@@ -293,11 +293,13 @@ dependencies {
 + Added ability to read dictionaries by aliases and as group of all available aliases
 + New methods for api: loadDictionary(String), loadDictionaries(), loadDictionary()
 
+### 3.32.1
+
++ Fixed: gRPC router didn't shut down underlying Netty's EventLoopGroup and ExecutorService 
 
 ### 3.32.0
 
 + Added new test utils for assertion of **AnyMessage** or **Groups** of messages
-
 
 ### 3.31.6
 
