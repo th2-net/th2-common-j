@@ -290,7 +290,8 @@ dependencies {
 
 ### 3.33.0
 
-+ Added ability to read dictionaries by aliases and as group of all available dictionaries
++ Added ability to read dictionaries by aliases and as group of all available aliases
++ New methods for api: loadDictionary(String), loadDictionaries(), loadDictionary()
 
 
 ### 3.32.0
