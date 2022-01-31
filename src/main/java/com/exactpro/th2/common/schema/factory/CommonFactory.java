@@ -535,7 +535,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Set<String> dictionaries = new HashSet<>();
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
                 try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    files.forEach(dictionary -> {
+                    files.filter(Files::isRegularFile).forEach(dictionary -> {
                         if (Files.isRegularFile(dictionary)) {
                             dictionaries.add(FilenameUtils.removeExtension(dictionary.getFileName().toString()));
                         }
@@ -556,12 +556,10 @@ public class CommonFactory extends AbstractCommonFactory {
             LOGGER.debug("Loading dictionary alias ({}) from folder: {}", alias, dictionaryFolder);
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
                 try (Stream<Path> stream = Files.list(dictionaryFolder)) {
-                    for (Path pathToAlias : stream.collect(Collectors.toList())) {
-                        if (Files.isRegularFile(pathToAlias)) {
-                            String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
-                            if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
-                                return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
-                            }
+                    for (Path pathToAlias : stream.filter(Files::isRegularFile).collect(Collectors.toList())) {
+                        String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
+                        if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
+                            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
                         }
                     }
                 }
