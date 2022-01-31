@@ -509,7 +509,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Set<Path> dictionaries = null;
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
                 try (Stream<Path> stream = Files.list(dictionaryFolder)) {
-                    dictionaries = stream.collect(Collectors.toSet());
+                    dictionaries = stream.filter(Files::isRegularFile).collect(Collectors.toSet());
                 }
             }
 
@@ -535,7 +535,11 @@ public class CommonFactory extends AbstractCommonFactory {
             Set<String> dictionaries = new HashSet<>();
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
                 try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    files.forEach(dictionary -> dictionaries.add(FilenameUtils.removeExtension(dictionary.getFileName().toString())));
+                    files.forEach(dictionary -> {
+                        if (Files.isRegularFile(dictionary)) {
+                            dictionaries.add(FilenameUtils.removeExtension(dictionary.getFileName().toString()));
+                        }
+                    });
                 }
             }
             return dictionaries;
@@ -553,9 +557,11 @@ public class CommonFactory extends AbstractCommonFactory {
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
                 try (Stream<Path> stream = Files.list(dictionaryFolder)) {
                     for (Path pathToAlias : stream.collect(Collectors.toList())) {
-                        String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
-                        if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
-                            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
+                        if (Files.isRegularFile(pathToAlias)) {
+                            String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
+                            if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
+                                return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
+                            }
                         }
                     }
                 }
