@@ -75,6 +75,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
@@ -507,7 +508,9 @@ public class CommonFactory extends AbstractCommonFactory {
             LOGGER.debug("Loading dictionary from folder: {}", dictionaryFolder);
             Set<Path> dictionaries = null;
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
-                dictionaries = Files.list(dictionaryFolder).collect(Collectors.toSet());
+                try (Stream<Path> stream = Files.list(dictionaryFolder)) {
+                    dictionaries = stream.collect(Collectors.toSet());
+                }
             }
 
             if (dictionaries==null || dictionaries.isEmpty()) {
@@ -531,11 +534,10 @@ public class CommonFactory extends AbstractCommonFactory {
             LOGGER.debug("Loading dictionaries from folder: {}", dictionaryFolder.toString());
             Set<String> dictionaries = new HashSet<>();
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
-                for (Path dictionary : Files.list(dictionaryFolder).collect(Collectors.toList())) {
-                    dictionaries.add(FilenameUtils.removeExtension(dictionary.getFileName().toString()));
+                try (Stream<Path> files = Files.list(dictionaryFolder)) {
+                    files.forEach(dictionary -> dictionaries.add(FilenameUtils.removeExtension(dictionary.getFileName().toString())));
                 }
             }
-
             return dictionaries;
         } catch (IOException e) {
             throw new IllegalStateException("Can not read dictionary", e);
@@ -549,12 +551,15 @@ public class CommonFactory extends AbstractCommonFactory {
             Path dictionaryFolder = getPathToDictionaryAliasesDir();
             LOGGER.debug("Loading dictionary alias ({}) from folder: {}", alias, dictionaryFolder);
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
-                for (Path pathToAlias : Files.list(dictionaryFolder).collect(Collectors.toList())) {
-                    String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
-                    if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
-                        return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
+                try (Stream<Path> stream = Files.list(dictionaryFolder)) {
+                    for (Path pathToAlias : stream.collect(Collectors.toList())) {
+                        String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
+                        if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
+                            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
+                        }
                     }
                 }
+
             }
             throw new IllegalStateException("No dictionary found with name-alias '" + alias + "'");
         } catch (IOException e) {
