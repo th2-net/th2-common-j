@@ -504,6 +504,7 @@ public class CommonFactory extends AbstractCommonFactory {
     public InputStream loadDictionary() {
         try {
             Path dictionaryFolder = getPathToDictionaryAliasesDir();
+            LOGGER.debug("Loading dictionary from folder: {}", dictionaryFolder);
             Set<Path> dictionaries = null;
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
                 dictionaries = Files.list(dictionaryFolder).collect(Collectors.toSet());
@@ -527,6 +528,7 @@ public class CommonFactory extends AbstractCommonFactory {
     public Set<String> loadDictionaryAliases() {
         try {
             Path dictionaryFolder = getPathToDictionaryAliasesDir();
+            LOGGER.debug("Loading dictionaries from folder: {}", dictionaryFolder.toString());
             Set<String> dictionaries = new HashSet<>();
             if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
                 for (Path dictionary : Files.list(dictionaryFolder).collect(Collectors.toList())) {
@@ -544,9 +546,10 @@ public class CommonFactory extends AbstractCommonFactory {
     public InputStream loadDictionary(String alias) {
         var dictionaryName = alias.toLowerCase();
         try {
-            Path dictionary = getPathToDictionaryAliasesDir();
-            if (Files.exists(dictionary) && Files.isDirectory(dictionary)) {
-                for (Path pathToAlias : Files.list(dictionary).collect(Collectors.toList())) {
+            Path dictionaryFolder = getPathToDictionaryAliasesDir();
+            LOGGER.debug("Loading dictionary alias ({}) from folder: {}", alias, dictionaryFolder);
+            if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
+                for (Path pathToAlias : Files.list(dictionaryFolder).collect(Collectors.toList())) {
                     String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
                     if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
                         return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
