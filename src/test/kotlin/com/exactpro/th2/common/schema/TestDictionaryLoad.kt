@@ -54,9 +54,9 @@ class TestDictionaryLoad {
     @Test
     fun `test folder load all dictionary aliases`() {
         val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
-        val expectedNames = listOf("test_alias_1", "test_alias_2", "test_alias_3")
+        val expectedNames = listOf("test_alias_1", "test_alias_2", "test_alias_3", "test_alias_4")
         val names = factory.loadDictionaryAliases()
-        Assertions.assertEquals(3, names.size)
+        Assertions.assertEquals(4, names.size)
         Assertions.assertTrue(names.containsAll(expectedNames))
     }
 
