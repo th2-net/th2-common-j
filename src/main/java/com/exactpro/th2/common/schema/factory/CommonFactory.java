@@ -69,7 +69,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -508,8 +507,8 @@ public class CommonFactory extends AbstractCommonFactory {
             LOGGER.debug("Loading dictionary from folder: {}", dictionaryFolder);
             List<Path> dictionaries = null;
             if (Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> stream = Files.list(dictionaryFolder)) {
-                    dictionaries = stream.filter(Files::isRegularFile).collect(Collectors.toList());
+                try (Stream<Path> files = Files.list(dictionaryFolder)) {
+                    dictionaries = files.filter(Files::isRegularFile).collect(Collectors.toList());
                 }
             }
 
@@ -531,7 +530,6 @@ public class CommonFactory extends AbstractCommonFactory {
     public Set<String> getDictionaryAliases() {
         Path dictionaryFolder = getPathToDictionaryAliasesDir();
         try {
-            LOGGER.debug("Loading dictionaries from folder: {}", dictionaryFolder);
             if (!Files.isDirectory(dictionaryFolder)) {
                 return Set.of();
             }
@@ -552,8 +550,8 @@ public class CommonFactory extends AbstractCommonFactory {
             List<Path> dictionaries = null;
 
             if (Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> stream = Files.list(dictionaryFolder)) {
-                    dictionaries = stream.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias)).collect(Collectors.toList());
+                try (Stream<Path> files = Files.list(dictionaryFolder)) {
+                    dictionaries = files.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias)).collect(Collectors.toList());
                 }
             }
 
@@ -580,8 +578,8 @@ public class CommonFactory extends AbstractCommonFactory {
             List<Path> dictionaries = null;
             Path typeFolder = dictionaryType.getDictionary(getPathToDictionaryTypesDir());
             if (Files.isDirectory(typeFolder)) {
-                try (Stream<Path> stream = Files.list(typeFolder)) {
-                    dictionaries = stream.filter(Files::isRegularFile)
+                try (Stream<Path> files = Files.list(typeFolder)) {
+                    dictionaries = files.filter(Files::isRegularFile)
                             .collect(Collectors.toList());
                 }
             }
@@ -589,16 +587,16 @@ public class CommonFactory extends AbstractCommonFactory {
             // Find with old format
             Path oldFolder = getOldPathToDictionariesDir();
             if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(oldFolder)) {
-                try (Stream<Path> stream = Files.list(oldFolder)) {
-                    dictionaries = stream.filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+                try (Stream<Path> files = Files.list(oldFolder)) {
+                    dictionaries = files.filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
                             .collect(Collectors.toList());
                 }
             }
 
             Path dictionaryAliasFolder = getPathToDictionaryAliasesDir();
             if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(dictionaryAliasFolder)) {
-                try (Stream<Path> stream = Files.list(dictionaryAliasFolder)) {
-                    dictionaries = stream.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(dictionaryType.name())).collect(Collectors.toList());
+                try (Stream<Path> files = Files.list(dictionaryAliasFolder)) {
+                    dictionaries = files.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(dictionaryType.name())).collect(Collectors.toList());
                 }
             }
 
