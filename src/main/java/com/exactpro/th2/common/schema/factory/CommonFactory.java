@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -71,7 +71,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -88,6 +87,8 @@ import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
  */
 public class CommonFactory extends AbstractCommonFactory {
 
+    private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
+
     private static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
     private static final String ROUTER_MQ_FILE_NAME = "mq.json";
     private static final String GRPC_FILE_NAME = "grpc.json";
@@ -99,11 +100,10 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
     private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
 
+    /** @deprecated please use {@link #DICTIONARY_ALIAS_DIR_NAME} */
     @Deprecated
     private static final String DICTIONARY_TYPE_DIR_NAME = "dictionary";
     private static final String DICTIONARY_ALIAS_DIR_NAME = "dictionaries";
-
-    private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
     private static final String RABBITMQ_SECRET_NAME = "rabbitmq";
     private static final String CASSANDRA_SECRET_NAME = "cassandra";

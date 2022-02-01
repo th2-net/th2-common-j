@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,8 +17,10 @@ package com.exactpro.th2.common.schema
 
 import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.factory.FactorySettings
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.nio.file.Path
 
 class TestDictionaryLoad {
 
@@ -66,6 +68,13 @@ class TestDictionaryLoad {
 
         Assertions.assertThrows(IllegalStateException::class.java) {
             factory.loadDictionary()
+        }
+
+        val customSettings = FactorySettings().apply { dictionaryAliasesDir = Path.of("src/test/resources/test_load_dictionaries/single_dictionary") }
+        val customFactory = CommonFactory(customSettings)
+
+        customFactory.loadDictionary().use {
+            assert(String(it.readAllBytes()) == "test file")
         }
     }
 
