@@ -524,8 +524,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * Read single dictionary from folder
      * @return Dictionary as {@link InputStream}
-     * @throws IllegalStateException if can not read dictionary
+     * @throws IllegalStateException if can not read dictionary or found more than one target
      */
     public abstract InputStream loadDictionary();
 
@@ -543,6 +544,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     public abstract InputStream loadDictionary(String alias);
 
     /**
+     * Read dictionary as default Main type
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
