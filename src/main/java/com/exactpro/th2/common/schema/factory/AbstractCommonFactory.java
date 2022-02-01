@@ -105,7 +105,7 @@ import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 /**
  *
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
- * All implemented logic is valid for any platform
+ * Platform-independent mechanics
  *
  * @see CommonFactory
  */
@@ -524,17 +524,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Read single dictionary from folder
+     * Read single dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary or found more than one target
      */
-    public abstract InputStream loadDictionary();
+    public abstract InputStream loadSingleDictionary();
 
     /**
-     * @return List of Dictionary names in folder or empty list
+     * @return list of available dictionary aliases or an empty list
      * @throws IllegalStateException if can not read dictionary
      */
-    public abstract Set<String> loadDictionaryAliases();
+    public abstract Set<String> getDictionaryAliases();
 
     /**
      * @param alias name of dictionary
@@ -544,7 +544,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     public abstract InputStream loadDictionary(String alias);
 
     /**
-     * Read dictionary as default Main type
+     * Read dictionary of {@link DictionaryType#MAIN} type
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */

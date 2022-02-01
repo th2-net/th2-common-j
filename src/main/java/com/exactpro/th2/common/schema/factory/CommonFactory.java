@@ -502,72 +502,70 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     @Override
-    public InputStream loadDictionary() {
+    public InputStream loadSingleDictionary() {
+        Path dictionaryFolder = getPathToDictionaryAliasesDir();
         try {
-            Path dictionaryFolder = getPathToDictionaryAliasesDir();
             LOGGER.debug("Loading dictionary from folder: {}", dictionaryFolder);
-            Set<Path> dictionaries = null;
-            if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
+            List<Path> dictionaries = null;
+            if (Files.isDirectory(dictionaryFolder)) {
                 try (Stream<Path> stream = Files.list(dictionaryFolder)) {
-                    dictionaries = stream.filter(Files::isRegularFile).collect(Collectors.toSet());
+                    dictionaries = stream.filter(Files::isRegularFile).collect(Collectors.toList());
                 }
             }
 
             if (dictionaries==null || dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary found");
+                throw new IllegalStateException("No dictionary at path: " + dictionaryFolder.toAbsolutePath());
             } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries");
+                throw new IllegalStateException("Found several dictionaries at path: " + dictionaryFolder.toAbsolutePath());
             }
 
-            var targetDictionary = dictionaries.iterator().next();
+            var targetDictionary = dictionaries.get(0);
 
             return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
         } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary", e);
+            throw new IllegalStateException("Can not read dictionary from path: " + dictionaryFolder.toAbsolutePath(), e);
         }
     }
 
     @Override
-    public Set<String> loadDictionaryAliases() {
+    public Set<String> getDictionaryAliases() {
+        Path dictionaryFolder = getPathToDictionaryAliasesDir();
         try {
-            Path dictionaryFolder = getPathToDictionaryAliasesDir();
-            LOGGER.debug("Loading dictionaries from folder: {}", dictionaryFolder.toString());
-            Set<String> dictionaries = new HashSet<>();
-            if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    files.filter(Files::isRegularFile).forEach(dictionary -> {
-                        if (Files.isRegularFile(dictionary)) {
-                            dictionaries.add(FilenameUtils.removeExtension(dictionary.getFileName().toString()));
-                        }
-                    });
-                }
+            LOGGER.debug("Loading dictionaries from folder: {}", dictionaryFolder);
+            if (!Files.isDirectory(dictionaryFolder)) {
+                return Set.of();
             }
-            return dictionaries;
+
+            try (Stream<Path> files = Files.list(dictionaryFolder)) {
+                return files.filter(Files::isRegularFile).map(dictionary -> FilenameUtils.removeExtension(dictionary.getFileName().toString())).collect(Collectors.toSet());
+            }
         } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary", e);
+            throw new IllegalStateException("Can not get dictionaries aliases from path: " + dictionaryFolder.toAbsolutePath(), e);
         }
     }
 
     @Override
     public InputStream loadDictionary(String alias) {
-        var dictionaryName = alias.toLowerCase();
+        Path dictionaryFolder = getPathToDictionaryAliasesDir();
         try {
-            Path dictionaryFolder = getPathToDictionaryAliasesDir();
-            LOGGER.debug("Loading dictionary alias ({}) from folder: {}", alias, dictionaryFolder);
-            if (Files.exists(dictionaryFolder) && Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> stream = Files.list(dictionaryFolder)) {
-                    for (Path pathToAlias : stream.filter(Files::isRegularFile).collect(Collectors.toList())) {
-                        String fileNameWithoutExt = FilenameUtils.removeExtension(pathToAlias.getFileName().toString());
-                        if (fileNameWithoutExt.toLowerCase().equals(dictionaryName)) {
-                            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(pathToAlias)));
-                        }
-                    }
-                }
+            LOGGER.debug("Loading dictionary by alias ({}) from folder: {}", alias, dictionaryFolder);
+            List<Path> dictionaries = null;
 
+            if (Files.isDirectory(dictionaryFolder)) {
+                try (Stream<Path> stream = Files.list(dictionaryFolder)) {
+                    dictionaries = stream.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias)).collect(Collectors.toList());
+                }
             }
-            throw new IllegalStateException("No dictionary found with name-alias '" + alias + "'");
+
+            if (dictionaries==null || dictionaries.isEmpty()) {
+                throw new IllegalStateException("No dictionary was found by alias '" + alias + "' at path: " + dictionaryFolder.toAbsolutePath());
+            } else if (dictionaries.size() > 1) {
+                throw new IllegalStateException("Found several dictionaries by alias '" + alias + "' at path: " + dictionaryFolder.toAbsolutePath());
+            }
+
+            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(dictionaries.get(0))));
         } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary", e);
+            throw new IllegalStateException("Can not read dictionary '" + alias + "' from path: " + dictionaryFolder.toAbsolutePath(), e);
         }
     }
 
@@ -580,21 +578,31 @@ public class CommonFactory extends AbstractCommonFactory {
     public InputStream readDictionary(DictionaryType dictionaryType) {
         try {
             List<Path> dictionaries = null;
-            Path typeFolder = dictionaryType.resolvePathFrom(getPathToDictionaryTypesDir());
-            if (Files.exists(typeFolder) && Files.isDirectory(typeFolder)) {
-                dictionaries = Files.list(typeFolder)
-                        .filter(Files::isRegularFile)
-                        .collect(Collectors.toList());
+            Path typeFolder = dictionaryType.getDictionary(getPathToDictionaryTypesDir());
+            if (Files.isDirectory(typeFolder)) {
+                try (Stream<Path> stream = Files.list(typeFolder)) {
+                    dictionaries = stream.filter(Files::isRegularFile)
+                            .collect(Collectors.toList());
+                }
             }
 
             // Find with old format
-            if (dictionaries == null || dictionaries.isEmpty()) {
-                dictionaries = Files.list(getOldPathToDictionariesDir())
-                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
-                        .collect(Collectors.toList());
+            Path oldFolder = getOldPathToDictionariesDir();
+            if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(oldFolder)) {
+                try (Stream<Path> stream = Files.list(oldFolder)) {
+                    dictionaries = stream.filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
+                            .collect(Collectors.toList());
+                }
             }
 
-            if (dictionaries.isEmpty()) {
+            Path dictionaryAliasFolder = getPathToDictionaryAliasesDir();
+            if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(dictionaryAliasFolder)) {
+                try (Stream<Path> stream = Files.list(dictionaryAliasFolder)) {
+                    dictionaries = stream.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(dictionaryType.name())).collect(Collectors.toList());
+                }
+            }
+
+            if (dictionaries == null || dictionaries.isEmpty()) {
                 throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
             } else if (dictionaries.size() > 1) {
                 throw new IllegalStateException("Found several dictionaries satisfying the '" + dictionaryType + "' type");
@@ -634,7 +642,7 @@ public class CommonFactory extends AbstractCommonFactory {
             for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
                 String configName = dictionaryConfigMap.getMetadata().getName();
                 if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
-                    Path dictionaryTypeDir = type.resolvePathFrom(dictionariesDir);
+                    Path dictionaryTypeDir = type.getDictionary(dictionariesDir);
 
                     if (Files.notExists(dictionaryTypeDir)) {
                         Files.createDirectories(dictionaryTypeDir);

@@ -56,24 +56,44 @@ class TestDictionaryLoad {
     @Test
     fun `test folder load all dictionary aliases`() {
         val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
-        val expectedNames = listOf("test_alias_1", "test_alias_2", "test_alias_3", "test_alias_4")
-        val names = factory.loadDictionaryAliases()
-        Assertions.assertEquals(4, names.size)
+        val expectedNames = listOf("main", "test_alias_1", "test_alias_2", "test_alias_3", "test_alias_4")
+        val names = factory.dictionaryAliases
+        Assertions.assertEquals(5, names.size)
         Assertions.assertTrue(names.containsAll(expectedNames))
     }
 
     @Test
-    fun `test folder load single dictionary`() {
+    fun `test folder load single dictionary from folder with several`() {
         val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
 
         Assertions.assertThrows(IllegalStateException::class.java) {
-            factory.loadDictionary()
+            factory.loadSingleDictionary()
         }
+    }
 
-        val customSettings = FactorySettings().apply { dictionaryAliasesDir = Path.of("src/test/resources/test_load_dictionaries/single_dictionary") }
+    @Test
+    fun `test folder load single dictionary`() {
+        val customSettings = FactorySettings().apply {
+            prometheus = Path.of("src/test/resources/test_load_dictionaries/prometheus.json")
+            dictionaryAliasesDir = Path.of("src/test/resources/test_load_dictionaries/single_dictionary")
+        }
         val customFactory = CommonFactory(customSettings)
 
-        customFactory.loadDictionary().use {
+        customFactory.loadSingleDictionary().use {
+            assert(String(it.readAllBytes()) == "test file")
+        }
+    }
+
+    @Test
+    fun `test folder load single dictionary by type as alias`() {
+        val customSettings = FactorySettings().apply {
+            prometheus = Path.of("src/test/resources/test_load_dictionaries/prometheus.json")
+            dictionaryTypesDir = Path.of("..")
+            dictionaryAliasesDir = Path.of("src/test/resources/test_load_dictionaries/dictionaries")
+        }
+        val customFactory = CommonFactory(customSettings)
+
+        customFactory.readDictionary().use {
             assert(String(it.readAllBytes()) == "test file")
         }
     }
