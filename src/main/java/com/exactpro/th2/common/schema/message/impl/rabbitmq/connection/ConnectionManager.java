@@ -323,6 +323,9 @@ public class ConnectionManager implements AutoCloseable {
     public List<QueueInfo> getExceededQueues(String exchange, String routingKey, long virtualQueueLimit) {
         requireNonNull(exchange, "Exchange cannot be null");
         requireNonNull(routingKey, "Routing key cannot be null");
+        if (virtualQueueLimit <= 0) {
+            throw new IllegalArgumentException("Virtual queue limit should be greater than zero, actual: " + virtualQueueLimit);
+        }
         List<String> queueNamesForRoutingKey = client.getBindingsBySource(rabbitMQConfiguration.getVHost(), exchange).stream()
                 .filter(bindingInfo -> bindingInfo.getDestinationType() == QUEUE)
                 .filter(bindingInfo -> routingKey.equals(bindingInfo.getRoutingKey()))

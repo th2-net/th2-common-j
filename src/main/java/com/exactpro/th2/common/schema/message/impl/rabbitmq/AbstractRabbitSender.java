@@ -19,6 +19,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import java.io.IOException;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -61,9 +62,11 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<String> routingKey = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
+    private final long messageAmountToCheckVirtualQueueLimit;
     private final long virtualQueueLimit;
     private final int maxIntervalToCheckVirtualQueueLimit;
     private final String th2Type;
+    private final AtomicLong totalSent = new AtomicLong(0);
 
     public AbstractRabbitSender(
             @NotNull ConnectionManager connectionManager,
@@ -75,7 +78,17 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         requireNonNull(queueConfiguration, "Queue configuration can not be null");
         exchangeName.set(requireNonNull(queueConfiguration.getExchange(), "Exchange name can not be null"));
         routingKey.set(requireNonNull(queueConfiguration.getRoutingKey(), "Routing key can not be null"));
+        if (queueConfiguration.getMessageAmountToCheckVirtualQueueLimit() <= 0) {
+            throw new IllegalArgumentException("'messageAmountToCheckVirtualQueueLimit' should be greater than zero, actual: " + queueConfiguration.getMessageAmountToCheckVirtualQueueLimit());
+        }
+        messageAmountToCheckVirtualQueueLimit = queueConfiguration.getMessageAmountToCheckVirtualQueueLimit();
+        if (queueConfiguration.getVirtualQueueLimit() <= 0) {
+            throw new IllegalArgumentException("'virtualQueueLimit' should be greater than zero, actual: " + queueConfiguration.getVirtualQueueLimit());
+        }
         virtualQueueLimit = queueConfiguration.getVirtualQueueLimit();
+        if (queueConfiguration.getMaxIntervalToCheckVirtualQueueLimit() <= 0) {
+            throw new IllegalArgumentException("'maxIntervalToCheckVirtualQueueLimit' should be greater than zero, actual: " + queueConfiguration.getMaxIntervalToCheckVirtualQueueLimit());
+        }
         maxIntervalToCheckVirtualQueueLimit = queueConfiguration.getMaxIntervalToCheckVirtualQueueLimit();
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
         this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
@@ -93,22 +106,25 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
 
         try {
             ConnectionManager connectionManager = this.connectionManager.get();
-            List<QueueInfo> exceededQueues = connectionManager.getExceededQueues(exchangeName.get(), routingKey.get(), virtualQueueLimit);
-            while (!exceededQueues.isEmpty()) {
-                int sleepInterval = /*Math.exp(?) + */MIN_SLEEP_SHIFT + new Random().nextInt(MAX_SLEEP_SHIFT - MIN_SLEEP_SHIFT + 1);
-                if (sleepInterval > maxIntervalToCheckVirtualQueueLimit) {
-                    sleepInterval = maxIntervalToCheckVirtualQueueLimit;
+            if (totalSent.get() == messageAmountToCheckVirtualQueueLimit) {
+                List<QueueInfo> exceededQueues = connectionManager.getExceededQueues(exchangeName.get(), routingKey.get(), virtualQueueLimit);
+                while (!exceededQueues.isEmpty()) {
+                    int sleepInterval = /*Math.exp(?) + */MIN_SLEEP_SHIFT + new Random().nextInt(MAX_SLEEP_SHIFT - MIN_SLEEP_SHIFT + 1);
+                    if (sleepInterval > maxIntervalToCheckVirtualQueueLimit) {
+                        sleepInterval = maxIntervalToCheckVirtualQueueLimit;
+                    }
+                    LOGGER.info(
+                            "There are {} which is more or equals than size limit = {}, waiting {} seconds before recheck",
+                            exceededQueues.stream()
+                                    .map(queueInfo -> queueInfo.getTotalMessages() + " message(s) in '" + queueInfo.getName() + "'")
+                                    .collect(Collectors.joining(", ")),
+                            virtualQueueLimit,
+                            sleepInterval
+                    );
+                    Thread.sleep(sleepInterval * 1000L);
+                    exceededQueues = connectionManager.getExceededQueues(exchangeName.get(), routingKey.get(), virtualQueueLimit);
                 }
-                LOGGER.info(
-                        "There are {} which is more or equals than size limit = {}, waiting {} seconds before recheck",
-                        exceededQueues.stream()
-                                .map(queueInfo -> queueInfo.getTotalMessages() + " message(s) in '" + queueInfo.getName() + "'")
-                                .collect(Collectors.joining(", ")),
-                        virtualQueueLimit,
-                        sleepInterval
-                );
-                Thread.sleep(sleepInterval * 1000L);
-                exceededQueues = connectionManager.getExceededQueues(exchangeName.get(), routingKey.get(), virtualQueueLimit);
+                totalSent.set(0);
             }
 
             byte[] bytes = valueToBytes(value);
@@ -119,6 +135,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
                     .inc();
             connectionManager.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
+            totalSent.incrementAndGet();
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",

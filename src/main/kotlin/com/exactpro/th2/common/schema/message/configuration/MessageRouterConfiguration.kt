@@ -43,8 +43,9 @@ data class QueueConfiguration(
     var filters: List<MqRouterFilterConfiguration> = emptyList(),
     @JsonProperty(value = "read") var isReadable: Boolean = true,
     @JsonProperty(value = "write") var isWritable: Boolean = true,
+    @JsonProperty var messageAmountToCheckVirtualQueueLimit: Long = 1000,
     @JsonProperty var virtualQueueLimit: Long = 10000,
-    @JsonProperty var maxIntervalToCheckVirtualQueueLimit: Int = 10
+    @JsonProperty var maxIntervalToCheckVirtualQueueLimit: Int = 10,
 ) : Configuration()
 
 data class MqRouterFilterConfiguration(
