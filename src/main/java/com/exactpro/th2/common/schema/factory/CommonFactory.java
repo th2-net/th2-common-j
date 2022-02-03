@@ -82,7 +82,7 @@ import static java.util.Objects.requireNonNullElse;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
- * Default (platform specific) implementation for {@link AbstractCommonFactory}
+ * Default implementation for {@link AbstractCommonFactory}
  */
 public class CommonFactory extends AbstractCommonFactory {
 
@@ -535,7 +535,10 @@ public class CommonFactory extends AbstractCommonFactory {
             }
 
             try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                return files.filter(Files::isRegularFile).map(dictionary -> FilenameUtils.removeExtension(dictionary.getFileName().toString())).collect(Collectors.toSet());
+                return files
+                        .filter(Files::isRegularFile)
+                        .map(dictionary -> FilenameUtils.removeExtension(dictionary.getFileName().toString()))
+                        .collect(Collectors.toSet());
             }
         } catch (IOException e) {
             throw new IllegalStateException("Can not get dictionaries aliases from path: " + dictionaryFolder.toAbsolutePath(), e);
@@ -551,7 +554,10 @@ public class CommonFactory extends AbstractCommonFactory {
 
             if (Files.isDirectory(dictionaryFolder)) {
                 try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias)).collect(Collectors.toList());
+                    dictionaries = files
+                            .filter(Files::isRegularFile)
+                            .filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias))
+                            .collect(Collectors.toList());
                 }
             }
 
