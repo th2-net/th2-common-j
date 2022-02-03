@@ -524,7 +524,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * Read single dictionary
+     * Read first and only one dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary or found more than one target
      */
@@ -605,6 +605,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * @return Path to dictionaries with type dir
      */
+    @Deprecated(since = "3.33.0", forRemoval = true)
     protected abstract Path getPathToDictionaryTypesDir();
 
     /**
@@ -612,6 +613,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected abstract Path getPathToDictionaryAliasesDir();
 
+    @Deprecated(since = "3.33.0", forRemoval = true)
     protected abstract Path getOldPathToDictionariesDir();
 
     /**

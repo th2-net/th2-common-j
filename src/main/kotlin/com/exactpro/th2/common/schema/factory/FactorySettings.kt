@@ -47,7 +47,7 @@ data class FactorySettings @JvmOverloads constructor(
     var custom: Path? = null,
     @Deprecated("Will be removed in future releases") var dictionaryTypesDir: Path? = null,
     var dictionaryAliasesDir: Path? = null,
-    var oldDictionariesDir: Path? = null) {
+    @Deprecated("Will be removed in future releases") var oldDictionariesDir: Path? = null) {
     private val _variables: MutableMap<String, String> = HashMap()
     val variables: Map<String, String> = _variables
 
