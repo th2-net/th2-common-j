@@ -105,7 +105,6 @@ import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 /**
  *
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
- * Class contains platform-independent mechanics
  *
  * @see CommonFactory
  */
