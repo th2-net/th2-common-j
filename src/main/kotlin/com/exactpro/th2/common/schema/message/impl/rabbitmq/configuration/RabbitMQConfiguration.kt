@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,7 +26,8 @@ data class RabbitMQConfiguration(
     @JsonProperty(required = true) var password: String,
     @Deprecated(message = "Please use subscriber name from ConnectionManagerConfiguration")
     var subscriberName: String? = null,  //FIXME: Remove in future version
-    var exchangeName: String? = null) : Configuration()
+    var exchangeName: String? = null,
+) : Configuration()
 
 data class ConnectionManagerConfiguration(
     var subscriberName: String? = null,
@@ -36,5 +37,7 @@ data class ConnectionManagerConfiguration(
     var minConnectionRecoveryTimeout: Int = 10000,
     var maxConnectionRecoveryTimeout: Int = 60000,
     val prefetchCount: Int = 10,
-    val messageRecursionLimit: Int = 100
+    val messageRecursionLimit: Int = 100,
+    val secondsToCheckVirtualQueueLimit: Int = 10,
+    val batchesToCheckVirtualQueueLimit: Int = 10000,
 ) : Configuration()

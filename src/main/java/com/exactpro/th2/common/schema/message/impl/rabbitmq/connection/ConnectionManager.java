@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,6 +16,8 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -32,6 +34,11 @@ import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+import com.rabbitmq.http.client.Client;
+import com.rabbitmq.http.client.ClientParameters;
+import com.rabbitmq.http.client.domain.BindingInfo;
+import com.rabbitmq.http.client.domain.QueueInfo;
+
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -43,12 +50,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,22 +69,35 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+import static com.rabbitmq.http.client.domain.DestinationType.QUEUE;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.partitioningBy;
+import static java.util.stream.Collectors.toMap;
 
 public class ConnectionManager implements AutoCloseable {
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
+    private static final String RABBITMQ_MANAGEMENT_URL = "http://%s:15672/api/";
 
     private final Connection connection;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
-    private final ConnectionManagerConfiguration configuration;
+    private final RabbitMQConfiguration rabbitMQConfiguration;
+    private final ConnectionManagerConfiguration connectionManagerConfiguration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
     private final ExecutorService sharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
+    private final Map<String, Long> queueNameToVirtualQueueLimit;
+    private final Client client;
+    private final ScheduledExecutorService sizeCheckExecutor = Executors.newScheduledThreadPool(1);
+    private final Set<String> knownExchanges = Collections.synchronizedSet(new HashSet<>());
 
     private final HealthMetrics metrics = new HealthMetrics(this);
 
@@ -88,13 +114,27 @@ public class ConnectionManager implements AutoCloseable {
         public void handleRecoveryStarted(Recoverable recoverable) {}
     };
 
-    public ConnectionManagerConfiguration getConfiguration() {
-        return configuration;
+    public ConnectionManagerConfiguration getConnectionManagerConfiguration() {
+        return connectionManagerConfiguration;
     }
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
-        Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
-        this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
+    public ConnectionManager(
+            @NotNull RabbitMQConfiguration rabbitMQConfiguration,
+            @NotNull ConnectionManagerConfiguration connectionManagerConfiguration,
+            @NotNull MessageRouterConfiguration messageRouterConfiguration,
+            Runnable onFailedRecoveryConnection
+    ) {
+        this.rabbitMQConfiguration = requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
+        this.connectionManagerConfiguration = requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
+        queueNameToVirtualQueueLimit = requireNonNull(messageRouterConfiguration, "Message router configuration can not be null")
+                .getQueues()
+                .values()
+                .stream()
+                .collect(toMap(
+                        QueueConfiguration::getQueue,
+                        QueueConfiguration::getVirtualQueueLimit,
+                        Math::min // TODO is it valid situation if there are several configurations for one queue?
+                ));
 
         String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
         if (StringUtils.isBlank(subscriberNameTmp)) {
@@ -215,9 +255,15 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             this.connection = factory.newConnection();
+            client = new Client(
+                    new ClientParameters()
+                            .url(String.format(RABBITMQ_MANAGEMENT_URL, rabbitMQConfiguration.getHost()))
+                            .username(rabbitMQConfiguration.getUsername())
+                            .password(rabbitMQConfiguration.getPassword())
+            );
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
-        } catch (IOException | TimeoutException e) {
+        } catch (IOException | TimeoutException | URISyntaxException e) {
             metrics.getReadinessMonitor().disable();
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using configuration", e);
@@ -242,6 +288,13 @@ public class ConnectionManager implements AutoCloseable {
         } else {
             throw new IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
+
+        sizeCheckExecutor.scheduleAtFixedRate(
+                this::lockSendingIfSizeLimitExceeded,
+                connectionManagerConfiguration.getSecondsToCheckVirtualQueueLimit(), // TODO another initial delay?
+                connectionManagerConfiguration.getSecondsToCheckVirtualQueueLimit(),
+                TimeUnit.SECONDS
+        );
     }
 
     public boolean isOpen() {
@@ -254,7 +307,7 @@ public class ConnectionManager implements AutoCloseable {
             return;
         }
 
-        int closeTimeout = configuration.getConnectionCloseTimeout();
+        int closeTimeout = connectionManagerConfiguration.getConnectionCloseTimeout();
         if (connection.isOpen()) {
             try {
                 // We close the connection and don't close channels
@@ -265,14 +318,13 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        shutdownSharedExecutor(closeTimeout);
+        shutdownExecutor(sharedExecutor, closeTimeout);
+        shutdownExecutor(sizeCheckExecutor, closeTimeout);
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey));
-        holder.withLock(channel -> {
-            channel.basicPublish(exchange, routingKey, props, body);
-        });
+        knownExchanges.add(exchange);
+        getChannelFor(PinId.forRoutingKey(routingKey)).publishWithLocks(exchange, routingKey, props, body);
     }
 
     public SubscriberMonitor basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
@@ -298,12 +350,12 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicCancel(consumerTag);
     }
 
-    private void shutdownSharedExecutor(int closeTimeout) {
-        sharedExecutor.shutdown();
+    private void shutdownExecutor(ExecutorService executor, int closeTimeout) {
+        executor.shutdown();
         try {
-            if (!sharedExecutor.awaitTermination(closeTimeout, TimeUnit.MILLISECONDS)) {
+            if (!executor.awaitTermination(closeTimeout, TimeUnit.MILLISECONDS)) {
                 LOGGER.error("Executor is not terminated during {} millis", closeTimeout);
-                List<Runnable> runnables = sharedExecutor.shutdownNow();
+                List<Runnable> runnables = executor.shutdownNow();
                 LOGGER.error("{} task(s) was(were) not finished", runnables.size());
             }
         } catch (InterruptedException e) {
@@ -323,8 +375,8 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             Channel channel = connection.createChannel();
-            Objects.requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
-            channel.basicQos(configuration.getPrefetchCount());
+            requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
+            channel.basicQos(connectionManagerConfiguration.getPrefetchCount());
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
             return channel;
@@ -375,6 +427,76 @@ public class ConnectionManager implements AutoCloseable {
      */
     private void basicAck(Channel channel, long deliveryTag) throws IOException {
         channel.basicAck(deliveryTag, false);
+    }
+
+    public void lockSendingIfSizeLimitExceeded(String routingKey) {
+        lockSendingIfSizeLimitExceeded(List.of(routingKey));
+    }
+
+    private void lockSendingIfSizeLimitExceeded() {
+        lockSendingIfSizeLimitExceeded(
+                channelsByPin.keySet().stream()
+                        .filter(channelHolder -> channelHolder.routingKey != null)
+                        .map(channelHolder -> channelHolder.routingKey)
+                        .collect(Collectors.toList())
+        );
+    }
+
+    private void lockSendingIfSizeLimitExceeded(List<String> knownRoutingKeys) {
+        try {
+            for (var routingKeyToQueues : groupQueuesByRoutingKey(knownRoutingKeys).entrySet()) {
+                String routingKey = routingKeyToQueues.getKey();
+                Map<Boolean, List<QueueInfoWithVirtualLimit>> isExceededToQueues = routingKeyToQueues.getValue().stream()
+                        .collect(partitioningBy(QueueInfoWithVirtualLimit::isExceeded));
+                ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey));
+                List<QueueInfoWithVirtualLimit> exceededQueues = isExceededToQueues.get(true);
+                if (exceededQueues.isEmpty()) {
+                    if (holder.sizeLimitLock.isLocked()) {
+                        holder.sizeLimitLock.unlock();
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info(
+                                    "Sending via routing key '{}' is resumed. There are {}",
+                                    routingKey,
+                                    isExceededToQueues.get(false).stream().map(QueueInfoWithVirtualLimit::getSizeDetails).collect(joining(", "))
+                            );
+                        }
+                    }
+                } else {
+                    if (!holder.sizeLimitLock.isLocked()) {
+                        holder.sizeLimitLock.lock();
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info(
+                                    "Sending via routing key '{}' is paused because there are {}",
+                                    routingKey,
+                                    exceededQueues.stream().map(QueueInfoWithVirtualLimit::getSizeDetails).collect(joining(", "))
+                            );
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            LOGGER.error("Error during check queue sizes", t);
+        }
+    }
+
+    private Map<String, List<QueueInfoWithVirtualLimit>> groupQueuesByRoutingKey(List<String> knownRoutingKeys) {
+        List<BindingInfo> bindings = new ArrayList<>();
+        knownExchanges.forEach(exchange -> bindings.addAll(
+                client.getBindingsBySource(rabbitMQConfiguration.getVHost(), exchange).stream()
+                        .filter(it -> it.getDestinationType() == QUEUE && knownRoutingKeys.contains(it.getRoutingKey()))
+                        .collect(Collectors.toList())
+        ));
+        Map<String, QueueInfo> queueNameToInfo = client.getQueues().stream()
+                .collect(toMap(QueueInfo::getName, Function.identity()));
+        Map<String, List<QueueInfoWithVirtualLimit>> routingKeyToQueues = new HashMap<>();
+        bindings.forEach(bindingInfo -> routingKeyToQueues
+                .computeIfAbsent(bindingInfo.getRoutingKey(), s -> new ArrayList<>())
+                .add(new QueueInfoWithVirtualLimit(
+                        queueNameToInfo.get(bindingInfo.getDestination()),
+                        queueNameToVirtualQueueLimit.get(bindingInfo.getDestination())
+                ))
+        );
+        return routingKeyToQueues;
     }
 
     private static class RabbitMqSubscriberMonitor implements SubscriberMonitor {
@@ -446,6 +568,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private static class ChannelHolder {
+        private final ReentrantLock sizeLimitLock = new ReentrantLock();
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
@@ -455,8 +578,17 @@ public class ConnectionManager implements AutoCloseable {
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker
         ) {
-            this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
-            this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
+            this.supplier = requireNonNull(supplier, "'Supplier' parameter");
+            this.reconnectionChecker = requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
+        }
+
+        public void publishWithLocks(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
+            sizeLimitLock.lock();
+            try {
+                withLock(true, channel -> channel.basicPublish(exchange, routingKey, props, body));
+            } finally {
+                sizeLimitLock.unlock();
+            }
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
