@@ -530,10 +530,19 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     public abstract InputStream loadSingleDictionary();
 
     /**
+     * @param alias name of dictionary
+     * @return Dictionary as {@link File}
+     * @throws IllegalStateException if can not read dictionary
+     */
+    public abstract File loadDictionaryFile(String alias);
+
+
+    /**
      * @return list of available dictionary aliases or an empty list
      * @throws IllegalStateException if can not read dictionary
      */
     public abstract Set<String> getDictionaryAliases();
+
 
     /**
      * @param alias name of dictionary
