@@ -91,7 +91,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
                     .inc();
             sentBeforeQueueSizeCheck++;
-            if (sentBeforeQueueSizeCheck > connectionManager.getConnectionManagerConfiguration().getBatchesToCheckVirtualQueueLimit()) {
+            if (sentBeforeQueueSizeCheck > connectionManager.getConnectionManagerConfiguration().getVirtualPublishLimit()) {
                 connectionManager.lockSendingIfSizeLimitExceeded();
                 sentBeforeQueueSizeCheck = 0;
             }

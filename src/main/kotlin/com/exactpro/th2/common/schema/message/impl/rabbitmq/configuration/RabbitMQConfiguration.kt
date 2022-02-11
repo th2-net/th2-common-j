@@ -38,6 +38,6 @@ data class ConnectionManagerConfiguration(
     var maxConnectionRecoveryTimeout: Int = 60000,
     val prefetchCount: Int = 10,
     val messageRecursionLimit: Int = 100,
-    val secondsToCheckVirtualQueueLimit: Int = 10,
-    val batchesToCheckVirtualQueueLimit: Int = 10000,
+    var virtualPublishLimit: Long = 10000,
+    val secondsToCheckVirtualPublishLimit: Int = 10,
 ) : Configuration()

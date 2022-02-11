@@ -645,12 +645,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
-        return new ConnectionManager(
-                getRabbitMqConfiguration(),
-                getConnectionManagerConfiguration(),
-                getMessageRouterConfiguration(),
-                livenessMonitor::disable
-        );
+        return new ConnectionManager(getRabbitMqConfiguration(), getConnectionManagerConfiguration(), livenessMonitor::disable);
     }
 
     protected ConnectionManager getRabbitMqConnectionManager() {

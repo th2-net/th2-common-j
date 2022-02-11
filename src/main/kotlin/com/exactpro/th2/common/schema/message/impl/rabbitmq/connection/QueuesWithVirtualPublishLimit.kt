@@ -16,7 +16,9 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
 import com.rabbitmq.http.client.domain.QueueInfo
 
-class QueueInfoWithVirtualLimit(queueInfo: QueueInfo, virtualLimit: Long) {
-    val isExceeded = queueInfo.totalMessages > virtualLimit
-    val sizeDetails = "${queueInfo.totalMessages} message(s) in '${queueInfo.name}' (limit is $virtualLimit)"
+class QueuesWithVirtualPublishLimit(queues: List<QueueInfo>, virtualPublishLimit: Long) {
+    val isExceeded = queues.sumOf { it.totalMessages } > virtualPublishLimit
+    val sizeDetails by lazy {
+        queues.joinToString { "${it.totalMessages} message(s) in '${it.name}'" } + ". Virtual publish limit is $virtualPublishLimit"
+    }
 }

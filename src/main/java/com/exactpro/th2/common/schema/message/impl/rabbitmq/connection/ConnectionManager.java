@@ -16,8 +16,6 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -74,8 +72,8 @@ import java.util.stream.Collectors;
 
 import static com.rabbitmq.http.client.domain.DestinationType.QUEUE;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.partitioningBy;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 public class ConnectionManager implements AutoCloseable {
@@ -93,7 +91,6 @@ public class ConnectionManager implements AutoCloseable {
     private final ExecutorService sharedExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
             .setNameFormat("rabbitmq-shared-pool-%d")
             .build());
-    private final Map<String, Long> queueNameToVirtualQueueLimit;
     private final Client client;
     private final ScheduledExecutorService sizeCheckExecutor = Executors.newScheduledThreadPool(1);
     private final Map<String, Set<String>> knownExchangesToRoutingKeys = new ConcurrentHashMap<>();
@@ -120,20 +117,10 @@ public class ConnectionManager implements AutoCloseable {
     public ConnectionManager(
             @NotNull RabbitMQConfiguration rabbitMQConfiguration,
             @NotNull ConnectionManagerConfiguration connectionManagerConfiguration,
-            @NotNull MessageRouterConfiguration messageRouterConfiguration,
             Runnable onFailedRecoveryConnection
     ) {
         this.rabbitMQConfiguration = requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.connectionManagerConfiguration = requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
-        queueNameToVirtualQueueLimit = requireNonNull(messageRouterConfiguration, "Message router configuration can not be null")
-                .getQueues()
-                .values()
-                .stream()
-                .collect(toMap(
-                        QueueConfiguration::getQueue,
-                        QueueConfiguration::getVirtualQueueLimit,
-                        Math::min // TODO is it valid situation if there are several configurations for one queue?
-                ));
 
         String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), rabbitMQConfiguration.getSubscriberName());
         if (StringUtils.isBlank(subscriberNameTmp)) {
@@ -290,8 +277,8 @@ public class ConnectionManager implements AutoCloseable {
 
         sizeCheckExecutor.scheduleAtFixedRate(
                 this::lockSendingIfSizeLimitExceeded,
-                connectionManagerConfiguration.getSecondsToCheckVirtualQueueLimit(), // TODO another initial delay?
-                connectionManagerConfiguration.getSecondsToCheckVirtualQueueLimit(),
+                connectionManagerConfiguration.getSecondsToCheckVirtualPublishLimit(), // TODO another initial delay?
+                connectionManagerConfiguration.getSecondsToCheckVirtualPublishLimit(),
                 TimeUnit.SECONDS
         );
     }
@@ -430,42 +417,38 @@ public class ConnectionManager implements AutoCloseable {
 
     public void lockSendingIfSizeLimitExceeded() {
         try {
-            for (var routingKeyToQueues : groupQueuesByRoutingKey().entrySet()) {
-                String routingKey = routingKeyToQueues.getKey();
-                Map<Boolean, List<QueueInfoWithVirtualLimit>> isExceededToQueues = routingKeyToQueues.getValue().stream()
-                        .collect(partitioningBy(QueueInfoWithVirtualLimit::isExceeded));
+            groupQueuesByRoutingKey().forEach((routingKey, queuesWithVirtualPublishLimit) -> {
                 ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey));
-                List<QueueInfoWithVirtualLimit> exceededQueues = isExceededToQueues.get(true);
-                if (exceededQueues.isEmpty()) {
-                    if (holder.sizeLimitLock.isLocked()) {
-                        holder.sizeLimitLock.unlock();
-                        if (LOGGER.isInfoEnabled()) {
-                            LOGGER.info(
-                                    "Sending via routing key '{}' is resumed. There are {}",
-                                    routingKey,
-                                    isExceededToQueues.get(false).stream().map(QueueInfoWithVirtualLimit::getSizeDetails).collect(joining(", "))
-                            );
-                        }
-                    }
-                } else {
+                if (queuesWithVirtualPublishLimit.isExceeded()) {
                     if (!holder.sizeLimitLock.isLocked()) {
                         holder.sizeLimitLock.lock();
                         if (LOGGER.isInfoEnabled()) {
                             LOGGER.info(
                                     "Sending via routing key '{}' is paused because there are {}",
                                     routingKey,
-                                    exceededQueues.stream().map(QueueInfoWithVirtualLimit::getSizeDetails).collect(joining(", "))
+                                    queuesWithVirtualPublishLimit.getSizeDetails()
+                            );
+                        }
+                    }
+                } else {
+                    if (holder.sizeLimitLock.isLocked()) {
+                        holder.sizeLimitLock.unlock();
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info(
+                                    "Sending via routing key '{}' is resumed. There are {}",
+                                    routingKey,
+                                    queuesWithVirtualPublishLimit.getSizeDetails()
                             );
                         }
                     }
                 }
-            }
+            });
         } catch (Throwable t) {
             LOGGER.error("Error during check queue sizes", t);
         }
     }
 
-    private Map<String, List<QueueInfoWithVirtualLimit>> groupQueuesByRoutingKey() {
+    private Map<String, QueuesWithVirtualPublishLimit> groupQueuesByRoutingKey() {
         List<BindingInfo> bindings = new ArrayList<>();
         knownExchangesToRoutingKeys.forEach((exchange, routingKeys) -> bindings.addAll(
                 client.getBindingsBySource(rabbitMQConfiguration.getVHost(), exchange).stream()
@@ -474,15 +457,19 @@ public class ConnectionManager implements AutoCloseable {
         ));
         Map<String, QueueInfo> queueNameToInfo = client.getQueues().stream()
                 .collect(toMap(QueueInfo::getName, Function.identity()));
-        Map<String, List<QueueInfoWithVirtualLimit>> routingKeyToQueues = new HashMap<>();
-        bindings.forEach(bindingInfo -> routingKeyToQueues
-                .computeIfAbsent(bindingInfo.getRoutingKey(), k -> new ArrayList<>())
-                .add(new QueueInfoWithVirtualLimit(
-                        queueNameToInfo.get(bindingInfo.getDestination()),
-                        queueNameToVirtualQueueLimit.get(bindingInfo.getDestination())
-                ))
-        );
-        return routingKeyToQueues;
+        Map<String, QueuesWithVirtualPublishLimit> routingKeyToQueuesWithLimit = new HashMap<>();
+        bindings.stream()
+                .collect(groupingBy(BindingInfo::getRoutingKey))
+                .forEach((routingKey, bindingsForRoutingKey) ->
+                        routingKeyToQueuesWithLimit.put(
+                                routingKey,
+                                new QueuesWithVirtualPublishLimit(
+                                        bindingsForRoutingKey.stream().map(bindingInfo -> queueNameToInfo.get(bindingInfo.getDestination())).collect(toList()),
+                                        connectionManagerConfiguration.getVirtualPublishLimit()
+                                )
+                        )
+                );
+        return routingKeyToQueuesWithLimit;
     }
 
     private static class RabbitMqSubscriberMonitor implements SubscriberMonitor {

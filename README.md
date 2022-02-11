@@ -94,8 +94,8 @@ The `CommonFactory` reads a RabbitMQ connection configuration from the `mq_route
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
 * messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
-* secondsToCheckVirtualQueueLimit - this option defines an interval in seconds between size check attempts, default = 10
-* batchesToCheckVirtualQueueLimit - this option defines the number of batches between size check attempts, default = 10000
+* virtualPublishLimit - MQ router calculates destination queues and compares their current size to this value. The router blocks the current thread to repeat the comparison if the size of any destination queues exceeds the virtual limit
+* secondsToCheckVirtualPublishLimit - this option defines an interval in seconds between size check attempts, default = 10
 ```json
 {
   "subscriberName": "<subscriber name>",
@@ -106,8 +106,8 @@ The `CommonFactory` reads a RabbitMQ connection configuration from the `mq_route
   "maxConnectionRecoveryTimeout": 60000,
   "prefetchCount": 10,
   "messageRecursionLimit": 100,
-  "secondsToCheckVirtualQueueLimit": 10,
-  "batchesToCheckVirtualQueueLimit": 10000
+  "virtualPublishLimit": 10000,
+  "secondsToCheckVirtualPublishLimit": 10
 }
 ```
 
@@ -129,7 +129,6 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
-  * virtualQueueLimit - MQ router calculates destination queues and compares their current size to this value. The router blocks the current thread to repeat the comparison if the size of any destination queues exceeds the virtual limit
     
 Filters format: 
 * fieldName - a field's name
@@ -167,8 +166,7 @@ Filters format:
             "operation": "WILDCARD"
           }
         ]
-      },
-      "virtualQueueLimit": 10000
+      }
     }
   }
 }
@@ -305,8 +303,7 @@ dependencies {
 ### 3.34.0
 
 + Added backpressure support: lock sending if queue virtual size limit is exceeded
-+ Added parameter `virtualQueueLimit` to `mq.json`
-+ Added parameters `secondsToCheckVirtualQueueLimit` and `batchesToCheckVirtualQueueLimit` to `mq_router.json`
++ Added parameters `virtualPublishLimit` and `secondsToCheckVirtualPublishLimit` to `mq_router.json`
 
 ### 3.33.0
 
