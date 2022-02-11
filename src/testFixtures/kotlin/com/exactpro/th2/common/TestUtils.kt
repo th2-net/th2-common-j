@@ -194,11 +194,11 @@ fun <T> Message.assertValue(name: String, expected: T? = null): T {
 }
 
 private fun Message.withTimestamp(ts: Timestamp) = toBuilder().apply {
-    metadataBuilder.timestamp = ts
+    metadataBuilder.idBuilder.timestamp = ts
 }.build()!!
 
 private fun RawMessage.withTimestamp(ts: Timestamp) = toBuilder().apply {
-    metadataBuilder.timestamp = ts
+    metadataBuilder.idBuilder.timestamp = ts
 }.build()!!
 
 private fun AssertionFailedError.rewrap(additional: String) = AssertionFailedError(

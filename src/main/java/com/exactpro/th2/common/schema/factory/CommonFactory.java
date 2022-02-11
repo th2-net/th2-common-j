@@ -145,7 +145,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 .grpcRouterClass(grpcRouterClass)
                 .variables(environmentVariables)
                 .custom(custom)
-                .dictionariesDir(dictionariesDir)
+                .dictionaryTypesDir(dictionaryTypesDir)
+                .dictionaryAliasesDir(dictionaryAliasesDir)
                 .oldDictionariesDir(oldDictionariesDir)
         );
     }
@@ -153,7 +154,8 @@ public class CommonFactory extends AbstractCommonFactory {
     public CommonFactory(FactorySettings settings) {
         super(settings);
         custom = defaultPathIfNull(settings.getCustom(), CUSTOM_FILE_NAME);
-        dictionariesDir = defaultPathIfNull(settings.getDictionariesDir(), DICTIONARY_DIR_NAME);
+        dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), DICTIONARY_TYPE_DIR_NAME);
+        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), DICTIONARY_ALIAS_DIR_NAME);
         oldDictionariesDir = requireNonNullElse(settings.getOldDictionariesDir(), CONFIG_DEFAULT_PATH);
         configurationManager = createConfigurationManager(settings);
         start();
@@ -182,7 +184,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 .prometheus(prometheus)
                 .boxConfiguration(boxConfiguration)
                 .custom(custom)
-                .dictionariesDir(dictionariesDir)
+                .dictionaryTypesDir(dictionariesDir)
         );
     }
 
