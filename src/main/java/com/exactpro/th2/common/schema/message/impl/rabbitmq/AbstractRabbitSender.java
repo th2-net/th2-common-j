@@ -92,7 +92,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
                     .inc();
             sentBeforeQueueSizeCheck++;
             if (sentBeforeQueueSizeCheck > connectionManager.getConnectionManagerConfiguration().getBatchesToCheckVirtualQueueLimit()) {
-                connectionManager.lockSendingIfSizeLimitExceeded(routingKey.get());
+                connectionManager.lockSendingIfSizeLimitExceeded();
                 sentBeforeQueueSizeCheck = 0;
             }
             connectionManager.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);

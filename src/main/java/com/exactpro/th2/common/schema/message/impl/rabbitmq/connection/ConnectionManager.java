@@ -52,7 +52,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -97,7 +96,7 @@ public class ConnectionManager implements AutoCloseable {
     private final Map<String, Long> queueNameToVirtualQueueLimit;
     private final Client client;
     private final ScheduledExecutorService sizeCheckExecutor = Executors.newScheduledThreadPool(1);
-    private final Set<String> knownExchanges = Collections.synchronizedSet(new HashSet<>());
+    private final Map<String, Set<String>> knownExchangesToRoutingKeys = new ConcurrentHashMap<>();
 
     private final HealthMetrics metrics = new HealthMetrics(this);
 
@@ -323,7 +322,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        knownExchanges.add(exchange);
+        knownExchangesToRoutingKeys.computeIfAbsent(exchange, e -> new HashSet<>()).add(routingKey);
         getChannelFor(PinId.forRoutingKey(routingKey)).publishWithLocks(exchange, routingKey, props, body);
     }
 
@@ -429,22 +428,9 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicAck(deliveryTag, false);
     }
 
-    public void lockSendingIfSizeLimitExceeded(String routingKey) {
-        lockSendingIfSizeLimitExceeded(List.of(routingKey));
-    }
-
-    private void lockSendingIfSizeLimitExceeded() {
-        lockSendingIfSizeLimitExceeded(
-                channelsByPin.keySet().stream()
-                        .filter(channelHolder -> channelHolder.routingKey != null)
-                        .map(channelHolder -> channelHolder.routingKey)
-                        .collect(Collectors.toList())
-        );
-    }
-
-    private void lockSendingIfSizeLimitExceeded(List<String> knownRoutingKeys) {
+    public void lockSendingIfSizeLimitExceeded() {
         try {
-            for (var routingKeyToQueues : groupQueuesByRoutingKey(knownRoutingKeys).entrySet()) {
+            for (var routingKeyToQueues : groupQueuesByRoutingKey().entrySet()) {
                 String routingKey = routingKeyToQueues.getKey();
                 Map<Boolean, List<QueueInfoWithVirtualLimit>> isExceededToQueues = routingKeyToQueues.getValue().stream()
                         .collect(partitioningBy(QueueInfoWithVirtualLimit::isExceeded));
@@ -479,18 +465,18 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private Map<String, List<QueueInfoWithVirtualLimit>> groupQueuesByRoutingKey(List<String> knownRoutingKeys) {
+    private Map<String, List<QueueInfoWithVirtualLimit>> groupQueuesByRoutingKey() {
         List<BindingInfo> bindings = new ArrayList<>();
-        knownExchanges.forEach(exchange -> bindings.addAll(
+        knownExchangesToRoutingKeys.forEach((exchange, routingKeys) -> bindings.addAll(
                 client.getBindingsBySource(rabbitMQConfiguration.getVHost(), exchange).stream()
-                        .filter(it -> it.getDestinationType() == QUEUE && knownRoutingKeys.contains(it.getRoutingKey()))
+                        .filter(it -> it.getDestinationType() == QUEUE && routingKeys.contains(it.getRoutingKey()))
                         .collect(Collectors.toList())
         ));
         Map<String, QueueInfo> queueNameToInfo = client.getQueues().stream()
                 .collect(toMap(QueueInfo::getName, Function.identity()));
         Map<String, List<QueueInfoWithVirtualLimit>> routingKeyToQueues = new HashMap<>();
         bindings.forEach(bindingInfo -> routingKeyToQueues
-                .computeIfAbsent(bindingInfo.getRoutingKey(), s -> new ArrayList<>())
+                .computeIfAbsent(bindingInfo.getRoutingKey(), k -> new ArrayList<>())
                 .add(new QueueInfoWithVirtualLimit(
                         queueNameToInfo.get(bindingInfo.getDestination()),
                         queueNameToVirtualQueueLimit.get(bindingInfo.getDestination())
