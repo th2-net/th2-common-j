@@ -47,8 +47,9 @@ data class FactorySettings @JvmOverloads constructor(
     var prometheus: Path? = null,
     var boxConfiguration: Path? = null,
     var custom: Path? = null,
-    var dictionariesDir: Path? = null,
-    var oldDictionariesDir: Path? = null,
+    @Deprecated("Will be removed in future releases") var dictionaryTypesDir: Path? = null,
+    var dictionaryAliasesDir: Path? = null,
+    @Deprecated("Will be removed in future releases") var oldDictionariesDir: Path? = null,
     var variables: MutableMap<String, String> = HashMap()
 ) {
     fun messageRouterParsedBatchClass(messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>): FactorySettings {
@@ -131,13 +132,18 @@ data class FactorySettings @JvmOverloads constructor(
         return this
     }
 
-    fun dictionariesDir(dictionariesDir: Path?): FactorySettings {
-        this.dictionariesDir = dictionariesDir
+    fun dictionaryTypesDir(dictionaryTypesDir: Path?): FactorySettings {
+        this.dictionaryTypesDir = dictionaryTypesDir
+        return this
+    }
+
+    fun dictionaryAliasesDir(dictionaryAliasesDir: Path?): FactorySettings {
+        this.dictionaryAliasesDir = dictionaryAliasesDir
         return this
     }
 
     fun oldDictionariesDir(oldDictionariesDir: Path?): FactorySettings {
-        this.oldDictionariesDir = oldDictionariesDir
+        this.dictionaryTypesDir = oldDictionariesDir
         return this
     }
 

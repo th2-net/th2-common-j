@@ -108,6 +108,8 @@ fun Message.getBigDecimal(fieldName: String): BigDecimal? = getField(fieldName)?
 fun Message.getMessage(fieldName: String): Message? = getField(fieldName)?.getMessage()
 fun Message.getList(fieldName: String): List<Value>? = getField(fieldName)?.listValue?.valuesList
 
+fun Message?.orEmpty(): Message = this ?: Message.getDefaultInstance()
+
 fun Message.Builder.getString(fieldName: String): String? = getField(fieldName)?.getString()
 fun Message.Builder.getInt(fieldName: String): Int? = getField(fieldName)?.getInt()
 fun Message.Builder.getLong(fieldName: String): Long? = getField(fieldName)?.getLong()
