@@ -62,7 +62,7 @@ Then you will create an instance of imported class, by choosing one of the follo
 
 ### Configuration formats
 
-The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
+The `CommonFactory` reads a RabbitMQ configuration from the `rabbitMQ.json` file.
 * host - the required setting defines the RabbitMQ host.
 * vHost - the required setting defines the virtual host that will be used for connecting to RabbitMQ. 
   Please see more details about the virtual host in RabbitMQ via [link](https://www.rabbitmq.com/vhosts.html)
@@ -72,16 +72,6 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * password - the required setting defines the password that will be used for connecting to RabbitMQ.
 * exchangeName - the required setting defines the exchange that will be used for sending/subscribing operation in MQ routers. 
   Please see more details about the exchanges in RabbitMQ via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
-* connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for infinite waiting.
-* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, the default value is set to 10000.
-* maxRecoveryAttempts - this option defines the number of reconnection attempts to RabbitMQ, with its default value set to 5. 
-  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set to false.
-* minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
-* maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
-* prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
-* messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
-* secondsToCheckVirtualQueueLimit - this option defines an interval in seconds between size check attempts, default = 10
-* batchesToCheckVirtualQueueLimit - this option defines the number of batches between size check attempts, default = 10000
 
 ```json
 {
@@ -90,7 +80,25 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   "port": 5672,
   "username": "<user name>",
   "password": "<password>",
-  "exchangeName": "<exchange name>",
+  "exchangeName": "<exchange name>"
+}
+```
+
+The `CommonFactory` reads a RabbitMQ connection configuration from the `mq_router.json` file.
+* subscriberName - the client-generated consumer tag to establish context, default = (`rabbit_mq_subscriber.` + current time in milliseconds)
+* connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for infinite waiting.
+* connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for infinity, the default value is set to 10000.
+* maxRecoveryAttempts - this option defines the number of reconnection attempts to RabbitMQ, with its default value set to 5.
+  The `th2_readiness` probe is set to false and publishers are blocked after a lost connection to RabbitMQ. The `th2_readiness` probe is reverted to true if the connection will be recovered during specified attempts otherwise the `th2_liveness` probe will be set to false.
+* minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
+* maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
+* prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
+* messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
+* secondsToCheckVirtualQueueLimit - this option defines an interval in seconds between size check attempts, default = 10
+* batchesToCheckVirtualQueueLimit - this option defines the number of batches between size check attempts, default = 10000
+```json
+{
+  "subscriberName": "<subscriber name>",
   "connectionTimeout": 60000,
   "connectionCloseTimeout": 10000,
   "maxRecoveryAttempts": 5,
