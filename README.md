@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.33.0)
+# th2 common library (Java) (3.33.1)
 
 ## Usage
 
@@ -287,6 +287,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.33.1
+
++ Renamed parameter in metrics calculation
 
 ### 3.33.0
 

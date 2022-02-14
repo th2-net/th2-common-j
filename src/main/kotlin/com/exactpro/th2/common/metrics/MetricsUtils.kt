@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ fun incrementTotalMetrics(
     th2Pin: String,
     messageCounter: Counter,
     groupCounter: Counter,
-    gauge: Gauge
+    lastSequenceGauge: Gauge,
 ) {
     val groupsBySessionAliasAndDirection = mutableMapOf<SessionAliasAndDirection, InternalCounter>()
     batch.groupsList.forEach { group ->
@@ -47,7 +47,7 @@ fun incrementTotalMetrics(
                 .computeIfAbsent(aliasAndDirection) { InternalCounter() }
                 .inc()
 
-            gauge
+            lastSequenceGauge
                 .labels(th2Pin, *aliasAndDirection.labels)
                 .set(group.messagesList[0].sequence.toDouble())
         }
@@ -63,7 +63,7 @@ fun incrementDroppedMetrics(
     messages: List<AnyMessage>,
     th2Pin: String,
     messageCounter: Counter,
-    groupCounter: Counter
+    groupCounter: Counter,
 ) {
     if (messages.isNotEmpty()) {
         val aliasAndDirectionArray = getSessionAliasAndDirection(messages[0])
@@ -85,7 +85,7 @@ private fun incrementMetricByMessages(
     th2Pin: String,
     counter: Counter,
     sessionAlias: String,
-    direction: String
+    direction: String,
 ) {
     messages
         .groupingBy { it.kindCase.name }
