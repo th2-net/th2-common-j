@@ -299,7 +299,7 @@ public class ConnectionManager implements AutoCloseable {
                         String routingKey = envelope.getRoutingKey();
                         LOGGER.trace("Received delivery {} from queue={} routing_key={}", deliveryTag, queue, routingKey);
 
-                        Confirmation confirmation = OnlyOnceConfirmation.wrap(() -> holder.withLock(ch -> {
+                        Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, () -> holder.withLock(ch -> {
                             try {
                                 basicAck(ch, deliveryTag);
                             } finally {

@@ -21,6 +21,7 @@ import mu.KotlinLogging
 import java.util.concurrent.atomic.AtomicBoolean
 
 class OnlyOnceConfirmation private constructor(
+    private val id: String,
     private val delegate: ManualAckDeliveryCallback.Confirmation
 ) : ManualAckDeliveryCallback.Confirmation {
     private val called = AtomicBoolean()
@@ -29,7 +30,7 @@ class OnlyOnceConfirmation private constructor(
         if (called.compareAndSet(false, true)) {
             delegate.confirm()
         } else {
-            LOGGER.warn { "Confirmation invoked more that one time" }
+            LOGGER.warn { "Confirmation '$id' invoked more that one time" }
         }
     }
 
@@ -37,6 +38,7 @@ class OnlyOnceConfirmation private constructor(
         private val LOGGER = KotlinLogging.logger { }
 
         @JvmStatic
-        fun wrap(confirmation: ManualAckDeliveryCallback.Confirmation): ManualAckDeliveryCallback.Confirmation = OnlyOnceConfirmation(confirmation)
+        fun wrap(id: String, confirmation: ManualAckDeliveryCallback.Confirmation): ManualAckDeliveryCallback.Confirmation =
+            OnlyOnceConfirmation(id, confirmation)
     }
 }
