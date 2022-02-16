@@ -94,7 +94,7 @@ The `CommonFactory` reads a RabbitMQ connection configuration from the `mq_route
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
 * messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
-* virtualPublishLimit - MQ router calculates destination queues and compares their current size to this value. The router blocks the current thread to repeat the comparison if the size of any destination queues exceeds the virtual limit
+* virtualPublishLimit - MQ router requests actual queue set bound to routing key related to publish pin and then get maximum queue size to this value. The router blocks sending via pin where the limit is exceeded and execute regular check of the current state of the bound queues. The block will be lifted when the max size of queues go down less than the virtual publish limit.
 * secondsToCheckVirtualPublishLimit - this option defines an interval in seconds between size check attempts, default = 10
 ```json
 {
