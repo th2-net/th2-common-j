@@ -21,10 +21,12 @@ import com.exactpro.th2.common.grpc.FilterOperation.IN
 import com.exactpro.th2.common.grpc.FilterOperation.NOT_EQUAL
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MetadataFilter.SimpleFilter
+import com.exactpro.th2.common.grpc.NullValue
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.ValueFilter
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.Duration
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -44,10 +46,13 @@ class TestMessageFilterUtils {
             |"0":{"type":"row","columns":{"expected":"EQUAL 'A'","key":false}},
             |"1":{"type":"row","columns":{"expected":"EQUAL 'B'","key":false}""".trimMargin().replace("\n", "")
     private val ignoredSettingFields = """"
-        |rows":{
-            |"ignore-fields":{"type":"collection","rows":{
-                |"0":{"type":"row","columns":{"name":"fieldA"}},
-                |"1":{"type":"row","columns":{"name":"fieldB"}}}}}""".trimMargin().replace("\n", "")
+            |ignore-fields":{"type":"collection","rows":{
+                |"0":{"type":"row","columns":{"value":"fieldA"}},
+                |"1":{"type":"row","columns":{"value":"fieldB"}}}}""".trimMargin().replace("\n", "")
+    private val timePrecision = """"
+            |time-precision":{"type":"row","columns":{"value":"5m 50.15s"}}""".trimMargin().replace("\n", "")
+    private val decimalPrecision = """"
+            |decimal-precision":{"type":"row","columns":{"value":"0.005"}}""".trimMargin().replace("\n", "")
     private val metadataFilterRows = """
         |"rows":{
             |"propB":{"type":"row","columns":{"expected":"EQUAL 'valB'","key":false}},
@@ -57,6 +62,8 @@ class TestMessageFilterUtils {
             |"MessageCollection":{"type":"collection","rows":{
                 |"0":{"type":"collection","rows":{${fieldFiltersJson}}}}}},
                 |"1":{"type":"collection","rows":{${fieldFiltersJson}}}}}}}},
+            |"MessageWithNullValue":{"type":"collection","rows":{
+                |"NullValue":{"type":"row","columns":{"expected":"IS_NULL","key":false}}}},
             |"Message":{"type":"collection","rows":{
                 |"SimpleFilterList":{"type":"row","columns":{"expected":"IN '[val1, val2, val3]'","key":false}},
                 |${fieldFiltersJson}}}}}},
@@ -68,7 +75,7 @@ class TestMessageFilterUtils {
         |{"type":"treeTable","rows":{
             |"message-filter":{"type":"collection",$messageFilterBodyJson},
             |"message-type":{"type":"row","columns":{"type":"MsgType"}},
-            |"comparison-settings":{"type":"collection",$ignoredSettingFields},
+            |"comparison-settings":{"type":"collection","rows":{$timePrecision,$ignoredSettingFields,$decimalPrecision}},
             |"metadata-filter":{"type":"collection",$metadataFilterRows}}}}""".trimMargin().replace("\n", "")
 
     private val readableRootMessageFilterJson = """
@@ -76,7 +83,7 @@ class TestMessageFilterUtils {
             |"message-filter":{"type":"collection",$messageFilterBodyJson},
             |"metadata-filter":{"type":"collection",$metadataFilterRows}}}},
             |{"type":"treeTable","name":"Settings","rows":{
-                |"comparison-settings":{"type":"collection",$ignoredSettingFields}}},
+                |"comparison-settings":{"type":"collection","rows":{$timePrecision,$ignoredSettingFields,$decimalPrecision}}}},
         |{"type":"treeTable","name":"Metadata","rows":{
                 |"message-type":{"type":"row","columns":{"Expected field value":"MsgType"}}
                 |$ADDITIONAL_METADATA_TAG}}]""".trimMargin().replace("\n", "")
@@ -100,6 +107,11 @@ class TestMessageFilterUtils {
             comparisonSettingsBuilder.apply {
                 addIgnoreFields("fieldA")
                 addIgnoreFields("fieldB")
+                timePrecision = Duration.newBuilder().apply {
+                    seconds = 350
+                    nanos = 150000000
+                }.build()
+                decimalPrecision = "0.005"
             }
         }.build().toTreeTable()
         Assertions.assertNotNull(toTreeTable)
@@ -123,6 +135,11 @@ class TestMessageFilterUtils {
             comparisonSettingsBuilder.apply {
                 addIgnoreFields("fieldA")
                 addIgnoreFields("fieldB")
+                timePrecision = Duration.newBuilder().apply { 
+                    seconds = 350
+                    nanos = 150000000
+                }.build()
+                decimalPrecision = "0.005"
             }
         }.build().toReadableBodyCollection(additionalMetadata)
 
@@ -149,6 +166,9 @@ class TestMessageFilterUtils {
                     putFields("subMessageB", messageFilter { fillMessage(this) })
                 })
             })
+            putFields("MessageWithNullValue", messageFilter {
+                putFields("NullValue", nullValueFilter())
+            })
 
         }.build()
     }
@@ -162,6 +182,12 @@ class TestMessageFilterUtils {
     private fun simpleValueFilter(value: String = "", filterOperation: FilterOperation = EQUAL, isKey: Boolean = false) = ValueFilter.newBuilder().apply {
         operation = filterOperation
         simpleFilter = value
+        key = isKey
+    }.build()
+
+    private fun nullValueFilter(filterOperation: FilterOperation = EQUAL, isKey: Boolean = false) = ValueFilter.newBuilder().apply {
+        operation = filterOperation
+        nullValue = NullValue.NULL_VALUE
         key = isKey
     }.build()
 

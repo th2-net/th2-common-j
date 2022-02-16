@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,14 @@ import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.Event.Status.FAILED
 import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
-import com.google.protobuf.MessageOrBuilder
+import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
+import com.google.protobuf.MessageOrBuilder
 import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
@@ -60,3 +63,27 @@ fun MessageRouter<EventBatch>.storeEvent(
 
 @Deprecated(message = "Please use MessageUtils.toJson", replaceWith = ReplaceWith("toJson(true)", imports = ["com.exactpro.th2.common.message.toJson"]), level = DeprecationLevel.WARNING)
 fun MessageOrBuilder.toJson() : String = toJson(true)
+
+fun appendAttributes(
+    vararg attributes: String,
+    requiredAttributes: () -> Set<String>
+): Set<String> {
+    if (attributes.isEmpty()) {
+        return requiredAttributes()
+    }
+    return mutableSetOf(*attributes).apply {
+        addAll(requiredAttributes())
+    }
+}
+
+fun MessageGroupBatch.toShortDebugString(): String = buildString {
+    append("MessageGroupBatch(ids = ")
+
+    groupsList.asSequence()
+        .flatMap { it.messagesList.asSequence() }
+        .map(AnyMessage::logId)
+        .toSortedSet()
+        .apply { append(this) }
+
+    append(')')
+}

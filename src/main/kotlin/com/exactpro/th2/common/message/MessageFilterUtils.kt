@@ -25,6 +25,7 @@ import com.exactpro.th2.common.event.bean.builder.RowBuilder
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.grpc.FilterOperation
 import com.exactpro.th2.common.grpc.FilterOperation.EMPTY
+import com.exactpro.th2.common.grpc.FilterOperation.EQUAL
 import com.exactpro.th2.common.grpc.FilterOperation.NOT_EMPTY
 import com.exactpro.th2.common.grpc.ListValueFilter
 import com.exactpro.th2.common.grpc.MessageFilter
@@ -35,11 +36,14 @@ import com.exactpro.th2.common.grpc.RootComparisonSettings
 import com.exactpro.th2.common.grpc.RootMessageFilter
 import com.exactpro.th2.common.grpc.SimpleList
 import com.exactpro.th2.common.grpc.ValueFilter
+import com.exactpro.th2.common.grpc.ValueFilter.KindCase.NULL_VALUE
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
+
+private val DEFAULT_TIME_PRECISION_REGEX = Regex("(\\d[HMS])(?!\$)")
 
 @Deprecated(
         message = "The message type from MessageFilter will be removed in the future",
@@ -129,6 +133,17 @@ private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = Collecti
                 .build())
         }
     }.build())
+    if (hasTimePrecision()) {
+        val timePrecision = timePrecision.toJavaDuration().toString().substring(2)
+        row("time-precision", RowBuilder()
+            .column(IgnoreFieldColumn(DEFAULT_TIME_PRECISION_REGEX.replace(timePrecision, "$1 ").toLowerCase()))
+            .build())
+    }
+    if (decimalPrecision.isNotBlank()) {
+        row("decimal-precision", RowBuilder()
+            .column(IgnoreFieldColumn(decimalPrecision))
+            .build())
+    }
 }.build()
 
 private fun ListValueFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
@@ -150,6 +165,9 @@ private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
     hasMessageFilter() -> messageFilter.toTreeTableEntry()
     hasListFilter() -> listFilter.toTreeTableEntry()
     hasSimpleList() -> simpleList.toTreeTableEntry(operation, key)
+    kindCase == NULL_VALUE -> RowBuilder()
+        .column(MessageFilterTableColumn(if (operation == EQUAL) "IS_NULL" else "IS_NOT_NULL", key))
+        .build()
     kindCase == SIMPLE_FILTER || operation == EMPTY || operation == NOT_EMPTY -> RowBuilder()
         .column(MessageFilterTableColumn(simpleFilter, operation.toString(), key))
         .build()
@@ -163,13 +181,14 @@ private fun SimpleList.toTreeTableEntry(operation: FilterOperation, key: Boolean
 }
 
 private data class MessageFilterTableColumn(
-    @JsonIgnore val value: String,
-    @JsonIgnore val operation: String,
+    @get:JsonProperty(index = 0) val expected: String,
     val key: Boolean
 ) : IColumn {
-    @get:JsonProperty(index = 0)
-    val expected: String
-        get() = if (value.isEmpty()) operation else "$operation '${value}'"
+    constructor(
+        value: String,
+        operation: String,
+        key: Boolean
+    ) : this(if (value.isEmpty()) operation else "$operation '${value}'", key)
 }
 
 private data class MetadataField(
@@ -177,4 +196,4 @@ private data class MetadataField(
 ) : IColumn
 
 private data class MessageTypeColumn(val type: String) : IColumn
-private data class IgnoreFieldColumn(val name: String) : IColumn
+private data class IgnoreFieldColumn(val value: String) : IColumn

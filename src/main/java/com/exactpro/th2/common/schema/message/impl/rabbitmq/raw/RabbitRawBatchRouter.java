@@ -15,68 +15,58 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.raw;
 
-import com.exactpro.th2.common.grpc.RawMessage;
-import com.exactpro.th2.common.grpc.RawMessageBatch;
-import com.exactpro.th2.common.grpc.RawMessageBatch.Builder;
-import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
-import com.exactpro.th2.common.schema.filter.strategy.impl.Th2RawMsgFilterStrategy;
-import com.exactpro.th2.common.schema.message.FilterFunction;
-import com.exactpro.th2.common.schema.message.MessageQueue;
-import com.exactpro.th2.common.schema.message.QueueAttribute;
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.router.AbstractRabbitBatchMessageRouter;
-import com.google.protobuf.Message;
+import java.util.Set;
+
 import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-import java.util.Set;
+import com.exactpro.th2.common.grpc.AnyMessage;
+import com.exactpro.th2.common.grpc.MessageGroup;
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
+import com.exactpro.th2.common.grpc.RawMessageBatch;
+import com.exactpro.th2.common.message.MessageUtils;
+import com.exactpro.th2.common.schema.message.QueueAttribute;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractGroupBatchAdapterRouter;
 
-public class RabbitRawBatchRouter extends AbstractRabbitBatchMessageRouter<RawMessage, RawMessageBatch, RawMessageBatch.Builder> {
-
+public class RabbitRawBatchRouter extends AbstractGroupBatchAdapterRouter<RawMessageBatch> {
     private static final Set<String> REQUIRED_SUBSCRIBE_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.SUBSCRIBE.toString());
     private static final Set<String> REQUIRED_SEND_ATTRIBUTES = SetUtils.unmodifiableSet(QueueAttribute.RAW.toString(), QueueAttribute.PUBLISH.toString());
 
+    @NotNull
     @Override
-    protected @NotNull FilterStrategy<Message> getDefaultFilterStrategy() {
-        return new Th2RawMsgFilterStrategy();
+    public Set<String> getRequiredSendAttributes() {
+        return REQUIRED_SEND_ATTRIBUTES;
     }
 
+    @NotNull
     @Override
-    protected MessageQueue<RawMessageBatch> createQueue(@NotNull ConnectionManager connectionManager, @NotNull QueueConfiguration queueConfiguration, @NotNull FilterFunction filterFunction) {
-        RabbitRawBatchQueue queue = new RabbitRawBatchQueue();
-        queue.init(connectionManager, queueConfiguration, filterFunction);
-        return queue;
-    }
-
-    @Override
-    protected Set<String> requiredSubscribeAttributes() {
+    public Set<String> getRequiredSubscribeAttributes() {
         return REQUIRED_SUBSCRIBE_ATTRIBUTES;
     }
 
     @Override
-    protected Set<String> requiredSendAttributes() {
-        return REQUIRED_SEND_ATTRIBUTES;
+    protected @NotNull MessageGroupBatch buildGroupBatch(RawMessageBatch rawMessageBatch) {
+        var messageGroupBatchBuilder = MessageGroupBatch.newBuilder();
+        rawMessageBatch.getMessagesList().forEach(rawMessage ->
+                messageGroupBatchBuilder.addGroups(
+                        MessageGroup.newBuilder().addMessages(AnyMessage.newBuilder().setRawMessage(rawMessage).build())
+                )
+        );
+        return messageGroupBatchBuilder.build();
     }
 
     @Override
-    protected List<RawMessage> getMessages(RawMessageBatch batch) {
-        return batch.getMessagesList();
-    }
-
-    @Override
-    protected Builder createBatchBuilder() {
-        return RawMessageBatch.newBuilder();
-    }
-
-    @Override
-    protected void addMessage(Builder builder, RawMessage message) {
-        builder.addMessages(message);
-    }
-
-    @Override
-    protected RawMessageBatch build(Builder builder) {
+    protected RawMessageBatch buildFromGroupBatch(@NotNull MessageGroupBatch groupBatch) {
+        var builder = RawMessageBatch.newBuilder();
+        groupBatch.getGroupsList().stream()
+                .flatMap(messageGroup -> messageGroup.getMessagesList().stream())
+                .peek(anyMessage -> {
+                    if (!anyMessage.hasRawMessage()) {
+                        throw new IllegalStateException("Message group batch contains not raw message: " + MessageUtils.toJson(groupBatch));
+                    }
+                })
+                .map(AnyMessage::getRawMessage)
+                .forEach(builder::addMessages);
         return builder.build();
     }
 }
