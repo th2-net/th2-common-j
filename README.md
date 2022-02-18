@@ -35,8 +35,9 @@ Then you will create an instance of imported class, by choosing one of the follo
     1. rabbitMq.json - configuration for RabbitMQ
     2. mq.json - configuration for MessageRouter
     3. grpc.json - configuration for GrpcRouter
-    4. cradle.json - configuration for cradle
-    5. custom.json - custom configuration
+    4. cradle.json - confidential configuration for cradle
+    5. cradle_manager.json - non confidential configuration for cradle
+    6. custom.json - custom configuration
     
     The second group:
     * --namespace - the namespace in Kubernetes to search config maps
@@ -172,7 +173,7 @@ Filters format:
 }
 ```
 
-The `CommonFactory` reads a Cradle configuration from the cradle.json file.
+The `CommonFactory` reads a Cradle configuration from the `cradle.json` file.
 * dataCenter - the required setting defines the data center in the Cassandra cluster.
 * host - the required setting defines the Cassandra host.
 * port - the required setting defines the Cassandra port.
@@ -180,10 +181,6 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * username - the required setting defines the Cassandra username. The user must have permission to write data using a specified keyspace.
 * password - the required setting defines the password that will be used for connecting to Cassandra.
 * cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra set as the default value.
-* cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
-* cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
-* timeout - this option defines connection timeout in milliseconds. If set to 0 or ommited, the default value of 5000 is used.
-* pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or ommited, the default value of 5000 is used.
 
 ```json
 {
@@ -193,7 +190,18 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "keyspace": "<keyspace>",
   "username": "<username>",
   "password": "<password>",
-  "cradleInstanceName": "<cradle instance name>",
+  "cradleInstanceName": "<cradle instance name>"
+}
+```
+
+The `CommonFactory` reads a Cradle configuration from the `cradle_manager.json` file.
+* cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
+* cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
+* timeout - this option defines connection timeout in milliseconds. If set to 0 or ommited, the default value of 5000 is used.
+* pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or ommited, the default value of 5000 is used.
+
+```json
+{
   "cradleMaxEventBatchSize": 1048576,
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
