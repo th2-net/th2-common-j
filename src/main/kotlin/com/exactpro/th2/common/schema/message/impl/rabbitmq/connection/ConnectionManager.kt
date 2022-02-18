@@ -51,7 +51,6 @@ import com.rabbitmq.client.Consumer
 import com.rabbitmq.client.ExceptionHandler
 import com.rabbitmq.http.client.Client
 import com.rabbitmq.http.client.domain.DestinationType
-import com.rabbitmq.http.client.domain.QueueInfo
 import mu.KotlinLogging
 import org.apache.commons.lang3.builder.EqualsBuilder
 import org.apache.commons.lang3.builder.HashCodeBuilder
@@ -382,7 +381,8 @@ class ConnectionManager(
     }
 
     fun lockSendingIfSizeLimitExceeded() = try {
-        val queueNameToInfo = client.queues.associateBy { it.name }
+        val queueNameToSize = client.queues
+            .associateBy({ it.name }, { it.totalMessages })
         knownExchangesToRoutingKeys.entries.asSequence()
             .flatMap { (exchange, routingKeys) ->
                 client.getBindingsBySource(rabbitMQConfiguration.vHost, exchange).asSequence()
@@ -390,18 +390,23 @@ class ConnectionManager(
             }
             .groupBy { it.routingKey }
             .forEach { (routingKey, bindings) ->
-                val queues = bindings.asSequence().mapNotNull { queueNameToInfo[it.destination] }
+                val bindingNameToSize = bindings
+                    .associateBy({ it.destination }, { queueNameToSize.getValue(it.destination) })
                 val limit = connectionManagerConfiguration.virtualPublishLimit
                 val holder = getChannelFor(PinId.forRoutingKey(routingKey))
-                if (queues.sumOf { it.totalMessages } > limit) {
+                val sizeDetails = {
+                    bindingNameToSize.entries
+                        .joinToString { "${it.value} message(s) in '${it.key}'" }
+                }
+                if (bindingNameToSize.values.sum() > limit) {
                     if (!holder.sizeLimitLock.isLocked) {
                         holder.sizeLimitLock.lock()
-                        LOGGER.info { "Sending via routing key '$routingKey' is paused because there are ${queues.sizeDetails()}. Virtual publish limit is $limit" }
+                        LOGGER.info { "Sending via routing key '$routingKey' is paused because there are ${sizeDetails()}. Virtual publish limit is $limit" }
                     }
                 } else {
                     if (holder.sizeLimitLock.isLocked) {
                         holder.sizeLimitLock.unlock()
-                        LOGGER.info { "Sending via routing key '$routingKey' is resumed. There are ${queues.sizeDetails()}. Virtual publish limit is $limit" }
+                        LOGGER.info { "Sending via routing key '$routingKey' is resumed. There are ${sizeDetails()}. Virtual publish limit is $limit" }
                     }
                 }
             }
@@ -511,8 +516,5 @@ class ConnectionManager(
     companion object {
         private val LOGGER = KotlinLogging.logger {}
         private const val RABBITMQ_MANAGEMENT_URL = "http://%s:15672/api/"
-        private fun Sequence<QueueInfo>.sizeDetails() = joinToString {
-            "${it.totalMessages} message(s) in '${it.name}'"
-        }
     }
 }
