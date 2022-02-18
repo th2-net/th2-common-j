@@ -28,7 +28,6 @@ import com.rabbitmq.client.RecoveryListener
 import com.rabbitmq.client.Recoverable
 import com.rabbitmq.client.ConnectionFactory
 import com.rabbitmq.client.TopologyRecoveryException
-import com.rabbitmq.client.ShutdownSignalException
 import java.lang.IllegalStateException
 import com.rabbitmq.client.RecoveryDelayHandler
 import com.rabbitmq.http.client.ClientParameters
@@ -172,7 +171,7 @@ class ConnectionManager(
             }
         }
         factory.isAutomaticRecoveryEnabled = true
-        factory.setConnectionRecoveryTriggeringCondition { shutdownSignal: ShutdownSignalException? ->
+        factory.setConnectionRecoveryTriggeringCondition {
             if (connectionIsClosed.get()) {
                 return@setConnectionRecoveryTriggeringCondition false
             }
@@ -190,7 +189,7 @@ class ConnectionManager(
             }
             false
         }
-        factory.recoveryDelayHandler = RecoveryDelayHandler { recoveryAttempts: Int ->
+        factory.recoveryDelayHandler = RecoveryDelayHandler {
             val tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement()
             val recoveryDelay = (connectionManagerConfiguration.minConnectionRecoveryTimeout
                     + if (connectionManagerConfiguration.maxRecoveryAttempts > 1) (connectionManagerConfiguration.maxConnectionRecoveryTimeout - connectionManagerConfiguration.minConnectionRecoveryTimeout)
