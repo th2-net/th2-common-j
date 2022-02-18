@@ -381,34 +381,32 @@ class ConnectionManager(
         channel.basicAck(deliveryTag, false)
     }
 
-    fun lockSendingIfSizeLimitExceeded() {
-        try {
-            val queueNameToInfo = client.queues.associateBy { it.name }
-            knownExchangesToRoutingKeys.entries.asSequence()
-                .flatMap { (exchange, routingKeys) ->
-                    client.getBindingsBySource(rabbitMQConfiguration.vHost, exchange).asSequence()
-                        .filter { it.destinationType == DestinationType.QUEUE && routingKeys.contains(it.routingKey) }
-                }
-                .groupBy { it.routingKey }
-                .forEach { (routingKey, bindings) ->
-                    val queues = bindings.asSequence().mapNotNull { queueNameToInfo[it.destination] }
-                    val limit = connectionManagerConfiguration.virtualPublishLimit
-                    val holder = getChannelFor(PinId.forRoutingKey(routingKey))
-                    if (queues.sumOf { it.totalMessages } > limit) {
-                        if (!holder.sizeLimitLock.isLocked) {
-                            holder.sizeLimitLock.lock()
-                            LOGGER.info { "Sending via routing key '$routingKey' is paused because there are ${queues.sizeDetails()}. Virtual publish limit is $limit" }
-                        }
-                    } else {
-                        if (holder.sizeLimitLock.isLocked) {
-                            holder.sizeLimitLock.unlock()
-                            LOGGER.info { "Sending via routing key '$routingKey' is resumed. There are ${queues.sizeDetails()}. Virtual publish limit is $limit" }
-                        }
+    fun lockSendingIfSizeLimitExceeded() = try {
+        val queueNameToInfo = client.queues.associateBy { it.name }
+        knownExchangesToRoutingKeys.entries.asSequence()
+            .flatMap { (exchange, routingKeys) ->
+                client.getBindingsBySource(rabbitMQConfiguration.vHost, exchange).asSequence()
+                    .filter { it.destinationType == DestinationType.QUEUE && routingKeys.contains(it.routingKey) }
+            }
+            .groupBy { it.routingKey }
+            .forEach { (routingKey, bindings) ->
+                val queues = bindings.asSequence().mapNotNull { queueNameToInfo[it.destination] }
+                val limit = connectionManagerConfiguration.virtualPublishLimit
+                val holder = getChannelFor(PinId.forRoutingKey(routingKey))
+                if (queues.sumOf { it.totalMessages } > limit) {
+                    if (!holder.sizeLimitLock.isLocked) {
+                        holder.sizeLimitLock.lock()
+                        LOGGER.info { "Sending via routing key '$routingKey' is paused because there are ${queues.sizeDetails()}. Virtual publish limit is $limit" }
+                    }
+                } else {
+                    if (holder.sizeLimitLock.isLocked) {
+                        holder.sizeLimitLock.unlock()
+                        LOGGER.info { "Sending via routing key '$routingKey' is resumed. There are ${queues.sizeDetails()}. Virtual publish limit is $limit" }
                     }
                 }
-        } catch (t: Throwable) {
-            LOGGER.error("Error during check queue sizes", t)
-        }
+            }
+    } catch (t: Throwable) {
+        LOGGER.error("Error during check queue sizes", t)
     }
 
     private class PinId private constructor(routingKey: String?, queue: String?) {
