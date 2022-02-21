@@ -241,7 +241,7 @@ class ConnectionManager(
             throw IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it")
         }
         sizeCheckExecutor.scheduleAtFixedRate(
-            ::lockSendingIfSizeLimitExceeded,
+            ::internalLockSendingIfSizeLimitExceeded,
             connectionManagerConfiguration.secondsToCheckVirtualPublishLimit.toLong(),  // TODO another initial delay?
             connectionManagerConfiguration.secondsToCheckVirtualPublishLimit.toLong(),
             TimeUnit.SECONDS
@@ -380,7 +380,11 @@ class ConnectionManager(
         channel.basicAck(deliveryTag, false)
     }
 
-    fun lockSendingIfSizeLimitExceeded() = try {
+    fun lockSendingIfSizeLimitExceeded() {
+        sizeCheckExecutor.submit(::internalLockSendingIfSizeLimitExceeded).get()
+    }
+
+    private fun internalLockSendingIfSizeLimitExceeded() = try {
         val queueNameToSize = client.queues
             .associateBy({ it.name }, { it.totalMessages })
         knownExchangesToRoutingKeys.entries.asSequence()
@@ -394,6 +398,7 @@ class ConnectionManager(
                     .associateBy({ it.destination }, { queueNameToSize.getValue(it.destination) })
                 val limit = connectionManagerConfiguration.virtualPublishLimit
                 val holder = getChannelFor(PinId.forRoutingKey(routingKey))
+                LOGGER.trace { "Size limit lock for routing key '$routingKey': ${holder.sizeLimitLock}" }
                 val sizeDetails = {
                     bindingNameToSize.entries
                         .joinToString { "${it.value} message(s) in '${it.key}'" }
