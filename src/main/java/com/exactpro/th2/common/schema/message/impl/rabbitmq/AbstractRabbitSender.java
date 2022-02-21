@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final String th2Type;
+    private long sentBeforeQueueSizeCheck;
 
     public AbstractRabbitSender(
             @NotNull ConnectionManager connectionManager,
@@ -81,7 +82,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         requireNonNull(value, "Value for send can not be null");
 
         try {
-            ConnectionManager connection = this.connectionManager.get();
+            ConnectionManager connectionManager = this.connectionManager.get();
             byte[] bytes = valueToBytes(value);
             MESSAGE_SIZE_PUBLISH_BYTES
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
@@ -89,7 +90,12 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             MESSAGE_PUBLISH_TOTAL
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
                     .inc();
-            connection.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
+            sentBeforeQueueSizeCheck++;
+            if (sentBeforeQueueSizeCheck > connectionManager.getConnectionManagerConfiguration().getVirtualPublishLimit()) {
+                connectionManager.lockSendingIfSizeLimitExceeded();
+                sentBeforeQueueSizeCheck = 0;
+            }
+            connectionManager.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",
