@@ -23,7 +23,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder
  */
 class MetricMonitor(
     private val arbiter: Metric,
-    val name: String
+    val name: String,
 ) {
     /**
      * Status property of the current monitor. Please use the [isMetricEnabled] method to get cumulative metric status
@@ -41,6 +41,7 @@ class MetricMonitor(
     /**
      * Changes status of this monitor to `enabled`
      */
+    @Synchronized
     fun enable() {
         val wasDisabled = !arbiter.isEnabled
         arbiter.enable(this)
@@ -52,6 +53,7 @@ class MetricMonitor(
     /**
      * Changes status of this monitor to `disabled`
      */
+    @Synchronized
     fun disable() {
         val wasEnabled = arbiter.isEnabled
         arbiter.disable(this)
@@ -66,7 +68,7 @@ class MetricMonitor(
             .append("name", name)
             .toString()
     }
-    
+
     companion object {
         val LOGGER = KotlinLogging.logger {}
     }
