@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.32.0)
+# th2 common library (Java) (3.34.0)
 
 ## Usage
 
@@ -288,9 +288,26 @@ dependencies {
 
 ## Release notes
 
-### 3.32.0
+### 3.34.0
 + Split connection from `ConnectionManager` into publishing and consuming
 + Limited attempts for RabbitMQ connection recovery
+
+### 3.33.0
+
++ Added ability to read dictionaries by aliases and as group of all available aliases
++ New methods for api: loadDictionary(String), getDictionaryAliases(), loadSingleDictionary()
+
+### 3.32.1
+
++ Fixed: gRPC router didn't shut down underlying Netty's EventLoopGroup and ExecutorService 
+
+### 3.32.0
+
++ Added new test utils for assertion of **AnyMessage** or **Groups** of messages
+
+### 3.31.6
+
++ Update Cradle version from 2.20.0 to [2.20.2](https://github.com/th2-net/cradleapi/releases/tag/2.20.2)
 
 ### 3.31.4
 

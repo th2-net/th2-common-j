@@ -16,8 +16,13 @@
 
 package com.exactpro.th2.common
 
+import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.AnyMessageOrBuilder
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageBatch
+import com.exactpro.th2.common.grpc.MessageBatchOrBuilder
+import com.exactpro.th2.common.grpc.MessageGroupBatchOrBuilder
+import com.exactpro.th2.common.grpc.MessageGroupOrBuilder
+import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.message.get
 import com.exactpro.th2.common.message.getBigDecimal
@@ -29,7 +34,7 @@ import com.exactpro.th2.common.message.getLong
 import com.exactpro.th2.common.message.getMessage
 import com.exactpro.th2.common.message.getString
 import com.exactpro.th2.common.message.messageType
-import com.google.protobuf.TextFormat
+import com.exactpro.th2.common.message.toJson
 import com.google.protobuf.Timestamp
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.fail
@@ -37,41 +42,66 @@ import org.junit.platform.commons.util.StringUtils
 import org.opentest4j.AssertionFailedError
 import java.math.BigDecimal
 
-fun assertEqualBatches(expected: MessageBatch, actual: MessageBatch, lazyMessage: () -> String? = {null}) {
-    Assertions.assertEquals(expected.messagesCount, actual.messagesCount) {"wrong count of messages in batch: \n${TextFormat.shortDebugString(actual)}"}
+fun assertEqualBatches(expected: MessageBatchOrBuilder, actual: MessageBatchOrBuilder, lazyMessage: () -> String? = {null}) {
+    Assertions.assertEquals(expected.messagesCount, actual.messagesCount) {"wrong count of messages in batch: \n${actual.toJson()}"}
     expected.messagesList.forEachIndexed { i, message ->
         try {
             assertEqualMessages(message, actual.messagesList[i], lazyMessage)
         } catch (e: AssertionFailedError) {
-            throw AssertionFailedError(
-                "Error in message from batch with index '$i'.\n${e.message}",
-                e.expected,
-                e.actual,
-                e.cause
-            )
+            throw e.rewrap("Error in message from batch with index '$i'")
         }
     }
 }
 
-fun assertEqualMessages(expected: Message, actual: Message, lazyMessage: () -> String? = {null}) {
+fun assertEqualGroups(expected: MessageGroupOrBuilder, actual: MessageGroupOrBuilder, lazyMessage: () -> String? = {null}) {
+    Assertions.assertEquals(expected.messagesCount, actual.messagesCount) {"wrong count of messages in group: \n${actual.toJson()}"}
+    expected.messagesList.forEachIndexed { i, message ->
+        try {
+            assertEqualMessages(message, actual.messagesList[i], lazyMessage)
+        } catch (e: AssertionFailedError) {
+            throw e.rewrap("Error in message from group with index '$i'")
+        }
+    }
+}
+
+fun assertEqualGroupBatches(expected: MessageGroupBatchOrBuilder, actual: MessageGroupBatchOrBuilder, lazyMessage: () -> String? = {null}) {
+    Assertions.assertEquals(expected.groupsCount, actual.groupsCount) {"wrong count of groups in batch: \n${actual.toJson()}"}
+    expected.groupsList.forEachIndexed { i, group ->
+        try {
+            assertEqualGroups(group, actual.getGroups(i), lazyMessage)
+        } catch (e: AssertionFailedError) {
+            throw e.rewrap("Error in group from batch with index '$i'")
+        }
+
+    }
+}
+
+fun assertEqualMessages(expected: AnyMessageOrBuilder, actual: AnyMessageOrBuilder, lazyMessage: () -> String? = {null}) {
+    Assertions.assertEquals(expected.kindCase, actual.kindCase) { "Wrong message kind" }
     val ts = Timestamp.getDefaultInstance()
-    val assertExpected = expected.toBuilder().apply {
-        metadataBuilder.timestamp = ts
-    }.build()
-    val assertActual = actual.toBuilder().apply {
-        metadataBuilder.timestamp = ts
-    }.build()
+
+    val assertExpected = when (expected.kindCase) {
+        AnyMessage.KindCase.MESSAGE -> expected.message.withTimestamp(ts)
+        AnyMessage.KindCase.RAW_MESSAGE -> expected.rawMessage.withTimestamp(ts)
+        else ->  expected
+    }
+
+    val assertActual = when (actual.kindCase) {
+        AnyMessage.KindCase.MESSAGE -> actual.message.withTimestamp(ts)
+        AnyMessage.KindCase.RAW_MESSAGE -> actual.rawMessage.withTimestamp(ts)
+        else ->  actual
+    }
+
     try {
         Assertions.assertEquals(assertExpected, assertActual, lazyMessage)
     } catch (e: AssertionFailedError) {
-        throw AssertionFailedError(
-            "Error in message with type '${actual.messageType}'.\n${e.message}",
-            e.expected,
-            e.actual,
-            e.cause
-        )
+        throw e.rewrap("Error in '${actual.kindCase}'")
     }
 }
+
+fun assertEqualMessages(expected: RawMessage, actual: RawMessage, lazyMessage: () -> String? = {null}) = assertEqualMessages(AnyMessage.newBuilder().setRawMessage(expected), AnyMessage.newBuilder().setRawMessage(actual), lazyMessage)
+
+fun assertEqualMessages(expected: Message, actual: Message, lazyMessage: () -> String? = {null}) = assertEqualMessages(AnyMessage.newBuilder().setMessage(expected), AnyMessage.newBuilder().setMessage(actual), lazyMessage)
 
 fun buildPrefix(message: String?): String {
     return if (StringUtils.isNotBlank(message)) "$message ==> " else ""
@@ -121,6 +151,12 @@ fun Message.assertList(name: String, expected: List<Value> ? = null): List<Value
     return actual
 }
 
+fun Message.assertList(name: String, block: Value.() -> Unit) {
+    this.assertContains(name)
+    val actual = this.getList(name)!!
+    actual.forEach(block)
+}
+
 fun Message.assertString(name: String, expected: String? = null): String {
     this.assertContains(name)
     val actual = this.getString(name)!!
@@ -156,3 +192,18 @@ fun <T> Message.assertValue(name: String, expected: T? = null): T {
     } ?: Assertions.assertNull(actual) {"Unexpected $name field value"}
     return actual as T
 }
+
+private fun Message.withTimestamp(ts: Timestamp) = toBuilder().apply {
+    metadataBuilder.timestamp = ts
+}.build()!!
+
+private fun RawMessage.withTimestamp(ts: Timestamp) = toBuilder().apply {
+    metadataBuilder.timestamp = ts
+}.build()!!
+
+private fun AssertionFailedError.rewrap(additional: String) = AssertionFailedError(
+    "$additional.\n${message}",
+    this.expected,
+    this.actual,
+    this.cause
+)

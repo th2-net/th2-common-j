@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -70,7 +70,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -93,17 +92,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
+ *
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
  *
  * @see CommonFactory
@@ -112,6 +110,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
+
     /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
     @Deprecated
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
@@ -518,48 +517,41 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * Read first and only one dictionary
+     * @return Dictionary as {@link InputStream}
+     * @throws IllegalStateException if can not read dictionary or found more than one target
+     */
+    public abstract InputStream loadSingleDictionary();
+
+    /**
+     * @return list of available dictionary aliases or an empty list
+     * @throws IllegalStateException if can not read dictionary
+     */
+    public abstract Set<String> getDictionaryAliases();
+
+    /**
+     * @param alias name of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
-    public InputStream readDictionary() {
-        return readDictionary(DictionaryType.MAIN);
-    }
+    public abstract InputStream loadDictionary(String alias);
 
     /**
+     * Read dictionary of {@link DictionaryType#MAIN} type
+     * @return Dictionary as {@link InputStream}
+     * @throws IllegalStateException if can not read dictionary
+     */
+    @Deprecated(since = "3.33.0", forRemoval = true)
+    public abstract InputStream readDictionary();
+
+    /**
+     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
      * @param dictionaryType desired type of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
-    public InputStream readDictionary(DictionaryType dictionaryType) {
-        try {
-            List<Path> dictionaries = null;
-            Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
-            if (Files.exists(dictionaryTypeDictionary) && Files.isDirectory(dictionaryTypeDictionary)) {
-                dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
-                        .filter(Files::isRegularFile)
-                        .collect(Collectors.toList());
-            }
-
-            // Find with old format
-            if (dictionaries == null || dictionaries.isEmpty()) {
-                dictionaries = Files.list(getOldPathToDictionariesDir())
-                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
-                        .collect(Collectors.toList());
-            }
-
-            if (dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries satisfying the '" + dictionaryType + "' type");
-            }
-
-            var targetDictionary = dictionaries.get(0);
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary", e);
-        }
-    }
+    @Deprecated(since = "3.33.0", forRemoval = true)
+    public abstract InputStream readDictionary(DictionaryType dictionaryType);
 
     /**
      * If root event does not exist, it creates root event with its name = box name and timestamp
@@ -604,10 +596,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected abstract Path getPathToCustomConfiguration();
 
     /**
-     * @return Path to dictionary
+     * @return Path to dictionaries with type dir
      */
-    protected abstract Path getPathToDictionariesDir();
+    @Deprecated(since = "3.33.0", forRemoval = true)
+    protected abstract Path getPathToDictionaryTypesDir();
 
+    /**
+     * @return Path to dictionaries with alias dir
+     */
+    protected abstract Path getPathToDictionaryAliasesDir();
+
+    @Deprecated(since = "3.33.0", forRemoval = true)
     protected abstract Path getOldPathToDictionariesDir();
 
     /**
