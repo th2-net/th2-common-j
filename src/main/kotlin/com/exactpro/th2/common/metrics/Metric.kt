@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,11 +40,13 @@ interface Metric {
 
     /**
      * Changes status of a provided [monitor] to `enabled`
+     * Returns `true` if previous status was `disabled`, otherwise `false`
      */
-    fun enable(monitor: MetricMonitor)
+    fun enable(monitor: MetricMonitor): Boolean
 
     /**
      * Changes status of a provided [monitor] to `disabled`
+     * Returns `true` if previous status was `enabled`, otherwise `false`
      */
-    fun disable(monitor: MetricMonitor)
+    fun disable(monitor: MetricMonitor): Boolean
 }

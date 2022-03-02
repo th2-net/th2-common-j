@@ -40,28 +40,23 @@ class MetricMonitor(
 
     /**
      * Changes status of this monitor to `enabled`
+     * Returns `true` if previous status was `disabled`, otherwise `false`
      */
-    @Synchronized
     fun enable() {
-        val wasDisabled = !arbiter.isEnabled
-        arbiter.enable(this)
-        if (wasDisabled) {
+        if (arbiter.enable(this)) {
             LOGGER.info { "$name is enabled" }
         }
     }
 
     /**
      * Changes status of this monitor to `disabled`
+     * Returns `true` if previous status was `enabled`, otherwise `false`
      */
-    @Synchronized
     fun disable() {
-        val wasEnabled = arbiter.isEnabled
-        arbiter.disable(this)
-        if (wasEnabled) {
+        if (arbiter.disable(this)) {
             LOGGER.info { "$name is disabled" }
         }
     }
-
 
     override fun toString(): String {
         return ToStringBuilder(this)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,11 +26,11 @@ class AggregatingMetric(private val metrics: List<Metric>) : Metric {
 
     override fun isEnabled(monitor: MetricMonitor): Boolean = metrics.all { it.isEnabled(monitor) }
 
-    override fun enable(monitor: MetricMonitor) = metrics.forEach {
-        it.enable(monitor)
-    }
+    override fun enable(monitor: MetricMonitor) = metrics.asSequence()
+        .map { it.enable(monitor) }
+        .all { true }
 
-    override fun disable(monitor: MetricMonitor) = metrics.forEach {
-        it.disable(monitor)
-    }
+    override fun disable(monitor: MetricMonitor) = metrics.asSequence()
+        .map { it.disable(monitor) }
+        .all { true }
 }

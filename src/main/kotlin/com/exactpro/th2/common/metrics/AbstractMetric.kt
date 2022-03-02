@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,16 +26,20 @@ abstract class AbstractMetric : Metric {
 
     override fun createMonitor(name: String): MetricMonitor = MetricMonitor(this, name)
 
-    override fun enable(monitor: MetricMonitor) {
-        if(disabledMonitors.remove(monitor)) {
+    override fun enable(monitor: MetricMonitor): Boolean {
+        val wasDisabled = disabledMonitors.remove(monitor)
+        if (wasDisabled) {
             onValueChange(disabledMonitors.isEmpty())
         }
+        return wasDisabled
     }
 
-    override fun disable(monitor: MetricMonitor) {
-        if (disabledMonitors.add(monitor)) {
+    override fun disable(monitor: MetricMonitor): Boolean {
+        val wasEnabled = disabledMonitors.add(monitor)
+        if (wasEnabled) {
             onValueChange(false)
         }
+        return wasEnabled
     }
 
     override fun isEnabled(monitor: MetricMonitor): Boolean = monitor !in disabledMonitors
