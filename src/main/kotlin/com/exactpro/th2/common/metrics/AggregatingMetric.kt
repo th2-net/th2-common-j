@@ -26,11 +26,11 @@ class AggregatingMetric(private val metrics: List<Metric>) : Metric {
 
     override fun isEnabled(monitor: MetricMonitor): Boolean = metrics.all { it.isEnabled(monitor) }
 
-    override fun enable(monitor: MetricMonitor) = metrics.asSequence()
+    override fun enable(monitor: MetricMonitor): Boolean = metrics.asSequence()
         .map { it.enable(monitor) }
         .all { true }
 
-    override fun disable(monitor: MetricMonitor) = metrics.asSequence()
+    override fun disable(monitor: MetricMonitor): Boolean = metrics.asSequence()
         .map { it.disable(monitor) }
         .all { true }
 }
