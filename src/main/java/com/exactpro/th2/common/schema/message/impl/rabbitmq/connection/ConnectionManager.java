@@ -180,6 +180,23 @@ public class ConnectionManager implements AutoCloseable {
             }
         });
 
+        AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
+        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
+            if (connectionIsClosed.get()) {
+                return false;
+            }
+
+            int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
+
+            if (tmpCountTriesToRecovery < configuration.getMaxRecoveryAttempts()) {
+                LOGGER.info("Try to recovery {} connection to RabbitMQ. Count tries = {}", connectionName, tmpCountTriesToRecovery + 1);
+                return true;
+            }
+            LOGGER.error("Can not connect to RabbitMQ for {} connection. Count tries = {}", connectionName, tmpCountTriesToRecovery);
+            metrics.getLivenessMonitor().disable();
+            return false;
+        });
+
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
                     if (connectionIsClosed.get()) {
                         throw new IllegalStateException("Connection is already closed");
