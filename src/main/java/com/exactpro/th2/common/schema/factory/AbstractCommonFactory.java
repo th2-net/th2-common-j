@@ -531,10 +531,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * @param alias name of dictionary
-     * @return Dictionary as {@link File}
+     * @return Dictionary as {@link Path}
      * @throws IllegalStateException if can not read dictionary
      */
-    public abstract File loadDictionaryFile(String alias);
+    public abstract Path getDictionaryPath(String alias);
 
 
     /**
