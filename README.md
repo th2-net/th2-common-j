@@ -290,6 +290,7 @@ dependencies {
 
 ### 3.33.1
 
++ Added ability to read dictionary by alias as file
 + Corrected logging for configuration files
 
 ### 3.33.0

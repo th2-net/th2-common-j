@@ -546,7 +546,7 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     @Override
-    public InputStream loadDictionary(String alias) {
+    public Path getDictionaryPath(String alias) {
         Path dictionaryFolder = getPathToDictionaryAliasesDir();
         try {
             LOGGER.debug("Loading dictionary by alias ({}) from folder: {}", alias, dictionaryFolder);
@@ -567,9 +567,19 @@ public class CommonFactory extends AbstractCommonFactory {
                 throw new IllegalStateException("Found several dictionaries by alias '" + alias + "' at path: " + dictionaryFolder.toAbsolutePath());
             }
 
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(dictionaries.get(0))));
+            return dictionaries.get(0);
         } catch (IOException e) {
             throw new IllegalStateException("Can not read dictionary '" + alias + "' from path: " + dictionaryFolder.toAbsolutePath(), e);
+        }
+    }
+
+    @Override
+    public InputStream loadDictionary(String alias) {
+        Path dictionaryPath = getDictionaryPath(alias);
+        try {
+            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(dictionaryPath)));
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not read dictionary '" + alias + "' from path: " + dictionaryPath, e);
         }
     }
 
