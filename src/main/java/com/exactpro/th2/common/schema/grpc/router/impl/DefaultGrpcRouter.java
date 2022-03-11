@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -60,11 +60,13 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * Creates a service instance according to the filters in {@link GrpcConfiguration}
      *
      * @param cls class of service
+     * @param attr pins attributes
      * @param <T> type of service
      * @return service instance
      * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
-    public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
+
+    public <T> T getService(@NotNull Class<T> cls, String... attr) throws ClassNotFoundException {
         List<Provider<T>> implementations = ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
                 .stream().collect(Collectors.toList());
 
@@ -91,7 +93,6 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
             throw new IllegalStateException("Can not create new instance of service from class " + cls, e);
         }
     }
-
 
     @SuppressWarnings("unchecked")
     protected <T> T getProxyService(Class<T> proxyService) {

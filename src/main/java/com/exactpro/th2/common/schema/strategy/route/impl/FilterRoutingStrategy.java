@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,14 +16,18 @@
 package com.exactpro.th2.common.schema.strategy.route.impl;
 
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawFilterStrategy;
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.common.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
 
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @StrategyName("filter")
 public class FilterRoutingStrategy implements RoutingStrategy<GrpcRawFilterStrategy> {
@@ -44,8 +48,19 @@ public class FilterRoutingStrategy implements RoutingStrategy<GrpcRawFilterStrat
     }
 
     @Override
+    @Deprecated
     public String getEndpoint(Message message) {
+        return getEndpoint(message, Map.of());
+    }
+
+    @Override
+    public String getEndpoint(Message message, Map<String, GrpcEndpointConfiguration> endPoints, String... attrs) {
         var endpoint = filter(message);
+        if (attrs.length > 0) {
+            endpoint = endpoint.stream().filter(name ->
+                    endPoints.get(name).getAttributes().containsAll(Arrays.asList(attrs))
+            ).collect(Collectors.toSet());
+        }
 
         if (endpoint.size() != 1) {
             throw new IllegalStateException("Wrong size of endpoints for send. Should be equal to 1");

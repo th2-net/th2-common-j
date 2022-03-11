@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,11 +15,13 @@
 
 package com.exactpro.th2.common.schema.strategy.route.impl;
 
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy;
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy;
 import com.exactpro.th2.common.schema.strategy.route.StrategyName;
 import com.google.protobuf.Message;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -54,6 +56,11 @@ public class RobinRoutingStrategy implements RoutingStrategy<GrpcRawRobinStrateg
     @Override
     public String getEndpoint(Message message) {
         return configuration.getEndpoints().get(index.getAndUpdate(i -> i + 1 >= configuration.getEndpoints().size() ? 0 : i + 1));
+    }
+
+    @Override
+    public String getEndpoint(Message message, Map<String, GrpcEndpointConfiguration> endPoints, String... attrs) {
+        return getEndpoint(message); // TODO attributes filter
     }
 
     @Override

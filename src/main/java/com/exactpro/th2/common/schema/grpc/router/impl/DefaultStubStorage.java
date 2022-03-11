@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,8 +44,8 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
 
     @NotNull
     @Override
-    public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory) {
-        String endpointLabel = serviceConfiguration.getStrategy().getEndpoint(message);
+    public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory, String... attrs) {
+        String endpointLabel = serviceConfiguration.getStrategy().getEndpoint(message, serviceConfiguration.getEndpoints(), attrs);
         return stubs.computeIfAbsent(endpointLabel, key -> {
             GrpcEndpointConfiguration endpoint = serviceConfiguration.getEndpoints().get(key);
 
