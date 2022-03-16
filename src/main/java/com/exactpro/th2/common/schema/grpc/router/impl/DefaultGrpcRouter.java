@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -149,7 +149,8 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     }
 
     protected  <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<?> proxyService, Class<T> stubClass, Message message) {
-        var serviceConfig = getServiceConfig(proxyService);
+        // FIXME: Add gRPC pin filters if needed
+        var serviceConfig = getServiceConfig(proxyService).get(0);
 
         String endpointName = serviceConfig.getStrategy().getEndpoint(message);
 
@@ -158,8 +159,8 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                         createStubInstance(stubClass, getOrCreateChannel(key, serviceConfig)));
     }
 
-    protected GrpcServiceConfiguration getServiceConfig(Class<?> proxyService) {
-        return configuration.getServices().values().stream()
+    protected List<GrpcServiceConfiguration> getServiceConfig(Class<?> proxyService) {
+        final var result = configuration.getServices().values().stream()
                 .filter(sConfig -> {
 
                     String proxyClassName = proxyService.getName();
@@ -170,9 +171,13 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
                     return sConfig.getServiceClass().getName().equals(proxyClassName);
                 })
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No services matching the provided " +
-                        "class were found in the configuration: " + proxyService.getName()));
+                .collect(Collectors.toList());
+        if (result.isEmpty()) {
+            throw  new IllegalStateException("No services matching the provided class were found in the configuration: "
+                    + proxyService.getName());
+        }
+
+        return result;
     }
 
     protected Channel getOrCreateChannel(String endpointName, GrpcServiceConfiguration serviceConfig) {

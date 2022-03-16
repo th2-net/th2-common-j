@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -135,7 +135,8 @@ class TestJsonConfiguration {
                         init(GrpcRawRobinStrategy(listOf("endpoint")))
                     },
                     GrpcConfiguration::class.java,
-                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr")))
+                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr"))),
+                    emptyList()
                 )
             ),
             GrpcServerConfiguration("host123", 1234, 58)
