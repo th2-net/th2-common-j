@@ -30,7 +30,11 @@ data class GrpcServiceConfiguration(
     @JsonProperty(required = true) var strategy: RoutingStrategy<*>,
     @JsonProperty(required = true, value = "service-class") var serviceClass: Class<*>,
     @JsonProperty(required = true) var endpoints: Map<String, GrpcEndpointConfiguration> = emptyMap(),
-    @JsonProperty var filters: List<List<FieldFilterConfiguration>> = emptyList()
+    @JsonProperty var filters: List<Filter> = emptyList()
+) : Configuration()
+
+data class Filter(
+    @JsonProperty(required = true) var properties: List<FieldFilterConfiguration>,
 ) : Configuration()
 
 data class GrpcEndpointConfiguration(

@@ -64,7 +64,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory, @NotNull Map<String, String> properties) {
 
         for (final ServiceHolder<T> service: services) {
-            if (service.serviceConfig.getFilters().stream().anyMatch(it -> isAllPropertiesMatch(it, properties))) {
+            if (service.serviceConfig.getFilters().stream().anyMatch(it -> isAllPropertiesMatch(it.getProperties(), properties))) {
 
                 String endpointLabel = service.serviceConfig.getStrategy().getEndpoint(message);
 
