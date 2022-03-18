@@ -549,11 +549,16 @@ public class ConnectionManager implements AutoCloseable {
          * the action that will be executed when the number of unacked messages is less than {@link #maxCount} and there is a future to cancel
          */
         public void release(Runnable onWaterMarkDecreased) {
-            pending--;
-            if (pending < maxCount && check != null) {
-                check.cancel(true);
-                check = null;
-                onWaterMarkDecreased.run();
+            lock.lock();
+            try {
+                pending--;
+                if (pending < maxCount && check != null) {
+                    check.cancel(true);
+                    check = null;
+                    onWaterMarkDecreased.run();
+                }
+            } finally {
+                lock.unlock();
             }
         }
 
@@ -566,14 +571,24 @@ public class ConnectionManager implements AutoCloseable {
          * creates a future to track the task that should be executed until the number of unacked message is not less than {@link #maxCount}
          */
         public void acquireAndSubmitCheck(Supplier<Future<?>> futureSupplier) {
-            pending++;
-            if (reachedPendingLimit() && check == null) {
-                check = futureSupplier.get();
+            lock.lock();
+            try {
+                pending++;
+                if (reachedPendingLimit() && check == null) {
+                    check = futureSupplier.get();
+                }
+            } finally {
+                lock.unlock();
             }
         }
 
         public boolean reachedPendingLimit() {
-            return pending >= maxCount;
+            lock.lock();
+            try {
+                return pending >= maxCount;
+            } finally {
+                lock.unlock();
+            }
         }
 
         private Channel getChannel() {
