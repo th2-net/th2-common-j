@@ -30,8 +30,8 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '2.20.2-TH2-3329-1992217189-SNAPSHOT'
-    junitVersion      = '5.7.2'
+    cradleVersion       = '2.20.2-TH2-3329-2002908676-SNAPSHOT'
+    junitVersion        = '5.8.1'
     sharedDir           = file("${project.rootDir}/shared")
 }
 
@@ -206,7 +206,7 @@ dependencies {
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
 
     testFixturesImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
-    testFixturesImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+    testFixturesImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
 }
 
 jar {
