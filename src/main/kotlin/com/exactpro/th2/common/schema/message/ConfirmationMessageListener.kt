@@ -17,13 +17,6 @@
 package com.exactpro.th2.common.schema.message
 
 interface ConfirmationMessageListener<T> {
-    /**
-     * If returns `true` that means the listener handles confirmation by himself
-     * and no auto-confirmation should be performed.
-     *
-     * If returns `false` the confirmation should be performed automatically when method [handle] returns
-     */
-    val manualConfirmation: Boolean
 
     @Throws(Exception::class)
     fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
@@ -32,27 +25,33 @@ interface ConfirmationMessageListener<T> {
 
     companion object {
         @JvmStatic
-        @JvmOverloads
-        fun <T> wrap(listener: MessageListener<T>, confirm: Boolean = false): ConfirmationMessageListener<T> = DelegateListener(listener, confirm)
+        fun <T> wrap(listener: MessageListener<T>): ConfirmationMessageListener<T> = DelegateListener(listener)
+
+        /**
+         * @return `true` if the listener uses manual acknowledgment
+         */
+        @JvmStatic
+        fun isManual(listener: ConfirmationMessageListener<*>): Boolean = listener is ManualConfirmationListener<*>
     }
+}
+
+/**
+ * The interface marker that indicates that acknowledge will be manually invoked by the listener itself
+ */
+interface ManualConfirmationListener<T> : ConfirmationMessageListener<T> {
+    /**
+     * The listener must invoke the [confirmation] callback once it has processed the [message]
+     * @see ConfirmationMessageListener.handle
+     */
+    override fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
 }
 
 private class DelegateListener<T>(
     private val delegate: MessageListener<T>,
-    private val confirm: Boolean
 ) : ConfirmationMessageListener<T> {
-    override val manualConfirmation: Boolean
-        get() = false
 
     override fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
-        try {
-            delegate.handler(consumerTag, message)
-        } finally {
-            // do not call confirmation if we were tolled so
-            if (confirm) {
-                confirmation.confirm()
-            }
-        }
+        delegate.handler(consumerTag, message)
     }
 
     override fun onClose() {

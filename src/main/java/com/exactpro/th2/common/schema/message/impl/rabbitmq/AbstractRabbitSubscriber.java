@@ -160,7 +160,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void addListener(ConfirmationMessageListener<T> messageListener) {
-        if (messageListener.getManualConfirmation()) {
+        if (ConfirmationMessageListener.isManual(messageListener)) {
             if (!hasManualSubscriber.compareAndSet(false, true)) {
                 throw new IllegalStateException("cannot subscribe listener " + messageListener
                         + " because only one listener with manual confirmation is allowed per queue");
@@ -226,7 +226,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 try {
                     listener.handle(consumeTag, filteredValue, confirmation);
                     if (!hasManualConfirmation) {
-                        hasManualConfirmation = listener.getManualConfirmation();
+                        hasManualConfirmation = ConfirmationMessageListener.isManual(listener);
                     }
                 } catch (Exception listenerExc) {
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);

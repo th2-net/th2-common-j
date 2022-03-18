@@ -18,35 +18,31 @@ package com.exactpro.th2.common.schema.message
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
-import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 
 class TestConfirmationMessageListenerWrapper {
-    @ParameterizedTest(name = "confirm = {0}")
-    @ValueSource(booleans = [true, false])
-    fun `calls confirmation when requested`(confirm: Boolean) {
-        val listener = ConfirmationMessageListener.wrap<Any>({ _, _ -> }, confirm)
+    @Test
+    fun `calls confirmation when requested`() {
+        val listener = ConfirmationMessageListener.wrap<Any> { _, _ -> }
 
         mock<ManualAckDeliveryCallback.Confirmation> {}.also {
             listener.handle("", 2, it)
-            verify(it, if (confirm) times(1) else never()).confirm()
+            verify(it, never()).confirm()
         }
     }
 
-    @ParameterizedTest(name = "confirm = {0}")
-    @ValueSource(booleans = [true, false])
-    fun `calls confirmation when requested and method throw an exception`(confirm: Boolean) {
-        val listener = ConfirmationMessageListener.wrap<Any>({ _, _ -> error("test") }, confirm)
+    @Test
+    fun `calls confirmation when requested and method throw an exception`() {
+        val listener = ConfirmationMessageListener.wrap<Any> { _, _ -> error("test") }
 
         mock<ManualAckDeliveryCallback.Confirmation> {}.also {
             assertThrows(IllegalStateException::class.java) { listener.handle("", 2, it) }.apply {
                 assertEquals("test", message)
             }
-            verify(it, if (confirm) times(1) else never()).confirm()
+            verify(it, never()).confirm()
         }
     }
 
