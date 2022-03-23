@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.33.0)
+# th2 common library (Java) (3.34.0)
 
 ## Usage
 
@@ -288,10 +288,18 @@ dependencies {
 
 ## Release notes
 
-### 3.33.0
+### 3.34.0
 
 + Added ability to read dictionaries by aliases and as group of all available aliases
 + New methods for api: loadDictionary(String), getDictionaryAliases(), loadSingleDictionary()
+
+### 3.33.0
+
+#### Added:
+
++ Methods for subscription with manual acknowledgement
+  (if the **prefetch count** is requested and no messages are acknowledged the reading from the queue will be suspended).
+  Please, note that only one subscriber with manual acknowledgement can be subscribed to a queue
 
 ### 3.32.1
 
