@@ -288,6 +288,10 @@ dependencies {
 
 ## Release notes
 
+### 3.34.0
+
++ Update Cradle version from 2.21.0 to [2.21.0](https://github.com/th2-net/cradleapi/releases/tag/2.21.0)
+
 ### 3.33.0
 
 + Added ability to read dictionaries by aliases and as group of all available aliases
