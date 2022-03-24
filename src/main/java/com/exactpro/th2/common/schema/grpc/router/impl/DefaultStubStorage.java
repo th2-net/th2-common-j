@@ -65,7 +65,8 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory, @NotNull Map<String, String> properties) {
 
         final var matchingServices = services.stream()
-                .filter(service -> service.serviceConfig.getFilters().stream().anyMatch(it -> isAllPropertiesMatch(it.getProperties(), properties)))
+                .filter(service -> service.serviceConfig.getFilters().isEmpty()
+                        || service.serviceConfig.getFilters().stream().anyMatch(it -> isAllPropertiesMatch(it.getProperties(), properties)))
                 .limit(2)
                 .collect(Collectors.toList());
 
