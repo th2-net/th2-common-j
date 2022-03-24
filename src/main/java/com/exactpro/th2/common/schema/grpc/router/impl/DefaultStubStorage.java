@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -63,26 +64,32 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     @Override
     public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory, @NotNull Map<String, String> properties) {
 
-        for (final ServiceHolder<T> service: services) {
-            if (service.serviceConfig.getFilters().stream().anyMatch(it -> isAllPropertiesMatch(it.getProperties(), properties))) {
+        final var matchingServices = services.stream()
+                .filter(service -> service.serviceConfig.getFilters().stream().anyMatch(it -> isAllPropertiesMatch(it.getProperties(), properties)))
+                .limit(2)
+                .collect(Collectors.toList());
 
-                String endpointLabel = service.serviceConfig.getStrategy().getEndpoint(message);
-
-                return service.stubs.computeIfAbsent(endpointLabel, key -> {
-                    GrpcEndpointConfiguration endpoint = service.serviceConfig.getEndpoints().get(key);
-
-                    if (Objects.isNull(endpoint)) {
-                        throw new IllegalStateException("No endpoint in the configuration " +
-                                "that matches the provided alias: " + key);
-                    }
-
-                    return stubFactory.newStub(ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort()).usePlaintext().build(), CallOptions.DEFAULT);
-                });
-
-            }
+        if(matchingServices.isEmpty()) {
+            throw new  IllegalStateException("No gRPC pin matches the provided properties");
         }
 
-        throw new  IllegalStateException("No gRPC pin matches the provided properties");
+        if(matchingServices.size() > 1) {
+            throw new  IllegalStateException("More than one gRPC pins match the provided properties");
+        }
+
+        final var service = matchingServices.get(0);
+        final var endpointLabel = service.serviceConfig.getStrategy().getEndpoint(message);
+
+        return service.stubs.computeIfAbsent(endpointLabel, key -> {
+            GrpcEndpointConfiguration endpoint = service.serviceConfig.getEndpoints().get(key);
+
+            if (Objects.isNull(endpoint)) {
+                throw new IllegalStateException("No endpoint in the configuration " +
+                        "that matches the provided alias: " + key);
+            }
+
+            return stubFactory.newStub(ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort()).usePlaintext().build(), CallOptions.DEFAULT);
+        });
     }
 
     private boolean isAllPropertiesMatch(List<FieldFilterConfiguration> filterProp, Map<String, String> properties) {
