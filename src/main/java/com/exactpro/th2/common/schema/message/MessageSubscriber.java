@@ -37,5 +37,5 @@ public interface MessageSubscriber<T> extends AutoCloseable {
 
     void start() throws Exception;
 
-    void addListener(MessageListener<T> messageListener);
+    void addListener(ConfirmationMessageListener<T> messageListener);
 }
