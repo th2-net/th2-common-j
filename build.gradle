@@ -166,12 +166,12 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:3.1.0')
     api "com.exactpro.th2:cradle-core:${cradleVersion}"
-    api 'com.exactpro.th2:grpc-common:3.9.1-TH2-3340-1993503553-SNAPSHOT'
+    api 'com.exactpro.th2:grpc-common:3.9.1-TH2-3340-2048844043-SNAPSHOT'
 
     implementation 'com.google.protobuf:protobuf-java-util'
-    implementation 'com.exactpro.th2:grpc-service-generator:3.1.12-TH2-3340-1985441760-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-service-generator:3.2.0-TH2-3340-2041436997-SNAPSHOT'
     implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
