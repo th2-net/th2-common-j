@@ -64,9 +64,9 @@ data class GrpcServerConfiguration(
 ) : Configuration()
 
 data class FieldFilterConfiguration(
-    @JsonProperty(value = "field-name", required = true) var fieldName: String,
-    @JsonProperty(value = "expected-value") var expectedValue: String?,
-    @JsonProperty(value = "operation", required = true) var operation: FieldFilterOperation
+    @JsonProperty var fieldName: String,
+    @JsonProperty var expectedValue: String?,
+    @JsonProperty var operation: FieldFilterOperation
 ) : Configuration()
 
 enum class FieldFilterOperation {
