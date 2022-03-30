@@ -292,6 +292,10 @@ dependencies {
 
 + Added support for gRPC pins filters
 
+### 3.35.0
+
+* Included dependency to the io.prometheus:simpleclient_log4j:0.9.0
+
 ### 3.34.0
 
 + Added ability to read dictionaries by aliases and as group of all available aliases
