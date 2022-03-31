@@ -25,9 +25,8 @@ import java.util.stream.Collectors;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import com.exactpro.th2.common.schema.grpc.configuration.FieldFilterConfiguration;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.StringUtils;
+import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
@@ -52,6 +51,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private final List<ServiceHolder<T>> services;
+    private final FieldValueChecker valueChecker = new FieldValueChecker();
 
     public DefaultStubStorage(@NotNull List<GrpcServiceConfiguration> serviceConfigurations) {
         services = new ArrayList<>(serviceConfigurations.size());
@@ -94,27 +94,6 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private boolean isAllPropertiesMatch(List<FieldFilterConfiguration> filterProp, Map<String, String> properties) {
-        return filterProp.stream().allMatch(it -> checkValue(properties.get(it.getFieldName()), it));
-    }
-
-    // FIXME: Code duplication (AbstractFilterStrategy)
-    private boolean checkValue(String value, FieldFilterConfiguration filterConfiguration) {
-        var valueInConf = filterConfiguration.getExpectedValue();
-
-        // FIXME: Change switch to switch-expression after upping java version
-        switch (filterConfiguration.getOperation()) {
-            case EQUAL:
-                return Objects.equals(value, valueInConf);
-            case NOT_EQUAL:
-                return !Objects.equals(value, valueInConf);
-            case EMPTY:
-                return StringUtils.isEmpty(value);
-            case NOT_EMPTY:
-                return StringUtils.isNotEmpty(value);
-            case WILDCARD:
-                return FilenameUtils.wildcardMatch(value, valueInConf);
-            default:
-                return false;
-        }
+        return filterProp.stream().allMatch(it -> valueChecker.check(properties.get(it.getFieldName()), it));
     }
 }

@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.schema.grpc.configuration
 
 import com.exactpro.th2.common.schema.configuration.Configuration
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy
 import com.exactpro.th2.service.RetryPolicy
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -62,17 +63,3 @@ data class GrpcServerConfiguration(
     @JsonProperty(required = true) var port: Int = 8080,
     var workers: Int = 1
 ) : Configuration()
-
-data class FieldFilterConfiguration(
-    @JsonProperty var fieldName: String,
-    @JsonProperty var expectedValue: String?,
-    @JsonProperty var operation: FieldFilterOperation
-) : Configuration()
-
-enum class FieldFilterOperation {
-    EQUAL,
-    NOT_EQUAL,
-    EMPTY,
-    NOT_EMPTY,
-    WILDCARD
-}
