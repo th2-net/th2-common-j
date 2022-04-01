@@ -28,7 +28,7 @@ data class GrpcConfiguration(
 ) : Configuration()
 
 data class GrpcServiceConfiguration(
-    @JsonProperty(required = true) var strategy: RoutingStrategy<*>,
+    @Deprecated("will be removed in a future versions") @JsonProperty(required = true) var strategy: RoutingStrategy<*>,
     @JsonProperty(required = true, value = "service-class") var serviceClass: Class<*>,
     @JsonProperty(required = true) var endpoints: Map<String, GrpcEndpointConfiguration> = emptyMap(),
     @JsonProperty var filters: List<Filter> = emptyList()

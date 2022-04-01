@@ -17,7 +17,7 @@ package com.exactpro.th2.common.schema.strategy.route;
 
 import com.google.protobuf.Message;
 
-
+@Deprecated
 public interface RoutingStrategy<T> {
 
     Class<? extends T> getConfigurationClass();

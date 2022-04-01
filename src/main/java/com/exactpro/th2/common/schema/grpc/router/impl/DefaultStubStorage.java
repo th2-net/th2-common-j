@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
+import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueCheckerKt;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import org.jetbrains.annotations.NotNull;
 
@@ -51,7 +51,6 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private final List<ServiceHolder<T>> services;
-    private final FieldValueChecker valueChecker = new FieldValueChecker();
 
     public DefaultStubStorage(@NotNull List<GrpcServiceConfiguration> serviceConfigurations) {
         services = new ArrayList<>(serviceConfigurations.size());
@@ -71,11 +70,11 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                 .collect(Collectors.toList());
 
         if(matchingServices.isEmpty()) {
-            throw new  IllegalStateException("No gRPC pin matches the provided properties");
+            throw new IllegalStateException("No gRPC pin matches the provided properties: " + properties);
         }
 
         if(matchingServices.size() > 1) {
-            throw new  IllegalStateException("More than one gRPC pins match the provided properties");
+            throw new IllegalStateException("More than one gRPC pins match the provided properties: " + properties);
         }
 
         final var service = matchingServices.get(0);
@@ -94,6 +93,6 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private boolean isAllPropertiesMatch(List<FieldFilterConfiguration> filterProp, Map<String, String> properties) {
-        return filterProp.stream().allMatch(it -> valueChecker.check(properties.get(it.getFieldName()), it));
+        return filterProp.stream().allMatch(it -> FieldValueCheckerKt.checkFieldValue(properties.get(it.getFieldName()), it));
     }
 }

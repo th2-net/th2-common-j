@@ -29,8 +29,6 @@ import java.util.Map;
 
 public abstract class AbstractFilterStrategy<T extends Message> implements FilterStrategy<T> {
 
-    private final FieldValueChecker valueChecker = new FieldValueChecker();
-
     @Override
     public boolean verify(T message, RouterFilter routerFilter) {
 
@@ -58,7 +56,7 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
         return fieldFilters.isEmpty() || fieldFilters.keys().stream().anyMatch(fieldName -> {
             String messageValue = messageFields.get(fieldName);
             Collection<FieldFilterConfiguration> filters = fieldFilters.get(fieldName);
-            return !filters.isEmpty() && filters.stream().allMatch(filter -> valueChecker.check(messageValue, filter));
+            return !filters.isEmpty() && filters.stream().allMatch(filter -> FieldValueCheckerKt.checkFieldValue(messageValue, filter));
         });
     }
 }
