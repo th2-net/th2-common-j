@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.34.0)
+# th2 common library (Java) (3.36.0)
 
 ## Usage
 
@@ -287,6 +287,13 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.36.0
+
+* Cradle version was updated from `2.20.2` to `3.1.1`.
+  **Please, note, that migration is required for `3.1.1` usage**.
+* New parameter `prepareStorage` is added to the `cradle_manager.json`.
+  It allows enabling/disabling Cradle schema initialization.
 
 ### 3.35.0
 
