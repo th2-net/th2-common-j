@@ -33,6 +33,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.strategy.route.impl.RobinRoutingStrategy
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -123,6 +124,7 @@ class TestJsonConfiguration {
     companion object {
         @JvmStatic
         private val OBJECT_MAPPER: ObjectMapper = ObjectMapper()
+            .registerModule(JavaTimeModule())
 
         @JvmStatic
         private val CONF_DIR = Path.of("test_json_configurations")

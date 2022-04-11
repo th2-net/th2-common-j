@@ -153,7 +153,16 @@ signing {
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags('integration-test')
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags('integration-test')
+    }
 }
 
 dependencies {
@@ -184,6 +193,7 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-annotations"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
+    // TODO: need to update jackson kotlin module to get rid of kotlin-reflect 1.3.72
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
@@ -199,11 +209,14 @@ dependencies {
     implementation 'io.prometheus:simpleclient'
     implementation 'io.prometheus:simpleclient_hotspot'
     implementation 'io.prometheus:simpleclient_httpserver'
+    implementation 'io.prometheus:simpleclient_log4j:0.9.0'
 
     implementation 'io.fabric8:kubernetes-client:4.13.0'
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
+    testImplementation "org.testcontainers:testcontainers:1.16.2"
+    testImplementation "org.testcontainers:rabbitmq:1.16.2"
 
     testFixturesImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
     testFixturesImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
@@ -227,11 +240,7 @@ sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
 }
 
-compileKotlin {
-    kotlinOptions.jvmTarget = "11"
-}
-
-compileTestKotlin {
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     kotlinOptions.jvmTarget = "11"
 }
 
