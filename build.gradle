@@ -171,7 +171,7 @@ dependencies {
     api 'com.exactpro.th2:grpc-common:3.9.0'
 
     implementation 'com.google.protobuf:protobuf-java-util'
-    implementation 'com.exactpro.th2:grpc-service-generator:3.1.12'
+    implementation 'com.exactpro.th2:grpc-service-generator:3.2.0'
     implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
