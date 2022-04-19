@@ -485,24 +485,30 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     switch (nonConfidentialConfiguration.getSingleRowResultExecPolicy()) {
                         case NO_RETRY: {
                             cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new NoRetryPolicy());
+                            break;
                         }
                         case FIXED_RETRY: {
                             cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new FixedNumberRetryPolicy(nonConfidentialConfiguration.getMaxRetry()));
+                            break;
                         }
                         case ADJUSTING: {
                             cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new PageSizeAdjustingPolicy(nonConfidentialConfiguration.getPageSize(), nonConfidentialConfiguration.getFactor()));
+                            break;
                         }
                     }
 
                     switch (nonConfidentialConfiguration.getMultiRowResultExecPolicy()) {
                         case NO_RETRY: {
                             cassandraConnectionSettings.setSelectExecutionPolicy(new NoRetryPolicy());
+                            break;
                         }
                         case FIXED_RETRY: {
                             cassandraConnectionSettings.setSelectExecutionPolicy(new FixedNumberRetryPolicy(5));
+                            break;
                         }
                         case ADJUSTING: {
                             cassandraConnectionSettings.setSelectExecutionPolicy(new PageSizeAdjustingPolicy(nonConfidentialConfiguration.getPageSize(), 2));
+                            break;
                         }
                     }
 
