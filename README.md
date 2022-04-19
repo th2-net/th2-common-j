@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.34.0)
+# th2 common library (Java) (3.36.0)
 
 ## Usage
 
@@ -172,6 +172,10 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
 * timeout - this option defines connection timeout in milliseconds. If set to 0 or ommited, the default value of 5000 is used.
 * pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or ommited, the default value of 5000 is used.
+* factor - if policy selected as ADJUSTING factor will be used as parameter for it, page size is divided by given factor in case of failure
+* maxRetry - if policy selected as FIXED_RETRY this option will define max number of retries for it
+* singleRowResultExecPolicy - this option defines type of single row policy, by default value is FIXED_RETRY (FIXED_RETRY, ADJUSTING, NO_RETRY)
+* multiRowResultExecPolicy -  this option defines type of single row policy, by default value is ADJUSTING (FIXED_RETRY, ADJUSTING, NO_RETRY)
 
 ```json
 {
@@ -185,7 +189,11 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "cradleMaxEventBatchSize": 1048576,
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
-  "pageSize": 5000
+  "pageSize": 5000,
+  "factor": 2,
+  "maxRetry": 5,
+  "singleRowResultExecPolicy": "FIXED_RETRY",
+  "multiRowResultExecPolicy": "ADJUSTING"
 }
 ```
 
@@ -287,6 +295,12 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.36.0
+
+* Ability to setup cradle configuration:
+  * SingleRowResultExecutionPolicy
+  * MultiRowResultExecutionPolicy
 
 ### 3.35.0
 

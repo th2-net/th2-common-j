@@ -30,8 +30,12 @@ data class CradleConfiguration(
     var cradleInstanceName: String?,
     var timeout: Long,
     var pageSize: Int,
+    var factor: Int = 2,
+    var maxRetry: Int = 5,
     var cradleMaxEventBatchSize: Long,
-    var cradleMaxMessageBatchSize: Long
+    var cradleMaxMessageBatchSize: Long,
+    var singleRowResultExecPolicy: ExecPolicy,
+    var multiRowResultExecPolicy:  ExecPolicy
 )  : Configuration() {
     constructor(
         cradleConfidentialConfiguration: CradleConfidentialConfiguration,
@@ -46,8 +50,12 @@ data class CradleConfiguration(
         cradleConfidentialConfiguration.cradleInstanceName,
         cradleNonConfidentialConfiguration.timeout,
         cradleNonConfidentialConfiguration.pageSize,
+        cradleNonConfidentialConfiguration.factor,
+        cradleNonConfidentialConfiguration.maxRetry,
         cradleNonConfidentialConfiguration.cradleMaxEventBatchSize,
-        cradleNonConfidentialConfiguration.cradleMaxMessageBatchSize
+        cradleNonConfidentialConfiguration.cradleMaxMessageBatchSize,
+        cradleNonConfidentialConfiguration.singleRowResultExecPolicy,
+        cradleNonConfidentialConfiguration.multiRowResultExecPolicy
     )
 }
 
@@ -64,6 +72,16 @@ data class CradleConfidentialConfiguration(
 data class CradleNonConfidentialConfiguration(
     var timeout: Long = CassandraStorageSettings.DEFAULT_TIMEOUT,
     var pageSize: Int = 5000,
+    var factor: Int = 2,
+    var maxRetry: Int = 5,
     var cradleMaxEventBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE,
-    var cradleMaxMessageBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE
+    var cradleMaxMessageBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE,
+    var singleRowResultExecPolicy: ExecPolicy = ExecPolicy.FIXED_RETRY,
+    var multiRowResultExecPolicy:  ExecPolicy = ExecPolicy.ADJUSTING
 ) : Configuration()
+
+enum class ExecPolicy {
+    FIXED_RETRY,
+    ADJUSTING,
+    NO_RETRY
+}

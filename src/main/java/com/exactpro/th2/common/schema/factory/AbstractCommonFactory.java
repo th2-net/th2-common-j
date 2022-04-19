@@ -48,6 +48,9 @@ import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import com.exactpro.cradle.cassandra.retries.FixedNumberRetryPolicy;
+import com.exactpro.cradle.cassandra.retries.NoRetryPolicy;
+import com.exactpro.cradle.cassandra.retries.PageSizeAdjustingPolicy;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.apache.log4j.LogManager;
@@ -477,6 +480,30 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
                     if (nonConfidentialConfiguration.getTimeout() > 0) {
                         cassandraConnectionSettings.setTimeout(nonConfidentialConfiguration.getTimeout());
+                    }
+
+                    switch (nonConfidentialConfiguration.getSingleRowResultExecPolicy()) {
+                        case NO_RETRY: {
+                            cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new NoRetryPolicy());
+                        }
+                        case FIXED_RETRY: {
+                            cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new FixedNumberRetryPolicy(nonConfidentialConfiguration.getMaxRetry()));
+                        }
+                        case ADJUSTING: {
+                            cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new PageSizeAdjustingPolicy(nonConfidentialConfiguration.getPageSize(), nonConfidentialConfiguration.getFactor()));
+                        }
+                    }
+
+                    switch (nonConfidentialConfiguration.getMultiRowResultExecPolicy()) {
+                        case NO_RETRY: {
+                            cassandraConnectionSettings.setSelectExecutionPolicy(new NoRetryPolicy());
+                        }
+                        case FIXED_RETRY: {
+                            cassandraConnectionSettings.setSelectExecutionPolicy(new FixedNumberRetryPolicy(5));
+                        }
+                        case ADJUSTING: {
+                            cassandraConnectionSettings.setSelectExecutionPolicy(new PageSizeAdjustingPolicy(nonConfidentialConfiguration.getPageSize(), 2));
+                        }
                     }
 
                     if (nonConfidentialConfiguration.getPageSize() > 0) {
