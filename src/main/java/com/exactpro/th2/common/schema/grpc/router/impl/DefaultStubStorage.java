@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueCheckerKt;
+import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import org.jetbrains.annotations.NotNull;
 
@@ -93,6 +93,6 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private boolean isAllPropertiesMatch(List<FieldFilterConfiguration> filterProp, Map<String, String> properties) {
-        return filterProp.stream().allMatch(it -> FieldValueCheckerKt.checkFieldValue(properties.get(it.getFieldName()), it));
+        return filterProp.stream().allMatch(it -> FieldValueChecker.checkFieldValue(it, properties.get(it.getFieldName())));
     }
 }

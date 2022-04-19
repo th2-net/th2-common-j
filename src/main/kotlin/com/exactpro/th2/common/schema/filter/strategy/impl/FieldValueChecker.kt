@@ -13,17 +13,18 @@
  * limitations under the License.
  */
 
+@file:JvmName("FieldValueChecker")
 package com.exactpro.th2.common.schema.filter.strategy.impl
 
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.*
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import org.apache.commons.io.FilenameUtils
 
-fun checkFieldValue(value: String?, filterConfig: FieldFilterConfiguration) =
-    when (filterConfig.operation) {
-        EQUAL -> value == filterConfig.expectedValue
-        NOT_EQUAL -> value != filterConfig.expectedValue
-        EMPTY -> value.isNullOrEmpty()
-        NOT_EMPTY -> !value.isNullOrEmpty()
-        WILDCARD -> FilenameUtils.wildcardMatch(value, filterConfig.expectedValue)
+fun FieldFilterConfiguration.checkFieldValue(value: String?) =
+    when (operation) {
+        FieldFilterOperation.EQUAL -> value == expectedValue
+        FieldFilterOperation.NOT_EQUAL -> value != expectedValue
+        FieldFilterOperation.EMPTY -> value.isNullOrEmpty()
+        FieldFilterOperation.NOT_EMPTY -> !value.isNullOrEmpty()
+        FieldFilterOperation.WILDCARD -> FilenameUtils.wildcardMatch(value, expectedValue)
     }

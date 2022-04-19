@@ -26,7 +26,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-
 public abstract class AbstractFilterStrategy<T extends Message> implements FilterStrategy<T> {
 
     @Override
@@ -56,7 +55,7 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
         return fieldFilters.isEmpty() || fieldFilters.keys().stream().anyMatch(fieldName -> {
             String messageValue = messageFields.get(fieldName);
             Collection<FieldFilterConfiguration> filters = fieldFilters.get(fieldName);
-            return !filters.isEmpty() && filters.stream().allMatch(filter -> FieldValueCheckerKt.checkFieldValue(messageValue, filter));
+            return !filters.isEmpty() && filters.stream().allMatch(filter -> FieldValueChecker.checkFieldValue(filter, messageValue));
         });
     }
 }

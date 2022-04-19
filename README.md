@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.36.0)
+# th2 common library (Java) (3.37.0)
 
 ## Usage
 
@@ -288,7 +288,7 @@ dependencies {
 
 ## Release notes
 
-### 3.36.0
+### 3.37.0
 
 + Added support for gRPC pins filters
 
