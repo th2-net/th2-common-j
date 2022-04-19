@@ -214,10 +214,10 @@ class TestJsonConfiguration {
 
         private val CRADLE_NON_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_non_confidential")
         private val CRADLE_NON_CONFIDENTIAL_CONF = CradleNonConfidentialConfiguration(
-            888,
-            111,
-            123,
-            321
+            timeout = 888,
+            pageSize = 111,
+            cradleMaxEventBatchSize = 123,
+            cradleMaxMessageBatchSize = 321
         )
 
         private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")
