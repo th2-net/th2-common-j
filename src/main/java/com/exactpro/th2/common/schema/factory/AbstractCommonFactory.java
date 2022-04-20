@@ -71,6 +71,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.exactpro.cradle.cassandra.retries.FixedNumberRetryPolicy;
+import com.exactpro.cradle.cassandra.retries.NoRetryPolicy;
+import com.exactpro.cradle.cassandra.retries.PageSizeAdjustingPolicy;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -466,6 +469,36 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
                     if (StringUtils.isNotEmpty(confidentialConfiguration.getPassword())) {
                         cassandraConnectionSettings.setPassword(confidentialConfiguration.getPassword());
+                    }
+
+                    switch (nonConfidentialConfiguration.getSingleRowResultExecPolicy()) {
+                        case NO_RETRY: {
+                            cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new NoRetryPolicy());
+                            break;
+                        }
+                        case FIXED_RETRY: {
+                            cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new FixedNumberRetryPolicy(nonConfidentialConfiguration.getMaxRetry()));
+                            break;
+                        }
+                        case ADJUSTING: {
+                            cassandraConnectionSettings.setSingleRowResultExecutionPolicy(new PageSizeAdjustingPolicy(nonConfidentialConfiguration.getPageSize(), nonConfidentialConfiguration.getFactor()));
+                            break;
+                        }
+                    }
+
+                    switch (nonConfidentialConfiguration.getMultiRowResultExecPolicy()) {
+                        case NO_RETRY: {
+                            cassandraConnectionSettings.setSelectExecutionPolicy(new NoRetryPolicy());
+                            break;
+                        }
+                        case FIXED_RETRY: {
+                            cassandraConnectionSettings.setSelectExecutionPolicy(new FixedNumberRetryPolicy(5));
+                            break;
+                        }
+                        case ADJUSTING: {
+                            cassandraConnectionSettings.setSelectExecutionPolicy(new PageSizeAdjustingPolicy(nonConfidentialConfiguration.getPageSize(), 2));
+                            break;
+                        }
                     }
 
                     if (nonConfidentialConfiguration.getTimeout() > 0) {

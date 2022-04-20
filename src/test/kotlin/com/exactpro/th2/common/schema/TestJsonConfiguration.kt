@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema
 import com.exactpro.th2.common.metrics.PrometheusConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
+import com.exactpro.th2.common.schema.cradle.ExecPolicy
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy
@@ -212,10 +213,12 @@ class TestJsonConfiguration {
 
         private val CRADLE_NON_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_non_confidential")
         private val CRADLE_NON_CONFIDENTIAL_CONF = CradleNonConfidentialConfiguration(
-            888,
-            111,
-            123,
-            321
+            timeout = 888,
+            pageSize = 111,
+            cradleMaxEventBatchSize = 123,
+            cradleMaxMessageBatchSize = 321,
+            singleRowResultExecPolicy = ExecPolicy.NO_RETRY,
+            multiRowResultExecPolicy = ExecPolicy.ADJUSTING
         )
 
         private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")
