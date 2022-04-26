@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.37.0)
+# th2 common library (Java) (3.37.1)
 
 ## Usage
 
@@ -289,6 +289,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.37.1
+
++ Fixed:
+  + When creating the `CommonFactory` from k8s the logging configuration is downloaded as well
 
 ### 3.37.0
 
