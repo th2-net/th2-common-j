@@ -473,7 +473,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
                 if (loggingData != null) {
                     writeFile(configPath.resolve(LOG4J_PROPERTIES_NAME), loggingData);
-                    configureLogger();
+                    configureLogger(configPath.toString());
                 }
 
                 settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_FILE_NAME, rabbitMqData));
