@@ -293,7 +293,7 @@ dependencies {
 ### 3.37.1
 
 + Fixed:
-  + When creating the `CommonFactory` from k8s the logging configuration is downloaded as well
+  + When creating the `CommonFactory` from k8s the logging configuration wouldn't be downloaded
 
 ### 3.37.0
 
