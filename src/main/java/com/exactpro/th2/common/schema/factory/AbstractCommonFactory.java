@@ -17,12 +17,10 @@ package com.exactpro.th2.common.schema.factory;
 
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,13 +43,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.PropertyConfigurator;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -123,7 +120,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     @Deprecated
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
-    protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
+    protected static final String LOG4J_PROPERTIES_NAME = "log4j2.properties";
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -779,8 +776,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 .filter(Files::exists)
                 .findFirst()
                 .ifPresentOrElse(path -> {
-                            LogManager.resetConfiguration();
-                            PropertyConfigurator.configure(path.toString());
+                            ((LoggerContext) LogManager.getContext()).reconfigure();
+                            ((LoggerContext) LogManager.getContext()).setConfigLocation(path.toUri());
                             LOGGER.info("Logger configuration from {} file is applied", path);
                         },
                         () -> LOGGER.info("Neither of {} paths contains {} file. Use default configuration", listPath, LOG4J_PROPERTIES_NAME));
