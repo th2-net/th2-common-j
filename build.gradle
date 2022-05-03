@@ -216,7 +216,7 @@ dependencies {
     implementation 'io.prometheus:simpleclient'
     implementation 'io.prometheus:simpleclient_hotspot'
     implementation 'io.prometheus:simpleclient_httpserver'
-    implementation 'io.prometheus:simpleclient_log4j2:0.15.0'
+    implementation 'io.prometheus:simpleclient_log4j2:0.9.0'
 
     implementation 'io.fabric8:kubernetes-client:4.13.0'
 
