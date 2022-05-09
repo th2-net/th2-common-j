@@ -30,7 +30,7 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '3.1.1'
+    cradleVersion       = '3.1.1-slf4j-transitive-deps-2295891613-SNAPSHOT'
     junitVersion      = '5.7.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
@@ -166,12 +166,8 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:3.1.0") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-    }
-    api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-    }
+    api platform("com.exactpro.th2:bom:3.1.0")
+    api ("com.exactpro.th2:cradle-core:${cradleVersion}")
     api 'com.exactpro.th2:grpc-common:3.10.0'
 
     implementation 'com.google.protobuf:protobuf-java-util'
