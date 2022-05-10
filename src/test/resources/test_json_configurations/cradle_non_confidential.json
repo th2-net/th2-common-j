@@ -2,5 +2,6 @@
   "timeout": 888,
   "pageSize": 111,
   "cradleMaxEventBatchSize": 123,
-  "cradleMaxMessageBatchSize": 321
+  "cradleMaxMessageBatchSize": 321,
+  "prepareStorage": false
 }

@@ -26,6 +26,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Deprecated(since = "3.37", forRemoval = true)
 public class RoutingStrategyFactory {
 
     private static  final Logger LOGGER = LoggerFactory.getLogger(RoutingStrategyFactory.class);

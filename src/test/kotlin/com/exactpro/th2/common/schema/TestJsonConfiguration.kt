@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -33,6 +33,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.strategy.route.impl.RobinRoutingStrategy
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -123,6 +124,7 @@ class TestJsonConfiguration {
     companion object {
         @JvmStatic
         private val OBJECT_MAPPER: ObjectMapper = ObjectMapper()
+            .registerModule(JavaTimeModule())
 
         @JvmStatic
         private val CONF_DIR = Path.of("test_json_configurations")
@@ -135,7 +137,8 @@ class TestJsonConfiguration {
                         init(GrpcRawRobinStrategy(listOf("endpoint")))
                     },
                     GrpcConfiguration::class.java,
-                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr")))
+                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr"))),
+                    emptyList()
                 )
             ),
             GrpcServerConfiguration("host123", 1234, 58)
@@ -215,7 +218,8 @@ class TestJsonConfiguration {
             888,
             111,
             123,
-            321
+            321,
+            false
         )
 
         private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")

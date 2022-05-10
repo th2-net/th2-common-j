@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.33.1)
+# th2 common library (Java) (3.37.2)
 
 ## Usage
 
@@ -170,8 +170,9 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * cradleInstanceName - this option defines a special identifier that divides data within one keyspace with infra set as the default value.
 * cradleMaxEventBatchSize - this option defines the maximum event batch size in bytes with its default value set to 1048576.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
-* timeout - this option defines connection timeout in milliseconds. If set to 0 or ommited, the default value of 5000 is used.
-* pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or ommited, the default value of 5000 is used.
+* timeout - this option defines connection timeout in milliseconds. If set to 0 or omitted, the default value of 5000 is used.
+* pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or omitted, the default value of 5000 is used.
+* prepareStorage - enables database schema initialization if Cradle is used. By default, it has value of `false`
 
 ```json
 {
@@ -185,7 +186,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "cradleMaxEventBatchSize": 1048576,
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
-  "pageSize": 5000
+  "pageSize": 5000,
+  "prepareStorage": false
 }
 ```
 
@@ -288,14 +290,42 @@ dependencies {
 
 ## Release notes
 
-### 3.33.1
+### 3.37.2
 
 + Corrected logging for configuration files
 
-### 3.33.0
+### 3.37.1
+
++ Fixed:
+  + When creating the `CommonFactory` from k8s the logging configuration wouldn't be downloaded
+
+### 3.37.0
+
++ Added support for gRPC pins filters
+
+### 3.36.0
+
+* Cradle version was updated from `2.20.2` to `3.1.1`.
+  **Please, note, that migration is required for `3.1.1` usage**.
+* New parameter `prepareStorage` is added to the `cradle_manager.json`.
+  It allows enabling/disabling Cradle schema initialization.
+
+### 3.35.0
+
+* Included dependency to the io.prometheus:simpleclient_log4j:0.9.0
+
+### 3.34.0
 
 + Added ability to read dictionaries by aliases and as group of all available aliases
 + New methods for api: loadDictionary(String), getDictionaryAliases(), loadSingleDictionary()
+
+### 3.33.0
+
+#### Added:
+
++ Methods for subscription with manual acknowledgement
+  (if the **prefetch count** is requested and no messages are acknowledged the reading from the queue will be suspended).
+  Please, note that only one subscriber with manual acknowledgement can be subscribed to a queue
 
 ### 3.32.1
 
