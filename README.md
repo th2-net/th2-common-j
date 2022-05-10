@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.37.1)
+# th2 common library (Java) (3.37.2)
 
 ## Usage
 
@@ -289,6 +289,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.37.2
+
++ Corrected logging for configuration files
 
 ### 3.37.1
 
