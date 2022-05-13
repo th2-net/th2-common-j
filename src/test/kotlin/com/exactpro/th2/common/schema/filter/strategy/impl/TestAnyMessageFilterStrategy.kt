@@ -355,7 +355,7 @@ class TestAnyMessageFilterStrategy {
                 }
             }
         ).build()
-        
+
         @JvmStatic
         fun rawMessagesBothFilters() : List<Arguments> = listOf(
             arguments(RAW_MESSAGE_BOTH_FILTERS_FULL_MATCH, true),
