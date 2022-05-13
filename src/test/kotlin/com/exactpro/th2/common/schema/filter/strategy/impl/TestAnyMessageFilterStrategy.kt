@@ -19,23 +19,131 @@ package com.exactpro.th2.common.schema.filter.strategy.impl
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import org.apache.commons.collections4.MultiMapUtils
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.junit.jupiter.params.provider.ValueSource
 
 class TestAnyMessageFilterStrategy {
     private val strategy = AnyMessageFilterStrategy()
+
+    @ParameterizedTest
+    @MethodSource("multipleFiltersMatch")
+    fun `matches any filter`(anyMessage: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            anyMessage,
+            listOf(
+                MqRouterFilterConfiguration(
+                    metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                        put("session_alias", FieldFilterConfiguration(
+                            fieldName = "session_alias",
+                            operation = FieldFilterOperation.EQUAL,
+                            expectedValue = "test-alias"
+                        ))
+                    }
+                ),
+                MqRouterFilterConfiguration(
+                    metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                        put("direction", FieldFilterConfiguration(
+                            fieldName = "direction",
+                            operation = FieldFilterOperation.EQUAL,
+                            expectedValue = "FIRST"
+                        ))
+                    }
+                ),
+            )
+        )
+        assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
+    @MethodSource("rawMessagesBothFilters")
+    fun `matches with multiple metadata filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            anyMessage,
+            MqRouterFilterConfiguration(
+                metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("session_alias", FieldFilterConfiguration(
+                        fieldName = "session_alias",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "test-alias"
+                    ))
+                    put("direction", FieldFilterConfiguration(
+                        fieldName = "direction",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "FIRST"
+                    ))
+                }
+            )
+        )
+        assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
+    @MethodSource("parsedMessagesBothFilters")
+    fun `matches with multiple message filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            anyMessage,
+            MqRouterFilterConfiguration(
+                message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("test-field1", FieldFilterConfiguration(
+                        fieldName = "test-field1",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "test-value1"
+                    ))
+                    put("test-field2", FieldFilterConfiguration(
+                        fieldName = "test-field2",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "test-value2"
+                    ))
+                }
+            )
+        )
+        assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
+    @MethodSource("messagesWithMessageAndMetadataFilters")
+    fun `matches with multiple message and metadata filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            anyMessage,
+            MqRouterFilterConfiguration(
+                message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("test-field1", FieldFilterConfiguration(
+                        fieldName = "test-field1",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "test-value1"
+                    ))
+                    put("test-field2", FieldFilterConfiguration(
+                        fieldName = "test-field2",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "test-value2"
+                    ))
+                },
+                metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("session_alias", FieldFilterConfiguration(
+                        fieldName = "session_alias",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "test-alias"
+                    ))
+                    put("direction", FieldFilterConfiguration(
+                        fieldName = "direction",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "FIRST"
+                    ))
+                }
+            )
+        )
+        assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
 
     @ParameterizedTest
     @MethodSource("parsedMessages")
@@ -129,5 +237,131 @@ class TestAnyMessageFilterStrategy {
             arguments(RAW_MESSAGE_MATCH, true),
             arguments(RAW_MESSAGE_MISS_MATCH, false)
         ) + parsedMessages()
+
+        /////////////////
+
+        private val MULTIPLE_FILTERS_MESSAGE_FULL_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias")
+        ).build()
+
+        private val MULTIPLE_FILTERS_MESSAGE_ONE_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.SECOND, "test-alias")
+        ).build()
+
+        private val MULTIPLE_FILTERS_MESSAGE_NOT_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.SECOND, "test-alias-wrong")
+        ).build()
+
+        @JvmStatic
+        fun multipleFiltersMatch(): List<Arguments> = listOf(
+            arguments(MULTIPLE_FILTERS_MESSAGE_FULL_MATCH, true),
+            arguments(MULTIPLE_FILTERS_MESSAGE_ONE_MATCH, true),
+            arguments(MULTIPLE_FILTERS_MESSAGE_NOT_MATCH, false),
+        )
+
+        /////////////////
+
+        private val PARSED_MESSAGE_BOTH_FILTERS_MESSAGES_AND_METADATA_FULL_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field1", "test-value1")
+                addField("test-field2", "test-value2")
+            }
+        ).build()
+
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.SECOND, "test-alias").apply {
+                addField("test-field1", "test-value1")
+                addField("test-field2", "test-value2")
+            }
+        ).build()
+
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field1", "test-value-wrong")
+                addField("test-field2", "test-value2")
+            }
+        ).build()
+
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.SECOND, "test-alias").apply {
+                addField("test-field1", "test-value-wrong")
+                addField("test-field2", "test-value2")
+            }
+        ).build()
+
+        @JvmStatic
+        fun messagesWithMessageAndMetadataFilters() : List<Arguments> = listOf(
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_MESSAGES_AND_METADATA_FULL_MATCH, true),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH, false)
+        )
+
+        ////////////
+
+        private val PARSED_MESSAGE_BOTH_FILTERS_FULL_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field1", "test-value1")
+                addField("test-field2", "test-value2")
+            }
+        ).build()
+
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field1", "test-value-wrong")
+                addField("test-field2", "test-value2")
+            }
+        ).build()
+
+        private val PARSED_MESSAGE_BOTH_FILTERS_NO_MATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field1", "test-value-wrong")
+                addField("test-field2", "test-value-wrong")
+            }
+        ).build()
+
+        @JvmStatic
+        fun parsedMessagesBothFilters() : List<Arguments> = listOf(
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_FULL_MATCH, true),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MATCH, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_NO_MATCH, false),
+        )
+
+        /////////////
+
+        private val RAW_MESSAGE_BOTH_FILTERS_FULL_MATCH = AnyMessage.newBuilder().setRawMessage(
+            RawMessage.newBuilder().apply {
+                metadataBuilder.idBuilder.apply {
+                    connectionIdBuilder.sessionAlias = "test-alias"
+                    direction = Direction.FIRST
+                }
+            }
+        ).build()
+
+        private val RAW_MESSAGE_BOTH_FILTERS_ONE_MATCH = AnyMessage.newBuilder().setRawMessage(
+            RawMessage.newBuilder().apply {
+                metadataBuilder.idBuilder.apply {
+                    connectionIdBuilder.sessionAlias = "test-alias"
+                    direction = Direction.SECOND
+                }
+            }
+        ).build()
+
+        private val RAW_MESSAGE_BOTH_FILTERS_NO_MATCH = AnyMessage.newBuilder().setRawMessage(
+            RawMessage.newBuilder().apply {
+                metadataBuilder.idBuilder.apply {
+                    connectionIdBuilder.sessionAlias = "test-alias-wrong-value"
+                    direction = Direction.SECOND
+                }
+            }
+        ).build()
+        
+        @JvmStatic
+        fun rawMessagesBothFilters() : List<Arguments> = listOf(
+            arguments(RAW_MESSAGE_BOTH_FILTERS_FULL_MATCH, true),
+            arguments(RAW_MESSAGE_BOTH_FILTERS_ONE_MATCH, false),
+            arguments(RAW_MESSAGE_BOTH_FILTERS_NO_MATCH, false)
+        )
+
     }
 }
