@@ -52,7 +52,7 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
     protected abstract Map<String, String> getFields(T message);
 
     private boolean checkValues(Map<String, String> messageFields, MultiValuedMap<String, FieldFilterConfiguration> fieldFilters) {
-        return fieldFilters.isEmpty() || fieldFilters.keys().stream().anyMatch(fieldName -> {
+        return fieldFilters.isEmpty() || fieldFilters.keys().stream().allMatch(fieldName -> {
             String messageValue = messageFields.get(fieldName);
             Collection<FieldFilterConfiguration> filters = fieldFilters.get(fieldName);
             return !filters.isEmpty() && filters.stream().allMatch(filter -> FieldValueChecker.checkFieldValue(filter, messageValue));
