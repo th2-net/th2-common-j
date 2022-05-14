@@ -199,6 +199,106 @@ class TestAnyMessageFilterStrategy {
         assertEquals(expectMatch, match) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
     }
 
+    @ParameterizedTest
+    @MethodSource("messagesWithSameFilterFields")
+    fun `miss matches with the same filter fields`(message: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            message,
+            MqRouterFilterConfiguration(
+                message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put(
+                        "test-field", FieldFilterConfiguration(
+                            fieldName = "test-field",
+                            operation = FieldFilterOperation.EQUAL,
+                            expectedValue = "test-value1"
+                        )
+                    )
+                    put(
+                        "test-field", FieldFilterConfiguration(
+                            fieldName = "test-field",
+                            operation = FieldFilterOperation.EQUAL,
+                            expectedValue = "test-value2"
+                        )
+                    )
+                },
+            )
+        )
+
+        assertEquals(
+            expectMatch,
+            match
+        ) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
+    @MethodSource("messagesWithMultipleFiltersWithSameFilterField")
+    fun `matches with multiple filters with the same filter fields`(message: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            message,
+            listOf(
+                MqRouterFilterConfiguration(
+                    message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                        put(
+                            "test-field", FieldFilterConfiguration(
+                                fieldName = "test-field",
+                                operation = FieldFilterOperation.EQUAL,
+                                expectedValue = "test-value1"
+                            )
+                        )
+                    },
+                ),
+                MqRouterFilterConfiguration(
+                    message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                        put(
+                            "test-field", FieldFilterConfiguration(
+                                fieldName = "test-field",
+                                operation = FieldFilterOperation.EQUAL,
+                                expectedValue = "test-value2"
+                            )
+                        )
+                    },
+                ),
+
+            )
+        )
+
+        assertEquals(
+            expectMatch,
+            match
+        ) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
+    @MethodSource("messagesWithMultipleSameFields")
+    fun `matches message with multiple fields with same name`(message: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            message,
+            MqRouterFilterConfiguration(
+                message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put(
+                        "test-field", FieldFilterConfiguration(
+                            fieldName = "test-field",
+                            operation = FieldFilterOperation.NOT_EQUAL,
+                            expectedValue = "test-value1"
+                        )
+                    )
+                    put(
+                        "test-field", FieldFilterConfiguration(
+                            fieldName = "test-field",
+                            operation = FieldFilterOperation.EQUAL,
+                            expectedValue = "test-value2"
+                        )
+                    )
+                },
+            )
+        )
+
+        assertEquals(
+            expectMatch,
+            match
+        ) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
     companion object {
         private val PARSED_MESSAGE_MATCH = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias")
@@ -239,6 +339,38 @@ class TestAnyMessageFilterStrategy {
         ) + parsedMessages()
 
         /////////////////
+
+        private val MATCHES_WITH_SAME_FIELDS = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field", "test-value1")
+                addField("test-field", "test-value2")
+            }
+        ).build()
+
+        @JvmStatic
+        fun messagesWithMultipleSameFields(): List<Arguments> = listOf(
+            arguments(MATCHES_WITH_SAME_FIELDS, true),
+        )
+
+        ////////////////
+
+        private val MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field", "test-value1")
+            }
+        ).build()
+
+        @JvmStatic
+        fun messagesWithSameFilterFields(): List<Arguments> = listOf(
+            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS, false),
+        )
+
+        @JvmStatic
+        fun messagesWithMultipleFiltersWithSameFilterField(): List<Arguments> = listOf(
+            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS, true),
+        )
+
+        ///////////////
 
         private val MULTIPLE_FILTERS_MESSAGE_FULL_MATCH = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias")
