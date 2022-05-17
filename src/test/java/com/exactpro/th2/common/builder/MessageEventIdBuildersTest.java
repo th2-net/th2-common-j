@@ -32,6 +32,7 @@ public class MessageEventIdBuildersTest {
     private static final String CONFIG_DIRECTORY = "src/test/resources/test_message_event_id_builders";
     private static final String CUSTOM_BOOK = "custom_book";
     private static final String DEFAULT_ALIAS = "alias";
+    private static final String DEFAULT_GROUP = "group";
     private static final Direction DEFAULT_DIRECTION = Direction.FIRST;
     private static final int DEFAULT_SEQUENCE = 1;
     private static final int DEFAULT_SUBSEQUENCE = 2;
@@ -67,7 +68,8 @@ public class MessageEventIdBuildersTest {
         assertEquals(
                 "{\n" +
                         "  \"connectionId\": {\n" +
-                        "    \"sessionAlias\": \"" + DEFAULT_ALIAS + "\"\n" +
+                        "    \"sessionAlias\": \"" + DEFAULT_ALIAS + "\",\n" +
+                        "    \"sessionGroup\": \"" + DEFAULT_GROUP + "\"\n" +
                         "  },\n" +
                         "  \"direction\": \"" + DEFAULT_DIRECTION.name() + "\",\n" +
                         "  \"sequence\": \"" + DEFAULT_SEQUENCE + "\",\n" +
@@ -88,7 +90,7 @@ public class MessageEventIdBuildersTest {
 
     private MessageID.Builder defaultMessageIdBuilder() {
         return commonFactory.newMessageIDBuilder()
-                .setConnectionId(ConnectionID.newBuilder().setSessionAlias(DEFAULT_ALIAS))
+                .setConnectionId(ConnectionID.newBuilder().setSessionAlias(DEFAULT_ALIAS).setSessionGroup(DEFAULT_GROUP))
                 .setDirection(DEFAULT_DIRECTION)
                 .setSequence(DEFAULT_SEQUENCE)
                 .addSubsequence(DEFAULT_SUBSEQUENCE);
