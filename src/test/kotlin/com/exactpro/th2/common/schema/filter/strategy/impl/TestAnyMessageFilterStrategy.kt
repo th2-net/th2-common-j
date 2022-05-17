@@ -300,6 +300,13 @@ class TestAnyMessageFilterStrategy {
     }
 
     companion object {
+
+        private fun simpleMessageBuilder(messageType: String, direction: Direction, sessionAlias: String): AnyMessage {
+            return AnyMessage.newBuilder().setMessage(
+                message(messageType, direction, sessionAlias)
+            ).build()
+        }
+
         private val PARSED_MESSAGE_MATCH = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias")
         ).build()
@@ -372,23 +379,11 @@ class TestAnyMessageFilterStrategy {
 
         ///////////////
 
-        private val MULTIPLE_FILTERS_MESSAGE_FULL_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias")
-        ).build()
-
-        private val MULTIPLE_FILTERS_MESSAGE_ONE_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.SECOND, "test-alias")
-        ).build()
-
-        private val MULTIPLE_FILTERS_MESSAGE_NOT_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.SECOND, "test-alias-wrong")
-        ).build()
-
         @JvmStatic
         fun multipleFiltersMatch(): List<Arguments> = listOf(
-            arguments(MULTIPLE_FILTERS_MESSAGE_FULL_MATCH, true),
-            arguments(MULTIPLE_FILTERS_MESSAGE_ONE_MATCH, true),
-            arguments(MULTIPLE_FILTERS_MESSAGE_NOT_MATCH, false),
+            arguments(simpleMessageBuilder("test", Direction.FIRST, "test-alias"), true),
+            arguments(simpleMessageBuilder("test", Direction.SECOND, "test-alias"), true),
+            arguments(simpleMessageBuilder("test", Direction.SECOND, "test-alias-wrong"), false),
         )
 
         /////////////////
