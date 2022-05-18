@@ -35,13 +35,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
-import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
+import org.mockito.kotlin.*
 
 class TestRabbitMessageGroupBatchRouter {
     private val connectionConfiguration = ConnectionManagerConfiguration()
@@ -260,6 +254,75 @@ class TestRabbitMessageGroupBatchRouter {
                         }
                 }
             )
+        }
+    }
+
+    @Nested
+    inner class BatchPublishing {
+
+        private val router = createRouter(mapOf(
+            "test-pine" to QueueConfiguration(
+                routingKey = "",
+                queue = "subscribe",
+                exchange = "test-exchange",
+                attributes = listOf("subscribe")
+            ),
+            "test-pin1" to QueueConfiguration(
+                routingKey = "test",
+                queue = "",
+                exchange = "test-exchange",
+                attributes = listOf("publish"),
+                filters = listOf(
+                    MqRouterFilterConfiguration(
+                        metadata = listOf(
+                            FieldFilterConfiguration(
+                                fieldName = "message_type",
+                                expectedValue = "test-message",
+                                operation = FieldFilterOperation.EQUAL
+                            )
+                        )
+                    )
+                )
+            ),
+        ))
+
+        @Test
+        fun `publish batch if all messages passed`() {
+            router.send(
+                MessageGroupBatch.newBuilder()
+                    .addGroups(MessageGroup.newBuilder()
+                        .apply { this += message("test-message", Direction.FIRST, "test-alias1") }
+                        .apply { this += message("test-message", Direction.FIRST, "test-alias2") }
+                        .apply { this += message("test-message", Direction.FIRST, "test-alias3") }
+                    ).build()
+            )
+            verify(connectionManager, times(1)).basicPublish(any(), any(), anyOrNull(), any())
+        }
+
+        @Test
+        fun `dont publish batch if all messages not passed`() {
+            router.send(
+                MessageGroupBatch.newBuilder()
+                    .addGroups(MessageGroup.newBuilder()
+                        .apply { this += message("test-message1", Direction.FIRST, "test-alias1") }
+                        .apply { this += message("test-message2", Direction.FIRST, "test-alias2") }
+                        .apply { this += message("test-message3", Direction.FIRST, "test-alias3") }
+                    ).build()
+            )
+            verify(connectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
+        }
+
+        @Test
+        fun `publish full batch if one message is passed`() {
+            router.send(
+                MessageGroupBatch.newBuilder()
+                    .addGroups(MessageGroup.newBuilder()
+                        .apply { this += message("test-message1", Direction.FIRST, "test-alias1") }
+                        .apply { this += message("test-message", Direction.FIRST, "test-alias2") }
+                        .apply { this += message("test-message3", Direction.FIRST, "test-alias3") }
+                    ).build()
+            )
+            verify(connectionManager, times(1)).basicPublish(any(), any(), anyOrNull(), any())
         }
     }
 
