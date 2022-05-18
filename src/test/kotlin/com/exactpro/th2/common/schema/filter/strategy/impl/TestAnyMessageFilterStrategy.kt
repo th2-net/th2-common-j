@@ -361,20 +361,27 @@ class TestAnyMessageFilterStrategy {
 
         ////////////////
 
-        private val MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias").apply {
                 addField("test-field", "test-value1")
+            }
+        ).build()
+        private val MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_2 = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field", "test-value2")
             }
         ).build()
 
         @JvmStatic
         fun messagesWithSameFilterFields(): List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS, false),
+            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_1, false),
+            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_2, false),
         )
 
         @JvmStatic
         fun messagesWithMultipleFiltersWithSameFilterField(): List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS, true),
+            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_1, true),
+            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_2, true),
         )
 
         ///////////////
@@ -383,6 +390,7 @@ class TestAnyMessageFilterStrategy {
         fun multipleFiltersMatch(): List<Arguments> = listOf(
             arguments(simpleMessageBuilder("test", Direction.FIRST, "test-alias"), true),
             arguments(simpleMessageBuilder("test", Direction.SECOND, "test-alias"), true),
+            arguments(simpleMessageBuilder("test", Direction.FIRST, "test-wrong"), true),
             arguments(simpleMessageBuilder("test", Direction.SECOND, "test-alias-wrong"), false),
         )
 
@@ -395,33 +403,54 @@ class TestAnyMessageFilterStrategy {
             }
         ).build()
 
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH = AnyMessage.newBuilder().setMessage(
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.SECOND, "test-alias").apply {
                 addField("test-field1", "test-value1")
                 addField("test-field2", "test-value2")
             }
         ).build()
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_2 = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias-wrong").apply {
+                addField("test-field1", "test-value1")
+                addField("test-field2", "test-value2")
+            }
+        ).build()
 
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH = AnyMessage.newBuilder().setMessage(
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias").apply {
                 addField("test-field1", "test-value-wrong")
                 addField("test-field2", "test-value2")
             }
         ).build()
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_2 = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field1", "test-value1")
+                addField("test-field2", "test-value-wrong")
+            }
+        ).build()
 
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH = AnyMessage.newBuilder().setMessage(
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.SECOND, "test-alias").apply {
                 addField("test-field1", "test-value-wrong")
                 addField("test-field2", "test-value2")
+            }
+        ).build()
+        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_2 = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias-wrong").apply {
+                addField("test-field1", "test-value1")
+                addField("test-field2", "test-value-wrong")
             }
         ).build()
 
         @JvmStatic
         fun messagesWithMessageAndMetadataFilters() : List<Arguments> = listOf(
             arguments(PARSED_MESSAGE_BOTH_FILTERS_MESSAGES_AND_METADATA_FULL_MATCH, true),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH, false)
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_1, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_2, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_1, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_2, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_1, false),
+            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_2, false),
         )
 
         ////////////
