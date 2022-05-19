@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message;
+package com.exactpro.th2.common.annotations
 
-/**
- * Listen message from {@link MessageSubscriber}
- */
-public interface MessageListener<T> {
+import org.junit.jupiter.api.Tag
 
-    void handle(String consumerTag, T message) throws Exception;
-
-    default void onClose() {}
-
-}
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+@Tag("integration-test")
+annotation class IntegrationTest

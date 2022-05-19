@@ -55,7 +55,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     private val subscribers = ConcurrentHashMap<Queue, MessageSubscriber<T>>()
     private val senders = ConcurrentHashMap<RoutingKey, MessageSender<T>>()
 
-    private val filterStrategy = AtomicReference<FilterStrategy<Message>>(getDefaultFilterStrategy())
+    private val filterStrategy = AtomicReference(getDefaultFilterStrategy())
 
     protected open fun getDefaultFilterStrategy(): FilterStrategy<Message> {
         return FilterStrategy.DEFAULT_FILTER_STRATEGY
@@ -72,7 +72,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     override fun send(message: T, vararg attributes: String) {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSendAttributes() }
         send(message, pintAttributes) {
-            check(size == 1 || (size > 0 && oneOrNoneWithData())) {
+            check(size == 1 || (isNotEmpty() && oneOrNoneWithData())) {
                 "Found incorrect number of pins ${map(PinInfo::pinName)} to the send operation by attributes $pintAttributes and filters, expected 1, actual $size"
             }
         }
@@ -88,6 +88,14 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
+        return subscribeWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+    }
+
+    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
+        return subscribeAllWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+    }
+
+    override fun subscribeWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(size == 1) {
@@ -96,7 +104,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
+    override fun subscribeAllWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(isNotEmpty()) {
@@ -115,7 +123,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
         subscribers.clear()
 
-        checkOrThrow("Can not close message router", exceptions)
+        checkOrThrow(exceptions) { "Can not close message router" }
         LOGGER.info("Message router has been successfully closed")
     }
 
@@ -171,12 +179,12 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
                 exceptions[pinName] = e
             }
         }
-        checkOrThrow("Can't send to pin(s): ${exceptions.keys}", exceptions.values)
+        checkOrThrow(exceptions.values) { "Can't send to pin(s): ${exceptions.keys}" }
     }
 
     private fun subscribe(
         pintAttributes: Set<String>,
-        messageListener: MessageListener<T>,
+        messageListener: ConfirmationMessageListener<T>,
         check: List<PinInfo>.() -> Unit
     ): SubscriberMonitor {
         val packages: List<PinInfo> = configuration.queues.asSequence()
@@ -202,7 +210,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             }
         }
 
-        checkOrThrow("Can't subscribe to pin(s): ${exceptions.keys}", exceptions.values)
+        checkOrThrow(exceptions.values) { "Can't subscribe to pin(s): ${exceptions.keys}" }
 
         return when (monitors.size) {
             1 -> monitors[0]
@@ -212,9 +220,9 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    private fun checkOrThrow(message: String, exceptions: Collection<Throwable>) {
+    private inline fun checkOrThrow(exceptions: Collection<Throwable>, message: () -> String) {
         if (exceptions.isNotEmpty()) {
-            throw RouterException(message).apply {
+            throw RouterException(message()).apply {
                 exceptions.forEach(this::addSuppressed)
             }
         }

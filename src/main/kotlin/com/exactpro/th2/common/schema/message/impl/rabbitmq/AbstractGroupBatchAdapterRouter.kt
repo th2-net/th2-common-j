@@ -40,18 +40,16 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribe(
-            MessageListener { consumerTag: String, message: MessageGroupBatch ->
-                callback.handler(consumerTag, buildFromGroupBatch(message))
+        return groupBatchRouter.subscribe({ consumerTag: String, message: MessageGroupBatch ->
+                callback.handle(consumerTag, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribeAll(
-            MessageListener { consumerTag: String, message: MessageGroupBatch ->
-                callback.handler(consumerTag, buildFromGroupBatch(message))
+        return groupBatchRouter.subscribeAll({ consumerTag: String, message: MessageGroupBatch ->
+                callback.handle(consumerTag, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )

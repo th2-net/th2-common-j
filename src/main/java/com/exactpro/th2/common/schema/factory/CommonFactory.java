@@ -113,6 +113,9 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String KEY_CASSANDRA_PASS = "CASSANDRA_PASS";
 
     private static final String GENERATED_CONFIG_DIR_NAME = "generated_configs";
+    private static final String RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP = "rabbit-mq-external-app-config";
+    private static final String CRADLE_EXTERNAL_MAP = "cradle-external";
+    private static final String LOGGING_CONFIG_MAP = "logging-config";
 
     private final Path custom;
     private final Path dictionaryTypesDir;
@@ -403,13 +406,6 @@ public class CommonFactory extends AbstractCommonFactory {
      * @return CommonFactory with set path
      */
     public static CommonFactory createFromKubernetes(String namespace, String boxName, @Nullable String contextName, @NotNull Map<DictionaryType, String> dictionaries) {
-        Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource;
-        Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource;
-        Resource<ConfigMap, DoneableConfigMap> cradleConfigMapResource;
-
-        ConfigMap boxConfigMap;
-        ConfigMap rabbitMqConfigMap;
-        ConfigMap cradleConfigMap;
 
         Path configPath = Path.of(System.getProperty("user.dir"), GENERATED_CONFIG_DIR_NAME);
 
@@ -442,20 +438,26 @@ public class CommonFactory extends AbstractCommonFactory {
 
             var configMaps = client.configMaps();
 
-            boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
-            rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName("rabbit-mq-external-app-config");
-            cradleConfigMapResource = configMaps.inNamespace(namespace).withName("cradle-external");
+            Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
 
-            if (boxConfigMapResource.get() == null)
+            if (boxConfigMapResource.get() == null) {
                 throw new IllegalArgumentException("Failed to find config maps by boxName " + boxName);
+            }
+            Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName(RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP);
+            Resource<ConfigMap, DoneableConfigMap> cradleConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_EXTERNAL_MAP);
+            Resource<ConfigMap, DoneableConfigMap> loggingConfigMapResource = configMaps.inNamespace(namespace).withName(LOGGING_CONFIG_MAP);
 
-            boxConfigMap = boxConfigMapResource.require();
-            rabbitMqConfigMap = rabbitMqConfigMapResource.require();
-            cradleConfigMap = cradleConfigMapResource.require();
+            ConfigMap boxConfigMap = boxConfigMapResource.require();
+            ConfigMap rabbitMqConfigMap = rabbitMqConfigMapResource.require();
+            ConfigMap cradleConfigMap = cradleConfigMapResource.require();
+            @Nullable ConfigMap loggingConfigMap = loggingConfigMapResource.get();
 
             Map<String, String> boxData = boxConfigMap.getData();
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
             Map<String, String> cradleConfigData = cradleConfigMap.getData();
+            @Nullable String loggingData = boxData.getOrDefault(LOG4J_PROPERTIES_NAME,
+                    loggingConfigMap == null ? null : loggingConfigMap.getData().get(LOG4J_PROPERTIES_NAME)
+            );
 
             File generatedConfigsDirFile = configPath.toFile();
 
@@ -466,6 +468,14 @@ public class CommonFactory extends AbstractCommonFactory {
             }
 
             if (generatedConfigsDirFile.exists()) {
+                BoxConfiguration box = new BoxConfiguration();
+                box.setBoxName(boxName);
+
+                if (loggingData != null) {
+                    writeFile(configPath.resolve(LOG4J_PROPERTIES_NAME), loggingData);
+                    configureLogger(configPath.toString());
+                }
+
                 settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_FILE_NAME, rabbitMqData));
                 settings.setRouterMQ(writeFile(configPath, ROUTER_MQ_FILE_NAME, boxData));
                 settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
@@ -482,12 +492,10 @@ public class CommonFactory extends AbstractCommonFactory {
 
                 String boxConfig = boxData.get(BOX_FILE_NAME);
 
-                if (boxConfig != null) {
-                    writeFile(boxConfigurationPath, boxConfig);
-                } else {
-                    BoxConfiguration box = new BoxConfiguration();
-                    box.setBoxName(boxName);
+                if (boxConfig == null) {
                     writeToJson(boxConfigurationPath, box);
+                } else {
+                    writeFile(boxConfigurationPath, boxConfig);
                 }
 
                 writeDictionaries(boxName, configPath, dictionaryTypePath, dictionaries, configMaps.list());

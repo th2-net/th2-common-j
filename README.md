@@ -301,10 +301,42 @@ dependencies {
 + Added `prepareStorage` property to `cradle.json`
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
 
-### 3.33.0
+### 3.37.2
+
++ Corrected logging for configuration files
+
+### 3.37.1
+
++ Fixed:
+  + When creating the `CommonFactory` from k8s the logging configuration wouldn't be downloaded
+
+### 3.37.0
+
++ Added support for gRPC pins filters
+
+### 3.36.0
+
+* Cradle version was updated from `2.20.2` to `3.1.1`.
+  **Please, note, that migration is required for `3.1.1` usage**.
+* New parameter `prepareStorage` is added to the `cradle_manager.json`.
+  It allows enabling/disabling Cradle schema initialization.
+
+### 3.35.0
+
+* Included dependency to the io.prometheus:simpleclient_log4j:0.9.0
+
+### 3.34.0
 
 + Added ability to read dictionaries by aliases and as group of all available aliases
 + New methods for api: loadDictionary(String), getDictionaryAliases(), loadSingleDictionary()
+
+### 3.33.0
+
+#### Added:
+
++ Methods for subscription with manual acknowledgement
+  (if the **prefetch count** is requested and no messages are acknowledged the reading from the queue will be suspended).
+  Please, note that only one subscriber with manual acknowledgement can be subscribed to a queue
 
 ### 3.32.1
 
