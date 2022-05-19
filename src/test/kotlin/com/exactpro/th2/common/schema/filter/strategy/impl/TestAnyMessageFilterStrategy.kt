@@ -18,7 +18,6 @@ package com.exactpro.th2.common.schema.filter.strategy.impl
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.message
@@ -324,6 +323,37 @@ class TestAnyMessageFilterStrategy {
         ) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
     }
 
+    @ParameterizedTest
+    @MethodSource("messagesWithPropertiesAndMetadata")
+    fun `matches message with properties and metadata`(message: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            message,
+            MqRouterFilterConfiguration(
+                properties = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put(
+                        "test-property", FieldFilterConfiguration(
+                            fieldName = "test-property",
+                            operation = FieldFilterOperation.EQUAL,
+                            expectedValue = "property-value"
+                        )
+                    )
+                },
+                metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("session_alias", FieldFilterConfiguration(
+                        fieldName = "session_alias",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "test-alias"
+                    ))
+                }
+            )
+        )
+
+        assertEquals(
+            expectMatch,
+            match
+        ) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
     companion object {
 
         private fun simpleMessageBuilder(messageType: String, direction: Direction, sessionAlias: String): AnyMessage {
@@ -508,24 +538,37 @@ class TestAnyMessageFilterStrategy {
             }
         ).build()
 
-        private val MESSAGE_WITH_PROPERTY = AnyMessage.newBuilder().setMessage(
-            Message.newBuilder().apply {
+        private val MESSAGE_WITH_PROPERTIES = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
                 metadataBuilder.putProperties("test-property", "property-value")
             }
         ).build()
 
-        private val MESSAGE_WITH_PROPERTY_MISMATCH = AnyMessage.newBuilder().setMessage(
-            Message.newBuilder().apply {
+        private val MESSAGE_WITH_PROPERTIES_PROPERTY_MISMATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
                 metadataBuilder.putProperties("test-property", "property-value-wrong")
+            }
+        ).build()
+
+        private val MESSAGE_WITH_PROPERTIES_METADATA_MISMATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias-wrong").apply {
+                metadataBuilder.putProperties("test-property", "property-value")
             }
         ).build()
 
         @JvmStatic
         fun messagesWithProperties() : List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_PROPERTY, true),
-            arguments(MESSAGE_WITH_PROPERTY_MISMATCH, false),
+            arguments(MESSAGE_WITH_PROPERTIES, true),
+            arguments(MESSAGE_WITH_PROPERTIES_PROPERTY_MISMATCH, false),
             arguments(RAW_MESSAGE_WITH_PROPERTY, true),
             arguments(RAW_MESSAGE_WITH_PROPERTY_MISMATCH, false),
+        )
+
+        @JvmStatic
+        fun messagesWithPropertiesAndMetadata() : List<Arguments> = listOf(
+            arguments(MESSAGE_WITH_PROPERTIES, true),
+            arguments(MESSAGE_WITH_PROPERTIES_PROPERTY_MISMATCH, false),
+            arguments(MESSAGE_WITH_PROPERTIES_METADATA_MISMATCH, false),
         )
 
         /////////////
