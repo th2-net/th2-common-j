@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.protobuf.services.ProtoReflectionService;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.concurrent.EventExecutorGroup;
@@ -94,6 +95,8 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         builder = builder.workerEventLoopGroup(eventLoop)
                 .bossEventLoopGroup(eventLoop)
                 .channelType(NioServerSocketChannel.class);
+
+        builder.addService(ProtoReflectionService.newInstance());
 
         for (BindableService service : services) {
             builder.addService(service);

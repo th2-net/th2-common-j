@@ -178,6 +178,7 @@ dependencies {
     implementation "io.grpc:grpc-protobuf"
     implementation "io.grpc:grpc-core"
     implementation "io.grpc:grpc-netty"
+    implementation "io.grpc:grpc-services:1.32.1" //FIXME: add to bom
 
     implementation "com.rabbitmq:amqp-client"
 
