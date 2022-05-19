@@ -183,7 +183,14 @@ class TestJsonConfiguration {
                                 FieldFilterOperation.EQUAL
                             )
                         ),
-                        listOf(FieldFilterConfiguration("test_field", "test_value", FieldFilterOperation.EQUAL))
+                        listOf(FieldFilterConfiguration("test_field", "test_value", FieldFilterOperation.EQUAL)),
+                        listOf(
+                            FieldFilterConfiguration(
+                                "method",
+                                "POST",
+                                FieldFilterOperation.EQUAL
+                            )
+                        ),
                     ),
                     MqRouterFilterConfiguration(
                         listOf(
@@ -196,6 +203,10 @@ class TestJsonConfiguration {
                         listOf(
                             FieldFilterConfiguration("test_field", "test_value0", FieldFilterOperation.EQUAL),
                             FieldFilterConfiguration("test_field", "test_value1", FieldFilterOperation.EQUAL)
+                        ),
+                        listOf(
+                            FieldFilterConfiguration("method1", "POST", FieldFilterOperation.EQUAL),
+                            FieldFilterConfiguration("method2", "GET", FieldFilterOperation.NOT_EQUAL)
                         )
                     )
                 )

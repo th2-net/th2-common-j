@@ -47,12 +47,14 @@ data class QueueConfiguration(
 
 data class MqRouterFilterConfiguration(
     @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var metadata: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap(),
-    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var message: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap()
+    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var message: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap(),
+    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var properties: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap()
 ) : Configuration(), RouterFilter {
 
     constructor(
         metadata: Collection<FieldFilterConfiguration> = emptyList(),
-        message: Collection<FieldFilterConfiguration> = emptyList()
+        message: Collection<FieldFilterConfiguration> = emptyList(),
+        properties: Collection<FieldFilterConfiguration> = emptyList()
     ) : this(
         MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().also { metadataMultiMap ->
             metadata.forEach {
@@ -63,6 +65,11 @@ data class MqRouterFilterConfiguration(
             message.forEach {
                 messageMultiMap.put(it.fieldName, it)
             }
+        },
+        MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().also { propertiesMultiMap ->
+            properties.forEach {
+                propertiesMultiMap.put(it.fieldName, it)
+            }
         }
     )
 
@@ -71,6 +78,9 @@ data class MqRouterFilterConfiguration(
 
     @JsonGetter("message")
     fun getJsonMessage(): Collection<FieldFilterConfiguration> = message.values()
+
+    @JsonGetter("properties")
+    fun getJsonProperties(): Collection<FieldFilterConfiguration> = properties.values()
 }
 
 data class FieldFilterConfigurationOld(

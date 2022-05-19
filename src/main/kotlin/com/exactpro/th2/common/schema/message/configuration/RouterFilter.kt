@@ -20,4 +20,5 @@ import org.apache.commons.collections4.MultiValuedMap
 interface RouterFilter {
     val metadata: MultiValuedMap<String, FieldFilterConfiguration>
     val message: MultiValuedMap<String, FieldFilterConfiguration>
+    val properties: MultiValuedMap<String, FieldFilterConfiguration>
 }

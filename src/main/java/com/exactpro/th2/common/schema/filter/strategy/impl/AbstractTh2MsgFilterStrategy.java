@@ -47,6 +47,7 @@ public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrateg
                 DIRECTION_KEY, messageID.getDirection().name()
         );
 
+        messageFields.putAll(th2Msg.getMetadata().getPropertiesMap());
         messageFields.putAll(metadataMsgFields);
 
         return messageFields;

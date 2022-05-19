@@ -25,19 +25,21 @@ class AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
     override fun getFields(message: Message): MutableMap<String, String> {
         check(message is AnyMessage) { "Message is not an ${AnyMessage::class.qualifiedName}: ${message.toJson()}" }
 
-        val result = HashMap<String, String>();
+        val result = HashMap<String, String>()
 
         when {
             message.hasMessage() -> {
                 result.putAll(message.message.fieldsMap.mapValues { it.value.simpleValue })
 
                 val metadata = message.message.metadata
+                result.putAll(message.message.metadata.propertiesMap)
                 result[AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
                 result[AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY] = metadata.messageType
                 result[AbstractTh2MsgFilterStrategy.DIRECTION_KEY] = metadata.id.direction.name
             }
             message.hasRawMessage() -> {
                 val metadata = message.rawMessage.metadata
+                result.putAll(message.rawMessage.metadata.propertiesMap)
                 result[AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
                 result[AbstractTh2MsgFilterStrategy.DIRECTION_KEY] = metadata.id.direction.name
             }

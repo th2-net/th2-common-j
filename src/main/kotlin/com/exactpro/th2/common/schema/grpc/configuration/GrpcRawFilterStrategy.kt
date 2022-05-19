@@ -30,7 +30,8 @@ data class GrpcRawFilterStrategy(var filters: List<GrpcRouterFilterConfiguration
 data class GrpcRouterFilterConfiguration(
     @JsonProperty(required = true) var endpoint: String,
     @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var metadata: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap(),
-    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var message: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap()
+    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var message: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap(),
+    @JsonDeserialize(using = MultiMapFiltersDeserializer::class) override var properties: MultiValuedMap<String, FieldFilterConfiguration> = emptyMultiMap()
 ) : RouterFilter, Configuration() {
 
     @JsonGetter("metadata")
@@ -38,5 +39,8 @@ data class GrpcRouterFilterConfiguration(
 
     @JsonGetter("message")
     fun getJsonMessage(): Collection<FieldFilterConfiguration> = message.values()
+
+    @JsonGetter("properties")
+    fun getJsonProperties(): Collection<FieldFilterConfiguration> = properties.values()
 
 }

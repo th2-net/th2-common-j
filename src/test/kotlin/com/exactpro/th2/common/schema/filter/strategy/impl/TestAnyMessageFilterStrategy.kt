@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.filter.strategy.impl
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.message
@@ -299,6 +300,30 @@ class TestAnyMessageFilterStrategy {
         ) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
     }
 
+    @ParameterizedTest
+    @MethodSource("messagesWithProperty")
+    fun `matches message with properties`(message: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            message,
+            MqRouterFilterConfiguration(
+                properties = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put(
+                        "test-property", FieldFilterConfiguration(
+                            fieldName = "test-property",
+                            operation = FieldFilterOperation.EQUAL,
+                            expectedValue = "property-value"
+                        )
+                    )
+                },
+            )
+        )
+
+        assertEquals(
+            expectMatch,
+            match
+        ) { "The message ${message.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
     companion object {
 
         private fun simpleMessageBuilder(messageType: String, direction: Direction, sessionAlias: String): AnyMessage {
@@ -481,6 +506,42 @@ class TestAnyMessageFilterStrategy {
             arguments(PARSED_MESSAGE_BOTH_FILTERS_FULL_MATCH, true),
             arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MATCH, false),
             arguments(PARSED_MESSAGE_BOTH_FILTERS_NO_MATCH, false),
+        )
+
+        /////////////
+
+        private val RAW_MESSAGE_WITH_PROPERTY = AnyMessage.newBuilder().setRawMessage(
+            RawMessage.newBuilder().apply {
+                metadataBuilder.putProperties("test-property", "property-value")
+            }
+        ).build()
+
+        private val RAW_MESSAGE_WITH_PROPERTY_MISMATCH = AnyMessage.newBuilder().setRawMessage(
+            RawMessage.newBuilder().apply {
+                metadataBuilder.putProperties("test-property", "property-value-wrong")
+            }
+        ).build()
+
+        private val MESSAGE_WITH_PROPERTY = AnyMessage.newBuilder().setMessage(
+            Message.newBuilder().apply {
+                metadataBuilder.putProperties("test-property", "property-value")
+            }
+        ).build()
+
+        private val MESSAGE_WITH_PROPERTY_MISMATCH = AnyMessage.newBuilder().setMessage(
+            Message.newBuilder().apply {
+                metadataBuilder.putProperties("test-property", "property-value-wrong")
+            }
+        ).build()
+
+
+
+        @JvmStatic
+        fun messagesWithProperty() : List<Arguments> = listOf(
+            arguments(MESSAGE_WITH_PROPERTY, true),
+            arguments(MESSAGE_WITH_PROPERTY_MISMATCH, false),
+            arguments(RAW_MESSAGE_WITH_PROPERTY, true),
+            arguments(RAW_MESSAGE_WITH_PROPERTY_MISMATCH, false),
         )
 
         /////////////

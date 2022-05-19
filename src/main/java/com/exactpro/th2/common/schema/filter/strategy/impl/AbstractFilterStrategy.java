@@ -57,6 +57,7 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
         MultiValuedMap<String, FieldFilterConfiguration> msgFieldFilters = MultiMapUtils.newListValuedHashMap();
         msgFieldFilters.putAll(routerFilter.getMessage());
         msgFieldFilters.putAll(routerFilter.getMetadata());
+        msgFieldFilters.putAll(routerFilter.getProperties());
         return msgFieldFilters;
     }
 
