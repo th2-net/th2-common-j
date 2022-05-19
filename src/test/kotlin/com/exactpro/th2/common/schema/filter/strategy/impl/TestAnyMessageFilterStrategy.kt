@@ -301,7 +301,7 @@ class TestAnyMessageFilterStrategy {
     }
 
     @ParameterizedTest
-    @MethodSource("messagesWithProperty")
+    @MethodSource("messagesWithProperties")
     fun `matches message with properties`(message: AnyMessage, expectMatch: Boolean) {
         val match = strategy.verify(
             message,
@@ -386,12 +386,12 @@ class TestAnyMessageFilterStrategy {
 
         ////////////////
 
-        private val MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_1 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_ONE_FIELD_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias").apply {
                 addField("test-field", "test-value1")
             }
         ).build()
-        private val MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_2 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_ONE_FIELD_2 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias").apply {
                 addField("test-field", "test-value2")
             }
@@ -399,14 +399,14 @@ class TestAnyMessageFilterStrategy {
 
         @JvmStatic
         fun messagesWithSameFilterFields(): List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_1, false),
-            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_2, false),
+            arguments(MESSAGE_WITH_ONE_FIELD_1, false),
+            arguments(MESSAGE_WITH_ONE_FIELD_2, false),
         )
 
         @JvmStatic
         fun messagesWithMultipleFiltersWithSameFilterField(): List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_1, true),
-            arguments(MESSAGE_WITH_ONE_FIELDS_FOR_FILTER_WITH_SAME_FIELDS_2, true),
+            arguments(MESSAGE_WITH_ONE_FIELD_1, true),
+            arguments(MESSAGE_WITH_ONE_FIELD_2, true),
         )
 
         ///////////////
@@ -421,91 +421,77 @@ class TestAnyMessageFilterStrategy {
 
         /////////////////
 
-        private val PARSED_MESSAGE_BOTH_FILTERS_MESSAGES_AND_METADATA_FULL_MATCH = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_FIELDS_FULL_MATCH = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias").apply {
                 addField("test-field1", "test-value1")
                 addField("test-field2", "test-value2")
             }
         ).build()
 
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_1 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_FIELDS_METADATA_MISMATCH_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.SECOND, "test-alias").apply {
                 addField("test-field1", "test-value1")
                 addField("test-field2", "test-value2")
             }
         ).build()
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_2 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_FIELDS_METADATA_MISMATCH_2 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias-wrong").apply {
                 addField("test-field1", "test-value1")
                 addField("test-field2", "test-value2")
             }
         ).build()
 
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_1 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_FIELDS_FIELD_MISMATCH_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias").apply {
                 addField("test-field1", "test-value-wrong")
                 addField("test-field2", "test-value2")
             }
         ).build()
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_2 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_FIELDS_FIELD_MISMATCH_2 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias").apply {
                 addField("test-field1", "test-value1")
                 addField("test-field2", "test-value-wrong")
             }
         ).build()
 
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_1 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_1 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.SECOND, "test-alias").apply {
                 addField("test-field1", "test-value-wrong")
                 addField("test-field2", "test-value2")
             }
         ).build()
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_2 = AnyMessage.newBuilder().setMessage(
+        private val MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_2 = AnyMessage.newBuilder().setMessage(
             message("test", Direction.FIRST, "test-alias-wrong").apply {
                 addField("test-field1", "test-value1")
+                addField("test-field2", "test-value-wrong")
+            }
+        ).build()
+
+        private val MESSAGE_WITH_FIELDS_ALL_FIELDS_MISMATCH = AnyMessage.newBuilder().setMessage(
+            message("test", Direction.FIRST, "test-alias").apply {
+                addField("test-field1", "test-value-wrong")
                 addField("test-field2", "test-value-wrong")
             }
         ).build()
 
         @JvmStatic
         fun messagesWithMessageAndMetadataFilters() : List<Arguments> = listOf(
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_MESSAGES_AND_METADATA_FULL_MATCH, true),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_1, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_METADATA_NOT_MATCH_2, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_1, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_NOT_MATCH_2, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_1, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MESSAGE_AND_ONE_METADATA_NOT_MATCH_2, false),
+            arguments(MESSAGE_WITH_FIELDS_FULL_MATCH, true),
+            arguments(MESSAGE_WITH_FIELDS_METADATA_MISMATCH_1, false),
+            arguments(MESSAGE_WITH_FIELDS_METADATA_MISMATCH_2, false),
+            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_1, false),
+            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_2, false),
+            arguments(MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_1, false),
+            arguments(MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_2, false),
+            arguments(MESSAGE_WITH_FIELDS_ALL_FIELDS_MISMATCH, false),
         )
-
-        ////////////
-
-        private val PARSED_MESSAGE_BOTH_FILTERS_FULL_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field1", "test-value1")
-                addField("test-field2", "test-value2")
-            }
-        ).build()
-
-        private val PARSED_MESSAGE_BOTH_FILTERS_ONE_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field1", "test-value-wrong")
-                addField("test-field2", "test-value2")
-            }
-        ).build()
-
-        private val PARSED_MESSAGE_BOTH_FILTERS_NO_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field1", "test-value-wrong")
-                addField("test-field2", "test-value-wrong")
-            }
-        ).build()
 
         @JvmStatic
         fun parsedMessagesBothFilters() : List<Arguments> = listOf(
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_FULL_MATCH, true),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_ONE_MATCH, false),
-            arguments(PARSED_MESSAGE_BOTH_FILTERS_NO_MATCH, false),
+            arguments(MESSAGE_WITH_FIELDS_FULL_MATCH, true),
+            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_1, false),
+            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_2, false),
+            arguments(MESSAGE_WITH_FIELDS_ALL_FIELDS_MISMATCH, false),
         )
 
         /////////////
@@ -534,10 +520,8 @@ class TestAnyMessageFilterStrategy {
             }
         ).build()
 
-
-
         @JvmStatic
-        fun messagesWithProperty() : List<Arguments> = listOf(
+        fun messagesWithProperties() : List<Arguments> = listOf(
             arguments(MESSAGE_WITH_PROPERTY, true),
             arguments(MESSAGE_WITH_PROPERTY_MISMATCH, false),
             arguments(RAW_MESSAGE_WITH_PROPERTY, true),
@@ -546,7 +530,7 @@ class TestAnyMessageFilterStrategy {
 
         /////////////
 
-        private val RAW_MESSAGE_BOTH_FILTERS_FULL_MATCH = AnyMessage.newBuilder().setRawMessage(
+        private val RAW_MESSAGE_FULL_MATCH = AnyMessage.newBuilder().setRawMessage(
             RawMessage.newBuilder().apply {
                 metadataBuilder.idBuilder.apply {
                     connectionIdBuilder.sessionAlias = "test-alias"
@@ -555,7 +539,7 @@ class TestAnyMessageFilterStrategy {
             }
         ).build()
 
-        private val RAW_MESSAGE_BOTH_FILTERS_ONE_MATCH = AnyMessage.newBuilder().setRawMessage(
+        private val RAW_MESSAGE_ONE_MISMATCH = AnyMessage.newBuilder().setRawMessage(
             RawMessage.newBuilder().apply {
                 metadataBuilder.idBuilder.apply {
                     connectionIdBuilder.sessionAlias = "test-alias"
@@ -564,7 +548,7 @@ class TestAnyMessageFilterStrategy {
             }
         ).build()
 
-        private val RAW_MESSAGE_BOTH_FILTERS_NO_MATCH = AnyMessage.newBuilder().setRawMessage(
+        private val RAW_MESSAGE_NO_MATCH = AnyMessage.newBuilder().setRawMessage(
             RawMessage.newBuilder().apply {
                 metadataBuilder.idBuilder.apply {
                     connectionIdBuilder.sessionAlias = "test-alias-wrong-value"
@@ -575,9 +559,9 @@ class TestAnyMessageFilterStrategy {
 
         @JvmStatic
         fun rawMessagesBothFilters() : List<Arguments> = listOf(
-            arguments(RAW_MESSAGE_BOTH_FILTERS_FULL_MATCH, true),
-            arguments(RAW_MESSAGE_BOTH_FILTERS_ONE_MATCH, false),
-            arguments(RAW_MESSAGE_BOTH_FILTERS_NO_MATCH, false)
+            arguments(RAW_MESSAGE_FULL_MATCH, true),
+            arguments(RAW_MESSAGE_ONE_MISMATCH, false),
+            arguments(RAW_MESSAGE_NO_MATCH, false)
         )
 
     }
