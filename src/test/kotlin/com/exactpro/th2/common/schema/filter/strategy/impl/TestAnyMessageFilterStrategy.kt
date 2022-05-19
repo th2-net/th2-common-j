@@ -43,10 +43,10 @@ class TestAnyMessageFilterStrategy {
             listOf(
                 MqRouterFilterConfiguration(
                     metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
-                        put("session_alias", FieldFilterConfiguration(
-                            fieldName = "session_alias",
+                        put("message_type", FieldFilterConfiguration(
+                            fieldName = "message_type",
                             operation = FieldFilterOperation.EQUAL,
-                            expectedValue = "test-alias"
+                            expectedValue = "test"
                         ))
                     }
                 ),
@@ -129,10 +129,10 @@ class TestAnyMessageFilterStrategy {
                     ))
                 },
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
-                    put("session_alias", FieldFilterConfiguration(
-                        fieldName = "session_alias",
+                    put("message_type", FieldFilterConfiguration(
+                        fieldName = "message_type",
                         operation = FieldFilterOperation.EQUAL,
-                        expectedValue = "test-alias"
+                        expectedValue = "test"
                     ))
                     put("direction", FieldFilterConfiguration(
                         fieldName = "direction",
@@ -339,10 +339,10 @@ class TestAnyMessageFilterStrategy {
                     )
                 },
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
-                    put("session_alias", FieldFilterConfiguration(
-                        fieldName = "session_alias",
+                    put("message_type", FieldFilterConfiguration(
+                        fieldName = "message_type",
                         operation = FieldFilterOperation.EQUAL,
-                        expectedValue = "test-alias"
+                        expectedValue = "test"
                     ))
                 }
             )
@@ -362,249 +362,139 @@ class TestAnyMessageFilterStrategy {
             ).build()
         }
 
-        private val PARSED_MESSAGE_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias")
-        ).build()
-
-        private val RAW_MESSAGE_MATCH = AnyMessage.newBuilder().setRawMessage(
-            RawMessage.newBuilder().apply {
-                metadataBuilder.idBuilder.apply {
-                    connectionIdBuilder.sessionAlias = "test-alias"
-                    direction = Direction.FIRST
+        private fun simpleRawMessageBuilder(sessionAlias: String, directionValue: Direction): AnyMessage {
+            return AnyMessage.newBuilder().setRawMessage(
+                RawMessage.newBuilder().apply {
+                    metadataBuilder.idBuilder.apply {
+                        connectionIdBuilder.sessionAlias = sessionAlias
+                        direction = directionValue
+                    }
                 }
-            }
-        ).build()
+            ).build()
+        }
 
-        private val PARSED_MESSAGE_MISS_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test1", Direction.SECOND, "test-alias1")
-        ).build()
-
-        private val RAW_MESSAGE_MISS_MATCH = AnyMessage.newBuilder().setRawMessage(
-            RawMessage.newBuilder().apply {
-                metadataBuilder.idBuilder.apply {
-                    connectionIdBuilder.sessionAlias = "test-alias1"
-                    direction = Direction.SECOND
+        private fun messageWithFields(messageType: String, direction: Direction, fields: List<Pair<String, String>>): AnyMessage {
+            return AnyMessage.newBuilder().setMessage(
+                message(messageType, direction, "test-alias").apply {
+                    fields.forEach { addField(it.first, it.second) }
                 }
-            }
-        ).build()
+            ).build()
+        }
 
-        @JvmStatic
-        fun parsedMessages(): List<Arguments> = listOf(
-            arguments(PARSED_MESSAGE_MATCH, true),
-            arguments(PARSED_MESSAGE_MISS_MATCH, false)
-        )
+        private fun rawMessageWithOneProperty(propertyKey: String, propertyValue: String): AnyMessage {
+            return AnyMessage.newBuilder().setRawMessage(
+                RawMessage.newBuilder().apply {
+                    metadataBuilder.putProperties(propertyKey, propertyValue)
+                }
+            ).build()
+        }
+
+        private fun messageWithOneProperty(messageType: String, propertyKey: String, propertyValue: String): AnyMessage {
+            return AnyMessage.newBuilder().setMessage(
+                message(messageType, Direction.FIRST, "test-alias").apply {
+                    metadataBuilder.putProperties(propertyKey, propertyValue)
+                }
+            ).build()
+        }
 
         @JvmStatic
         fun messages(): List<Arguments> = listOf(
-            arguments(RAW_MESSAGE_MATCH, true),
-            arguments(RAW_MESSAGE_MISS_MATCH, false)
+            arguments(simpleRawMessageBuilder("test-alias", Direction.FIRST), true),
+            arguments(simpleRawMessageBuilder("test-alias1", Direction.SECOND), false)
         ) + parsedMessages()
 
-        /////////////////
-
-        private val MATCHES_WITH_SAME_FIELDS = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field", "test-value1")
-                addField("test-field", "test-value2")
-            }
-        ).build()
+        @JvmStatic
+        fun parsedMessages(): List<Arguments> = listOf(
+            arguments(simpleMessageBuilder("test", Direction.FIRST, "test-alias"), true),
+            arguments(simpleMessageBuilder("test1", Direction.SECOND, "test-alias1"), false)
+        )
 
         @JvmStatic
         fun messagesWithMultipleSameFields(): List<Arguments> = listOf(
-            arguments(MATCHES_WITH_SAME_FIELDS, true),
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field", "test-value1"), Pair("test-field", "test-value2"))), true),
         )
-
-        ////////////////
-
-        private val MESSAGE_WITH_ONE_FIELD_1 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field", "test-value1")
-            }
-        ).build()
-        private val MESSAGE_WITH_ONE_FIELD_2 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field", "test-value2")
-            }
-        ).build()
 
         @JvmStatic
         fun messagesWithSameFilterFields(): List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_ONE_FIELD_1, false),
-            arguments(MESSAGE_WITH_ONE_FIELD_2, false),
+            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value1"))), false),
+            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value2"))), false),
         )
 
         @JvmStatic
         fun messagesWithMultipleFiltersWithSameFilterField(): List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_ONE_FIELD_1, true),
-            arguments(MESSAGE_WITH_ONE_FIELD_2, true),
+            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value1"))), true),
+            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value2"))), true),
         )
-
-        ///////////////
 
         @JvmStatic
         fun multipleFiltersMatch(): List<Arguments> = listOf(
             arguments(simpleMessageBuilder("test", Direction.FIRST, "test-alias"), true),
             arguments(simpleMessageBuilder("test", Direction.SECOND, "test-alias"), true),
-            arguments(simpleMessageBuilder("test", Direction.FIRST, "test-wrong"), true),
-            arguments(simpleMessageBuilder("test", Direction.SECOND, "test-alias-wrong"), false),
+            arguments(simpleMessageBuilder("test-wrong", Direction.FIRST, "test-alias"), true),
+            arguments(simpleMessageBuilder("test-wrong", Direction.SECOND, "test-alias"), false),
         )
-
-        /////////////////
-
-        private val MESSAGE_WITH_FIELDS_FULL_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field1", "test-value1")
-                addField("test-field2", "test-value2")
-            }
-        ).build()
-
-        private val MESSAGE_WITH_FIELDS_METADATA_MISMATCH_1 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.SECOND, "test-alias").apply {
-                addField("test-field1", "test-value1")
-                addField("test-field2", "test-value2")
-            }
-        ).build()
-        private val MESSAGE_WITH_FIELDS_METADATA_MISMATCH_2 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias-wrong").apply {
-                addField("test-field1", "test-value1")
-                addField("test-field2", "test-value2")
-            }
-        ).build()
-
-        private val MESSAGE_WITH_FIELDS_FIELD_MISMATCH_1 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field1", "test-value-wrong")
-                addField("test-field2", "test-value2")
-            }
-        ).build()
-        private val MESSAGE_WITH_FIELDS_FIELD_MISMATCH_2 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field1", "test-value1")
-                addField("test-field2", "test-value-wrong")
-            }
-        ).build()
-
-        private val MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_1 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.SECOND, "test-alias").apply {
-                addField("test-field1", "test-value-wrong")
-                addField("test-field2", "test-value2")
-            }
-        ).build()
-        private val MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_2 = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias-wrong").apply {
-                addField("test-field1", "test-value1")
-                addField("test-field2", "test-value-wrong")
-            }
-        ).build()
-
-        private val MESSAGE_WITH_FIELDS_ALL_FIELDS_MISMATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                addField("test-field1", "test-value-wrong")
-                addField("test-field2", "test-value-wrong")
-            }
-        ).build()
 
         @JvmStatic
         fun messagesWithMessageAndMetadataFilters() : List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_FIELDS_FULL_MATCH, true),
-            arguments(MESSAGE_WITH_FIELDS_METADATA_MISMATCH_1, false),
-            arguments(MESSAGE_WITH_FIELDS_METADATA_MISMATCH_2, false),
-            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_1, false),
-            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_2, false),
-            arguments(MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_1, false),
-            arguments(MESSAGE_WITH_FIELDS_FIELD_AND_METADATA_MISMATCH_2, false),
-            arguments(MESSAGE_WITH_FIELDS_ALL_FIELDS_MISMATCH, false),
+            // fields full match
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), true),
+
+            // metadata mismatch
+            arguments(messageWithFields("test", Direction.SECOND,
+                listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), false),
+            arguments(messageWithFields("test-wrong", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), false),
+
+            // fields mismatch
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value2"))), false),
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value-wrong"))), false),
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value-wrong"))), false),
+
+            // one field and one metadata mismatch
+            arguments(messageWithFields("test", Direction.SECOND,
+                listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value2"))), false),
+            arguments(messageWithFields("test-wrong", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value-wrong"))), false),
+
         )
 
         @JvmStatic
         fun parsedMessagesBothFilters() : List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_FIELDS_FULL_MATCH, true),
-            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_1, false),
-            arguments(MESSAGE_WITH_FIELDS_FIELD_MISMATCH_2, false),
-            arguments(MESSAGE_WITH_FIELDS_ALL_FIELDS_MISMATCH, false),
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), true),
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value2"))), false),
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value-wrong"))), false),
+            arguments(messageWithFields("test", Direction.FIRST,
+                listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value-wrong"))), false),
         )
-
-        /////////////
-
-        private val RAW_MESSAGE_WITH_PROPERTY = AnyMessage.newBuilder().setRawMessage(
-            RawMessage.newBuilder().apply {
-                metadataBuilder.putProperties("test-property", "property-value")
-            }
-        ).build()
-
-        private val RAW_MESSAGE_WITH_PROPERTY_MISMATCH = AnyMessage.newBuilder().setRawMessage(
-            RawMessage.newBuilder().apply {
-                metadataBuilder.putProperties("test-property", "property-value-wrong")
-            }
-        ).build()
-
-        private val MESSAGE_WITH_PROPERTIES = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                metadataBuilder.putProperties("test-property", "property-value")
-            }
-        ).build()
-
-        private val MESSAGE_WITH_PROPERTIES_PROPERTY_MISMATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias").apply {
-                metadataBuilder.putProperties("test-property", "property-value-wrong")
-            }
-        ).build()
-
-        private val MESSAGE_WITH_PROPERTIES_METADATA_MISMATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias-wrong").apply {
-                metadataBuilder.putProperties("test-property", "property-value")
-            }
-        ).build()
 
         @JvmStatic
         fun messagesWithProperties() : List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_PROPERTIES, true),
-            arguments(MESSAGE_WITH_PROPERTIES_PROPERTY_MISMATCH, false),
-            arguments(RAW_MESSAGE_WITH_PROPERTY, true),
-            arguments(RAW_MESSAGE_WITH_PROPERTY_MISMATCH, false),
+            arguments(messageWithOneProperty("test", "test-property", "property-value"), true),
+            arguments(messageWithOneProperty("test", "test-property", "property-value-wrong"), false),
+            arguments(rawMessageWithOneProperty("test-property", "property-value"), true),
+            arguments(rawMessageWithOneProperty("test-property", "property-value-wrong"), false)
         )
 
         @JvmStatic
         fun messagesWithPropertiesAndMetadata() : List<Arguments> = listOf(
-            arguments(MESSAGE_WITH_PROPERTIES, true),
-            arguments(MESSAGE_WITH_PROPERTIES_PROPERTY_MISMATCH, false),
-            arguments(MESSAGE_WITH_PROPERTIES_METADATA_MISMATCH, false),
+            arguments(messageWithOneProperty("test", "test-property", "property-value"), true),
+            arguments(messageWithOneProperty("test", "test-property", "property-value-wrong"), false),
+            arguments(messageWithOneProperty("test-wrong", "test-property", "property-value"), false),
         )
-
-        /////////////
-
-        private val RAW_MESSAGE_FULL_MATCH = AnyMessage.newBuilder().setRawMessage(
-            RawMessage.newBuilder().apply {
-                metadataBuilder.idBuilder.apply {
-                    connectionIdBuilder.sessionAlias = "test-alias"
-                    direction = Direction.FIRST
-                }
-            }
-        ).build()
-
-        private val RAW_MESSAGE_ONE_MISMATCH = AnyMessage.newBuilder().setRawMessage(
-            RawMessage.newBuilder().apply {
-                metadataBuilder.idBuilder.apply {
-                    connectionIdBuilder.sessionAlias = "test-alias"
-                    direction = Direction.SECOND
-                }
-            }
-        ).build()
-
-        private val RAW_MESSAGE_NO_MATCH = AnyMessage.newBuilder().setRawMessage(
-            RawMessage.newBuilder().apply {
-                metadataBuilder.idBuilder.apply {
-                    connectionIdBuilder.sessionAlias = "test-alias-wrong-value"
-                    direction = Direction.SECOND
-                }
-            }
-        ).build()
 
         @JvmStatic
         fun rawMessagesBothFilters() : List<Arguments> = listOf(
-            arguments(RAW_MESSAGE_FULL_MATCH, true),
-            arguments(RAW_MESSAGE_ONE_MISMATCH, false),
-            arguments(RAW_MESSAGE_NO_MATCH, false)
+            arguments(simpleRawMessageBuilder("test-alias", Direction.FIRST), true),
+            arguments(simpleRawMessageBuilder("test-alias", Direction.SECOND), false),
+            arguments(simpleRawMessageBuilder("test-alias-wrong-value", Direction.SECOND), false),
         )
 
     }

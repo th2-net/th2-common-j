@@ -35,7 +35,15 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
-import org.mockito.kotlin.*
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+
 
 class TestRabbitMessageGroupBatchRouter {
     private val connectionConfiguration = ConnectionManagerConfiguration()
@@ -291,9 +299,9 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(
                 MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias1") }
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias2") }
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias3") }
+                        .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message("test-message", Direction.SECOND, "test-alias") }
+                        .apply { this += message("test-message", Direction.FIRST, "test-alias") }
                     ).build()
             )
             verify(connectionManager, times(1)).basicPublish(any(), any(), anyOrNull(), any())
@@ -304,9 +312,9 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(
                 MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message1", Direction.FIRST, "test-alias1") }
-                        .apply { this += message("test-message2", Direction.FIRST, "test-alias2") }
-                        .apply { this += message("test-message3", Direction.FIRST, "test-alias3") }
+                        .apply { this += message("test-message1", Direction.FIRST, "test-alias") }
+                        .apply { this += message("test-message2", Direction.FIRST, "test-alias") }
+                        .apply { this += message("test-message3", Direction.FIRST, "test-alias") }
                     ).build()
             )
             verify(connectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
@@ -317,9 +325,9 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(
                 MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message1", Direction.FIRST, "test-alias1") }
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias2") }
-                        .apply { this += message("test-message3", Direction.FIRST, "test-alias3") }
+                        .apply { this += message("test-message1", Direction.FIRST, "test-alias") }
+                        .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message("test-message3", Direction.FIRST, "test-alias") }
                     ).build()
             )
             verify(connectionManager, times(1)).basicPublish(any(), any(), anyOrNull(), any())
