@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,11 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.schema.message.*
+import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
+import com.exactpro.th2.common.schema.message.FilterFunction
+import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
+import com.exactpro.th2.common.schema.message.MessageSubscriber
+import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.rabbitmq.client.Delivery
