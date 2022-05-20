@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.exception.RouterException
+import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.NotificationRouter
@@ -54,7 +55,7 @@ class NotificationEventBatchRouter : NotificationRouter<EventBatch> {
 
     override fun subscribe(callback: MessageListener<EventBatch>): SubscriberMonitor {
         try {
-            subscriber.addListener(callback)
+            subscriber.addListener(ConfirmationMessageListener.wrap(callback))
             subscriber.start()
         } catch (e: Exception) {
             val errorMessage = "Listener can't be subscribed via the queue $queue"

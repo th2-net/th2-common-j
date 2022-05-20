@@ -58,6 +58,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomR
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
@@ -95,7 +96,6 @@ import java.util.stream.StreamSupport;
 
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_CONSISTENCY_LEVEL;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_TIMEOUT;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
@@ -119,9 +119,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
     static  {
-        MAPPER.registerModule(new KotlinModule());
-
-        MAPPER.registerModule(new RoutingStrategyModule(MAPPER));
+        MAPPER.registerModules(
+                new KotlinModule(),
+                new RoutingStrategyModule(MAPPER),
+                new JavaTimeModule()
+        );
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);

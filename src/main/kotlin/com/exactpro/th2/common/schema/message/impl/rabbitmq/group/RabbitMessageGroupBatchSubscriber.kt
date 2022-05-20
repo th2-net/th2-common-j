@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -27,6 +27,7 @@ import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
 import com.exactpro.th2.common.schema.message.toShortDebugString
 import com.google.protobuf.CodedInputStream
@@ -77,7 +78,12 @@ class RabbitMessageGroupBatchSubscriber(
         return if (groups.isEmpty()) null else MessageGroupBatch.newBuilder().addAllGroups(groups).build()
     }
 
-    override fun handle(consumeTag: String, delivery: Delivery, value: MessageGroupBatch) {
+    override fun handle(
+        consumeTag: String,
+        delivery: Delivery,
+        value: MessageGroupBatch,
+        confirmation: ManualAckDeliveryCallback.Confirmation
+    ) {
         incrementTotalMetrics(
             value,
             th2Pin,
@@ -85,7 +91,7 @@ class RabbitMessageGroupBatchSubscriber(
             MESSAGE_GROUP_SUBSCRIBE_TOTAL,
             MESSAGE_GROUP_SEQUENCE_SUBSCRIBE
         )
-        super.handle(consumeTag, delivery, value)
+        super.handle(consumeTag, delivery, value, confirmation)
     }
 
     private fun parseEncodedBatch(body: ByteArray?): MessageGroupBatch {
