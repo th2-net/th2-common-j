@@ -26,7 +26,9 @@ import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfigura
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import org.apache.commons.collections4.MultiMapUtils
+import org.junit.Ignore
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.Arguments.arguments
@@ -111,6 +113,29 @@ class TestAnyMessageFilterStrategy {
     }
 
     @ParameterizedTest
+    @MethodSource("messagesWithProperties")
+    fun `matches with multiple properties filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            anyMessage,
+            MqRouterFilterConfiguration(
+                properties = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("prop-field1", FieldFilterConfiguration(
+                        fieldName = "prop-field1",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "prop-value1"
+                    ))
+                    put("prop-field2", FieldFilterConfiguration(
+                        fieldName = "prop-field2",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "prop-value2"
+                    ))
+                }
+            )
+        )
+        assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
     @MethodSource("messagesWithMessageAndMetadataFilters")
     fun `matches with multiple message and metadata filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
         val match = strategy.verify(
@@ -143,6 +168,59 @@ class TestAnyMessageFilterStrategy {
             )
         )
         assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
+    @MethodSource("messageWithAllParts")
+    @Disabled
+    // FIXME data in a fields with the same name rewrite each other, so data get lost
+    fun `matches with message and metadata and property same field filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            anyMessage,
+            MqRouterFilterConfiguration(
+                message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("message_type", FieldFilterConfiguration(
+                        fieldName = "message_type",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "message_value"
+                    ))
+                },
+                metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("message_type", FieldFilterConfiguration(
+                        fieldName = "message_type",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "metadata_value"
+                    ))
+                },
+                properties = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("message_type", FieldFilterConfiguration(
+                        fieldName = "message_type",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "properties_value"
+                    ))
+                },
+            )
+        )
+        assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+    }
+
+    @ParameterizedTest
+    @MethodSource("messageWithProtocol")
+    fun `matches protocol metadata filter`(anyMessage: AnyMessage, expectMatch: Boolean) {
+        val match = strategy.verify(
+            anyMessage,
+            MqRouterFilterConfiguration(
+                metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put("protocol", FieldFilterConfiguration(
+                        fieldName = "protocol",
+                        operation = FieldFilterOperation.EQUAL,
+                        expectedValue = "HTTP"
+                    ))
+                },
+            )
+        )
+        assertEquals(expectMatch, match) { "The message ${anyMessage.toJson()} was${if (expectMatch) "" else " not"} matched" }
+
     }
 
     @ParameterizedTest
@@ -300,7 +378,7 @@ class TestAnyMessageFilterStrategy {
     }
 
     @ParameterizedTest
-    @MethodSource("messagesWithProperties")
+    @MethodSource("messagesWithOneProperty")
     fun `matches message with properties`(message: AnyMessage, expectMatch: Boolean) {
         val match = strategy.verify(
             message,
@@ -373,7 +451,7 @@ class TestAnyMessageFilterStrategy {
             ).build()
         }
 
-        private fun messageWithFields(messageType: String, direction: Direction, fields: List<Pair<String, String>>): AnyMessage {
+        private fun messageWithFieldsBuilder(messageType: String, direction: Direction, fields: List<Pair<String, String>>): AnyMessage {
             return AnyMessage.newBuilder().setMessage(
                 message(messageType, direction, "test-alias").apply {
                     fields.forEach { addField(it.first, it.second) }
@@ -381,7 +459,15 @@ class TestAnyMessageFilterStrategy {
             ).build()
         }
 
-        private fun rawMessageWithOneProperty(propertyKey: String, propertyValue: String): AnyMessage {
+        private fun messageWithPropertiesBuilder(messageType: String, direction: Direction, properties: List<Pair<String, String>>): AnyMessage {
+            return AnyMessage.newBuilder().setMessage(
+                message(messageType, direction, "test-alias").apply {
+                    properties.forEach { metadataBuilder.putProperties(it.first, it.second) }
+                }
+            ).build()
+        }
+
+        private fun rawMessageWithOnePropertyBuilder(propertyKey: String, propertyValue: String): AnyMessage {
             return AnyMessage.newBuilder().setRawMessage(
                 RawMessage.newBuilder().apply {
                     metadataBuilder.putProperties(propertyKey, propertyValue)
@@ -389,13 +475,32 @@ class TestAnyMessageFilterStrategy {
             ).build()
         }
 
-        private fun messageWithOneProperty(messageType: String, propertyKey: String, propertyValue: String): AnyMessage {
+        private fun messageWithOnePropertyBuilder(messageType: String, propertyKey: String, propertyValue: String): AnyMessage {
+            return messageWithPropertiesBuilder(messageType, Direction.FIRST, listOf(Pair(propertyKey, propertyValue)))
+        }
+
+        private fun messageWithAllPartsBuilder(messageType: String, propertyKey: String, propertyValue: String, fieldKey: String, fieldValue: String): AnyMessage {
             return AnyMessage.newBuilder().setMessage(
                 message(messageType, Direction.FIRST, "test-alias").apply {
                     metadataBuilder.putProperties(propertyKey, propertyValue)
+                    addField(fieldKey, fieldValue)
                 }
             ).build()
         }
+
+        private fun messageWithProtocolBuilder(protocol: String): AnyMessage {
+            return AnyMessage.newBuilder().setMessage(
+                message("test", Direction.FIRST, "test-alias").apply {
+                    metadataBuilder.protocol = protocol
+                }
+            ).build()
+        }
+
+        @JvmStatic
+        fun messageWithProtocol(): List<Arguments> = listOf(
+            arguments(messageWithProtocolBuilder("HTTP"), true),
+            arguments(messageWithProtocolBuilder("FTP"), false),
+        )
 
         @JvmStatic
         fun messages(): List<Arguments> = listOf(
@@ -410,21 +515,33 @@ class TestAnyMessageFilterStrategy {
         )
 
         @JvmStatic
+        fun messagesWithProperties(): List<Arguments> = listOf(
+            arguments(messageWithPropertiesBuilder("test", Direction.FIRST, listOf(
+                Pair("prop-field1", "prop-value1"), Pair("prop-field2", "prop-value2"))), true),
+            arguments(messageWithPropertiesBuilder("test", Direction.FIRST, listOf(
+                Pair("prop-field1", "prop-value-wrong"), Pair("prop-field2", "prop-value2"))), false),
+            arguments(messageWithPropertiesBuilder("test", Direction.FIRST, listOf(
+                Pair("prop-field1", "prop-value1"), Pair("prop-field2", "prop-value-wrong"))), false),
+            arguments(messageWithPropertiesBuilder("test", Direction.FIRST, listOf(
+                Pair("prop-field1", "prop-value-wrong"), Pair("prop-field2", "prop-value-wrong"))), false)
+        )
+
+        @JvmStatic
         fun messagesWithMultipleSameFields(): List<Arguments> = listOf(
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field", "test-value1"), Pair("test-field", "test-value2"))), true),
         )
 
         @JvmStatic
         fun messagesWithSameFilterFields(): List<Arguments> = listOf(
-            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value1"))), false),
-            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value2"))), false),
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST, listOf(Pair("test-field", "test-value1"))), false),
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST, listOf(Pair("test-field", "test-value2"))), false),
         )
 
         @JvmStatic
         fun messagesWithMultipleFiltersWithSameFilterField(): List<Arguments> = listOf(
-            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value1"))), true),
-            arguments(messageWithFields("test", Direction.FIRST, listOf(Pair("test-field", "test-value2"))), true),
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST, listOf(Pair("test-field", "test-value1"))), true),
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST, listOf(Pair("test-field", "test-value2"))), true),
         )
 
         @JvmStatic
@@ -438,56 +555,56 @@ class TestAnyMessageFilterStrategy {
         @JvmStatic
         fun messagesWithMessageAndMetadataFilters() : List<Arguments> = listOf(
             // fields full match
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), true),
 
             // metadata mismatch
-            arguments(messageWithFields("test", Direction.SECOND,
+            arguments(messageWithFieldsBuilder("test", Direction.SECOND,
                 listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), false),
-            arguments(messageWithFields("test-wrong", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test-wrong", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), false),
 
             // fields mismatch
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value2"))), false),
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value-wrong"))), false),
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value-wrong"))), false),
 
             // one field and one metadata mismatch
-            arguments(messageWithFields("test", Direction.SECOND,
+            arguments(messageWithFieldsBuilder("test", Direction.SECOND,
                 listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value2"))), false),
-            arguments(messageWithFields("test-wrong", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test-wrong", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value-wrong"))), false),
 
         )
 
         @JvmStatic
         fun parsedMessagesBothFilters() : List<Arguments> = listOf(
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value2"))), true),
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value2"))), false),
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value1"), Pair("test-field2", "test-value-wrong"))), false),
-            arguments(messageWithFields("test", Direction.FIRST,
+            arguments(messageWithFieldsBuilder("test", Direction.FIRST,
                 listOf(Pair("test-field1", "test-value-wrong"), Pair("test-field2", "test-value-wrong"))), false),
         )
 
         @JvmStatic
-        fun messagesWithProperties() : List<Arguments> = listOf(
-            arguments(messageWithOneProperty("test", "test-property", "property-value"), true),
-            arguments(messageWithOneProperty("test", "test-property", "property-value-wrong"), false),
-            arguments(rawMessageWithOneProperty("test-property", "property-value"), true),
-            arguments(rawMessageWithOneProperty("test-property", "property-value-wrong"), false)
+        fun messagesWithOneProperty() : List<Arguments> = listOf(
+            arguments(messageWithOnePropertyBuilder("test", "test-property", "property-value"), true),
+            arguments(messageWithOnePropertyBuilder("test", "test-property", "property-value-wrong"), false),
+            arguments(rawMessageWithOnePropertyBuilder("test-property", "property-value"), true),
+            arguments(rawMessageWithOnePropertyBuilder("test-property", "property-value-wrong"), false)
         )
 
         @JvmStatic
         fun messagesWithPropertiesAndMetadata() : List<Arguments> = listOf(
-            arguments(messageWithOneProperty("test", "test-property", "property-value"), true),
-            arguments(messageWithOneProperty("test", "test-property", "property-value-wrong"), false),
-            arguments(messageWithOneProperty("test-wrong", "test-property", "property-value"), false),
+            arguments(messageWithOnePropertyBuilder("test", "test-property", "property-value"), true),
+            arguments(messageWithOnePropertyBuilder("test", "test-property", "property-value-wrong"), false),
+            arguments(messageWithOnePropertyBuilder("test-wrong", "test-property", "property-value"), false),
         )
 
         @JvmStatic
@@ -496,6 +613,15 @@ class TestAnyMessageFilterStrategy {
             arguments(simpleRawMessageBuilder("test-alias", Direction.SECOND), false),
             arguments(simpleRawMessageBuilder("test-alias-wrong-value", Direction.SECOND), false),
         )
+
+        @JvmStatic
+        fun messageWithAllParts() : List<Arguments> = listOf(
+            arguments(messageWithAllPartsBuilder("message_type", "message_type", "properties_value", "message_type", "message_value"), true),
+            arguments(simpleMessageBuilder("metadata_value", Direction.FIRST, "test-alias"), false),
+            arguments(simpleMessageBuilder("metadata_value1", Direction.FIRST, "test-alias"), false),
+            arguments(simpleMessageBuilder("message_value", Direction.FIRST, "test-alias"), false),
+
+            )
 
     }
 }
