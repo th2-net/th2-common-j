@@ -15,45 +15,6 @@
 
 package com.exactpro.th2.common.schema.factory;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static java.util.Collections.emptyMap;
-import static java.util.Objects.requireNonNull;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Spliterators;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.stream.StreamSupport;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.cradle.CradleManager;
 import com.exactpro.cradle.cassandra.CassandraCradleManager;
 import com.exactpro.cradle.cassandra.connection.CassandraConnection;
@@ -97,13 +58,48 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageG
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
+import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
-
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Spliterators;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.Attributes.Name;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.stream.StreamSupport;
+
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  *
@@ -120,7 +116,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     @Deprecated
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
-    protected static final String LOG4J_PROPERTIES_NAME = "log4j2.properties";
+    protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
+    protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -771,16 +768,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH);
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
-        listPath.stream()
-                .map(path -> Path.of(path, LOG4J_PROPERTIES_NAME))
-                .filter(Files::exists)
-                .findFirst()
-                .ifPresentOrElse(path -> {
-                            ((LoggerContext) LogManager.getContext()).reconfigure();
-                            ((LoggerContext) LogManager.getContext()).setConfigLocation(path.toUri());
-                            LOGGER.info("Logger configuration from {} file is applied", path);
-                        },
-                        () -> LOGGER.info("Neither of {} paths contains {} file. Use default configuration", listPath, LOG4J_PROPERTIES_NAME));
+        Log4jConfigUtils log4jConfigUtils = new Log4jConfigUtils();
+        log4jConfigUtils.configure(listPath, LOG4J_PROPERTIES_NAME, LOG4J2_PROPERTIES_NAME, true);
         loggingManifests();
     }
 
