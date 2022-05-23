@@ -22,7 +22,7 @@ import com.google.protobuf.Message
 
 class AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
 
-    // FIXME data in a fields with the same name rewrite each other, so data get lost
+    // FIXME data in a fields with the same name rewrite each other, so data can get lost
     override fun getFields(message: Message): MutableMap<String, String> {
         check(message is AnyMessage) { "Message is not an ${AnyMessage::class.qualifiedName}: ${message.toJson()}" }
 
