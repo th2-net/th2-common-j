@@ -26,7 +26,8 @@ class Log4jConfigUtils {
                 )
             }
             .filter { Files.exists(it.first) }
-            .run { if (secondVersionPriority) sortedByDescending { it.second } else this }
+                // todo sortedByDescending
+            .run { if (secondVersionPriority) sortedBy { it.second } else this }
             .getOrNull(0)
 
         when (configPathList?.second) {
