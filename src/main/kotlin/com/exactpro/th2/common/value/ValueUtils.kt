@@ -28,6 +28,7 @@ import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import com.exactpro.th2.common.grpc.ValueOrBuilder
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.util.stream.Stream
 
 fun nullValue(): Value = Value.newBuilder().setNullValue(NULL_VALUE).build()
 fun listValue() : ListValue.Builder = ListValue.newBuilder()
@@ -91,6 +92,8 @@ fun Any.toValue(): Value = when (this) {
     is ListValue.Builder -> toValue()
     is Iterator<*> -> toValue()
     is Iterable<*> -> toValue()
+    is Sequence<*> -> iterator().toValue()
+    is Stream<*> -> iterator().toValue()
     is Array<*> -> toValue()
     is BooleanArray -> toValue()
     is ByteArray -> toValue()

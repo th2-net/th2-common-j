@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.37.2)
+# th2 common library (Java) (3.38.0)
 
 ## Usage
 
@@ -289,6 +289,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.38.0
+
++ Add support for sequences and streams in `Any.toValue()` and `Any.toValueFilter()` utility-functions
 
 ### 3.37.2
 

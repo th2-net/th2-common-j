@@ -26,6 +26,7 @@ import com.exactpro.th2.common.grpc.ValueFilter
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.MESSAGE_FILTER
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import java.math.BigDecimal
+import java.util.stream.Stream
 
 fun equalValueFilter() = ValueFilter.newBuilder().setOperation(EQUAL).build()
 fun notEqualValueFilter() = ValueFilter.newBuilder().setOperation(NOT_EQUAL).build()
@@ -56,6 +57,8 @@ fun Any.toValueFilter(): ValueFilter = when (this) {
     is ListValueFilter.Builder -> toValueFilter()
     is Iterator<*> -> toValueFilter()
     is Iterable<*> -> toValueFilter()
+    is Sequence<*> -> iterator().toValueFilter()
+    is Stream<*> -> iterator().toValueFilter()
     is Array<*> -> toValueFilter()
     is BooleanArray -> toValueFilter()
     is ByteArray -> toValueFilter()
@@ -65,7 +68,7 @@ fun Any.toValueFilter(): ValueFilter = when (this) {
     is LongArray -> toValueFilter()
     is FloatArray -> toValueFilter()
     is DoubleArray -> toValueFilter()
-    else ->  toString().toValueFilter()
+    else -> toString().toValueFilter()
 }
 
 fun Iterator<*>.toValueFilter(): ValueFilter = ListValueFilter.newBuilder()
