@@ -22,6 +22,7 @@ import com.exactpro.th2.common.value.toValue
 import com.google.protobuf.TextFormat
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.util.stream.Stream
 
 class TestMessageUtils {
 
@@ -92,6 +93,17 @@ class TestMessageUtils {
                 |comparison_settings { ignore_fields: "KeyEmpty" }
             """.trimMargin().replace("\n", ""), TextFormat.shortDebugString(messageFilter))
         }
+    }
+
+    @Test
+    fun `test sequence and stream support`() {
+        val message = message().apply {
+            this["sequence"] = sequenceOf(1, 2, 3, 4)
+            this["stream"] = Stream.of(5, 6, 7, 8)
+        }
+
+        Assertions.assertEquals(listOf(1, 2, 3, 4), message.getList("sequence")!!.map { it.simpleValue.toInt() })
+        Assertions.assertEquals(listOf(5, 6, 7, 8), message.getList("stream")!!.map { it.simpleValue.toInt() })
     }
 
     private fun createMessage(addProperties: Boolean = true): Message = Message.newBuilder().apply {

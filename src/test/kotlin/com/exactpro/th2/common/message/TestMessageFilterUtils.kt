@@ -150,6 +150,17 @@ class TestMessageFilterUtils {
         Assertions.assertTrue(expected.size == actual.size && expected.containsAll(actual))
     }
 
+    @Test
+    fun `test sequence and stream support`() {
+        val message = messageFilter().apply {
+            addField("sequence", sequenceOf(1, 2, 3, 4))
+            addField("stream", Stream.of(5, 6, 7, 8))
+        }
+
+        Assertions.assertEquals(listOf(1, 2, 3, 4), message.getField("sequence")!!.listFilter.valuesList.map { it.simpleFilter.toInt() })
+        Assertions.assertEquals(listOf(5, 6, 7, 8), message.getField("stream")!!.listFilter.valuesList.map { it.simpleFilter.toInt() })
+    }
+
     private fun createMessageFilter(): MessageFilter {
         return MessageFilter.newBuilder().apply {
             fillMessage(this)
