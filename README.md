@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.37.2)
+# th2 common library (Java) (3.38.0)
 
 ## Usage
 
@@ -239,6 +239,17 @@ The default attributes are:
 
 This library allows you to:
 
+## Routers
+
+### gRPC router
+
+This kind of router provides ability to interact boxes to interact between each other via gRPC interface.
+
+#### Server
+
+gRPC router rises a gRPC server with enabled [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial) since the 3.38.0 version.
+It's mean that users can execute calls from console or scripts via [grpcurl](https://github.com/fullstorydev/grpcurl#grpcurl) without gRPC schema (files with proto extensions described gRPC service structure) 
+
 ## Export common metrics to Prometheus
   
 It can be performed by the following utility methods in CommonMetrics class
@@ -289,6 +300,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.38.0
+
++ gRPC router creates server supported [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial)
 
 ### 3.37.2
 
