@@ -166,7 +166,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:3.1.0")
+    api platform("com.exactpro.th2:bom:3.1.0-TH2-2909-2420526558-SNAPSHOT")
     api ("com.exactpro.th2:cradle-core:${cradleVersion}")
     api 'com.exactpro.th2:grpc-common:3.10.0'
 
@@ -203,15 +203,15 @@ dependencies {
 
     implementation 'io.github.microutils:kotlin-logging:2.1.21'
 
-    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.2'
-    implementation 'org.apache.logging.log4j:log4j-1.2-api:2.17.2'
-    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
+    implementation 'org.apache.logging.log4j:log4j-slf4j-impl'
+    implementation 'org.apache.logging.log4j:log4j-1.2-api'
+    implementation 'org.apache.logging.log4j:log4j-api'
 
     implementation 'io.prometheus:simpleclient'
     implementation 'io.prometheus:simpleclient_hotspot'
     implementation 'io.prometheus:simpleclient_httpserver'
-    implementation 'io.prometheus:simpleclient_log4j2:0.9.0'
-    implementation 'io.prometheus:simpleclient_log4j:0.9.0'
+    implementation 'io.prometheus:simpleclient_log4j2'
+    implementation 'io.prometheus:simpleclient_log4j'
 
     implementation 'io.fabric8:kubernetes-client:4.13.0'
 

@@ -769,7 +769,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
         Log4jConfigUtils log4jConfigUtils = new Log4jConfigUtils();
-        log4jConfigUtils.configure(listPath, LOG4J_PROPERTIES_NAME, LOG4J2_PROPERTIES_NAME, true);
+        log4jConfigUtils.configure(listPath, LOG4J_PROPERTIES_NAME, LOG4J2_PROPERTIES_NAME);
         loggingManifests();
     }
 
