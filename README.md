@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.37.2)
+# th2 common library (Java) (3.38.0)
 
 ## Usage
 
@@ -289,6 +289,12 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.38.0
+
++ Migration to log4j2. **th2-bom must be updated to _3.2.0_ or higher**
+  + There is backward compatibility with the log4j format. 
+  + If both configurations are available, log4j2 is preferable.
 
 ### 3.37.2
 

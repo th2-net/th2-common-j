@@ -30,7 +30,7 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '3.1.1'
+    cradleVersion       = '3.1.1-slf4j-transitive-deps-2295891613-SNAPSHOT'
     junitVersion      = '5.7.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
@@ -166,13 +166,13 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.1.0')
-    api "com.exactpro.th2:cradle-core:${cradleVersion}"
+    api platform("com.exactpro.th2:bom:3.2.0")
+    api ("com.exactpro.th2:cradle-core:${cradleVersion}")
     api 'com.exactpro.th2:grpc-common:3.10.0'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.1'
-    implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
+    implementation ("com.exactpro.th2:cradle-cassandra:${cradleVersion}")
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"
@@ -203,13 +203,15 @@ dependencies {
 
     implementation 'io.github.microutils:kotlin-logging:2.1.21'
 
-    implementation "org.slf4j:slf4j-log4j12"
-    implementation "org.slf4j:slf4j-api"
+    implementation 'org.apache.logging.log4j:log4j-slf4j-impl'
+    implementation 'org.apache.logging.log4j:log4j-1.2-api'
+    implementation 'org.apache.logging.log4j:log4j-api'
 
     implementation 'io.prometheus:simpleclient'
     implementation 'io.prometheus:simpleclient_hotspot'
     implementation 'io.prometheus:simpleclient_httpserver'
-    implementation 'io.prometheus:simpleclient_log4j:0.9.0'
+    implementation 'io.prometheus:simpleclient_log4j2'
+    implementation 'io.prometheus:simpleclient_log4j'
 
     implementation 'io.fabric8:kubernetes-client:4.13.0'
 
