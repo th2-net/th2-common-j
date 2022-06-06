@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.38.0)
+# th2 common library (Java) (3.39.0)
 
 ## Usage
 
@@ -284,11 +284,15 @@ plugins {
 }
 
 dependencies {
-    testImplementation testFixtures("com.exactpro.th2:common:3.31.1")
+    testImplementation testFixtures("com.exactpro.th2:common:3.39.0")
 }
 ```
 
 ## Release notes
+
+### 3.39.0
+
++ Metrics related to called/accepted gRPC calls
 
 ### 3.38.0
 
