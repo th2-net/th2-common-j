@@ -30,7 +30,7 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '3.1.1-slf4j-transitive-deps-2295891613-SNAPSHOT'
+    cradleVersion       = '4.0.0-TH2-3723-2398792785-SNAPSHOT'
     junitVersion      = '5.7.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
