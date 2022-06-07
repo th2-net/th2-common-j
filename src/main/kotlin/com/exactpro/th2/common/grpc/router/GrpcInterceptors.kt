@@ -49,17 +49,16 @@ class GrpcInterceptor(
         val serviceName = fullName.substring(0, idx)
         val methodName = fullName.substring(idx + 1)
 
-        return object :
-            ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(next.newCall(method, callOptions)) {
+        return object : ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(next.newCall(method, callOptions)) {
             override fun sendMessage(message: ReqT) {
                 val size = message.toValue().serializedSize
                 LOGGER.debug { "gRPC call $serviceName/$methodName invoked on pin '$pinName'. Message size = $size" }
                 methodInvokeCounter.labels(pinName, serviceName, methodName).inc()
                 requestBytesCounter.labels(pinName, serviceName, methodName).inc(size.toDouble())
+                super.sendMessage(message)
             }
 
             override fun start(responseListener: Listener<RespT>?, headers: Metadata?) {
-
                 val forwardingListener =
                     object : ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(responseListener) {
                         override fun onMessage(message: RespT) {
@@ -69,7 +68,6 @@ class GrpcInterceptor(
                             super.onMessage(message)
                         }
                     }
-
                 super.start(forwardingListener, headers)
             }
         }
