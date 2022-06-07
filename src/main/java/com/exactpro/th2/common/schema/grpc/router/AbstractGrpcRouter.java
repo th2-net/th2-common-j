@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
-import com.exactpro.th2.common.grpc.router.GrpcServerInterceptor;
+import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
@@ -68,14 +68,32 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .help("Total number of calling particular grpc method")
             .register();
 
-    protected static final Counter GRPC_INVOKE_REQUEST_BYTES = Counter.build()
+    protected static final Counter GRPC_RECEIVE_CALL_TOTAL = Counter.build()
+            .name("th2_grpc_receive_call_total")
+            .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
+            .help("Total number of consuming particular grpc method")
+            .register();
+
+    protected static final Counter GRPC_INVOKE_CALL_REQUEST_BYTES = Counter.build()
             .name("th2_grpc_invoke_call_request_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes sent to particular grpc call")
             .register();
 
-    protected static final Counter GRPC_INVOKE_RESPONSE_BYTES = Counter.build()
+    protected static final Counter GRPC_RECEIVE_CALL_REQUEST_BYTES = Counter.build()
+            .name("th2_grpc_receive_call_request_bytes")
+            .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
+            .help("Number of bytes received from particular grpc call")
+            .register();
+
+    protected static final Counter GRPC_INVOKE_CALL_RESPONSE_BYTES = Counter.build()
             .name("th2_grpc_invoke_call_response_bytes")
+            .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
+            .help("Number of bytes sent to particular grpc call")
+            .register();
+
+    protected static final Counter GRPC_RECEIVE_CALL_RESPONSE_BYTES = Counter.build()
+            .name("th2_grpc_receive_call_response_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes sent to particular grpc call")
             .register();
@@ -116,7 +134,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
                 .bossEventLoopGroup(eventLoop)
                 .channelType(NioServerSocketChannel.class)
                 // TODO: pin name
-                .intercept(new GrpcServerInterceptor("unknown pin", GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_REQUEST_BYTES, GRPC_INVOKE_RESPONSE_BYTES));
+                .intercept(new GrpcInterceptor("Input pin", GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES));
 
         for (BindableService service : services) {
             builder.addService(service);
