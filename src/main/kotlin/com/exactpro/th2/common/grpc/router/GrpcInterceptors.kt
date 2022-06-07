@@ -52,8 +52,8 @@ class GrpcInterceptor(
         return object :
             ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(next.newCall(method, callOptions)) {
             override fun sendMessage(message: ReqT) {
-                val (type, size) = getTypeAndSize(message)
-                LOGGER.debug { "gRPC call $serviceName/$methodName invoked on pin '$pinName'. Message type = $type, size = $size" }
+                val size = message.toValue().serializedSize
+                LOGGER.debug { "gRPC call $serviceName/$methodName invoked on pin '$pinName'. Message size = $size" }
                 methodInvokeCounter.labels(pinName, serviceName, methodName).inc()
                 requestBytesCounter.labels(pinName, serviceName, methodName).inc(size.toDouble())
             }
@@ -63,8 +63,8 @@ class GrpcInterceptor(
                 val forwardingListener =
                     object : ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(responseListener) {
                         override fun onMessage(message: RespT) {
-                            val (type, size) = getTypeAndSize(message)
-                            LOGGER.debug { "gRPC $serviceName/$methodName response received on pin '$pinName': type = $type, size = $size" }
+                            val size = message.toValue().serializedSize
+                            LOGGER.debug { "gRPC $serviceName/$methodName response received on pin '$pinName'. Message size = $size" }
                             responseBytesCounter.labels(pinName, serviceName, methodName).inc(size.toDouble())
                             super.onMessage(message)
                         }
@@ -88,8 +88,8 @@ class GrpcInterceptor(
 
         val forwardingCall = object : ForwardingServerCall.SimpleForwardingServerCall<ReqT, RespT>(call) {
             override fun sendMessage(message: RespT) {
-                val (type, size) = getTypeAndSize(message)
-                LOGGER.debug { "gRPC $serviceName/$methodName response message sent on '$pinName': type = $type, size = $size" }
+                val size = message.toValue().serializedSize
+                LOGGER.debug { "gRPC $serviceName/$methodName response message sent on '$pinName'. Message size = $size" }
                 responseBytesCounter.labels(pinName, serviceName, methodName).inc(size.toDouble())
                 super.sendMessage(message)
             }
@@ -99,8 +99,8 @@ class GrpcInterceptor(
 
         return object : ForwardingServerCallListener.SimpleForwardingServerCallListener<ReqT>(listener) {
             override fun onMessage(message: ReqT) {
-                val (type, size) = getTypeAndSize(message)
-                LOGGER.debug { "gRPC call received on '$pinName': $serviceName/$methodName. Message type = $type, size = $size" }
+                val size = message.toValue().serializedSize
+                LOGGER.debug { "gRPC call received on '$pinName': $serviceName/$methodName. Message size = $size" }
                 methodInvokeCounter.labels(pinName, serviceName, methodName).inc()
                 requestBytesCounter.labels(pinName, serviceName, methodName).inc(size.toDouble())
                 super.onMessage(message)
@@ -110,7 +110,5 @@ class GrpcInterceptor(
 
     companion object {
         val LOGGER = KotlinLogging.logger {}
-        private fun getTypeAndSize(message: Any): Pair<String, Int> =
-            message.toValue().run { messageValue.metadata.messageType to serializedSize }
     }
 }
