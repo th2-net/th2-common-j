@@ -21,18 +21,11 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.BiConsumer;
-import java.util.function.Supplier;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -285,8 +278,11 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey));
-        holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
+        basicPublishInternal(exchange, routingKey, props, body, false);
+    }
+
+    public void basicPublishWithRetry(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
+        basicPublishInternal(exchange, routingKey, props, body, true);
     }
 
     public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
@@ -336,6 +332,11 @@ public class ConnectionManager implements AutoCloseable {
         return metrics.getLivenessMonitor().isEnabled();
     }
 
+    private void basicPublishInternal(String exchange, String routingKey, BasicProperties props, byte[] body, boolean retryOnPublishNotConfirmed) throws IOException {
+        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), retryOnPublishNotConfirmed);
+        holder.publish(exchange, routingKey, props, body);
+    }
+
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
     }
@@ -354,9 +355,13 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private ChannelHolder getChannelFor(PinId pinId) {
+        return getChannelFor(pinId, false);
+    }
+
+    private ChannelHolder getChannelFor(PinId pinId, boolean retryOnPublishNotConfirmed) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
-            return new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
+            return new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount(), retryOnPublishNotConfirmed);
         });
     }
 
@@ -485,130 +490,5 @@ public class ConnectionManager implements AutoCloseable {
                     .append("queue", queue)
                     .toString();
         }
-    }
-
-    private static class ChannelHolder {
-        private final Lock lock = new ReentrantLock();
-        private final Supplier<Channel> supplier;
-        private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
-        private final int maxCount;
-        @GuardedBy("lock")
-        private int pending;
-        @GuardedBy("lock")
-        private Future<?> check;
-        @GuardedBy("lock")
-        private Channel channel;
-
-        public ChannelHolder(
-                Supplier<Channel> supplier,
-                BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker,
-                int maxCount
-        ) {
-            this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
-            this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
-            this.maxCount = maxCount;
-        }
-
-        public void withLock(ChannelConsumer consumer) throws IOException {
-            withLock(true, consumer);
-        }
-
-        public void withLock(Runnable action) {
-            lock.lock();
-            try {
-                action.run();
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        public void withLock(boolean waitForRecovery, ChannelConsumer consumer) throws IOException {
-            lock.lock();
-            try {
-                consumer.consume(getChannel(waitForRecovery));
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        public <T> T mapWithLock(ChannelMapper<T> mapper) throws IOException {
-            lock.lock();
-            try {
-                return mapper.map(getChannel());
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        /**
-         * Decreases the number of unacked messages.
-         * If the number of unacked messages is less than {@link #maxCount}
-         * the <b>onWaterMarkDecreased</b> action will be called.
-         * The future created in {@link #acquireAndSubmitCheck(Supplier)} method will be canceled
-         * @param onWaterMarkDecreased
-         * the action that will be executed when the number of unacked messages is less than {@link #maxCount} and there is a future to cancel
-         */
-        public void release(Runnable onWaterMarkDecreased) {
-            lock.lock();
-            try {
-                pending--;
-                if (pending < maxCount && check != null) {
-                    check.cancel(true);
-                    check = null;
-                    onWaterMarkDecreased.run();
-                }
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        /**
-         * Increases the number of unacked messages.
-         * If the number of unacked messages is higher than or equal to {@link #maxCount}
-         * the <b>futureSupplier</b> will be invoked to create a task
-         * that either will be executed or canceled when number of unacked message will be less that {@link #maxCount}
-         * @param futureSupplier
-         * creates a future to track the task that should be executed until the number of unacked message is not less than {@link #maxCount}
-         */
-        public void acquireAndSubmitCheck(Supplier<Future<?>> futureSupplier) {
-            lock.lock();
-            try {
-                pending++;
-                if (reachedPendingLimit() && check == null) {
-                    check = futureSupplier.get();
-                }
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        public boolean reachedPendingLimit() {
-            lock.lock();
-            try {
-                return pending >= maxCount;
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        private Channel getChannel() {
-            return getChannel(true);
-        }
-
-        private Channel getChannel(boolean waitForRecovery) {
-            if (channel == null) {
-                channel = supplier.get();
-            }
-            reconnectionChecker.accept(channel, waitForRecovery);
-            return channel;
-        }
-    }
-
-    private interface ChannelMapper<T> {
-        T map(Channel channel) throws IOException;
-    }
-
-    private interface ChannelConsumer {
-        void consume(Channel channel) throws IOException;
     }
 }
