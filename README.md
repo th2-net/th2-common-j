@@ -317,6 +317,8 @@ dependencies {
   Previously the whole group of messages was dropped if any on them does not match the filter.
   The current behavior is different: only mismatched messages will be dropped.
   It might break code if it relies on previous behavior
++ Retry functionality has been added for event publication
++ Add warning on unconfirmed publications
 
 ### 3.41.0
 
