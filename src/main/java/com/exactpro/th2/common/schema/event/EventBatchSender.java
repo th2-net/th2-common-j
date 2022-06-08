@@ -42,7 +42,7 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
             @NotNull String routingKey,
             @NotNull String th2Pin
     ) {
-        super(connectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE);
+        super(connectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE, true/*retry on publication not confirmed*/);
     }
 
     @Override
