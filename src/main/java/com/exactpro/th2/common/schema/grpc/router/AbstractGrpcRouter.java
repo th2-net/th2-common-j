@@ -65,37 +65,37 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected static final Counter GRPC_INVOKE_CALL_TOTAL = Counter.build()
             .name("th2_grpc_invoke_call_total")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
-            .help("Total number of calling particular grpc method")
-            .register();
-
-    protected static final Counter GRPC_RECEIVE_CALL_TOTAL = Counter.build()
-            .name("th2_grpc_receive_call_total")
-            .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
-            .help("Total number of consuming particular grpc method")
+            .help("Total number of calling particular gRPC method")
             .register();
 
     protected static final Counter GRPC_INVOKE_CALL_REQUEST_BYTES = Counter.build()
             .name("th2_grpc_invoke_call_request_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
-            .help("Number of bytes sent to particular grpc call")
-            .register();
-
-    protected static final Counter GRPC_RECEIVE_CALL_REQUEST_BYTES = Counter.build()
-            .name("th2_grpc_receive_call_request_bytes")
-            .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
-            .help("Number of bytes received from particular grpc call")
+            .help("Number of bytes sent to particular gRPC call")
             .register();
 
     protected static final Counter GRPC_INVOKE_CALL_RESPONSE_BYTES = Counter.build()
             .name("th2_grpc_invoke_call_response_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
-            .help("Number of bytes sent to particular grpc call")
+            .help("Number of bytes sent to particular gRPC call")
+            .register();
+
+    protected static final Counter GRPC_RECEIVE_CALL_TOTAL = Counter.build()
+            .name("th2_grpc_receive_call_total")
+            .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
+            .help("Total number of consuming particular gRPC method")
+            .register();
+
+    protected static final Counter GRPC_RECEIVE_CALL_REQUEST_BYTES = Counter.build()
+            .name("th2_grpc_receive_call_request_bytes")
+            .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
+            .help("Number of bytes received from particular gRPC call")
             .register();
 
     protected static final Counter GRPC_RECEIVE_CALL_RESPONSE_BYTES = Counter.build()
             .name("th2_grpc_receive_call_response_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
-            .help("Number of bytes sent to particular grpc call")
+            .help("Number of bytes sent to particular gRPC call")
             .register();
 
     @Override
