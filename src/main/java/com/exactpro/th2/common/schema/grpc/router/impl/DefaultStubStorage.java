@@ -17,6 +17,7 @@
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -74,6 +75,12 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
         for (final var config: serviceConfigurations) {
             services.add(new ServiceHolder<>(config.getKey(), config.getValue()));
         }
+    }
+
+    @NotNull
+    @Override
+    public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory) {
+        return getStub(message, stubFactory, Collections.emptyMap());
     }
 
     @NotNull
