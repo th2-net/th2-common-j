@@ -133,7 +133,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         builder = builder.workerEventLoopGroup(eventLoop)
                 .bossEventLoopGroup(eventLoop)
                 .channelType(NioServerSocketChannel.class)
-                .intercept(new GrpcInterceptor("input_pin", GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_REQUEST_BYTES, GRPC_RECEIVE_CALL_RESPONSE_BYTES));
+                .intercept(new GrpcInterceptor("server", GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_REQUEST_BYTES, GRPC_RECEIVE_CALL_RESPONSE_BYTES));
 
         for (BindableService service : services) {
             builder.addService(service);
