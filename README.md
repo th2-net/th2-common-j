@@ -290,6 +290,11 @@ dependencies {
 
 ## Release notes
 
+### 3.38.1
+
++ Fixed:
+    + cradle version updated to 3.1.2 where serialization bugs were fixed
+
 ### 3.38.0
 
 + Migration to log4j2. **th2-bom must be updated to _3.2.0_ or higher**
