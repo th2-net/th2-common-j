@@ -42,7 +42,8 @@ import com.rabbitmq.client.ShutdownNotifier;
 
 class ChannelHolder implements ConfirmListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChannelHolder.class);
-    private static final Consumer<Map<Long, PublicationHolder>> DO_NOTHING = it -> {};
+    private static final Consumer<Map<Long, PublicationHolder>> IGNORE_PUBLICATIONS = it -> {};
+    private static final Consumer<PublicationHolder> IGNORE_PUBLICATION = it -> {};
     private final Lock lock = new ReentrantLock();
     private final Supplier<Channel> supplier;
     private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
@@ -71,12 +72,12 @@ class ChannelHolder implements ConfirmListener {
         publishedData = retryOnPublishNotConfirmed ? new ConcurrentSkipListMap<>() : Collections.emptyNavigableMap();
     }
 
-    public void withLock(ChannelConsumer consumer) throws IOException {
-        withLock(true, consumer);
+    public void consume(ChannelConsumer consumer) throws IOException {
+        consume(true, consumer);
     }
 
     public void publish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        withLock(channel -> {
+        consume(channel -> {
             if (retryOnPublishNotConfirmed) {
                 publishedData.put(channel.getNextPublishSeqNo(),
                         new PublicationHolder(exchange, routingKey, props, body));
@@ -89,16 +90,16 @@ class ChannelHolder implements ConfirmListener {
         publish(holder.getExchange(), holder.getRoutingKey(), holder.getProps(), holder.getBody());
     }
 
-    public void withLock(Runnable action) {
+    public void consumeHolder(Consumer<ChannelHolder> action) {
         lock.lock();
         try {
-            action.run();
+            action.accept(this);
         } finally {
             lock.unlock();
         }
     }
 
-    public void withLock(boolean waitForRecovery, ChannelConsumer consumer) throws IOException {
+    public void consume(boolean waitForRecovery, ChannelConsumer consumer) throws IOException {
         lock.lock();
         try {
             consumer.consume(getChannel(waitForRecovery));
@@ -107,7 +108,7 @@ class ChannelHolder implements ConfirmListener {
         }
     }
 
-    public <T> T mapWithLock(ChannelMapper<T> mapper) throws IOException {
+    public <T> T map(ChannelMapper<T> mapper) throws IOException {
         lock.lock();
         try {
             return mapper.map(getChannel());
@@ -188,9 +189,9 @@ class ChannelHolder implements ConfirmListener {
             return;
         }
         if (multiple) {
-            notifiedPublications(deliveryTag, "ack", DO_NOTHING);
+            notifiedPublications(deliveryTag, "ack", IGNORE_PUBLICATIONS);
         } else {
-            removeNotifiedPublication(deliveryTag, "ack");
+            removeNotifiedPublication(deliveryTag, "ack", IGNORE_PUBLICATION);
         }
     }
 
@@ -207,8 +208,7 @@ class ChannelHolder implements ConfirmListener {
                 }
             });
         } else {
-            PublicationHolder holder = removeNotifiedPublication(deliveryTag, "nack");
-            republish(holder);
+            removeNotifiedPublication(deliveryTag, "nack", this::republish);
         }
     }
 
@@ -235,12 +235,12 @@ class ChannelHolder implements ConfirmListener {
         }
     }
 
-    @Nullable
-    private PublicationHolder removeNotifiedPublication(long deliveryTag, String type) {
+    private void removeNotifiedPublication(long deliveryTag, String type, Consumer<PublicationHolder> action) {
         PublicationHolder holder = publishedData.remove(deliveryTag);
         if (holder == null) {
             LOGGER.warn("Received {} for unknown delivery {}", type, deliveryTag);
+            return;
         }
-        return holder;
+        action.accept(holder);
     }
 }

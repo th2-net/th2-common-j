@@ -287,7 +287,7 @@ public class ConnectionManager implements AutoCloseable {
 
     public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
-        String tag = holder.mapWithLock(channel ->
+        String tag = holder.map(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
                     try {
                         Envelope envelope = delivery.getEnvelope();
@@ -295,7 +295,7 @@ public class ConnectionManager implements AutoCloseable {
                         String routingKey = envelope.getRoutingKey();
                         LOGGER.trace("Received delivery {} from queue={} routing_key={}", deliveryTag, queue, routingKey);
 
-                        Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, () -> holder.withLock(ch -> {
+                        Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, () -> holder.consume(ch -> {
                             try {
                                 basicAck(ch, deliveryTag);
                             } finally {
@@ -303,12 +303,12 @@ public class ConnectionManager implements AutoCloseable {
                             }
                         }));
 
-                        holder.withLock(() -> holder.acquireAndSubmitCheck(() ->
+                        holder.consumeHolder(hold -> hold.acquireAndSubmitCheck(() ->
                                 channelChecker.schedule(() -> {
-                                    holder.withLock(() -> {
+                                    hold.consumeHolder(chHolder -> {
                                         LOGGER.warn("The confirmation for delivery {} in queue={} routing_key={} was not invoked within the specified delay",
                                                 deliveryTag, queue, routingKey);
-                                        if (holder.reachedPendingLimit()) {
+                                        if (chHolder.reachedPendingLimit()) {
                                             metrics.getReadinessMonitor().disable();
                                         }
                                     });
@@ -439,7 +439,7 @@ public class ConnectionManager implements AutoCloseable {
 
         @Override
         public void unsubscribe() throws Exception {
-            holder.withLock(false, channel -> action.execute(channel, tag));
+            holder.consume(false, channel -> action.execute(channel, tag));
         }
     }
 
