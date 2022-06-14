@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,36 +13,6 @@
  * limitations under the License.
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.BiConsumer;
-import java.util.function.Supplier;
-
-import javax.annotation.concurrent.GuardedBy;
-
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback;
@@ -61,10 +31,41 @@ import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.ExceptionHandler;
+import com.rabbitmq.client.Method;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+import com.rabbitmq.client.impl.AMQImpl;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.concurrent.GuardedBy;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -189,7 +190,6 @@ public class ConnectionManager implements AutoCloseable {
             if (connectionIsClosed.get()) {
                 return false;
             }
-
             int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
 
             if (tmpCountTriesToRecovery < connectionManagerConfiguration.getMaxRecoveryAttempts()) {
@@ -208,13 +208,19 @@ public class ConnectionManager implements AutoCloseable {
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
                     int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
+                    int minTime = connectionManagerConfiguration.getMinConnectionRecoveryTimeout();
+                    int maxTime = connectionManagerConfiguration.getMaxConnectionRecoveryTimeout();
+                    int maxRecoveryAttempts = connectionManagerConfiguration.getMaxRecoveryAttempts();
+                    int deviationPercent = connectionManagerConfiguration.getRetryTimeDeviationPercent();
 
-                    int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
-                            + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
-                                ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
-                                    / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
-                                    * tmpCountTriesToRecovery
-                                : 0);
+                    LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
+                    int recoveryDelay;
+                    if (tmpCountTriesToRecovery < maxRecoveryAttempts) {
+                        recoveryDelay = minTime + (((maxTime - minTime) / maxRecoveryAttempts) * tmpCountTriesToRecovery);
+                    } else {
+                        int deviation = maxTime * deviationPercent / 100;
+                        recoveryDelay = ThreadLocalRandom.current().nextInt(maxTime - deviation, maxTime + deviation + 1);
+                    }
 
                     LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
                     return recoveryDelay;
@@ -227,6 +233,7 @@ public class ConnectionManager implements AutoCloseable {
 
         try {
             this.connection = factory.newConnection();
+            addShutdownListenerToConnection(this.connection);
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
@@ -235,25 +242,48 @@ public class ConnectionManager implements AutoCloseable {
             throw new IllegalStateException("Failed to create RabbitMQ connection using configuration", e);
         }
 
-        this.connection.addBlockedListener(new BlockedListener() {
-            @Override
-            public void handleBlocked(String reason) throws IOException {
-                LOGGER.warn("RabbitMQ blocked connection: {}", reason);
-            }
+        addBlockedListenersToConnection(this.connection);
+        addRecoveryListenerToConnection(this.connection);
+    }
 
-            @Override
-            public void handleUnblocked() throws IOException {
-                LOGGER.warn("RabbitMQ unblocked connection");
+    private void addShutdownListenerToConnection(Connection conn) {
+        conn.addShutdownListener(cause -> {
+            if (cause.isHardError()) {
+                Connection connectionCause = (Connection) cause.getReference();
+                Method reason = cause.getReason();
+                if (reason instanceof AMQImpl.Connection.Close && ((AMQImpl.Connection.Close) reason).getReplyCode() != 200) {
+                    StringBuilder errorBuilder = new StringBuilder("RabbitMQ hard error occupied: ");
+                    ((AMQImpl.Connection.Close) reason).appendArgumentDebugStringTo(errorBuilder);
+                    errorBuilder.append(" on connection ");
+                    errorBuilder.append(connectionCause);
+                    LOGGER.warn(errorBuilder.toString());
+                }
             }
         });
+    }
 
-        if (this.connection instanceof Recoverable) {
-            Recoverable recoverableConnection = (Recoverable) this.connection;
+    private void addRecoveryListenerToConnection(Connection conn) {
+        if (conn instanceof Recoverable) {
+            Recoverable recoverableConnection = (Recoverable) conn;
             recoverableConnection.addRecoveryListener(recoveryListener);
             LOGGER.debug("Recovery listener was added to connection.");
         } else {
             throw new IllegalStateException("Connection does not implement Recoverable. Can not add RecoveryListener to it");
         }
+    }
+
+    private void addBlockedListenersToConnection(Connection conn) {
+        conn.addBlockedListener(new BlockedListener() {
+            @Override
+            public void handleBlocked(String reason) {
+                LOGGER.warn("RabbitMQ blocked connection: {}", reason);
+            }
+
+            @Override
+            public void handleUnblocked() {
+                LOGGER.warn("RabbitMQ unblocked connection");
+            }
+        });
     }
 
     public boolean isOpen() {
