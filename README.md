@@ -301,7 +301,7 @@ dependencies {
 ### 3.39.1
 
 + Fixed:
-  + cradle version updated to 3.1.2
+  + cradle version updated to 3.1.2. Unicode character sizes are calculated properly during serialization and tests are added for it also.
 
 ### 3.39.0
 
