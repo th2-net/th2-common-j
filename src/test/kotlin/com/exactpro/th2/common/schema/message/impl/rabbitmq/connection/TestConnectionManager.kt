@@ -65,9 +65,7 @@ class TestConnectionManager {
                         prefetchCount = prefetchCount,
                         confirmationTimeout = confirmationTimeout,
                     ),
-                ) {
-                    LOGGER.error { "Fatal connection problem" }
-                }.use { manager ->
+                ).use { manager ->
                     manager.basicConsume(queueName, { _, delivery, ack ->
                         LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
                         queue += ack

@@ -92,6 +92,10 @@ public class ConnectionManager implements AutoCloseable {
             connectionRecoveryAttempts.set(0);
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
+            if (!metrics.getLivenessMonitor().isEnabled()) {
+                metrics.getLivenessMonitor().enable();
+                LOGGER.debug("Set RabbitMQ liveness to true");
+            }
         }
 
         @Override
@@ -102,7 +106,7 @@ public class ConnectionManager implements AutoCloseable {
         return configuration;
     }
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration, Runnable onFailedRecoveryConnection) {
+    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration) {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
 
@@ -186,25 +190,7 @@ public class ConnectionManager implements AutoCloseable {
         });
 
         factory.setAutomaticRecoveryEnabled(true);
-        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> {
-            if (connectionIsClosed.get()) {
-                return false;
-            }
-            int tmpCountTriesToRecovery = connectionRecoveryAttempts.get();
-
-            if (tmpCountTriesToRecovery < connectionManagerConfiguration.getMaxRecoveryAttempts()) {
-                LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery + 1);
-                return true;
-            }
-            LOGGER.error("Can not connect to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
-            if (onFailedRecoveryConnection != null) {
-                onFailedRecoveryConnection.run();
-            } else {
-                // TODO: we should stop the execution of the application. Don't use System.exit!!!
-                throw new IllegalStateException("Cannot recover connection to RabbitMQ");
-            }
-            return false;
-        });
+        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get());
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
                     int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
@@ -218,6 +204,10 @@ public class ConnectionManager implements AutoCloseable {
                     if (tmpCountTriesToRecovery < maxRecoveryAttempts) {
                         recoveryDelay = minTime + (((maxTime - minTime) / maxRecoveryAttempts) * tmpCountTriesToRecovery);
                     } else {
+                        if (metrics.getLivenessMonitor().isEnabled()) {
+                            LOGGER.debug("Set RabbitMQ liveness to false. Can't recover connection");
+                            metrics.getLivenessMonitor().disable();
+                        }
                         int deviation = maxTime * deviationPercent / 100;
                         recoveryDelay = ThreadLocalRandom.current().nextInt(maxTime - deviation, maxTime + deviation + 1);
                     }
@@ -248,15 +238,18 @@ public class ConnectionManager implements AutoCloseable {
 
     private void addShutdownListenerToConnection(Connection conn) {
         conn.addShutdownListener(cause -> {
-            if (cause.isHardError()) {
+            if (cause.isHardError() && cause.getReference() instanceof Connection) {
                 Connection connectionCause = (Connection) cause.getReference();
                 Method reason = cause.getReason();
-                if (reason instanceof AMQImpl.Connection.Close && ((AMQImpl.Connection.Close) reason).getReplyCode() != 200) {
-                    StringBuilder errorBuilder = new StringBuilder("RabbitMQ hard error occupied: ");
-                    ((AMQImpl.Connection.Close) reason).appendArgumentDebugStringTo(errorBuilder);
-                    errorBuilder.append(" on connection ");
-                    errorBuilder.append(connectionCause);
-                    LOGGER.warn(errorBuilder.toString());
+                if (reason instanceof AMQImpl.Connection.Close) {
+                    var castedReason = (AMQImpl.Connection.Close) reason;
+                    if (castedReason.getReplyCode() != 200) {
+                        StringBuilder errorBuilder = new StringBuilder("RabbitMQ hard error occupied: ");
+                        castedReason.appendArgumentDebugStringTo(errorBuilder);
+                        errorBuilder.append(" on connection ");
+                        errorBuilder.append(connectionCause);
+                        LOGGER.warn(errorBuilder.toString());
+                    }
                 }
             }
         });
