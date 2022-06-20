@@ -524,7 +524,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                             DEFAULT_CONSISTENCY_LEVEL,
                             DEFAULT_CONSISTENCY_LEVEL
                     );
-                    cassandraStorageSettings.setCradleInfoKeyspace(confidentialConfiguration.getKeyspace());
+                    cassandraStorageSettings.setKeyspace(confidentialConfiguration.getKeyspace());
                     if (nonConfidentialConfiguration.getPageSize() > 0) {
                         cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
                     }
