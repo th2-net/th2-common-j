@@ -94,10 +94,7 @@ public class ConnectionManager implements AutoCloseable {
             connectionRecoveryAttempts.set(0);
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
-            if (!metrics.getLivenessMonitor().isEnabled()) {
-                metrics.getLivenessMonitor().enable();
-                LOGGER.debug("Set RabbitMQ liveness to true");
-            }
+            metrics.getLivenessMonitor().enable();
         }
 
         @Override
@@ -201,7 +198,7 @@ public class ConnectionManager implements AutoCloseable {
                     int maxRecoveryAttempts = connectionManagerConfiguration.getMaxRecoveryAttempts();
                     int deviationPercent = connectionManagerConfiguration.getRetryTimeDeviationPercent();
 
-                    LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
+                    LOGGER.debug("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
                     int recoveryDelay = getRecoveryDelay(tmpCountTriesToRecovery, minTime, maxTime, maxRecoveryAttempts, deviationPercent);
                     if (tmpCountTriesToRecovery >= maxRecoveryAttempts && metrics.getLivenessMonitor().isEnabled()) {
                         LOGGER.debug("Set RabbitMQ liveness to false. Can't recover connection");
@@ -257,6 +254,7 @@ public class ConnectionManager implements AutoCloseable {
     private void addShutdownListenerToConnection(Connection conn) {
         conn.addShutdownListener(cause -> {
             if (cause.isHardError() && cause.getReference() instanceof Connection) {
+                LOGGER.trace("Closing the connection: ", cause);
                 Connection connectionCause = (Connection) cause.getReference();
                 Method reason = cause.getReason();
                 if (reason instanceof AMQImpl.Connection.Close) {
