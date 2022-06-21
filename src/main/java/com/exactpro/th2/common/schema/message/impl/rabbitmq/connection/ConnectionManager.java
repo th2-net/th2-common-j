@@ -37,6 +37,7 @@ import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
 import com.rabbitmq.client.impl.AMQImpl;
+import com.rabbitmq.client.impl.recovery.AutorecoveringChannel;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -49,6 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -200,16 +202,10 @@ public class ConnectionManager implements AutoCloseable {
                     int deviationPercent = connectionManagerConfiguration.getRetryTimeDeviationPercent();
 
                     LOGGER.info("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
-                    int recoveryDelay;
-                    if (tmpCountTriesToRecovery < maxRecoveryAttempts) {
-                        recoveryDelay = minTime + (((maxTime - minTime) / maxRecoveryAttempts) * tmpCountTriesToRecovery);
-                    } else {
-                        if (metrics.getLivenessMonitor().isEnabled()) {
-                            LOGGER.debug("Set RabbitMQ liveness to false. Can't recover connection");
-                            metrics.getLivenessMonitor().disable();
-                        }
-                        int deviation = maxTime * deviationPercent / 100;
-                        recoveryDelay = ThreadLocalRandom.current().nextInt(maxTime - deviation, maxTime + deviation + 1);
+                    int recoveryDelay = getRecoveryDelay(tmpCountTriesToRecovery, minTime, maxTime, maxRecoveryAttempts, deviationPercent);
+                    if (tmpCountTriesToRecovery >= maxRecoveryAttempts && metrics.getLivenessMonitor().isEnabled()) {
+                        LOGGER.debug("Set RabbitMQ liveness to false. Can't recover connection");
+                        metrics.getLivenessMonitor().disable();
                     }
 
                     LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
@@ -234,6 +230,28 @@ public class ConnectionManager implements AutoCloseable {
 
         addBlockedListenersToConnection(this.connection);
         addRecoveryListenerToConnection(this.connection);
+    }
+
+    /**
+     * @param numberOfTries zero based
+     */
+    private static int getRecoveryDelay(int numberOfTries, int minTime, int maxTime, int maxRecoveryAttempts, int deviationPercent) {
+        if (numberOfTries < maxRecoveryAttempts) {
+            return getRecoveryDelayWithIncrement(numberOfTries, minTime, maxTime, maxRecoveryAttempts);
+        }
+        return getRecoveryDelayWithDeviation(maxTime, deviationPercent);
+    }
+
+    private static int getRecoveryDelayWithDeviation(int maxTime, int deviationPercent) {
+        int recoveryDelay;
+        int deviation = maxTime * deviationPercent / 100;
+        recoveryDelay = ThreadLocalRandom.current().nextInt(maxTime - deviation, maxTime + deviation + 1);
+        return recoveryDelay;
+    }
+
+
+    private static int getRecoveryDelayWithIncrement(int numberOfTries, int minTime, int maxTime, int maxRecoveryAttempts) {
+        return minTime + (((maxTime - minTime) / maxRecoveryAttempts) * numberOfTries);
     }
 
     private void addShutdownListenerToConnection(Connection conn) {
@@ -314,7 +332,7 @@ public class ConnectionManager implements AutoCloseable {
 
     public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
-        String tag = holder.mapWithLock(channel ->
+        String tag = holder.retryingConsumeWithLock(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
                     try {
                         Envelope envelope = delivery.getEnvelope();
@@ -346,7 +364,7 @@ public class ConnectionManager implements AutoCloseable {
                     } catch (IOException | RuntimeException e) {
                         LOGGER.error("Cannot handle delivery for tag {}: {}", tagTmp, e.getMessage(), e);
                     }
-                }, cancelCallback));
+                }, cancelCallback), configuration);
 
         return new RabbitMqSubscriberMonitor(holder, tag, this::basicCancel);
     }
@@ -430,7 +448,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private boolean isConnectionRecovery(ShutdownNotifier notifier) {
-        return !notifier.isOpen() && !connectionIsClosed.get();
+        return !(notifier instanceof AutorecoveringChannel) && !notifier.isOpen() && !connectionIsClosed.get();
     }
 
     /**
@@ -554,12 +572,38 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        public <T> T mapWithLock(ChannelMapper<T> mapper) throws IOException {
+
+
+        public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) {
             lock.lock();
             try {
-                return mapper.map(getChannel());
+                int retryCount = 0;
+                Channel tempChannel = getChannel();
+                while (true) {
+                    try {
+                        return mapper.map(tempChannel);
+                    } catch (Exception e) {
+                        int recoveryDelay = getRecoveryDelay(retryCount++,
+                                configuration.getMinConnectionRecoveryTimeout(),
+                                configuration.getMaxConnectionRecoveryTimeout(),
+                                configuration.getMaxRecoveryAttempts(),
+                                configuration.getRetryTimeDeviationPercent());
+                        LOGGER.warn(MessageFormat.format("Retrying consume №{0}, waiting for {1}ms, then recreating channel...", retryCount, recoveryDelay), e);
+                        sleepFor(recoveryDelay);
+                        tempChannel = recreateChannel();
+                    }
+                }
             } finally {
                 lock.unlock();
+            }
+        }
+
+        private void sleepFor(long ms) {
+            try {
+                TimeUnit.MILLISECONDS.sleep(ms);
+            } catch (InterruptedException e) {
+                LOGGER.error("Wait for connection recovery was interrupted", e);
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -616,6 +660,12 @@ public class ConnectionManager implements AutoCloseable {
 
         private Channel getChannel() {
             return getChannel(true);
+        }
+
+        private Channel recreateChannel() {
+            channel = supplier.get();
+            reconnectionChecker.accept(channel, true);
+            return channel;
         }
 
         private Channel getChannel(boolean waitForRecovery) {
