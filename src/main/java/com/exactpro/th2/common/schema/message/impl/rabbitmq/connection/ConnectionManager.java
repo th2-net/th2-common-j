@@ -50,7 +50,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
-import java.text.MessageFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -251,6 +250,26 @@ public class ConnectionManager implements AutoCloseable {
         return minTime + (((maxTime - minTime) / maxRecoveryAttempts) * numberOfTries);
     }
 
+    private void addShutdownListenerToChannel(Channel channel) {
+        channel.addShutdownListener(cause -> {
+            if (!cause.isHardError() && cause.getReference() instanceof Channel) {
+                LOGGER.trace("Closing the channel: ", cause);
+                Channel channelCause = (Channel) cause.getReference();
+                Method reason = cause.getReason();
+                if (reason instanceof AMQImpl.Channel.Close) {
+                    var castedReason = (AMQImpl.Channel.Close) reason;
+                    if (castedReason.getReplyCode() != 200) {
+                        StringBuilder errorBuilder = new StringBuilder("RabbitMQ soft error occupied: ");
+                        castedReason.appendArgumentDebugStringTo(errorBuilder);
+                        errorBuilder.append(" on channel ");
+                        errorBuilder.append(channelCause);
+                        LOGGER.warn(errorBuilder.toString());
+                    }
+                }
+            }
+        });
+    }
+
     private void addShutdownListenerToConnection(Connection conn) {
         conn.addShutdownListener(cause -> {
             if (cause.isHardError() && cause.getReference() instanceof Connection) {
@@ -328,7 +347,7 @@ public class ConnectionManager implements AutoCloseable {
         holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
     }
 
-    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
+    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
         String tag = holder.retryingConsumeWithLock(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
@@ -341,6 +360,8 @@ public class ConnectionManager implements AutoCloseable {
                         Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, () -> holder.withLock(ch -> {
                             try {
                                 basicAck(ch, deliveryTag);
+                            } catch (Exception e) {
+                                LOGGER.warn("Error during basicAck of message with deliveryTag = {} inside channel #{}: {}", deliveryTag, ch.getChannelNumber(), e);
                             } finally {
                                 holder.release(() -> metrics.getReadinessMonitor().enable());
                             }
@@ -406,6 +427,7 @@ public class ConnectionManager implements AutoCloseable {
             Channel channel = connection.createChannel();
             Objects.requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
             channel.basicQos(configuration.getPrefetchCount());
+            addShutdownListenerToChannel(channel);
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
             return channel;
@@ -586,7 +608,7 @@ public class ConnectionManager implements AutoCloseable {
                                 configuration.getMaxConnectionRecoveryTimeout(),
                                 configuration.getMaxRecoveryAttempts(),
                                 configuration.getRetryTimeDeviationPercent());
-                        LOGGER.warn(MessageFormat.format("Retrying consume №{0}, waiting for {1}ms, then recreating channel...", retryCount, recoveryDelay), e);
+                        LOGGER.warn("Retrying consume #{}, waiting for {}ms, then recreating channel. Reason: {}", retryCount, recoveryDelay, e);
                         sleepFor(recoveryDelay);
                         tempChannel = recreateChannel();
                     }
