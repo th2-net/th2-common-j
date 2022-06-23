@@ -300,6 +300,12 @@ dependencies {
 
 ## Release notes
 
+### 3.40.0
+
++ Added retry in case of a RabbitMQ channel or connection error (when possible).
++ Added additional logging for RabbitMQ errors.
++ Fixed connection recovery delay time.
+
 ### 3.39.2
 
 + Fixed:
