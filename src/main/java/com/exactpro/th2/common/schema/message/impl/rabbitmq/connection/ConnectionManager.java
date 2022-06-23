@@ -347,7 +347,7 @@ public class ConnectionManager implements AutoCloseable {
         holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
     }
 
-    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) {
+    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
         String tag = holder.retryingConsumeWithLock(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
@@ -591,8 +591,6 @@ public class ConnectionManager implements AutoCloseable {
                 lock.unlock();
             }
         }
-
-
 
         public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) {
             lock.lock();
