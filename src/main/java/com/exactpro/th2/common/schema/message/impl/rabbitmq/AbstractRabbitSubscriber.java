@@ -218,6 +218,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
             if (Objects.isNull(filteredValue)) {
                 LOGGER.debug("Message is filtered");
+                confirmation.confirm();
                 return;
             }
 
