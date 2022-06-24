@@ -148,6 +148,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                         LOGGER.info("Start listening queue name='{}'", queue);
                     } catch (IOException e) {
                         throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Thread was interrupted while consuming", e);
                     }
                 }
 

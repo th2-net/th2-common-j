@@ -252,8 +252,8 @@ public class ConnectionManager implements AutoCloseable {
 
     private void addShutdownListenerToChannel(Channel channel) {
         channel.addShutdownListener(cause -> {
+            LOGGER.debug("Closing the channel: ", cause);
             if (!cause.isHardError() && cause.getReference() instanceof Channel) {
-                LOGGER.trace("Closing the channel: ", cause);
                 Channel channelCause = (Channel) cause.getReference();
                 Method reason = cause.getReason();
                 if (reason instanceof AMQImpl.Channel.Close) {
@@ -272,8 +272,8 @@ public class ConnectionManager implements AutoCloseable {
 
     private void addShutdownListenerToConnection(Connection conn) {
         conn.addShutdownListener(cause -> {
+            LOGGER.debug("Closing the connection: ", cause);
             if (cause.isHardError() && cause.getReference() instanceof Connection) {
-                LOGGER.trace("Closing the connection: ", cause);
                 Connection connectionCause = (Connection) cause.getReference();
                 Method reason = cause.getReason();
                 if (reason instanceof AMQImpl.Connection.Close) {
@@ -347,7 +347,7 @@ public class ConnectionManager implements AutoCloseable {
         holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
     }
 
-    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
+    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException, InterruptedException {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
         String tag = holder.retryingConsumeWithLock(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
@@ -592,7 +592,7 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) {
+        public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) throws InterruptedException {
             lock.lock();
             try {
                 int retryCount = 0;
@@ -607,21 +607,12 @@ public class ConnectionManager implements AutoCloseable {
                                 configuration.getMaxRecoveryAttempts(),
                                 configuration.getRetryTimeDeviationPercent());
                         LOGGER.warn("Retrying consume #{}, waiting for {}ms, then recreating channel. Reason: {}", retryCount, recoveryDelay, e);
-                        sleepFor(recoveryDelay);
+                        TimeUnit.MILLISECONDS.sleep(recoveryDelay);
                         tempChannel = recreateChannel();
                     }
                 }
             } finally {
                 lock.unlock();
-            }
-        }
-
-        private void sleepFor(long ms) {
-            try {
-                TimeUnit.MILLISECONDS.sleep(ms);
-            } catch (InterruptedException e) {
-                LOGGER.error("Wait for connection recovery was interrupted", e);
-                Thread.currentThread().interrupt();
             }
         }
 

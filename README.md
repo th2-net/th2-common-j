@@ -303,6 +303,7 @@ dependencies {
 ### 3.40.0
 
 + Added retry in case of a RabbitMQ channel or connection error (when possible).
++ Added InterruptedException to basicConsume method signature.
 + Added additional logging for RabbitMQ errors.
 + Fixed connection recovery delay time.
 
