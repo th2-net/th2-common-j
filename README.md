@@ -298,7 +298,7 @@ dependencies {
 
 ## Release notes
 
-### 3.39.3
+### 3.40.0
 
 + Started using cradle 3.2, version with grouped messages
 
