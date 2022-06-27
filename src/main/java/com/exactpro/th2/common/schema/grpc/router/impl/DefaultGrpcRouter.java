@@ -15,6 +15,7 @@
 
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
+import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
 import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
@@ -84,7 +85,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                     .newInstance(
                             configuration.getRetryConfiguration(),
                             stubsStorages.computeIfAbsent(cls, key ->
-                                    new DefaultStubStorage<>(getServiceConfig(key))
+                                    new DefaultStubStorage<>(getServiceConfig(key), GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES)
                             )
                     );
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
@@ -150,18 +151,18 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
     protected  <T extends AbstractStub> AbstractStub getStubInstanceOrCreate(Class<?> proxyService, Class<T> stubClass, Message message) {
         // FIXME: Add gRPC pin filters if needed
-        var serviceConfig = getServiceConfig(proxyService).get(0);
+        final var serviceConfig = getServiceConfig(proxyService).get(0);
 
-        String endpointName = serviceConfig.getStrategy().getEndpoint(message);
+        String endpointName = serviceConfig.getValue().getStrategy().getEndpoint(message);
 
         return stubs.computeIfAbsent(stubClass, key -> new ConcurrentHashMap<>())
                 .computeIfAbsent(endpointName, key ->
                         createStubInstance(stubClass, getOrCreateChannel(key, serviceConfig)));
     }
 
-    protected List<GrpcServiceConfiguration> getServiceConfig(Class<?> proxyService) {
-        final var result = configuration.getServices().values().stream()
-                .filter(sConfig -> {
+    protected List<Map.Entry<String, GrpcServiceConfiguration>> getServiceConfig(Class<?> proxyService) {
+        final var result = configuration.getServices().entrySet().stream()
+                .filter( configEntry -> {
 
                     String proxyClassName = proxyService.getName();
                     if (proxyService.getSimpleName().startsWith("Async")) {
@@ -169,27 +170,31 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                         proxyClassName = proxyClassName.substring(0, index) + proxyClassName.substring(index + 5);
                     }
 
-                    return sConfig.getServiceClass().getName().equals(proxyClassName);
+                    return configEntry.getValue().getServiceClass().getName().equals(proxyClassName);
                 })
                 .collect(Collectors.toList());
         if (result.isEmpty()) {
-            throw  new IllegalStateException("No services matching the provided class were found in the configuration: "
+            throw new IllegalStateException("No services matching the provided class were found in the configuration: "
                     + proxyService.getName());
         }
 
         return result;
     }
 
-    protected Channel getOrCreateChannel(String endpointName, GrpcServiceConfiguration serviceConfig) {
+    protected Channel getOrCreateChannel(String endpointName, Map.Entry<String, GrpcServiceConfiguration> serviceConfig) {
         return channels.computeIfAbsent(endpointName, key -> {
-            var grpcServer = serviceConfig.getEndpoints().get(key);
+            final var pinName = serviceConfig.getKey();
+            var grpcServer = serviceConfig.getValue().getEndpoints().get(key);
 
             if (Objects.isNull(grpcServer)) {
                 throw new IllegalStateException("No endpoint in configuration " +
                         "that matching the provided alias: " + key);
             }
 
-            return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort()).usePlaintext().build();
+            return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort())
+                    .intercept(new GrpcInterceptor(pinName, GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES))
+                    .usePlaintext()
+                    .build();
         });
     }
 
