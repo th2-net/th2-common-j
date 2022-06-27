@@ -26,11 +26,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Subscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
-
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
 import io.prometheus.client.Histogram.Timer;
-
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -218,6 +216,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
             if (Objects.isNull(filteredValue)) {
                 LOGGER.debug("Message is filtered");
+                confirmation.confirm();
                 return;
             }
 

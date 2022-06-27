@@ -16,47 +16,68 @@
 
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
+import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
+import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
+import com.exactpro.th2.service.StubStorage;
+import com.google.protobuf.Message;
+import io.grpc.CallOptions;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.stub.AbstractStub;
+import io.prometheus.client.Counter;
+import org.jetbrains.annotations.NotNull;
+
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import javax.annotation.concurrent.ThreadSafe;
-
-import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
-import org.jetbrains.annotations.NotNull;
-
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
-import com.exactpro.th2.service.StubStorage;
-import com.google.protobuf.Message;
-
-import io.grpc.CallOptions;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.AbstractStub;
-
 @ThreadSafe
 public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorage<T> {
 
     private static class ServiceHolder<T> {
+        final String pinName;
         GrpcServiceConfiguration serviceConfig;
         Map<String, T> stubs = new ConcurrentHashMap<>();
 
-        ServiceHolder(GrpcServiceConfiguration serviceConfig) {
+        ServiceHolder(String pinName, GrpcServiceConfiguration serviceConfig) {
+            this.pinName = pinName;
             this.serviceConfig = serviceConfig;
         }
     }
 
     private final List<ServiceHolder<T>> services;
+    private final Counter methodInvokeCounter;
+    private final Counter requestBytesCounter;
+    private final Counter responseBytesCounter;
 
-    public DefaultStubStorage(@NotNull List<GrpcServiceConfiguration> serviceConfigurations) {
+
+    public DefaultStubStorage(
+            @NotNull List<Map.Entry<String, GrpcServiceConfiguration>> serviceConfigurations,
+            @NotNull Counter methodInvokeCounter,
+            @NotNull Counter requestBytesCounter,
+            @NotNull Counter responseBytesCounter
+    ) {
+        this.methodInvokeCounter = methodInvokeCounter;
+        this.requestBytesCounter = requestBytesCounter;
+        this.responseBytesCounter = responseBytesCounter;
+
         services = new ArrayList<>(serviceConfigurations.size());
-        for (GrpcServiceConfiguration config: serviceConfigurations) {
-            services.add(new ServiceHolder<>(config));
+        for (final var config: serviceConfigurations) {
+            services.add(new ServiceHolder<>(config.getKey(), config.getValue()));
         }
+    }
+
+    @NotNull
+    @Override
+    public T getStub(@NotNull Message message, @NotNull AbstractStub.StubFactory<T> stubFactory) {
+        return getStub(message, stubFactory, Collections.emptyMap());
     }
 
     @NotNull
@@ -88,7 +109,13 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                         "that matches the provided alias: " + key);
             }
 
-            return stubFactory.newStub(ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort()).usePlaintext().build(), CallOptions.DEFAULT);
+            return stubFactory.newStub(
+                    ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())
+                            .usePlaintext()
+                            .intercept(new GrpcInterceptor(service.pinName, methodInvokeCounter, requestBytesCounter, responseBytesCounter))
+                            .build(),
+                    CallOptions.DEFAULT
+            );
         });
     }
 
