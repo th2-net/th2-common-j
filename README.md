@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.39.2)
+# th2 common library (Java) (3.40.0)
 
 ## Usage
 
@@ -297,6 +297,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.40.0
+
++ Started using cradle 3.2, version with grouped messages
 
 ### 3.39.2
 
