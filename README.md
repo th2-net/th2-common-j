@@ -243,12 +243,12 @@ This library allows you to:
 
 ### gRPC router
 
-This kind of router provides ability to interact boxes to interact between each other via gRPC interface.
+This kind of router provides the ability for boxes to interact between each other via gRPC interface.
 
 #### Server
 
 gRPC router rises a gRPC server with enabled [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial) since the 3.38.0 version.
-It's mean that users can execute calls from console or scripts via [grpcurl](https://github.com/fullstorydev/grpcurl#grpcurl) without gRPC schema (files with proto extensions described gRPC service structure) 
+It means that the users can execute calls from the console or through scripts via [grpcurl](https://github.com/fullstorydev/grpcurl#grpcurl) without gRPC schema (files with proto extensions describes gRPC service structure) 
 
 ## Export common metrics to Prometheus
   
@@ -303,7 +303,7 @@ dependencies {
 
 ### 3.38.0
 
-+ gRPC router creates server supported [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial)
++ gRPC router creates server support [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial)
 
 ### 3.37.2
 
