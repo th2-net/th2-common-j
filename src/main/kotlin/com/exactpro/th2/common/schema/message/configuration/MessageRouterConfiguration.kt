@@ -89,8 +89,8 @@ data class FieldFilterConfigurationOld(
 ) : Configuration()
 
 data class FieldFilterConfiguration(
-    @JsonProperty(value = "fieldName", required = true) var fieldName: String,
-    @JsonProperty("expectedValue") @JsonAlias("value") var expectedValue: String?,
+    @JsonProperty(value = "fieldName", required = true) @JsonAlias("field-name") var fieldName: String,
+    @JsonProperty("expectedValue") @JsonAlias("value", "expected-value") var expectedValue: String?,
     @JsonProperty(required = true) var operation: FieldFilterOperation
 ) : Configuration()
 

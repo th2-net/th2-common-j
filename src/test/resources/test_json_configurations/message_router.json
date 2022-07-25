@@ -36,8 +36,8 @@
           ],
           "properties": [
             {
-              "fieldName": "method1",
-              "value": "POST",
+              "field-name": "method1",
+              "expected-value": "POST",
               "operation": "EQUAL"
             },
             {
