@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.38.0)
+# th2 common library (Java) (3.40.0)
 
 ## Usage
 
@@ -263,11 +263,19 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 * some metric labels are enumerations (`th2_type`: `MESSAGE_GROUP`, `EVENT`, `<customTag>`;`message_type`: `RAW_MESSAGE`, `MESSAGE`)
 
-ABSTRACT METRICS:
+RABBITMQ METRICS:
 * th2_rabbitmq_message_size_publish_bytes (`th2_pin`, `th2_type`, `exchange`, `routing_key`): number of published message bytes to RabbitMQ. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
 * th2_rabbitmq_message_publish_total (`th2_pin`, `th2_type`, `exchange`, `routing_key`): quantity of published messages to RabbitMQ. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
 * th2_rabbitmq_message_size_subscribe_bytes (`th2_pin`, `th2_type`, `queue`): number of bytes received from RabbitMQ, it includes bytes of messages dropped after filters. For information about the number of dropped messages, please refer to 'th2_message_dropped_subscribe_total' and 'th2_message_group_dropped_subscribe_total'. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
 * th2_rabbitmq_message_process_duration_seconds (`th2_pin`, `th2_type`, `queue`): time of message processing during subscription from RabbitMQ in seconds. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+
+GRPC METRICS:
+* th2_grpc_invoke_call_total (`th2_pin`, `service_name`, `service_method`): total number of calling particular gRPC method
+* th2_grpc_invoke_call_request_bytes (`th2_pin`, `service_name`, `service_method`): number of bytes sent to particular gRPC call
+* th2_grpc_invoke_call_response_bytes (`th2_pin`, `service_name`, `service_method`): number of bytes sent to particular gRPC call
+* th2_grpc_receive_call_total (`th2_pin`, `service_name`, `service_method`): total number of consuming particular gRPC method
+* th2_grpc_receive_call_request_bytes (`th2_pin`, `service_name`, `service_method`): number of bytes received from particular gRPC call
+* th2_grpc_receive_call_response_bytes (`th2_pin`, `service_name`, `service_method`): number of bytes sent to particular gRPC call
 
 MESSAGES METRICS:
 * th2_message_publish_total (`th2_pin`, `session_alias`, `direction`, `message_type`): quantity of published raw or parsed messages
@@ -286,7 +294,7 @@ EVENTS METRICS:
 * th2_event_publish_total (`th2_pin`): quantity of published events
 * th2_event_subscribe_total (`th2_pin`): quantity of received events
 
-###Test extensions:
+### Test extensions:
 
 To be able to use test extensions please fill build.gradle as in example below: 
 ```groovy
@@ -295,15 +303,35 @@ plugins {
 }
 
 dependencies {
-    testImplementation testFixtures("com.exactpro.th2:common:3.31.1")
+    testImplementation testFixtures("com.exactpro.th2:common:3.39.0")
 }
 ```
 
 ## Release notes
 
-### 3.38.0
+### 3.40.0
 
 + gRPC router creates server support [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial)
+
+### 3.39.2
+
++ Fixed:
+  + The message is not confirmed when it was filtered
+
+### 3.39.1
+
++ Fixed:
+  + cradle version updated to 3.1.2. Unicode character sizes are calculated properly during serialization and tests are added for it also.
+
+### 3.39.0
+
++ gRPC metrics added
+
+### 3.38.0
+
++ Migration to log4j2. **th2-bom must be updated to _3.2.0_ or higher**
+  + There is backward compatibility with the log4j format. 
+  + If both configurations are available, log4j2 is preferable.
 
 ### 3.37.2
 
