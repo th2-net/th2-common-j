@@ -130,6 +130,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                                         try {
                                             value = valueFromBytes(delivery.getBody());
                                         } catch (Exception e) {
+                                            LOGGER.error("Couldn't parse delivery. Confirm message received", e);
+                                            confirmation.confirm();
                                             throw new IOException(
                                                     String.format(
                                                             "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
@@ -238,6 +240,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             }
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
+            try {
+                confirmation.confirm();
+            } catch (IOException ex) {
+                LOGGER.error("Cannot confirm delivery for {}", consumeTag, ex);
+            }
         }
     }
 
