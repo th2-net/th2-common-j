@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.39.2)
+# th2 common library (Java) (3.39.3)
 
 ## Usage
 
@@ -297,6 +297,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.39.3
+
++ Fixed:
+    + The message is not confirmed when the delivery has incorrect format
 
 ### 3.39.2
 
