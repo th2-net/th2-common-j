@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -114,6 +115,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
 
             return stubFactory.newStub(
                     ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())
+                            .keepAliveTime(service.serviceConfig.getKeepAliveInterval(), TimeUnit.SECONDS)
                             .usePlaintext()
                             .intercept(new GrpcInterceptor(service.pinName, methodInvokeCounter, requestBytesCounter, responseBytesCounter))
                             .build(),
