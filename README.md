@@ -313,6 +313,11 @@ dependencies {
 
 + gRPC router creates server support [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial)
 
+### 3.39.3
+
++ Fixed:
+    + The message is not confirmed when the delivery has incorrect format
+
 ### 3.39.2
 
 + Fixed:
