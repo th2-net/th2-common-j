@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 data class GrpcConfiguration(
     @JsonProperty var services: Map<String, GrpcServiceConfiguration> = emptyMap(),
     @JsonProperty(value = "server") var serverConfiguration: GrpcServerConfiguration = GrpcServerConfiguration(),
+    @JsonProperty(value = "client") var clientConfiguration: GrpcClientConfiguration = GrpcClientConfiguration(),
     @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration()
 ) : Configuration()
 
@@ -31,13 +32,16 @@ data class GrpcServiceConfiguration(
     @Deprecated("For removal since v3.37") @JsonProperty(required = true) var strategy: RoutingStrategy<*>,
     @JsonProperty(required = true, value = "service-class") var serviceClass: Class<*>,
     @JsonProperty(required = true) var endpoints: Map<String, GrpcEndpointConfiguration> = emptyMap(),
-    @JsonProperty var filters: List<Filter> = emptyList(),
-    @JsonProperty(required = false) var keepAliveInterval: Long = 300L
+    @JsonProperty var filters: List<Filter> = emptyList()
 ) : Configuration()
 
 data class Filter(
     @JsonProperty(required = true) var properties: List<FieldFilterConfiguration>,
 ) : Configuration()
+
+data class GrpcClientConfiguration(
+    @JsonProperty var keepAliveInterval: Long = 300L
+)
 
 data class GrpcEndpointConfiguration(
     @JsonProperty(required = true) var host: String,

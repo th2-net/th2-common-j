@@ -29,6 +29,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
 import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcClientConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import io.prometheus.client.Counter;
 import org.jetbrains.annotations.NotNull;
@@ -57,6 +58,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private final List<ServiceHolder<T>> services;
+    private final GrpcClientConfiguration clientConfiguration;
     private final Counter methodInvokeCounter;
     private final Counter requestBytesCounter;
     private final Counter responseBytesCounter;
@@ -66,11 +68,13 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
             @NotNull List<Map.Entry<String, GrpcServiceConfiguration>> serviceConfigurations,
             @NotNull Counter methodInvokeCounter,
             @NotNull Counter requestBytesCounter,
-            @NotNull Counter responseBytesCounter
-    ) {
+            @NotNull Counter responseBytesCounter,
+            @NotNull GrpcClientConfiguration clientConfiguration
+            ) {
         this.methodInvokeCounter = methodInvokeCounter;
         this.requestBytesCounter = requestBytesCounter;
         this.responseBytesCounter = responseBytesCounter;
+        this.clientConfiguration = clientConfiguration;
 
         services = new ArrayList<>(serviceConfigurations.size());
         for (final var config: serviceConfigurations) {
@@ -115,7 +119,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
 
             return stubFactory.newStub(
                     ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())
-                            .keepAliveTime(service.serviceConfig.getKeepAliveInterval(), TimeUnit.SECONDS)
+                            .keepAliveTime(clientConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                             .usePlaintext()
                             .intercept(new GrpcInterceptor(service.pinName, methodInvokeCounter, requestBytesCounter, responseBytesCounter))
                             .build(),

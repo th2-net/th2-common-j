@@ -85,7 +85,11 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                     .newInstance(
                             configuration.getRetryConfiguration(),
                             stubsStorages.computeIfAbsent(cls, key ->
-                                    new DefaultStubStorage<>(getServiceConfig(key), GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES)
+                                    new DefaultStubStorage<>(getServiceConfig(key),
+                                            GRPC_INVOKE_CALL_TOTAL,
+                                            GRPC_INVOKE_CALL_REQUEST_BYTES,
+                                            GRPC_INVOKE_CALL_RESPONSE_BYTES,
+                                            configuration.getClientConfiguration())
                             )
                     );
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {

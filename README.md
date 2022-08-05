@@ -309,6 +309,9 @@ dependencies {
 
 ## Release notes
 
+### 3.40.1 
++ gRPC configuration now contains `client` property where `keepAliveInterval` can be defined for client grpc services. (default: 300 sec)
+
 ### 3.40.0
 
 + gRPC router creates server support [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial)
