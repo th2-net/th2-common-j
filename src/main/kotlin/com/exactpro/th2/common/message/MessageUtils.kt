@@ -329,6 +329,22 @@ var RawMessage.Builder.sessionAlias
         metadataBuilder.idBuilder.connectionIdBuilder.sessionAlias = value
     }
 
+val Message.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+var Message.Builder.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionGroup = value
+    }
+
+val RawMessage.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+var RawMessage.Builder.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionGroup = value
+    }
+
 val Message.sequence
     get(): Long = metadata.id.sequence
 var Message.Builder.sequence
