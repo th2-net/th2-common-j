@@ -40,7 +40,7 @@ data class Filter(
 ) : Configuration()
 
 data class GrpcClientConfiguration(
-    @JsonProperty var keepAliveInterval: Long = 300L
+    @JsonProperty var keepAliveInterval: Long = 60L
 )
 
 data class GrpcEndpointConfiguration(

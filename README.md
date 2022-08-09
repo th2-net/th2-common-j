@@ -160,6 +160,45 @@ Filters format:
 }
 ```
 
+The `CommonFactory` reads a grpc's router configuration from the `grpc.json` file.
+* services - grpc services configurations
+* server - grpc server configuration
+* client - grpc client configuration
+    * keepAliveInterval - number of seconds before each keep alive message. 
+
+```json
+{
+  "services": {
+    "test": {
+      "endpoints": {
+        "endpoint": {
+          "host": "host",
+          "port": 12345,
+          "attributes": [
+            "test_attr"
+          ]
+        }
+      },
+      "service-class": "com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration",
+      "strategy": {
+        "endpoints": [
+          "endpoint"
+        ],
+        "name": "robin"
+      }
+    }
+  },
+  "server": {
+    "host": "host123",
+    "port": 1234,
+    "workers": 58
+  },
+  "client": {
+    "keepAliveInterval": 400
+  }
+}
+```
+
 The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * dataCenter - the required setting defines the data center in the Cassandra cluster.
 * host - the required setting defines the Cassandra host.
