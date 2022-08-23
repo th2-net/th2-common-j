@@ -24,12 +24,12 @@ data class RabbitMQConfiguration(
     @JsonProperty(required = true) var port: Int = 5672,
     @JsonProperty(required = true) var username: String,
     @JsonProperty(required = true) var password: String,
-    // TODO remove monitoring credentials
-    @JsonProperty(required = false) var rabbitMonitoringUsername: String? = null,
-    @JsonProperty(required = false) var rabbitMonitoringPassword: String? = null,
     @Deprecated(message = "Please use subscriber name from ConnectionManagerConfiguration")
     var subscriberName: String? = null,  //FIXME: Remove in future version
     var exchangeName: String? = null,
+    // TODO remove monitoring credentials
+    @JsonProperty(required = false) var rabbitMonitoringUsername: String? = null,
+    @JsonProperty(required = false) var rabbitMonitoringPassword: String? = null,
 ) : Configuration()
 
 data class ConnectionManagerConfiguration(
