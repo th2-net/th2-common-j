@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.40.0)
+# th2 common library (Java) (3.41.0)
 
 ## Usage
 
@@ -297,6 +297,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.41.0
+
++ Provided configuration for eventBatchDurationMillis in Cradle configuration
 
 ### 3.40.0
 
