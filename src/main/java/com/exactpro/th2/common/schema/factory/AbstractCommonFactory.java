@@ -56,6 +56,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
+import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -64,8 +65,6 @@ import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +74,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -114,6 +112,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     @Deprecated
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
+    protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
     protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
@@ -529,10 +528,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                         cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
                     }
                     if (nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
-                        cassandraStorageSettings.setMaxMessageBatchSize(nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
+                        cassandraStorageSettings.setMaxMessageBatchSize((int) nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
                     }
                     if (nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
-                        cassandraStorageSettings.setMaxTestEventBatchSize(nonConfidentialConfiguration.getCradleMaxEventBatchSize());
+                        cassandraStorageSettings.setMaxTestEventBatchSize((int) nonConfidentialConfiguration.getCradleMaxEventBatchSize());
                     }
 
                     manager = new CassandraCradleManager(
@@ -832,16 +831,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH);
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
-        listPath.stream()
-                .map(path -> Path.of(path, LOG4J_PROPERTIES_NAME))
-                .filter(Files::exists)
-                .findFirst()
-                .ifPresentOrElse(path -> {
-                            LogManager.resetConfiguration();
-                            PropertyConfigurator.configure(path.toString());
-                            LOGGER.info("Logger configuration from {} file is applied", path);
-                        },
-                        () -> LOGGER.info("Neither of {} paths contains {} file. Use default configuration", listPath, LOG4J_PROPERTIES_NAME));
+        Log4jConfigUtils log4jConfigUtils = new Log4jConfigUtils();
+        log4jConfigUtils.configure(listPath, LOG4J_PROPERTIES_NAME, LOG4J2_PROPERTIES_NAME);
         loggingManifests();
     }
 
