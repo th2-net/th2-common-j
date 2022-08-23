@@ -14,53 +14,46 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import java.lang.Runnable
-import java.lang.AutoCloseable
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import com.exactpro.th2.common.metrics.HealthMetrics
-import com.rabbitmq.client.RecoveryListener
-import com.rabbitmq.client.Recoverable
-import com.rabbitmq.client.ConnectionFactory
-import com.rabbitmq.client.TopologyRecoveryException
-import java.lang.IllegalStateException
-import com.rabbitmq.client.RecoveryDelayHandler
-import com.rabbitmq.http.client.ClientParameters
-import java.io.IOException
-import java.net.URISyntaxException
-import com.rabbitmq.client.BlockedListener
-import kotlin.Throws
-import java.util.concurrent.TimeUnit
-import com.rabbitmq.client.AMQP
-import com.rabbitmq.client.DeliverCallback
-import com.rabbitmq.client.CancelCallback
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import java.lang.RuntimeException
-import java.lang.InterruptedException
-import java.util.function.BiConsumer
-import com.rabbitmq.client.ShutdownNotifier
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.rabbitmq.client.AMQP
+import com.rabbitmq.client.BlockedListener
+import com.rabbitmq.client.CancelCallback
 import com.rabbitmq.client.Channel
 import com.rabbitmq.client.Connection
+import com.rabbitmq.client.ConnectionFactory
 import com.rabbitmq.client.Consumer
+import com.rabbitmq.client.DeliverCallback
 import com.rabbitmq.client.ExceptionHandler
+import com.rabbitmq.client.Recoverable
+import com.rabbitmq.client.RecoveryDelayHandler
+import com.rabbitmq.client.RecoveryListener
+import com.rabbitmq.client.ShutdownNotifier
+import com.rabbitmq.client.TopologyRecoveryException
 import com.rabbitmq.http.client.Client
+import com.rabbitmq.http.client.ClientParameters
 import com.rabbitmq.http.client.domain.DestinationType
 import mu.KotlinLogging
 import org.apache.commons.lang3.builder.EqualsBuilder
 import org.apache.commons.lang3.builder.HashCodeBuilder
 import org.apache.commons.lang3.builder.ToStringBuilder
 import org.apache.commons.lang3.builder.ToStringStyle
-import java.lang.NullPointerException
-import java.util.Objects
+import java.io.IOException
+import java.net.URISyntaxException
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
+import java.util.function.BiConsumer
 import java.util.function.Supplier
 
 class ConnectionManager(
@@ -200,11 +193,20 @@ class ConnectionManager(
         factory.setSharedExecutor(sharedExecutor)
         try {
             connection = factory.newConnection()
+            val monitoringUsername = if (rabbitMQConfiguration.rabbitMonitoringUsername != null) {
+                LOGGER.debug { "Using monitoring username" }
+                rabbitMQConfiguration.rabbitMonitoringUsername
+            } else {
+                LOGGER.debug { "Using default username" }
+                rabbitMQConfiguration.username
+            }
+            val monitoringPassword =
+                if (rabbitMQConfiguration.rabbitMonitoringPassword != null) rabbitMQConfiguration.rabbitMonitoringPassword else rabbitMQConfiguration.password
             client = Client(
                 ClientParameters()
                     .url(String.format(RABBITMQ_MANAGEMENT_URL, rabbitMQConfiguration.host))
-                    .username(rabbitMQConfiguration.username)
-                    .password(rabbitMQConfiguration.password)
+                    .username(monitoringUsername)
+                    .password(monitoringPassword)
             )
             metrics.readinessMonitor.enable()
             LOGGER.debug("Set RabbitMQ readiness to true")
