@@ -486,7 +486,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                                     : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
                             nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0
                                     ? nonConfidentialConfiguration.getCradleMaxEventBatchSize()
-                                    : DEFAULT_MAX_EVENT_BATCH_SIZE
+                                    : DEFAULT_MAX_EVENT_BATCH_SIZE,
+                            nonConfidentialConfiguration.getEventBatchDurationMillis()
                     );
                 } catch (CradleStorageException | RuntimeException e) {
                     throw new CommonFactoryException("Cannot create Cradle manager", e);
