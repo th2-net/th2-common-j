@@ -27,9 +27,6 @@ data class RabbitMQConfiguration(
     @Deprecated(message = "Please use subscriber name from ConnectionManagerConfiguration")
     var subscriberName: String? = null,  //FIXME: Remove in future version
     var exchangeName: String? = null,
-    // TODO remove monitoring credentials
-    @JsonProperty(required = false) var rabbitMonitoringUsername: String? = null,
-    @JsonProperty(required = false) var rabbitMonitoringPassword: String? = null,
 ) : Configuration()
 
 data class ConnectionManagerConfiguration(
@@ -41,6 +38,10 @@ data class ConnectionManagerConfiguration(
     var maxConnectionRecoveryTimeout: Int = 60000,
     val prefetchCount: Int = 10,
     val messageRecursionLimit: Int = 100,
+    // TODO change value
     var virtualPublishLimit: Long = 100,
     val secondsToCheckVirtualPublishLimit: Int = 10,
+    // TODO remove monitoring credentials
+    var rabbitMonitoringUsername: String? = null,
+    var rabbitMonitoringPassword: String? = null,
 ) : Configuration()

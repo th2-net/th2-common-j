@@ -193,15 +193,15 @@ class ConnectionManager(
         factory.setSharedExecutor(sharedExecutor)
         try {
             connection = factory.newConnection()
-            val monitoringUsername = if (rabbitMQConfiguration.rabbitMonitoringUsername != null) {
+            val monitoringUsername = if (connectionManagerConfiguration.rabbitMonitoringUsername != null) {
                 LOGGER.debug { "Using monitoring username" }
-                rabbitMQConfiguration.rabbitMonitoringUsername
+                connectionManagerConfiguration.rabbitMonitoringUsername
             } else {
                 LOGGER.debug { "Using default username" }
                 rabbitMQConfiguration.username
             }
             val monitoringPassword =
-                if (rabbitMQConfiguration.rabbitMonitoringPassword != null) rabbitMQConfiguration.rabbitMonitoringPassword else rabbitMQConfiguration.password
+                if (connectionManagerConfiguration.rabbitMonitoringPassword != null) connectionManagerConfiguration.rabbitMonitoringPassword else rabbitMQConfiguration.password
             client = Client(
                 ClientParameters()
                     .url(String.format(RABBITMQ_MANAGEMENT_URL, rabbitMQConfiguration.host))
