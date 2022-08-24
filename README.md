@@ -292,7 +292,7 @@ plugins {
 }
 
 dependencies {
-    testImplementation testFixtures("com.exactpro.th2:common:3.39.0")
+    testImplementation testFixtures("com.exactpro.th2:common:3.41.0")
 }
 ```
 
