@@ -108,17 +108,17 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
         * first
         * second
         * subscribe
-        * publish        
+        * publish
         * parsed
         * raw
         * store
         * event
-      
+
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
-    
-Filters format: 
+
+Filters format:
 * fieldName - a field's name
 * expectedValue - expected field's value (not used for all operations)
 * operation - operation's type
@@ -173,6 +173,7 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * timeout - this option defines connection timeout in milliseconds. If set to 0 or omitted, the default value of 5000 is used.
 * pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or omitted, the default value of 5000 is used.
 * prepareStorage - enables database schema initialization if Cradle is used. By default, it has value of `false`
+* eventBatchDurationMillis - this option defines default duration for test event batch duration, used when no duration data was available for particular test event partition. If set to 0 or omitted, the default value of 5000 is used.
 
 ```json
 {
@@ -187,7 +188,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
   "pageSize": 5000,
-  "prepareStorage": false
+  "prepareStorage": false,
+  "eventBatchDurationMillis": 5000
 }
 ```
 
@@ -195,9 +197,9 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 
 1. It is necessary to have Kubernetes configuration written in ~/.kube/config. See more on kubectl configuration [here](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
 
-1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again. 
+1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again.
 
-1. User needs to have authentication with service account token that has the necessary access to read CRs and secrets from the specified namespace. 
+1. User needs to have authentication with service account token that has the necessary access to read CRs and secrets from the specified namespace.
 
 After that you can receive various Routers through factory properties:
 ```
@@ -292,7 +294,7 @@ plugins {
 }
 
 dependencies {
-    testImplementation testFixtures("com.exactpro.th2:common:3.39.0")
+    testImplementation testFixtures("com.exactpro.th2:common:3.41.0")
 }
 ```
 
