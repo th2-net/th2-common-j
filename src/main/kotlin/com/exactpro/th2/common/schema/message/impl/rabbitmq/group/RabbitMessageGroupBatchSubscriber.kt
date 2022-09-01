@@ -15,7 +15,9 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DIRECTION_LABEL
 import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
@@ -64,7 +66,7 @@ class RabbitMessageGroupBatchSubscriber(
             val dropped = group.filterMessagesToNewGroup(newBatch) { callFilterFunction(it, filters) }
             if (dropped.isNotEmpty()) {
                 logger.debug {
-                    "Skipped ${dropped.size} message(s) from group because it(they) didn't match any filters: ${dropped.joinToString { it.toJson() }}"
+                    "Skipped ${dropped.size} message(s) from group because it(they) didn't match any filters: ${dropped.joinToString { it.logId }}"
                 }
                 incrementDroppedMetrics(
                     dropped,
