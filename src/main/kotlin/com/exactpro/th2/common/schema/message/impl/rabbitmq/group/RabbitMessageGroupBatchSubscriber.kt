@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -29,6 +29,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.util.filterMessagesToNewGroup
 import com.exactpro.th2.common.schema.message.toShortDebugString
 import com.google.protobuf.CodedInputStream
 import com.rabbitmq.client.Delivery
@@ -57,25 +58,24 @@ class RabbitMessageGroupBatchSubscriber(
             return batch
         }
 
-        val groups = batch.groupsList.asSequence()
-            .filter { group ->
-                group.messagesList.all { message ->
-                    callFilterFunction(message, filters)
-                }.also { allMessagesMatch ->
-                    if (!allMessagesMatch) {
-                        logger.debug { "Skipped message group because none or some of its messages didn't match any filters: ${group.toJson()}" }
-                        incrementDroppedMetrics(
-                            group.messagesList,
-                            th2Pin,
-                            MESSAGE_DROPPED_SUBSCRIBE_TOTAL,
-                            MESSAGE_GROUP_DROPPED_SUBSCRIBE_TOTAL
-                        )
-                    }
-                }
-            }
-            .toList()
+        val newBatch = MessageGroupBatch.newBuilder()
 
-        return if (groups.isEmpty()) null else MessageGroupBatch.newBuilder().addAllGroups(groups).build()
+        batch.groupsList.forEach { group ->
+            val dropped = group.filterMessagesToNewGroup(newBatch) { callFilterFunction(it, filters) }
+            if (dropped.isNotEmpty()) {
+                logger.debug {
+                    "Skipped ${dropped.size} message(s) from group because it(they) didn't match any filters: ${dropped.joinToString { it.toJson() }}"
+                }
+                incrementDroppedMetrics(
+                    dropped,
+                    th2Pin,
+                    MESSAGE_DROPPED_SUBSCRIBE_TOTAL,
+                    MESSAGE_GROUP_DROPPED_SUBSCRIBE_TOTAL
+                )
+            }
+        }
+
+        return if (newBatch.groupsList.isEmpty()) null else newBatch.build()
     }
 
     override fun handle(
