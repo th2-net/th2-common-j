@@ -30,22 +30,19 @@ internal fun MessageGroup.filterMessagesToNewGroup(
     batchBuilder: MessageGroupBatch.Builder,
     filterFunction: (AnyMessage) -> Boolean,
 ): List<AnyMessage> {
-    val matchCount = messagesList.count { filterFunction(it) }
-    if (messagesCount == matchCount) {
+    class Match(val message: AnyMessage, val matched: Boolean)
+
+    val (matched, dropped) = messagesList.asSequence()
+        .map { Match(it, filterFunction(it)) }
+        .partition { it.matched }
+    if (messagesCount == matched.size) {
         batchBuilder.addGroups(this)
         return emptyList()
     }
-    if (matchCount == 0) {
+    if (matched.isEmpty()) {
         return messagesList
     }
     val newGroup = batchBuilder.addGroupsBuilder()
-    val drop = ArrayList<AnyMessage>(messagesCount - matchCount)
-    messagesList.forEach {
-        if (filterFunction(it)) {
-            newGroup.addMessages(it)
-        } else {
-            drop += it
-        }
-    }
-    return drop
+    matched.forEach { newGroup.addMessages(it.message) }
+    return dropped.map { it.message }
 }
