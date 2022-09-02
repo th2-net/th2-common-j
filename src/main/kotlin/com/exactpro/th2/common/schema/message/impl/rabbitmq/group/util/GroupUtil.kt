@@ -31,15 +31,9 @@ internal inline fun MessageGroup.filterMessagesToNewGroup(
     crossinline filterFunction: (AnyMessage) -> Boolean,
 ): List<AnyMessage> {
     val (matched, dropped) = messagesList.partition { filterFunction(it) }
-    return when {
-        dropped.isEmpty() -> {
-            batchBuilder.addGroups(this)
-            emptyList()
-        }
-        matched.isEmpty() -> messagesList
-        else -> {
-            batchBuilder.addGroupsBuilder().addAllMessages(matched)
-            dropped
-        }
+    when {
+        dropped.isEmpty() -> batchBuilder.addGroups(this)
+        matched.isNotEmpty() -> batchBuilder.addGroupsBuilder().addAllMessages(matched)
     }
+    return dropped
 }
