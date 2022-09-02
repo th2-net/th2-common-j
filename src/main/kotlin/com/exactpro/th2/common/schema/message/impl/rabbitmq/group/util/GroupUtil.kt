@@ -26,23 +26,20 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
  *
  * If all messages match the filter the current group will be added into [batchBuilder] as is
  */
-internal fun MessageGroup.filterMessagesToNewGroup(
+internal inline fun MessageGroup.filterMessagesToNewGroup(
     batchBuilder: MessageGroupBatch.Builder,
-    filterFunction: (AnyMessage) -> Boolean,
+    crossinline filterFunction: (AnyMessage) -> Boolean,
 ): List<AnyMessage> {
-    class Match(val message: AnyMessage, val matched: Boolean)
-
-    val (matched, dropped) = messagesList.asSequence()
-        .map { Match(it, filterFunction(it)) }
-        .partition { it.matched }
-    if (messagesCount == matched.size) {
-        batchBuilder.addGroups(this)
-        return emptyList()
+    val (matched, dropped) = messagesList.partition { filterFunction(it) }
+    return when {
+        dropped.isEmpty() -> {
+            batchBuilder.addGroups(this)
+            emptyList()
+        }
+        matched.isEmpty() -> messagesList
+        else -> {
+            batchBuilder.addGroupsBuilder().addAllMessages(matched)
+            dropped
+        }
     }
-    if (matched.isEmpty()) {
-        return messagesList
-    }
-    val newGroup = batchBuilder.addGroupsBuilder()
-    matched.forEach { newGroup.addMessages(it.message) }
-    return dropped.map { it.message }
 }
