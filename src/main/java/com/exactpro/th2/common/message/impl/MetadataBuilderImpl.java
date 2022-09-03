@@ -66,7 +66,8 @@ public abstract class MetadataBuilderImpl<Builder extends MetadataBuilderImpl<Bu
     }
 
     public Builder setBookName(String bookName) {
-        idBuilder.setBookName(bookName);
+        //TODO: uncomment after book page migration
+//        idBuilder.setBookName(bookName);
         return builder();
     }
 

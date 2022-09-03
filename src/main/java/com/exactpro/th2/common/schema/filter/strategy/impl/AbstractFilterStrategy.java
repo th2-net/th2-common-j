@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,14 +21,10 @@ import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 import org.apache.commons.collections4.MultiMapUtils;
 import org.apache.commons.collections4.MultiValuedMap;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-
 
 public abstract class AbstractFilterStrategy<T extends Message> implements FilterStrategy<T> {
 
@@ -55,33 +51,11 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
 
     protected abstract Map<String, String> getFields(T message);
 
-
     private boolean checkValues(Map<String, String> messageFields, MultiValuedMap<String, FieldFilterConfiguration> fieldFilters) {
         return fieldFilters.isEmpty() || fieldFilters.keys().stream().anyMatch(fieldName -> {
             String messageValue = messageFields.get(fieldName);
             Collection<FieldFilterConfiguration> filters = fieldFilters.get(fieldName);
-            return !filters.isEmpty() && filters.stream().allMatch(filter -> checkValue(messageValue, filter));
+            return !filters.isEmpty() && filters.stream().allMatch(filter -> FieldValueChecker.checkFieldValue(filter, messageValue));
         });
     }
-
-    private boolean checkValue(String value, FieldFilterConfiguration filterConfiguration) {
-        var valueInConf = filterConfiguration.getExpectedValue();
-
-        // FIXME: Change switch to switch-expression after upping java version
-        switch (filterConfiguration.getOperation()) {
-            case EQUAL:
-                return Objects.equals(value, valueInConf);
-            case NOT_EQUAL:
-                return !Objects.equals(value, valueInConf);
-            case EMPTY:
-                return StringUtils.isEmpty(value);
-            case NOT_EMPTY:
-                return StringUtils.isNotEmpty(value);
-            case WILDCARD:
-                return FilenameUtils.wildcardMatch(value, valueInConf);
-            default:
-                return false;
-        }
-    }
-
 }

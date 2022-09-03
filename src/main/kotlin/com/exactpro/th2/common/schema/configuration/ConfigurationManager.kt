@@ -40,7 +40,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
             }
 
             val sourceContent = String(Files.readAllBytes(configPath))
-            LOGGER.info { "Configuration path $configPath source content $sourceContent" }
+            LOGGER.info { "Configuration path $configClass source content $sourceContent" }
             val content: String = stringSubstitutor.replace(sourceContent)
             return objectMapper.readerFor(configClass).readValue(content)
         } catch (e: IOException) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -61,27 +61,25 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageG
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
+import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.PropertyConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -98,17 +96,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
+ *
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
  *
  * @see CommonFactory
@@ -117,18 +114,22 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
+
     /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
     @Deprecated
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
+    protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
     protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
     static  {
-        MAPPER.registerModule(new KotlinModule());
-
-        MAPPER.registerModule(new RoutingStrategyModule(MAPPER));
+        MAPPER.registerModules(
+                new KotlinModule(),
+                new RoutingStrategyModule(MAPPER),
+                new JavaTimeModule()
+        );
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
@@ -230,7 +231,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext());
+                    router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
@@ -250,7 +251,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (router == null) {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext());
+                    router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
@@ -338,9 +339,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * Registers message router for custom type that is passed via {@code messageClass} parameter.<br>
      *
      * @param messageClass custom message class
-     * @param messageConverter converter that will used to convert message to bytes and vice versa
+     * @param messageConverter converter that will be used to convert message to bytes and vice versa
      * @param defaultSendAttributes set of attributes for sending. A pin must have all of them to be selected for sending the message
-     * @param defaultSubscribeAttributes set of attributes subscription. A pin must have all of them to be selected for receiving messages
+     * @param defaultSubscribeAttributes set of attributes for subscription. A pin must have all of them to be selected for receiving messages
      * @param <T> custom message type
      * @throws IllegalStateException if the router for {@code messageClass} is already registered
      */
@@ -480,9 +481,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     }
 
                     manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
-                    manager.init(defaultIfBlank(confidentialConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME), true /* FIXME: should be `false` when db manipulations are moved to operator */,
-                            nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0 ? nonConfidentialConfiguration.getCradleMaxMessageBatchSize() : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
-                            nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0 ? nonConfidentialConfiguration.getCradleMaxEventBatchSize() : DEFAULT_MAX_EVENT_BATCH_SIZE);
+                    manager.init(
+                            defaultIfBlank(confidentialConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME),
+                            nonConfidentialConfiguration.getPrepareStorage(),
+                            nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0
+                                    ? nonConfidentialConfiguration.getCradleMaxMessageBatchSize()
+                                    : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
+                            nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0
+                                    ? nonConfidentialConfiguration.getCradleMaxEventBatchSize()
+                                    : DEFAULT_MAX_EVENT_BATCH_SIZE
+                    );
                 } catch (CradleStorageException | RuntimeException e) {
                     throw new CommonFactoryException("Cannot create Cradle manager", e);
                 }
@@ -527,48 +535,41 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
+     * Read first and only one dictionary
+     * @return Dictionary as {@link InputStream}
+     * @throws IllegalStateException if can not read dictionary or found more than one target
+     */
+    public abstract InputStream loadSingleDictionary();
+
+    /**
+     * @return list of available dictionary aliases or an empty list
+     * @throws IllegalStateException if can not read dictionary
+     */
+    public abstract Set<String> getDictionaryAliases();
+
+    /**
+     * @param alias name of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
-    public InputStream readDictionary() {
-        return readDictionary(DictionaryType.MAIN);
-    }
+    public abstract InputStream loadDictionary(String alias);
 
     /**
+     * Read dictionary of {@link DictionaryType#MAIN} type
+     * @return Dictionary as {@link InputStream}
+     * @throws IllegalStateException if can not read dictionary
+     */
+    @Deprecated(since = "3.33.0", forRemoval = true)
+    public abstract InputStream readDictionary();
+
+    /**
+     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
      * @param dictionaryType desired type of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
-    public InputStream readDictionary(DictionaryType dictionaryType) {
-        try {
-            List<Path> dictionaries = null;
-            Path dictionaryTypeDictionary = dictionaryType.getDictionary(getPathToDictionariesDir());
-            if (Files.exists(dictionaryTypeDictionary) && Files.isDirectory(dictionaryTypeDictionary)) {
-                dictionaries = Files.list(dictionaryType.getDictionary(getPathToDictionariesDir()))
-                        .filter(Files::isRegularFile)
-                        .collect(Collectors.toList());
-            }
-
-            // Find with old format
-            if (dictionaries == null || dictionaries.isEmpty()) {
-                dictionaries = Files.list(getOldPathToDictionariesDir())
-                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
-                        .collect(Collectors.toList());
-            }
-
-            if (dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries satisfying the '" + dictionaryType + "' type");
-            }
-
-            var targetDictionary = dictionaries.get(0);
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary", e);
-        }
-    }
+    @Deprecated(since = "3.33.0", forRemoval = true)
+    public abstract InputStream readDictionary(DictionaryType dictionaryType);
 
     /**
      * If root event does not exist, it creates root event with its name = box name and timestamp
@@ -613,10 +614,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected abstract Path getPathToCustomConfiguration();
 
     /**
-     * @return Path to dictionary
+     * @return Path to dictionaries with type dir
      */
-    protected abstract Path getPathToDictionariesDir();
+    @Deprecated(since = "3.33.0", forRemoval = true)
+    protected abstract Path getPathToDictionaryTypesDir();
 
+    /**
+     * @return Path to dictionaries with alias dir
+     */
+    protected abstract Path getPathToDictionaryAliasesDir();
+
+    @Deprecated(since = "3.33.0", forRemoval = true)
     protected abstract Path getOldPathToDictionariesDir();
 
     /**
@@ -771,16 +779,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH);
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
-        listPath.stream()
-                .map(path -> Path.of(path, LOG4J_PROPERTIES_NAME))
-                .filter(Files::exists)
-                .findFirst()
-                .ifPresentOrElse(path -> {
-                            LogManager.resetConfiguration();
-                            PropertyConfigurator.configure(path.toString());
-                            LOGGER.info("Logger configuration from {} file is applied", path);
-                        },
-                        () -> LOGGER.info("Neither of {} paths contains {} file. Use default configuration", listPath, LOG4J_PROPERTIES_NAME));
+        Log4jConfigUtils log4jConfigUtils = new Log4jConfigUtils();
+        log4jConfigUtils.configure(listPath, LOG4J_PROPERTIES_NAME, LOG4J2_PROPERTIES_NAME);
         loggingManifests();
     }
 

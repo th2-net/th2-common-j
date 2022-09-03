@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
 
 import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.annotation.JsonProperty
+import java.time.Duration
 
 data class RabbitMQConfiguration(
     @JsonProperty(required = true) var host: String,
@@ -36,5 +37,12 @@ data class ConnectionManagerConfiguration(
     var minConnectionRecoveryTimeout: Int = 10000,
     var maxConnectionRecoveryTimeout: Int = 60000,
     val prefetchCount: Int = 10,
-    val messageRecursionLimit: Int = 100
-) : Configuration()
+    val messageRecursionLimit: Int = 100,
+    val workingThreads: Int = 1,
+    val confirmationTimeout: Duration = Duration.ofMinutes(5)
+) : Configuration() {
+    init {
+        check(workingThreads > 0) { "expected 'workingThreads' greater than 0 but was $workingThreads" }
+        check(!confirmationTimeout.run { isNegative || isZero }) { "expected 'confirmationTimeout' greater than 0 but was $confirmationTimeout" }
+    }
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,21 +13,6 @@
  * limitations under the License.
  */
 
-/******************************************************************************
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- ******************************************************************************/
 @file:JvmName("CommonMetrics")
 
 package com.exactpro.th2.common.metrics
@@ -42,8 +27,17 @@ import java.util.concurrent.atomic.AtomicInteger
 @JvmField
 val DEFAULT_BUCKETS = doubleArrayOf(0.000_25, 0.000_5, 0.001, 0.005, 0.010, 0.015, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0)
 
-const val DEFAULT_SESSION_ALIAS_LABEL_NAME : String = "session_alias"
-const val DEFAULT_DIRECTION_LABEL_NAME : String = "direction"
+const val TH2_PIN_LABEL = "th2_pin"
+const val TH2_TYPE_LABEL = "th2_type"
+const val EXCHANGE_LABEL = "exchange"
+const val QUEUE_LABEL = "queue"
+const val ROUTING_KEY_LABEL = "routing_key"
+const val SESSION_ALIAS_LABEL = "session_alias"
+const val DIRECTION_LABEL = "direction"
+const val MESSAGE_TYPE_LABEL = "message_type"
+
+const val GRPC_SERVICE_NAME_LABEL = "service_name"
+const val GRPC_METHOD_NAME_LABEL = "method_name"
 
 private val LIVENESS_ARBITER = AggregatingMetric(listOf(PrometheusMetric("th2_liveness", "Service liveness"), FileMetric( "healthy")))
 private val READINESS_ARBITER = AggregatingMetric(listOf(PrometheusMetric("th2_readiness", "Service readiness"), FileMetric( "ready")))

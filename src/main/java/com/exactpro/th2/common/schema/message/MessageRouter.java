@@ -15,12 +15,15 @@
 
 package com.exactpro.th2.common.schema.message;
 
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
+import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Interface for send and receive RabbitMQ messages
@@ -34,7 +37,16 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param configuration message router configuration
      */
     @Deprecated(since = "3.2.2", forRemoval = true)
-    void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration);
+    default void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration) {
+        Objects.requireNonNull(connectionManager, "Connection owner can not be null");
+        Objects.requireNonNull(configuration, "Configuration cannot be null");
+
+        init(new DefaultMessageRouterContext(connectionManager, MessageRouterMonitor.DEFAULT_MONITOR, configuration));
+    }
+
+    default void init(@NotNull MessageRouterContext context, @NotNull MessageRouter<MessageGroupBatch> groupBatchRouter) {
+        init(context);
+    }
 
     /**
      * Initialization message router
@@ -44,37 +56,71 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
-     * @param queueAttr queues attributes
      * @param callback listener
+     * @param queueAttr queues attributes
      * @throws IllegalStateException when more than 1 queue is found
-     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    @Nullable
     SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr);
 
     /**
      * Listen <b>ALL</b> RabbitMQ queues in configurations
      * @param callback listener
-     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    @Nullable
-    SubscriberMonitor subscribeAll(MessageListener<T> callback);
+    default SubscriberMonitor subscribeAll(MessageListener<T> callback) {
+        return subscribeAll(callback, QueueAttribute.SUBSCRIBE.toString());
+    }
 
     /**
      * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
      * @param callback listener
      * @param queueAttr queues attributes
-     * @return {@link SubscriberMonitor} it start listening. Returns null is can not listen this queue
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    @Nullable
     SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr);
+
+    /**
+     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @param queueAttr queues attributes
+     * @param callback listener with manual confirmation
+     * @throws IllegalStateException when more than 1 queue is found
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     */
+    default SubscriberMonitor subscribeWithManualAck(ConfirmationMessageListener<T> callback, String... queueAttr) {
+        // TODO: probably should not have default implementation
+        throw new UnsupportedOperationException("The subscription with manual confirmation is not supported");
+    }
+
+    /**
+     * Listen <b>ALL</b> RabbitMQ queues in configurations
+     * @param callback listener with manual confirmation
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     */
+    default SubscriberMonitor subscribeAllWithManualAck(ConfirmationMessageListener<T> callback) {
+        // TODO: probably should not have default implementation
+        return subscribeAllWithManualAck(callback, QueueAttribute.SUBSCRIBE.toString());
+    }
+
+    /**
+     * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
+     * @param callback listener with manual confirmation
+     * @param queueAttr queues attributes
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     */
+    default SubscriberMonitor subscribeAllWithManualAck(ConfirmationMessageListener<T> callback, String... queueAttr) {
+        // TODO: probably should not have default implementation
+        throw new UnsupportedOperationException("The subscription with manual confirmation is not supported");
+    }
 
     /**
      * Send message to <b>SOME</b> RabbitMQ queues which match the filter for this message
      * @param message
      * @throws IOException if can not send message
      */
-    void send(T message) throws IOException;
+    default void send(T message) throws IOException {
+        send(message, QueueAttribute.PUBLISH.toString());
+    }
 
     /**
      * Send message to <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes

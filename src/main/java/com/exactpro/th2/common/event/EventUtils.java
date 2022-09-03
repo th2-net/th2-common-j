@@ -49,7 +49,8 @@ public class EventUtils {
         }
         EventID.Builder builder = EventID.newBuilder().setId(id);
         if (bookName != null) {
-            builder.setBookName(bookName);
+            //TODO: uncomment after book page migration
+//            builder.setBookName(bookName);
         }
         return builder.build();
     }

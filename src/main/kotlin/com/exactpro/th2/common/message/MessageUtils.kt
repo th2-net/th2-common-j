@@ -25,6 +25,8 @@ import com.exactpro.th2.common.event.bean.builder.CollectionBuilder
 import com.exactpro.th2.common.event.bean.builder.RowBuilder
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.FailUnexpected
@@ -66,6 +68,8 @@ import com.exactpro.th2.common.value.updateOrAddList
 import com.exactpro.th2.common.value.updateOrAddMessage
 import com.exactpro.th2.common.value.updateOrAddString
 import com.exactpro.th2.common.value.updateString
+import com.google.protobuf.Duration
+import com.google.protobuf.TextFormat.shortDebugString
 import com.google.protobuf.Timestamp
 import com.google.protobuf.util.JsonFormat
 import java.math.BigDecimal
@@ -79,6 +83,7 @@ import java.util.TimeZone
 
 typealias FieldValues = Map<String, Value>
 typealias FieldValueFilters = Map<String, ValueFilter>
+typealias JavaDuration = java.time.Duration
 
 fun message() : Message.Builder = Message.newBuilder()
 fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType)
@@ -100,6 +105,8 @@ fun Message.getBigInteger(fieldName: String): BigInteger? = getField(fieldName)?
 fun Message.getBigDecimal(fieldName: String): BigDecimal? = getField(fieldName)?.getBigDecimal()
 fun Message.getMessage(fieldName: String): Message? = getField(fieldName)?.getMessage()
 fun Message.getList(fieldName: String): List<Value>? = getField(fieldName)?.listValue?.valuesList
+
+fun Message?.orEmpty(): Message = this ?: Message.getDefaultInstance()
 
 fun Message.Builder.getString(fieldName: String): String? = getField(fieldName)?.getString()
 fun Message.Builder.getInt(fieldName: String): Int? = getField(fieldName)?.getInt()
@@ -188,6 +195,8 @@ fun Date.toTimestamp(): Timestamp = toInstant().toTimestamp()
 fun LocalDateTime.toTimestamp(zone: ZoneOffset) : Timestamp = toInstant(zone).toTimestamp()
 fun LocalDateTime.toTimestamp() : Timestamp = toTimestamp(ZoneOffset.of(TimeZone.getDefault().id))
 fun Calendar.toTimestamp() : Timestamp = toInstant().toTimestamp()
+fun Duration.toJavaDuration(): JavaDuration = JavaDuration.ofSeconds(seconds, nanos.toLong())
+fun JavaDuration.toProtoDuration(): Duration = Duration.newBuilder().setSeconds(seconds).setNanos(nano).build()
 
 fun Message.toRootMessageFilter(
     rootKeyFields: List<String> = listOf(),
@@ -293,11 +302,15 @@ val Message.direction
 var Message.Builder.direction
     get(): Direction = metadata.id.direction
     set(value) {
-        setMetadata(MessageMetadata.newBuilder(metadata).apply {
-            setId(MessageID.newBuilder(id).apply {
-                direction = value
-            })
-        })
+        metadataBuilder.idBuilder.direction = value
+    }
+
+val RawMessage.direction
+    get(): Direction = metadata.id.direction
+var RawMessage.Builder.direction
+    get(): Direction = metadata.id.direction
+    set(value) {
+        metadataBuilder.idBuilder.direction = value
     }
 
 val Message.sessionAlias
@@ -305,13 +318,15 @@ val Message.sessionAlias
 var Message.Builder.sessionAlias
     get(): String = metadata.id.connectionId.sessionAlias
     set(value) {
-        setMetadata(MessageMetadata.newBuilder(metadata).apply {
-            setId(MessageID.newBuilder(id).apply {
-                setConnectionId(ConnectionID.newBuilder(connectionId).apply {
-                    sessionAlias = value
-                })
-            })
-        })
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionAlias = value
+    }
+
+val RawMessage.sessionAlias
+    get(): String = metadata.id.connectionId.sessionAlias
+var RawMessage.Builder.sessionAlias
+    get(): String = metadata.id.connectionId.sessionAlias
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionAlias = value
     }
 
 val Message.sequence
@@ -319,22 +334,66 @@ val Message.sequence
 var Message.Builder.sequence
     get(): Long = metadata.id.sequence
     set(value) {
-        setMetadata(MessageMetadata.newBuilder(metadata).apply {
-            setId(MessageID.newBuilder(id).apply {
-                sequence = value
-            })
-        })
+        metadataBuilder.idBuilder.sequence = value
+    }
+
+val RawMessage.sequence
+    get(): Long = metadata.id.sequence
+var RawMessage.Builder.sequence
+    get(): Long = metadata.id.sequence
+    set(value) {
+        metadataBuilder.idBuilder.sequence = value
+    }
+
+val Message.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+var Message.Builder.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+    set(value) {
+        metadataBuilder.idBuilder.apply {
+            clearSubsequence()
+            addAllSubsequence(value)
+        }
+    }
+
+val RawMessage.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+var RawMessage.Builder.subsequence
+    get(): List<Int> = metadata.id.subsequenceList
+    set(value) {
+        metadataBuilder.idBuilder.apply {
+            clearSubsequence()
+            addAllSubsequence(value)
+        }
+    }
+
+val Message.logId: String
+    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ".$it" }}"
+
+val RawMessage.logId: String
+    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ".$it" }}"
+
+val AnyMessage.logId: String
+    get() = when (kindCase) {
+        MESSAGE -> message.logId
+        RAW_MESSAGE -> rawMessage.logId
+        else -> error("Cannot get log id from $kindCase message: ${toJson()}")
     }
 
 fun getSessionAliasAndDirection(messageID: MessageID): Array<String> = arrayOf(messageID.connectionId.sessionAlias, messageID.direction.name)
 
-private val unknownLabels = arrayOf("unknown", "unknown")
-
 fun getSessionAliasAndDirection(anyMessage: AnyMessage): Array<String> = when {
     anyMessage.hasMessage() -> getSessionAliasAndDirection(anyMessage.message.metadata.id)
     anyMessage.hasRawMessage() -> getSessionAliasAndDirection(anyMessage.rawMessage.metadata.id)
-    else -> unknownLabels
+    else -> error("Message ${shortDebugString(anyMessage)} doesn't have message or rawMessage")
 }
+
+val AnyMessage.sequence: Long
+    get() = when {
+        hasMessage() -> message.metadata.id.sequence
+        hasRawMessage() -> rawMessage.metadata.id.sequence
+        else -> error("Message ${shortDebugString(this)} doesn't have message or rawMessage")
+    }
 
 fun getDebugString(className: String, ids: List<MessageID>): String {
     val sessionAliasAndDirection = getSessionAliasAndDirection(ids[0])
