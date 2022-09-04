@@ -16,16 +16,10 @@
 
 package com.exactpro.th2.common.message
 
-import com.exactpro.th2.common.event.Event
-import com.exactpro.th2.common.event.EventUtils
-import com.exactpro.th2.common.event.IEventFactory
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.impl.ParsedMessageBuilderImpl
 import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl
-import com.exactpro.th2.common.schema.factory.CommonFactory
-import java.time.Instant
 import java.util.function.Consumer
 
 @DslMarker
@@ -55,8 +49,8 @@ class BodyBuilder(
         builder.putMessage(this) { BodyBuilder(it).msgSetup() }
     }
 
-    infix fun String.toMessages(msgs: Collection<BodyBuilder.() -> Unit>) {
-        builder.putMessages(this, msgs.map { action -> Consumer<MessageBodyBuilder> { BodyBuilder(it).action() } })
+    infix fun String.toMessages(msgSetups: Collection<BodyBuilder.() -> Unit>) {
+        builder.putMessages(this, toConsumers(msgSetups))
     }
 
     operator fun String.plusAssign(msgSetup: BodyBuilder.() -> Unit) {
@@ -65,7 +59,15 @@ class BodyBuilder(
         }
     }
 
+    operator fun String.plusAssign(msgSetups: Collection<BodyBuilder.() -> Unit>) {
+        builder.addMessages(this, toConsumers(msgSetups))
+    }
+
+    private fun toConsumers(msgSetups: Collection<BodyBuilder.() -> Unit>): List<Consumer<MessageBodyBuilder>> =
+        msgSetups.map { action -> Consumer { BodyBuilder(it).action() } }
+
     operator fun invoke(block: BodyBuilder.() -> Unit) = block()
+
 }
 
 val ParsedMessageBuilder<*>.metadata: ParsedMetadataBuilder
@@ -84,81 +86,3 @@ operator fun RawMetadataBuilder.invoke(block: RawMetadataBuilder.() -> Unit) = b
 fun MessageFactory.createParsedMessage(block: ParsedMessageBuilderImpl.() -> Unit): Message = createParsedMessage()(block)
 
 fun MessageFactory.createRawMessage(block: RawMessageBuilderImpl.() -> Unit): RawMessage = createRawMessage()(block)
-
-fun main() {
-    val commonFactory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
-    val messageFactory = commonFactory.messageFactory
-    val bookName = commonFactory.boxConfiguration.bookName!!
-    testParsedMessage(messageFactory, bookName)
-    testRawMessage(messageFactory, bookName)
-    testEvent(commonFactory.eventFactory, bookName)
-}
-
-fun testParsedMessage(factory: MessageFactory, bookName: String) {
-    val message = factory.createParsedMessage {
-        setParentEventId("eventId", bookName)
-        metadata {
-            setSessionAlias("test")
-            setDirection(Direction.SECOND)
-            setSequence(1)
-            addSubsequence(2)
-            addSubsequence(3)
-            setBookName(bookName)
-            setTimestamp(Instant.now())
-            setMessageType("type")
-            putProperty("propertyKey", "propertyValue")
-            setProtocol("protocol")
-        }
-        body {
-            "A" to 5
-            "B" to listOf(1, 2, 3)
-            "C" toMessage {
-                "A" to 5
-                "B" to listOf(1, 2, 3)
-            }
-            "D" += {
-                "A" to 42
-            }
-            "E" toMessages listOf<BodyBuilder.() -> Unit>(
-                {
-                    "A" to 4
-                },
-                {
-                    "A" to 5
-                }
-            )
-        }
-    }
-    println(message.toJson(false))
-}
-
-fun testRawMessage(factory: MessageFactory, bookName: String) {
-    val message = factory.createRawMessage {
-        setParentEventId("eventId", bookName)
-        setBody("body".toByteArray())
-        metadata {
-            setSessionAlias("test")
-            setDirection(Direction.SECOND)
-            setSequence(1)
-            addSubsequence(2)
-            addSubsequence(3)
-            setBookName(bookName)
-            setTimestamp(Instant.now())
-            putProperty("propertyKey", "propertyValue")
-            setProtocol("protocol")
-        }
-    }
-    println(message.toJson(false))
-}
-
-fun testEvent(eventFactory: IEventFactory, bookName: String) {
-    val event = Event.start(eventFactory)
-        .bookName(bookName)
-        .status(Event.Status.PASSED)
-        .name("name")
-        .type("type")
-        .bodyData(EventUtils.createMessageBean("bodyData"))
-        .messageID(MessageID.newBuilder().build())
-        .toProto(null)
-    println(event.toJson(false))
-}

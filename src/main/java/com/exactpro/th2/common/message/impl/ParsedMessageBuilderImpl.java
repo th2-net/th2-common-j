@@ -16,16 +16,16 @@
 
 package com.exactpro.th2.common.message.impl;
 
-import java.util.Collection;
-import java.util.Objects;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-
 import com.exactpro.th2.common.grpc.Message;
 import com.exactpro.th2.common.grpc.Value;
 import com.exactpro.th2.common.message.MessageBodyBuilder;
 import com.exactpro.th2.common.message.ParsedMessageBuilder;
 import com.exactpro.th2.common.message.ParsedMetadataBuilder;
+
+import java.util.Collection;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.exactpro.th2.common.value.ValueUtils.listValue;
 import static com.exactpro.th2.common.value.ValueUtils.toValue;
@@ -76,8 +76,26 @@ public class ParsedMessageBuilderImpl
         if (oldValue == null) {
             messageBuilder.putFields(name, toValue(listValue().addValues(toValue(createSubMessage(setup)))));
         } else {
+            //FIXME: check type of existed values
             var builder = oldValue.toBuilder();
             builder.getListValueBuilder().addValues(toValue(createSubMessage(setup)));
+            messageBuilder.putFields(name, builder.build());
+        }
+        return this;
+    }
+
+    @Override
+    public MessageBodyBuilder addMessages(String name, Collection<Consumer<MessageBodyBuilder>> setup) {
+        var oldValue = messageBuilder.getFieldsMap().get(name);
+        if (oldValue != null && !oldValue.hasListValue()) {
+            throw new IllegalStateException("field " + name + " is not a collection: " + oldValue.getKindCase());
+        }
+        if (oldValue == null) {
+            messageBuilder.putFields(name, toValue(listValue().addAllValues(setup.stream().map(ParsedMessageBuilderImpl::createSubMessageValue).collect(Collectors.toList()))));
+        } else {
+            //FIXME: check type of existed values
+            var builder = oldValue.toBuilder();
+            setup.stream().map(ParsedMessageBuilderImpl::createSubMessageValue).forEach(builder.getListValueBuilder()::addValues);
             messageBuilder.putFields(name, builder.build());
         }
         return this;

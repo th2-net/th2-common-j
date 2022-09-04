@@ -26,7 +26,27 @@ public interface MessageBodyBuilder {
 
     MessageBodyBuilder putMessage(String name, Consumer<MessageBodyBuilder> setup);
 
+    /**
+     * Builds new message and setups it via the {@code setup} method.
+     * After that add the sub message to a list messages by the {@code name} field name.
+     * This method creates new list container if the current level doesn't contain the {@code name} field
+     * @param name is the filed name
+     * @param setup is the sub message setup method
+     * @return the {@link MessageBodyBuilder} instance related to the current level of message
+     * @throws IllegalStateException if existed value got by the {@code name} isn't collection of messages
+     */
     MessageBodyBuilder addMessage(String name, Consumer<MessageBodyBuilder> setup);
+
+    /**
+     * Builds and setups new messages for each {@code setup} method.
+     * After that add the sub messages to a list messages got by the {@code name} field name.
+     * This method creates new list container if the current level doesn't contain the {@code name} field
+     * @param name is the filed name
+     * @param setup is the sub message setup methods
+     * @return the {@link MessageBodyBuilder} instance related to the current level of message
+     * @throws IllegalStateException if existed value got by the {@code name} isn't collection of messages
+     */
+    MessageBodyBuilder addMessages(String name, Collection<Consumer<MessageBodyBuilder>> setup);
 
     MessageBodyBuilder putMessages(String name, Collection<Consumer<MessageBodyBuilder>> setup);
 }

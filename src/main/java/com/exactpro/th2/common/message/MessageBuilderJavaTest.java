@@ -16,9 +16,6 @@
 
 package com.exactpro.th2.common.message;
 
-import java.time.Instant;
-import java.util.List;
-
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.event.EventUtils;
 import com.exactpro.th2.common.event.IEventFactory;
@@ -28,7 +25,10 @@ import com.exactpro.th2.common.message.impl.RawMessageBuilderImpl;
 import com.exactpro.th2.common.schema.factory.CommonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-public class Test {
+import java.time.Instant;
+import java.util.List;
+
+public class MessageBuilderJavaTest {
     public static void main(String[] args) throws JsonProcessingException {
         CommonFactory commonFactory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries");
         MessageFactory messageFactory = commonFactory.getMessageFactory();
@@ -72,8 +72,10 @@ public class Test {
 
                 // adds message to a collection for the field
                 .addMessage("D", msg -> msg.putSimpleField("A", 1))
-                .addMessage("D", msg -> msg.putSimpleField("A", 2))
-                .addMessage("D", msg -> msg.putSimpleField("A", 3))
+                .addMessages("D", List.of(
+                        msg -> msg.putSimpleField("A", 2),
+                        msg -> msg.putSimpleField("A", 3)
+                ))
 
                 // sets collection to the field
                 .putMessages("E", List.of(
