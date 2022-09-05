@@ -122,6 +122,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                             .keepAliveTime(clientConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                             .usePlaintext()
                             .intercept(new GrpcInterceptor(service.pinName, methodInvokeCounter, requestBytesCounter, responseBytesCounter))
+                            .maxInboundMessageSize(endpoint.getMaxMessageSize())
                             .build(),
                     CallOptions.DEFAULT
             );

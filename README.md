@@ -165,6 +165,8 @@ The `CommonFactory` reads a grpc's router configuration from the `grpc.json` fil
 * server - grpc server configuration
 * client - grpc client configuration
     * keepAliveInterval - number of seconds before each keep alive message. 
+* endpoint - grpc endpoint configuration
+    * maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of bytes.
 
 ```json
 {
