@@ -349,7 +349,7 @@ dependencies {
 ## Release notes
 
 ### 3.40.1 
-+ gRPC configuration now contains `client` property where `keepAliveInterval` can be defined for client grpc services. (default: 300 sec)
++ gRPC configuration now contains `client` property where `keepAliveInterval` can be defined for client grpc services. (default: 60 sec)
 
 ### 3.40.0
 
