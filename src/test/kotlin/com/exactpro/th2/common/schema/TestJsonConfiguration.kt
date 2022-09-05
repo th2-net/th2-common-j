@@ -138,7 +138,7 @@ class TestJsonConfiguration {
                         init(GrpcRawRobinStrategy(listOf("endpoint")))
                     },
                     GrpcConfiguration::class.java,
-                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr"))),
+                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, attributes = listOf("test_attr"))),
                     emptyList()
                 )
             ),
