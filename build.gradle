@@ -225,7 +225,7 @@ dependencies {
 
     // fix vulnerability in transitive dependency
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
-    implementation 'io.fabric8:kubernetes-client:6.0.0'
+    implementation 'io.fabric8:kubernetes-client:6.1.1'
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
