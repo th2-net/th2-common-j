@@ -197,6 +197,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
             return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort())
                     .intercept(new GrpcInterceptor(pinName, GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES))
+                    .maxInboundMessageSize(grpcServer.getMaxMessageSize())
                     .usePlaintext()
                     .build();
         });
