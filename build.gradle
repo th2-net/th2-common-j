@@ -168,7 +168,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.0.0-vulnerabilities-2919290091-SNAPSHOT")
+    api platform("com.exactpro.th2:bom:4.0.0-vulnerabilities-3033046761-SNAPSHOT")
     api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
@@ -223,8 +223,9 @@ dependencies {
     implementation 'io.prometheus:simpleclient_httpserver'
     implementation 'io.prometheus:simpleclient_log4j2'
 
-    // fix vulnerability in transitive dependency
-    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    implementation ('com.squareup.okhttp3:okhttp:4.10.0') {
+        because ('fix vulnerability in transitive dependency <kubernetes-client>')
+    }
     implementation 'io.fabric8:kubernetes-client:6.1.1'
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
