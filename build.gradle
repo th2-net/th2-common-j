@@ -168,7 +168,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.0.0-vulnerabilities-3033046761-SNAPSHOT")
+    api platform("com.exactpro.th2:bom:4.0.0-vulnerabilities-3044026843-SNAPSHOT")
     api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
@@ -191,11 +191,9 @@ dependencies {
     implementation "org.jetbrains:annotations"
 
     implementation "org.apache.commons:commons-lang3"
-    api("org.apache.commons:commons-collections4:4.4") {
-        because('multimap in MqRouterFilterConfiguration')
-    }
+    implementation "org.apache.commons:commons-collections4"
     implementation "org.apache.commons:commons-text:1.9"
-    implementation "commons-cli:commons-cli:1.5.0"
+    implementation "commons-cli:commons-cli"
 
     implementation "com.fasterxml.jackson.core:jackson-core"
     api("com.fasterxml.jackson.core:jackson-databind") {
@@ -207,8 +205,6 @@ dependencies {
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
-
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
     implementation 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
 
