@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.40.0)
+# th2 common library (Java) (3.42.0)
 
 ## Usage
 
@@ -350,7 +350,7 @@ dependencies {
 
 ## Release notes
 
-### 3.40.2 
+### 3.42.0
 + Added gRPC service setting to be able to change maxMessageSize
 
 ### 3.40.1 
