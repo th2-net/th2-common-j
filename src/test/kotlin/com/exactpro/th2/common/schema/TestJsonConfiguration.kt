@@ -18,7 +18,6 @@ package com.exactpro.th2.common.schema
 import com.exactpro.th2.common.metrics.PrometheusConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcClientConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy
@@ -143,7 +142,7 @@ class TestJsonConfiguration {
                 )
             ),
             GrpcServerConfiguration("host123", 1234, 58),
-            GrpcClientConfiguration(400)
+            keepAliveInterval = 400
         )
 
         private val RABBITMQ_CONF_JSON = loadConfJson("rabbitMq")

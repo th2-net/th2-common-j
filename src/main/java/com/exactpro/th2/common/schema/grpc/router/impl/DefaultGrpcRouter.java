@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -197,6 +198,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
 
             return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort())
                     .intercept(new GrpcInterceptor(pinName, GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES))
+                    .keepAliveTime(configuration.getKeepAliveInterval(), TimeUnit.SECONDS)
                     .maxInboundMessageSize(configuration.getMaxMessageSize())
                     .usePlaintext()
                     .build();

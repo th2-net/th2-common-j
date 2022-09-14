@@ -29,7 +29,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
 import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcClientConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
 import io.prometheus.client.Counter;
@@ -59,7 +58,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private final List<ServiceHolder<T>> services;
-    private final GrpcClientConfiguration clientConfiguration;
+    private final @NotNull GrpcConfiguration clientConfiguration;
     private final GrpcConfiguration configuration;
     private final Counter methodInvokeCounter;
     private final Counter requestBytesCounter;
@@ -76,7 +75,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
         this.methodInvokeCounter = methodInvokeCounter;
         this.requestBytesCounter = requestBytesCounter;
         this.responseBytesCounter = responseBytesCounter;
-        this.clientConfiguration = configuration.getClientConfiguration();
+        this.clientConfiguration = configuration;
         this.configuration = configuration;
 
         services = new ArrayList<>(serviceConfigurations.size());
@@ -122,9 +121,9 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
 
             return stubFactory.newStub(
                     ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())
-                            .keepAliveTime(clientConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                             .usePlaintext()
                             .intercept(new GrpcInterceptor(service.pinName, methodInvokeCounter, requestBytesCounter, responseBytesCounter))
+                            .keepAliveTime(clientConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                             .maxInboundMessageSize(configuration.getMaxMessageSize())
                             .build(),
                     CallOptions.DEFAULT

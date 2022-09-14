@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.42.0)
+# th2 common library (Java) (3.41.0)
 
 ## Usage
 
@@ -163,8 +163,7 @@ Filters format:
 The `CommonFactory` reads a grpc's router configuration from the `grpc.json` file.
 * services - grpc services configurations
 * server - grpc server configuration
-* client - grpc client configuration
-    * keepAliveInterval - number of seconds before each keep alive message. 
+* keepAliveInterval - number of seconds before each keep alive message. 
 * endpoint - grpc endpoint configuration
     * maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of bytes.
 
@@ -196,7 +195,7 @@ The `CommonFactory` reads a grpc's router configuration from the `grpc.json` fil
     "workers": 58
   },
   "client": {
-    "keepAliveInterval": 400
+    "keepAliveInterval": 60
   }
 }
 ```
@@ -350,11 +349,9 @@ dependencies {
 
 ## Release notes
 
-### 3.42.0
+### 3.41.0
++ gRPC's configuration now contains `keepAliveInterval` property. It can be defined for grpc services. (default: 60 sec)
 + Added gRPC service setting to be able to change maxMessageSize
-
-### 3.40.1 
-+ gRPC configuration now contains `client` property where `keepAliveInterval` can be defined for client grpc services. (default: 60 sec)
 
 ### 3.40.0
 

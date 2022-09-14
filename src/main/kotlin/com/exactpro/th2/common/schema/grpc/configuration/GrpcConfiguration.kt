@@ -25,9 +25,9 @@ import io.grpc.internal.GrpcUtil
 data class GrpcConfiguration(
     @JsonProperty var services: Map<String, GrpcServiceConfiguration> = emptyMap(),
     @JsonProperty(value = "server") var serverConfiguration: GrpcServerConfiguration = GrpcServerConfiguration(),
-    @JsonProperty(value = "client") var clientConfiguration: GrpcClientConfiguration = GrpcClientConfiguration(),
     @JsonProperty var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
-    @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration()
+    @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration(),
+    @JsonProperty var keepAliveInterval: Long = 60L
 ) : Configuration()
 
 data class GrpcServiceConfiguration(
@@ -40,10 +40,6 @@ data class GrpcServiceConfiguration(
 data class Filter(
     @JsonProperty(required = true) var properties: List<FieldFilterConfiguration>,
 ) : Configuration()
-
-data class GrpcClientConfiguration(
-    @JsonProperty var keepAliveInterval: Long = 60L
-)
 
 data class GrpcEndpointConfiguration(
     @JsonProperty(required = true) var host: String,

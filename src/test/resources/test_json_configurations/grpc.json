@@ -24,7 +24,5 @@
     "port": 1234,
     "workers": 58
   },
-  "client": {
-    "keepAliveInterval": 400
-  }
+  "keepAliveInterval": 400
 }
