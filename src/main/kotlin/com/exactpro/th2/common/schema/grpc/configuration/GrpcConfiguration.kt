@@ -26,6 +26,7 @@ data class GrpcConfiguration(
     @JsonProperty var services: Map<String, GrpcServiceConfiguration> = emptyMap(),
     @JsonProperty(value = "server") var serverConfiguration: GrpcServerConfiguration = GrpcServerConfiguration(),
     @JsonProperty(value = "client") var clientConfiguration: GrpcClientConfiguration = GrpcClientConfiguration(),
+    @JsonProperty var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
     @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration()
 ) : Configuration()
 
@@ -47,7 +48,6 @@ data class GrpcClientConfiguration(
 data class GrpcEndpointConfiguration(
     @JsonProperty(required = true) var host: String,
     @JsonProperty(required = true) var port: Int = 8080,
-    @JsonProperty var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
     var attributes: List<String?> = emptyList(),
 ) : Configuration()
 

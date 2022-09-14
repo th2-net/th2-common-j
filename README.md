@@ -350,6 +350,9 @@ dependencies {
 
 ## Release notes
 
+### 3.40.2 
++ Added gRPC service setting to be able to change maxMessageSize
+
 ### 3.40.1 
 + gRPC configuration now contains `client` property where `keepAliveInterval` can be defined for client grpc services. (default: 60 sec)
 
