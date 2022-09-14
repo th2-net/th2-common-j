@@ -166,7 +166,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:3.2.0")
+    api platform("com.exactpro.th2:bom:3.3.0-TH2-3093-3052871635-SNAPSHOT")
     api ("com.exactpro.th2:cradle-core:${cradleVersion}")
     api 'com.exactpro.th2:grpc-common:3.11.1'
 
@@ -178,7 +178,7 @@ dependencies {
     implementation "io.grpc:grpc-protobuf"
     implementation "io.grpc:grpc-core"
     implementation "io.grpc:grpc-netty"
-    implementation "io.grpc:grpc-services:1.32.1" //FIXME: add to bom
+    implementation "io.grpc:grpc-services:1.49.0" //FIXME: add to bom
 
     implementation "com.rabbitmq:amqp-client"
 
