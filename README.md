@@ -353,6 +353,7 @@ dependencies {
 + gRPC's configuration now contains `keepAliveInterval` property. It can be defined for grpc services. (default: 60 sec)
 + Added gRPC service setting to be able to change maxMessageSize
 + Updated th2-bom form 3.2.0 to 3.3.0
++ Started using cradle 3.2, version with grouped messages
 
 ### 3.40.0
 
