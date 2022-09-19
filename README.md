@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.40.0)
+# th2 common library (Java) (3.41.0)
 
 ## Usage
 
@@ -308,6 +308,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.41.0
+
++ Work was done to eliminate vulnerabilities in _common_ and _bom_ dependencies. 
+  + **th2-bom must be updated to _4.0.0_ or higher.**
 
 ### 3.40.0
 
