@@ -312,7 +312,7 @@ dependencies {
 ### 3.41.0
 
 + Work was done to eliminate vulnerabilities in _common_ and _bom_ dependencies. 
-  + **th2-bom must be updated to _4.0.0_ or higher.**
+  + **th2-bom must be updated to _4.0.1_ or higher.**
 
 ### 3.40.0
 
