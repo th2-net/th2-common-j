@@ -160,10 +160,20 @@ Filters format:
 }
 ```
 
-The `CommonFactory` reads a grpc's router configuration from the `grpc.json` file.
+The `CommonFactory` reads a grpc's router configuration from the `grpc_router.json` file.
+* enableSizeMeasuring - this option enables the gRPC message size measuring. Please note the feature decrease gRPC throughput.
+* keepAliveInterval - number of seconds before each keep alive message.
+
+```json
+{
+  "enableSizeMeasuring": false,
+  "keepAliveInterval": 60
+}
+```
+
+The `CommonFactory` reads a grpc's configuration from the `grpc.json` file.
 * services - grpc services configurations
 * server - grpc server configuration
-* keepAliveInterval - number of seconds before each keep alive message. 
 * endpoint - grpc endpoint configuration
     * maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of bytes.
 
@@ -193,9 +203,6 @@ The `CommonFactory` reads a grpc's router configuration from the `grpc.json` fil
     "host": "host123",
     "port": 1234,
     "workers": 58
-  },
-  "client": {
-    "keepAliveInterval": 60
   }
 }
 ```
@@ -350,7 +357,8 @@ dependencies {
 ## Release notes
 
 ### 3.41.0
-+ gRPC's configuration now contains `keepAliveInterval` property. It can be defined for grpc services. (default: 60 sec)
++ Added the `enableSizeMeasuring` option into gRPC's router configuration. Default value is false 
++ gRPC's router configuration now contains `keepAliveInterval` property. It can be defined for grpc services. (default: 60 sec)
 + Added gRPC service setting to be able to change maxMessageSize
 + Updated th2-bom form 3.2.0 to 3.3.0
 + Started using cradle 3.2, version with grouped messages

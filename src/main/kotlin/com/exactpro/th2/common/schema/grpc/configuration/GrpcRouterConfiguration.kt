@@ -17,4 +17,7 @@ package com.exactpro.th2.common.schema.grpc.configuration
 
 import com.exactpro.th2.common.schema.configuration.Configuration
 
-data class GrpcRouterConfiguration(var workers: Int = 1) : Configuration()
+data class GrpcRouterConfiguration(
+    var enableSizeMeasuring: Boolean = false,
+    var keepAliveInterval: Long = 60L
+) : Configuration()

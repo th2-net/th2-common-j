@@ -142,7 +142,6 @@ class TestJsonConfiguration {
                 )
             ),
             GrpcServerConfiguration("host123", 1234, 58),
-            keepAliveInterval = 400
         )
 
         private val RABBITMQ_CONF_JSON = loadConfJson("rabbitMq")

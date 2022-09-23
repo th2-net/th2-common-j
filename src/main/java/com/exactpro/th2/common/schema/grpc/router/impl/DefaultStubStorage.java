@@ -16,6 +16,23 @@
 
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
+import com.exactpro.th2.common.grpc.router.ClientGrpcInterceptor;
+import com.exactpro.th2.common.grpc.router.MethodDetails;
+import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
+import com.exactpro.th2.service.StubStorage;
+import com.google.protobuf.Message;
+import io.grpc.CallOptions;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.stub.AbstractStub;
+import io.prometheus.client.Counter;
+import org.jetbrains.annotations.NotNull;
+
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,25 +40,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import javax.annotation.concurrent.ThreadSafe;
-
-import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
-import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration;
-import io.prometheus.client.Counter;
-import org.jetbrains.annotations.NotNull;
-
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
-import com.exactpro.th2.service.StubStorage;
-import com.google.protobuf.Message;
-
-import io.grpc.CallOptions;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.AbstractStub;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorage<T> {
@@ -58,25 +60,29 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
     }
 
     private final List<ServiceHolder<T>> services;
-    private final @NotNull GrpcConfiguration clientConfiguration;
-    private final GrpcConfiguration configuration;
-    private final Counter methodInvokeCounter;
-    private final Counter requestBytesCounter;
-    private final Counter responseBytesCounter;
+    private final @NotNull GrpcRouterConfiguration routerConfiguration;
+    private final @NotNull GrpcConfiguration configuration;
+    private final @NotNull Function<MethodDetails, Counter.Child> methodInvokeCounter;
+    private final @NotNull Function<MethodDetails, Counter.Child> methodReceiveCounter;
+    private final @NotNull Function<MethodDetails, Counter.Child> requestBytesCounter;
+    private final @NotNull Function<MethodDetails, Counter.Child> responseBytesCounter;
 
 
     public DefaultStubStorage(
             @NotNull List<Map.Entry<String, GrpcServiceConfiguration>> serviceConfigurations,
-            @NotNull Counter methodInvokeCounter,
-            @NotNull Counter requestBytesCounter,
-            @NotNull Counter responseBytesCounter,
+            @NotNull Function<MethodDetails, Counter.Child> methodInvokeCounter,
+            @NotNull Function<MethodDetails, Counter.Child> methodReceiveCounter,
+            @NotNull Function<MethodDetails, Counter.Child> requestBytesCounter,
+            @NotNull Function<MethodDetails, Counter.Child> responseBytesCounter,
+            @NotNull GrpcRouterConfiguration routerConfiguration,
             @NotNull GrpcConfiguration configuration
             ) {
-        this.methodInvokeCounter = methodInvokeCounter;
-        this.requestBytesCounter = requestBytesCounter;
-        this.responseBytesCounter = responseBytesCounter;
-        this.clientConfiguration = configuration;
-        this.configuration = configuration;
+        this.methodInvokeCounter = requireNonNull(methodInvokeCounter);
+        this.methodReceiveCounter = requireNonNull(methodReceiveCounter);
+        this.requestBytesCounter = requireNonNull(requestBytesCounter);
+        this.responseBytesCounter = requireNonNull(responseBytesCounter);
+        this.routerConfiguration = requireNonNull(routerConfiguration);
+        this.configuration = requireNonNull(configuration);
 
         services = new ArrayList<>(serviceConfigurations.size());
         for (final var config: serviceConfigurations) {
@@ -122,8 +128,12 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
             return stubFactory.newStub(
                     ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())
                             .usePlaintext()
-                            .intercept(new GrpcInterceptor(service.pinName, methodInvokeCounter, requestBytesCounter, responseBytesCounter))
-                            .keepAliveTime(clientConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
+                            .intercept(new ClientGrpcInterceptor(service.pinName,
+                                    methodInvokeCounter,
+                                    methodReceiveCounter,
+                                    requestBytesCounter,
+                                    responseBytesCounter))
+                            .keepAliveTime(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                             .maxInboundMessageSize(configuration.getMaxMessageSize())
                             .build(),
                     CallOptions.DEFAULT

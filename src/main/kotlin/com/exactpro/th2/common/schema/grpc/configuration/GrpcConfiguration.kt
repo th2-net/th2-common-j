@@ -27,7 +27,6 @@ data class GrpcConfiguration(
     @JsonProperty(value = "server") var serverConfiguration: GrpcServerConfiguration = GrpcServerConfiguration(),
     @JsonProperty var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
     @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration(),
-    @JsonProperty var keepAliveInterval: Long = 60L
 ) : Configuration()
 
 data class GrpcServiceConfiguration(

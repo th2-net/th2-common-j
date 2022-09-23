@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
-import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
+import com.exactpro.th2.common.grpc.router.ClientGrpcInterceptor;
 import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
@@ -87,9 +87,11 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                             configuration.getRetryConfiguration(),
                             stubsStorages.computeIfAbsent(cls, key ->
                                     new DefaultStubStorage<>(getServiceConfig(key),
-                                            GRPC_INVOKE_CALL_TOTAL,
-                                            GRPC_INVOKE_CALL_REQUEST_BYTES,
-                                            GRPC_INVOKE_CALL_RESPONSE_BYTES,
+                                            createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),
+                                            createGetMetric(GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_MAP),
+                                            createGetMeasuringMetric(GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_REQUEST_SIZE_MAP),
+                                            createGetMeasuringMetric(GRPC_INVOKE_CALL_RESPONSE_BYTES, GRPC_INVOKE_CALL_RESPONSE_SIZE_MAP),
+                                            routerConfiguration,
                                             configuration)
                             )
                     );
@@ -197,8 +199,12 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
             }
 
             return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort())
-                    .intercept(new GrpcInterceptor(pinName, GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES))
-                    .keepAliveTime(configuration.getKeepAliveInterval(), TimeUnit.SECONDS)
+                    .intercept(new ClientGrpcInterceptor(pinName,
+                            createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),
+                            createGetMetric(GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_MAP),
+                            createGetMeasuringMetric(GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_REQUEST_SIZE_MAP),
+                            createGetMeasuringMetric(GRPC_INVOKE_CALL_RESPONSE_BYTES, GRPC_INVOKE_CALL_RESPONSE_SIZE_MAP)))
+                    .keepAliveTime(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                     .maxInboundMessageSize(configuration.getMaxMessageSize())
                     .usePlaintext()
                     .build();
