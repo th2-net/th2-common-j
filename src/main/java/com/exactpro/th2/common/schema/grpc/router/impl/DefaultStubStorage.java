@@ -31,6 +31,8 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.AbstractStub;
 import io.prometheus.client.Counter;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
@@ -47,6 +49,8 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorage<T> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultStubStorage.class);
 
     private static class ServiceHolder<T> {
         final String pinName;
@@ -124,6 +128,8 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                 throw new IllegalStateException("No endpoint in the configuration " +
                         "that matches the provided alias: " + key);
             }
+
+            LOGGER.info("Made gRPC stub: host {}, port {}, keepAliveTime {}, max inbound message {}", endpoint.getHost(), endpoint.getPort(), routerConfiguration.getKeepAliveInterval(), configuration.getMaxMessageSize());
 
             return stubFactory.newStub(
                     ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())

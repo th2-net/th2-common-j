@@ -172,6 +172,8 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         loopGroups.add(eventLoop);
         servers.add(server);
 
+        LOGGER.info("Made gRPC server: host {}, port {}, keepAliveTime {}, max inbound message {}", serverConf.getHost(), serverConf.getPort(), routerConfiguration.getKeepAliveInterval(), configuration.getMaxMessageSize());
+
         return server;
     }
 

@@ -198,6 +198,8 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                         "that matching the provided alias: " + key);
             }
 
+            LOGGER.info("Made gRPC channel: host {}, port {}, keepAliveTime {}, max inbound message {}", grpcServer.getHost(), grpcServer.getPort(), routerConfiguration.getKeepAliveInterval(), configuration.getMaxMessageSize());
+
             return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort())
                     .intercept(new ClientGrpcInterceptor(pinName,
                             createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),

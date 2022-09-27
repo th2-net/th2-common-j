@@ -63,5 +63,5 @@ data class GrpcRetryConfiguration(
 data class GrpcServerConfiguration(
     var host: String? = "localhost",
     @JsonProperty(required = true) var port: Int = 8080,
-    var workers: Int = 1
+    var workers: Int = 5
 ) : Configuration()
