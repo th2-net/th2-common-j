@@ -206,7 +206,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                             createGetMetric(GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_MAP),
                             createGetMeasuringMetric(GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_REQUEST_SIZE_MAP),
                             createGetMeasuringMetric(GRPC_INVOKE_CALL_RESPONSE_BYTES, GRPC_INVOKE_CALL_RESPONSE_SIZE_MAP)))
-                    .keepAliveTime(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
+                    .keepAliveTimeout(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                     .maxInboundMessageSize(configuration.getMaxMessageSize())
                     .usePlaintext()
                     .build();

@@ -152,7 +152,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         builder = builder.workerEventLoopGroup(eventLoop)
                 .bossEventLoopGroup(eventLoop)
                 .channelType(NioServerSocketChannel.class)
-                .keepAliveTime(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
+                .keepAliveTimeout(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                 .maxInboundMessageSize(configuration.getMaxMessageSize())
                 .intercept(new ServerGrpcInterceptor("server",
                         createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),

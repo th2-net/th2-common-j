@@ -139,7 +139,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                                     methodReceiveCounter,
                                     requestBytesCounter,
                                     responseBytesCounter))
-                            .keepAliveTime(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
+                            .keepAliveTimeout(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
                             .maxInboundMessageSize(configuration.getMaxMessageSize())
                             .build(),
                     CallOptions.DEFAULT
