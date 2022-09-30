@@ -16,10 +16,6 @@
 package com.exactpro.th2.common.schema.factory;
 
 import com.exactpro.cradle.CradleManager;
-import com.exactpro.cradle.cassandra.CassandraCradleManager;
-import com.exactpro.cradle.cassandra.connection.CassandraConnection;
-import com.exactpro.cradle.cassandra.connection.CassandraConnectionSettings;
-import com.exactpro.cradle.utils.CradleStorageException;
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
@@ -30,9 +26,6 @@ import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
-import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
@@ -65,7 +58,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -95,8 +87,6 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.stream.StreamSupport;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_EVENT_BATCH_SIZE;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
@@ -109,7 +99,6 @@ import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
  */
 public abstract class AbstractCommonFactory implements AutoCloseable {
 
-    protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
 
     /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
@@ -384,23 +373,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return (MessageRouter<T>)router;
     }
 
-    /**
-     * @return Configuration by specified path
-     * @throws IllegalStateException if can not read configuration
-     */
-    public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
-        return getConfigurationManager().loadConfiguration(customObjectMapper, stringSubstitutor, configClass, configPath, false);
-    }
-
-    /**
-     * Load configuration, save and return. If already loaded return saved configuration.
-     * @param configClass configuration class
-     * @param optional creates an instance of a configuration class via the default constructor if this option is true and the config file doesn't exist or empty
-     * @return configuration object
-     */
-    protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
-        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, configClass, optional);
-    }
+//    /**
+//     * @return Configuration by specified path
+//     * @throws IllegalStateException if can not read configuration
+//     */
+//    public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
+//        return getConfigurationManager().loadConfiguration(customObjectMapper, stringSubstitutor, configClass, configPath, false);
+//    }
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
         return getConfigurationOrLoad(RabbitMQConfiguration.class, false);
@@ -426,76 +405,22 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(BoxConfiguration.class, true);
     }
 
-    protected CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
-        return getConfigurationOrLoad(CradleConfidentialConfiguration.class, false);
-    }
-
-    protected CradleNonConfidentialConfiguration getCradleNonConfidentialConfiguration() {
-        return getConfigurationOrLoad(CradleNonConfidentialConfiguration.class, true);
+    /**
+     * @return Configuration by specified path
+     * @throws IllegalStateException if can not read configuration
+     */
+    public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
+        return getConfigurationManager().loadConfiguration(customObjectMapper, stringSubstitutor, configClass, configPath, false);
     }
 
     /**
-     * @return Schema cradle configuration
-     * @throws IllegalStateException if cannot read configuration
-     * @deprecated please use {@link #getCradleManager()}
+     * Load configuration, save and return. If already loaded return saved configuration.
+     * @param configClass configuration class
+     * @param optional creates an instance of a configuration class via the default constructor if this option is true and the config file doesn't exist or empty
+     * @return configuration object
      */
-    @Deprecated
-    public CradleConfiguration getCradleConfiguration() {
-        return new CradleConfiguration(getCradleConfidentialConfiguration(), getCradleNonConfidentialConfiguration());
-    }
-
-    /**
-     * @return Cradle manager
-     * @throws IllegalStateException if cannot read configuration or initialization failure
-     */
-    public CradleManager getCradleManager() {
-        return cradleManager.updateAndGet(manager -> {
-            if (manager == null) {
-                try {
-                    CradleConfidentialConfiguration confidentialConfiguration = getCradleConfidentialConfiguration();
-                    CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
-
-                    CassandraConnectionSettings cassandraConnectionSettings = new CassandraConnectionSettings(
-                            confidentialConfiguration.getDataCenter(),
-                            confidentialConfiguration.getHost(),
-                            confidentialConfiguration.getPort(),
-                            confidentialConfiguration.getKeyspace());
-
-                    if (StringUtils.isNotEmpty(confidentialConfiguration.getUsername())) {
-                        cassandraConnectionSettings.setUsername(confidentialConfiguration.getUsername());
-                    }
-
-                    if (StringUtils.isNotEmpty(confidentialConfiguration.getPassword())) {
-                        cassandraConnectionSettings.setPassword(confidentialConfiguration.getPassword());
-                    }
-
-                    if (nonConfidentialConfiguration.getTimeout() > 0) {
-                        cassandraConnectionSettings.setTimeout(nonConfidentialConfiguration.getTimeout());
-                    }
-
-                    if (nonConfidentialConfiguration.getPageSize() > 0) {
-                        cassandraConnectionSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
-                    }
-
-                    manager = new CassandraCradleManager(new CassandraConnection(cassandraConnectionSettings));
-                    manager.init(
-                            defaultIfBlank(confidentialConfiguration.getCradleInstanceName(), DEFAULT_CRADLE_INSTANCE_NAME),
-                            nonConfidentialConfiguration.getPrepareStorage(),
-                            nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0
-                                    ? nonConfidentialConfiguration.getCradleMaxMessageBatchSize()
-                                    : DEFAULT_MAX_MESSAGE_BATCH_SIZE,
-                            nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0
-                                    ? nonConfidentialConfiguration.getCradleMaxEventBatchSize()
-                                    : DEFAULT_MAX_EVENT_BATCH_SIZE
-                    );
-                } catch (CradleStorageException | RuntimeException e) {
-                    throw new CommonFactoryException("Cannot create Cradle manager", e);
-                }
-            }
-
-            return manager;
-        });
-
+    public <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
+        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, configClass, optional);
     }
 
     /**
