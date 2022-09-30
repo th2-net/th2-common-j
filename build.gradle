@@ -4,7 +4,7 @@ buildscript {
     }
 
     ext {
-        kotlin_version = "1.5.32"
+        kotlin_version = "1.6.21"
     }
 
     dependencies {
@@ -30,7 +30,7 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '3.1.3-TH2-3827-2909433977-SNAPSHOT'
+    cradleVersion       = '3.2.3-dev-version-3.2-3066861168-b96dd04-SNAPSHOT'
     junitVersion        = '5.9.0'
     sharedDir           = file("${project.rootDir}/shared")
 }
