@@ -316,6 +316,10 @@ dependencies {
 + Added `check_simple_collections_order` parameter to `RootComparisonSettings`
 + Started using cradle 3.2, version with grouped messages
 + Provided configuration for eventBatchDurationMillis in Cradle configuration
++ **NOTE:** The pin filters for messages works differently.
+  Previously the whole group of messages was dropped if any on them does not match the filter.
+  The current behavior is different: only mismatched messages will be dropped.
+  It might break code if it relies on previous behavior
 
 ### 3.40.0
 
