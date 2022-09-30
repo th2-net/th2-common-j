@@ -42,7 +42,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedB
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
-import io.fabric8.kubernetes.api.model.DoneableConfigMap;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -501,14 +500,14 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
 
             var configMaps = client.configMaps();
 
-            Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
+            Resource<ConfigMap> boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
 
             if (boxConfigMapResource.get() == null) {
                 throw new IllegalArgumentException("Failed to find config maps by boxName " + boxName);
             }
-            Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName(RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP);
-            Resource<ConfigMap, DoneableConfigMap> cradleConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_EXTERNAL_MAP);
-            Resource<ConfigMap, DoneableConfigMap> loggingConfigMapResource = configMaps.inNamespace(namespace).withName(LOGGING_CONFIG_MAP);
+            Resource<ConfigMap> rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName(RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP);
+            Resource<ConfigMap> cradleConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_EXTERNAL_MAP);
+            Resource<ConfigMap> loggingConfigMapResource = configMaps.inNamespace(namespace).withName(LOGGING_CONFIG_MAP);
 
             ConfigMap boxConfigMap = boxConfigMapResource.require();
             ConfigMap rabbitMqConfigMap = rabbitMqConfigMapResource.require();
