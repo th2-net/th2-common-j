@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.41.0)
+# th2 common library (Java) (3.42.0)
 
 ## Usage
 
@@ -305,13 +305,13 @@ plugins {
 }
 
 dependencies {
-    testImplementation testFixtures("com.exactpro.th2:common:3.41.0")
+    testImplementation testFixtures("com.exactpro.th2:common:3.42.0")
 }
 ```
 
 ## Release notes
 
-### 3.41.0
+### 3.42.0
 
 + Added `check_simple_collections_order` parameter to `RootComparisonSettings`
 + Started using cradle 3.2, version with grouped messages
@@ -320,6 +320,11 @@ dependencies {
   Previously the whole group of messages was dropped if any on them does not match the filter.
   The current behavior is different: only mismatched messages will be dropped.
   It might break code if it relies on previous behavior
+
+### 3.41.0
+
++ Work was done to eliminate vulnerabilities in _common_ and _bom_ dependencies. 
+  + **th2-bom must be updated to _4.0.1_ or higher.**
 
 ### 3.40.0
 
