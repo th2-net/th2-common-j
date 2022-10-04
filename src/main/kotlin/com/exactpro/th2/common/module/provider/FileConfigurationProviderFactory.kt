@@ -68,7 +68,7 @@ open class FileConfigurationProviderFactory: ConfigurationProviderFactory {
      * args[0] - directory where provider will search files
      * args[1] - extension of file without dot
      */
-    override fun initProvider(args: Array<String>): ConfigurationProvider {
+    override fun createProvider(args: Array<String>): ConfigurationProvider {
         val firstParam = args.getOrNull(0)
         val secondParam = args.getOrNull(1)
 

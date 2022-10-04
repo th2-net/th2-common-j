@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.module.provider
 
 import com.exactpro.th2.common.ConfigurationProvider
+import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.nio.file.Paths
 
@@ -27,7 +28,7 @@ class FileConfigurationProvider(
 ) : ConfigurationProvider {
 
 
-    override fun <C> loadConfiguration(configId: String, cfgClass: Class<out C>): C {
+    override fun <C: Configuration> loadConfiguration(configId: String, cfgClass: Class<out C>): C {
         return objectMapper.readValue(Paths.get(configurationDir, "$configId.$fileExtension").toFile(), cfgClass)
     }
 

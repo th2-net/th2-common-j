@@ -81,7 +81,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         return module
     }
 
-    fun <T> getConfigurationWithConfigurationProvider(
+    fun <T : Configuration> getConfigurationWithConfigurationProvider(
         configClass: Class<T>,
         configurationProvider: ConfigurationProvider
     ): T {

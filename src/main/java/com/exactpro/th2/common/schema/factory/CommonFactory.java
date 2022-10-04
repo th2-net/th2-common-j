@@ -159,7 +159,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
         this.configurationManager = configurationManager;
 
         var factory = loadFactoryForProvider(configurationProviderClass);
-        this.configurationProvider = factory.get().initProvider(configurationProviderArgs);
+        this.configurationProvider = factory.get().createProvider(configurationProviderArgs);
 
         start();
     }
