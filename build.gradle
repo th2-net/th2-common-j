@@ -38,6 +38,7 @@ ext {
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven {
             name 'Sonatype_snapshots'
             url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
@@ -46,7 +47,6 @@ repositories {
             name 'Sonatype_releases'
             url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
-    mavenLocal()
 
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
@@ -169,16 +169,17 @@ tasks.register('integrationTest', Test) {
 
 dependencies {
     api platform("com.exactpro.th2:bom:4.0.1")
-    api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
-    }
     api 'com.exactpro.th2:grpc-common:3.11.1'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'
-    implementation ("com.exactpro.th2:cradle-cassandra:${cradleVersion}") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
-    }
+
+    implementation 'com.exactpro.th2:common-j-cassandra-cradle:0.0.1-th2-1436-init-3181374693-6b81dc9-SNAPSHOT'
+    implementation "com.exactpro.th2:common-api-j:0.0.1-th2-1436-init-3180908004-e67b670-SNAPSHOT"
+
+    annotationProcessor 'com.google.auto.service:auto-service:1.0.1'
+    compileOnly 'com.google.auto.service:auto-service:1.0.1'
+
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"

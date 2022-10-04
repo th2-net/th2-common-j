@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.41.0)
+# th2 common library (Java) (4.0.0)
 
 ## Usage
 
@@ -308,6 +308,12 @@ dependencies {
 ```
 
 ## Release notes
+
+### 4.0.0
+
++ Dynamic structure of common
+  + Extracted common/cassandra to separate module
+  + Implemented api for dynamic loading of modules and configurations
 
 ### 3.41.0
 

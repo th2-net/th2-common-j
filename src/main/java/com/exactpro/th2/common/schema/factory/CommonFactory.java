@@ -15,15 +15,18 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import com.exactpro.th2.common.ConfigurationProvider;
+import com.exactpro.th2.common.ConfigurationProviderFactory;
+import com.exactpro.th2.common.ModuleApi;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
+import com.exactpro.th2.common.module.provider.FileConfigurationProvider;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
+import com.exactpro.th2.common.schema.configuration.Configuration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
-import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
@@ -70,11 +73,14 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
+import static com.exactpro.th2.common.util.CommandLineUtilsKt.createLongOption;
+import static com.exactpro.th2.common.util.CommandLineUtilsKt.createLongOptionWithUnlimitedArgs;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -83,7 +89,7 @@ import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 /**
  * Default implementation for {@link AbstractCommonFactory}
  */
-public class CommonFactory extends AbstractCommonFactory {
+public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
 
     private static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
@@ -91,12 +97,12 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String ROUTER_MQ_FILE_NAME = "mq.json";
     private static final String GRPC_FILE_NAME = "grpc.json";
     private static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
-    private static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
+//    private static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
     private static final String BOX_FILE_NAME = "box.json";
     private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
-    private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
+//    private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
 
     /** @deprecated please use {@link #DICTIONARY_ALIAS_DIR_NAME} */
     @Deprecated
@@ -116,11 +122,18 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_EXTERNAL_MAP = "cradle-external";
     private static final String LOGGING_CONFIG_MAP = "logging-config";
 
+    private static final Class<?> DEFAULT_CONFIGURATION_PROVIDER = FileConfigurationProvider.class;
+
     private final Path custom;
     private final Path dictionaryTypesDir;
     private final Path dictionaryAliasesDir;
     private final Path oldDictionariesDir;
     private final ConfigurationManager configurationManager;
+
+    private static final ServiceLoader<ConfigurationProviderFactory> configurationProviderFactoryLoader
+            = ServiceLoader.load(ConfigurationProviderFactory.class);
+
+    private final ConfigurationProvider configurationProvider;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
@@ -134,7 +147,9 @@ public class CommonFactory extends AbstractCommonFactory {
                             @Nullable Path dictionaryAliasesDir,
                             @Nullable Path oldDictionariesDir,
                             Map<String, String> environmentVariables,
-                            ConfigurationManager configurationManager) {
+                            ConfigurationManager configurationManager,
+                            Class<? extends ConfigurationProvider> configurationProviderClass,
+                            String[] configurationProviderArgs) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
@@ -142,6 +157,9 @@ public class CommonFactory extends AbstractCommonFactory {
         this.dictionaryAliasesDir = defaultPathIfNull(dictionaryAliasesDir, DICTIONARY_ALIAS_DIR_NAME);
         this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
         this.configurationManager = configurationManager;
+
+        var factory = loadFactoryForProvider(configurationProviderClass);
+        this.configurationProvider = factory.get().createProvider(configurationProviderArgs);
 
         start();
     }
@@ -157,9 +175,10 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.getDictionaryAliasesDir(),
                 settings.getOldDictionariesDir(),
                 settings.getVariables(),
-                createConfigurationManager(settings));
+                createConfigurationManager(settings),
+                settings.getConfigurationProviderClass(),
+                settings.getConfigurationProviderArgs());
     }
-
 
     /**
      * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
@@ -177,6 +196,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 messageRouterMessageGroupBatchClass,
                 eventBatchRouterClass,
                 grpcRouterClass,
+                FileConfigurationProvider.class,
+                new String[0],
                 rabbitMQ,
                 routerMQ,
                 null,
@@ -213,6 +234,10 @@ public class CommonFactory extends AbstractCommonFactory {
 
     public CommonFactory() {
         this(new FactorySettings());
+    }
+
+    public ConfigurationProvider getConfigurationProvider() {
+        return configurationProvider;
     }
 
     @Override
@@ -254,10 +279,6 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --grpcRouterConfig - path to json file with configuration {@link GrpcRouterConfiguration}
      *             <p>
-     *             --cradleConfiguration - <b>Deprecated!!!</b> Please use <i>cradleConfidentialConfiguration</i>!!! Path to json file with configuration for cradle. ({@link CradleConfidentialConfiguration})
-     *             <p>
-     *             --cradleConfidentialConfiguration - path to json file with configuration for cradle. ({@link CradleConfidentialConfiguration})
-     *             <p>
      *             --customConfiguration - path to json file with custom configuration
      *             <p>
      *             --dictionariesDir - path to directory which contains files with encoded dictionaries
@@ -268,13 +289,14 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --connectionManagerConfiguration - path to json file with for {@link ConnectionManagerConfiguration}
      *             <p>
-     *             --cradleManagerConfiguration - path to json file with for {@link CradleNonConfidentialConfiguration}
-     *             <p>
      *             --namespace - namespace in Kubernetes to find config maps related to the target
      *             <p>
      *             --boxName - the name of the target th2 box placed in the specified namespace in Kubernetes
      *             <p>
      *             --contextName - context name to choose the context from Kube config
+     *             <p>
+     *             --configurationProviderClass - fully qualified class name of a {@link ConfigurationProvider} implementation that responsible for configuration reading.
+     *             Also, each {@link ConfigurationProvider} may have its own parameters, refer to documentation of desirable implementation.
      *             <p>
      *             --dictionaries - which dictionaries will be use, and types for it (example: fix-50=main fix-55=level1)
      *      *      <p>
@@ -299,8 +321,6 @@ public class CommonFactory extends AbstractCommonFactory {
         Option grpcRouterConfigurationOption = createLongOption(options, "grpcRouterConfiguration");
         Option grpcConfigurationOption = createLongOption(options, "grpcConfiguration");
         Option grpcRouterConfigOption = createLongOption(options, "grpcRouterConfig");
-        Option cradleConfigurationOption = createLongOption(options, "cradleConfiguration");
-        Option cradleConfidentialConfigurationOption = createLongOption(options, "cradleConfidentialConfiguration");
         Option customConfigurationOption = createLongOption(options, "customConfiguration");
         Option dictionariesDirOption = createLongOption(options, "dictionariesDir");
         Option prometheusConfigurationOption = createLongOption(options, "prometheusConfiguration");
@@ -308,10 +328,13 @@ public class CommonFactory extends AbstractCommonFactory {
         Option namespaceOption = createLongOption(options, "namespace");
         Option boxNameOption = createLongOption(options, "boxName");
         Option contextNameOption = createLongOption(options, "contextName");
-        Option dictionariesOption = createLongOption(options, "dictionaries");
-        dictionariesOption.setArgs(Option.UNLIMITED_VALUES);
+        Option dictionariesOption = createLongOptionWithUnlimitedArgs(options, "dictionaries");
         Option connectionManagerConfigurationOption = createLongOption(options, "connectionManagerConfiguration");
-        Option cradleManagerConfigurationOption = createLongOption(options, "cradleManagerConfiguration");
+        Option configurationProviderClassOption = createLongOption(options, "configurationProviderClass");
+
+        configurationProviderFactoryLoader.forEach(configurationProviderFactory -> {
+            configurationProviderFactory.addOwnOptionsToCmd(options);
+        });
 
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
@@ -356,8 +379,6 @@ public class CommonFactory extends AbstractCommonFactory {
             settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
             settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_FILE_NAME));
             settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_FILE_NAME));
-            settings.setCradleConfidential(calculatePath(cmd, cradleConfidentialConfigurationOption, cradleConfigurationOption, configs, CRADLE_CONFIDENTIAL_FILE_NAME));
-            settings.setCradleNonConfidential(calculatePath(cmd, cradleManagerConfigurationOption, configs, CRADLE_NON_CONFIDENTIAL_FILE_NAME));
             settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
             settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
             settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
@@ -366,10 +387,52 @@ public class CommonFactory extends AbstractCommonFactory {
             String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
             settings.setOldDictionariesDir(oldDictionariesDir == null ? (configs == null ? CONFIG_DEFAULT_PATH : Path.of(configs)) : Path.of(oldDictionariesDir));
 
+            String configurationProviderClassName = cmd.getOptionValue(configurationProviderClassOption.getLongOpt(),
+                    DEFAULT_CONFIGURATION_PROVIDER.getName());
+            var providerClass = (Class<? extends ConfigurationProvider>) Class.forName(configurationProviderClassName);
+            var factory = loadFactoryForProvider(providerClass);
+            String[] providerArguments = factory.get().parseCommandLine(cmd);
+            settings.setConfigurationProviderClass(providerClass);
+            settings.setConfigurationProviderArgs(providerArguments);
+
             return new CommonFactory(settings);
         } catch (ParseException e) {
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
+        } catch (ClassNotFoundException e) {
+            LOGGER.error("Failed to find configuration provider class: " + e.getMessage());
+            throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
         }
+    }
+
+    private static ServiceLoader.@NotNull Provider<ConfigurationProviderFactory> loadFactoryForProvider(
+            Class<? extends ConfigurationProvider> providerClass) {
+
+        var optionalFactory = configurationProviderFactoryLoader.stream()
+                .filter(factory -> factory.get().getType().equals(providerClass))
+                .findFirst();
+        if (optionalFactory.isEmpty()) {
+            LOGGER.error("Cannot find provider {}", providerClass);
+            throw new IllegalArgumentException("Cannot find provider " + providerClass);
+        }
+        return optionalFactory.get();
+    }
+
+    @Override
+    public <M> M loadModule(@NotNull Class<M> clazz) {
+        if (configurationProvider == null) {
+            LOGGER.error("Configuration provider hasn't been provided");
+            throw new IllegalStateException("Configuration provider hasn't been provided");
+        }
+        return configurationManager.getModuleWithConfigurationProvider(clazz, configurationProvider);
+    }
+
+    @Override
+    public <C extends Configuration> @NotNull C loadConfiguration(@NotNull Class<C> clazz) {
+        if (configurationProvider == null) {
+            LOGGER.error("Configuration provider hasn't been provided");
+            throw new IllegalStateException("Configuration provider hasn't been provided");
+        }
+        return configurationManager.getConfigurationWithConfigurationProvider(clazz, configurationProvider);
     }
 
     /**
@@ -480,8 +543,6 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
                 settings.setGrpc(writeFile(configPath, GRPC_FILE_NAME, boxData));
                 settings.setRouterGRPC(writeFile(configPath, ROUTER_GRPC_FILE_NAME, boxData));
-                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_FILE_NAME, cradleConfigData));
-                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_FILE_NAME, boxData));
                 settings.setPrometheus(writeFile(configPath, PROMETHEUS_FILE_NAME, boxData));
                 settings.setCustom(writeFile(configPath, CUSTOM_FILE_NAME, boxData));
 
@@ -688,8 +749,6 @@ public class CommonFactory extends AbstractCommonFactory {
         paths.put(ConnectionManagerConfiguration.class, defaultPathIfNull(settings.getConnectionManagerSettings(), CONNECTION_MANAGER_CONF_FILE_NAME));
         paths.put(GrpcConfiguration.class, defaultPathIfNull(settings.getGrpc(), GRPC_FILE_NAME));
         paths.put(GrpcRouterConfiguration.class, defaultPathIfNull(settings.getRouterGRPC(), ROUTER_GRPC_FILE_NAME));
-        paths.put(CradleConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleConfidential(), CRADLE_CONFIDENTIAL_FILE_NAME));
-        paths.put(CradleNonConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
         paths.put(PrometheusConfiguration.class, defaultPathIfNull(settings.getPrometheus(), PROMETHEUS_FILE_NAME));
         paths.put(BoxConfiguration.class, defaultPathIfNull(settings.getBoxConfiguration(), BOX_FILE_NAME));
         return new ConfigurationManager(paths);
@@ -710,12 +769,6 @@ public class CommonFactory extends AbstractCommonFactory {
         if (file.createNewFile() || file.exists()) {
             MAPPER.writeValue(file, object);
         }
-    }
-
-    private static Option createLongOption(Options options, String optionName) {
-        Option option = new Option(null, optionName, true, null);
-        options.addOption(option);
-        return option;
     }
 
     private static Path calculatePath(String path, String configsPath, String fileName) {

@@ -16,18 +16,8 @@
 package com.exactpro.th2.common.schema
 
 import com.exactpro.th2.common.metrics.PrometheusConfiguration
-import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
-import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServerConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
+import com.exactpro.th2.common.schema.grpc.configuration.*
+import com.exactpro.th2.common.schema.message.configuration.*
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.schema.strategy.route.impl.RobinRoutingStrategy
@@ -79,26 +69,6 @@ class TestJsonConfiguration {
     @Test
     fun `test router mq json configuration serialize and deserialize`() {
         testSerializeAndDeserialize(MESSAGE_ROUTER_CONF)
-    }
-
-    @Test
-    fun `test cradle confidential json configuration deserialize`() {
-        testDeserialize(CRADLE_CONFIDENTIAL_CONF_JSON, CRADLE_CONFIDENTIAL_CONF)
-    }
-
-    @Test
-    fun `test cradle confidential json configuration serialize and deserialize`() {
-        testSerializeAndDeserialize(CRADLE_CONFIDENTIAL_CONF)
-    }
-
-    @Test
-    fun `test cradle non confidential json configuration deserialize`() {
-        testDeserialize(CRADLE_NON_CONFIDENTIAL_CONF_JSON, CRADLE_NON_CONFIDENTIAL_CONF)
-    }
-
-    @Test
-    fun `test cradle non confidential json configuration serialize and deserialize`() {
-        testSerializeAndDeserialize(CRADLE_NON_CONFIDENTIAL_CONF)
     }
 
     @Test
@@ -200,26 +170,6 @@ class TestJsonConfiguration {
                     )
                 )
             })
-        )
-
-        private val CRADLE_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_confidential")
-        private val CRADLE_CONFIDENTIAL_CONF = CradleConfidentialConfiguration(
-            "data center",
-            "host",
-            "keyspace",
-            1234,
-            "user",
-            "pass",
-            "instance"
-        )
-
-        private val CRADLE_NON_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_non_confidential")
-        private val CRADLE_NON_CONFIDENTIAL_CONF = CradleNonConfidentialConfiguration(
-            888,
-            111,
-            123,
-            321,
-            false
         )
 
         private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")
