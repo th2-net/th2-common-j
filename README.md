@@ -312,6 +312,7 @@ dependencies {
 ### 3.41.1
 
 + log4j and slf4j versions update
+    + **th2-bom must be updated to _4.0.2_ or higher.**
 
 ### 3.41.0
 
