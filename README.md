@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.41.0)
+# th2 common library (Java) (3.41.1)
 
 ## Usage
 
@@ -308,6 +308,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.41.1
+
++ log4j and slf4j versions update
 
 ### 3.41.0
 
