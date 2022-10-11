@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.41.0)
+# th2 common library (Java) (3.42.0)
 
 ## Usage
 
@@ -356,12 +356,22 @@ dependencies {
 
 ## Release notes
 
-### 3.41.0
+### 3.42.0
 + Added the `enableSizeMeasuring` option into gRPC's router configuration. Default value is false 
 + gRPC's router configuration now contains `keepAliveInterval` property. It can be defined for grpc services. (default: 60 sec)
 + Added gRPC service setting to be able to change maxMessageSize
 + Updated th2-bom form 3.2.0 to 3.3.0
 + Started using cradle 3.2, version with grouped messages
+
+### 3.41.1
+
++ log4j and slf4j versions update
+    + **th2-bom must be updated to _4.0.2_ or higher.**
+
+### 3.41.0
+
++ Work was done to eliminate vulnerabilities in _common_ and _bom_ dependencies. 
+  + **th2-bom must be updated to _4.0.1_ or higher.**
 
 ### 3.40.0
 
