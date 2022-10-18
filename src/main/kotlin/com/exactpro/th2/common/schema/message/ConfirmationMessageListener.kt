@@ -19,7 +19,16 @@ package com.exactpro.th2.common.schema.message
 interface ConfirmationMessageListener<T> {
 
     @Throws(Exception::class)
+    @Deprecated(
+        "This method does not provide all necessary information about a message",
+        ReplaceWith("handle(deliveryMetadata, message, confirmation)")
+    )
     fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
+
+    @Throws(Exception::class)
+    fun handle(deliveryMetadata: DeliveryMetadata, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
+        handle(deliveryMetadata.consumerTag, message, confirmation)
+    }
 
     fun onClose() {}
 

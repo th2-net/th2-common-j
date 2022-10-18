@@ -17,7 +17,9 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.ConfirmationMessageListener;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
@@ -116,29 +118,38 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     try {
                         monitor = connectionManager.basicConsume(
                                 queue,
-                                (consumeTag, delivery, confirmation) -> {
-                                    Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
-                                            .labels(th2Pin, th2Type, queue)
-                                            .startTimer();
-                                    MESSAGE_SIZE_SUBSCRIBE_BYTES
-                                            .labels(th2Pin, th2Type, queue)
-                                            .inc(delivery.getBody().length);
-                                    try {
-                                        T value;
+                                new ManualAckDeliveryCallback() {
+                                    @Override
+                                    public void handle(@NotNull DeliveryMetadata deliveryMetadata, @NotNull Delivery delivery, @NotNull ManualAckDeliveryCallback.Confirmation confirmProcessed) throws IOException {
+                                        handle(deliveryMetadata.getConsumerTag(), delivery, confirmProcessed);
+                                    }
+
+                                    @Override
+                                    public void handle(@NotNull String consumeTag, @NotNull Delivery delivery, @NotNull ManualAckDeliveryCallback.Confirmation confirmation) throws IOException {
+                                        Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
+                                                .labels(th2Pin, th2Type, queue)
+                                                .startTimer();
+                                        MESSAGE_SIZE_SUBSCRIBE_BYTES
+                                                .labels(th2Pin, th2Type, queue)
+                                                .inc(delivery.getBody().length);
                                         try {
-                                            value = valueFromBytes(delivery.getBody());
-                                        } catch (Exception e) {
-                                            throw new IOException(
-                                                    String.format(
-                                                            "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
-                                                            delivery.getEnvelope(), queue, th2Pin
-                                                    ),
-                                                    e
-                                            );
+                                            T value;
+                                            try {
+                                                value = AbstractRabbitSubscriber.this.valueFromBytes(delivery.getBody());
+                                            } catch (Exception e) {
+                                                confirmation.reject();
+                                                throw new IOException(
+                                                        String.format(
+                                                                "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
+                                                                delivery.getEnvelope(), queue, th2Pin
+                                                        ),
+                                                        e
+                                                );
+                                            }
+                                            AbstractRabbitSubscriber.this.handle(consumeTag, delivery, value, confirmation);
+                                        } finally {
+                                            processTimer.observeDuration();
                                         }
-                                        handle(consumeTag, delivery, value, confirmation);
-                                    } finally {
-                                        processTimer.observeDuration();
                                     }
                                 },
                                 this::canceled
@@ -223,7 +234,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             boolean hasManualConfirmation = false;
             for (ConfirmationMessageListener<T> listener : listeners) {
                 try {
-                    listener.handle(consumeTag, filteredValue, confirmation);
+                    boolean redeliver = delivery.getEnvelope().isRedeliver();
+                    listener.handle(new DeliveryMetadata(consumeTag, redeliver), filteredValue, confirmation);
                     if (!hasManualConfirmation) {
                         hasManualConfirmation = ConfirmationMessageListener.isManual(listener);
                     }
@@ -236,6 +248,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             }
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
+            try {
+                confirmation.reject();
+            } catch (IOException ex) {
+                LOGGER.error("Cannot confirm delivery for {}. Delivery rejected", consumeTag, ex);
+            }
         }
     }
 

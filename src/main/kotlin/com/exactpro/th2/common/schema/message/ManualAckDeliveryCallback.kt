@@ -26,11 +26,22 @@ fun interface ManualAckDeliveryCallback {
      * @param delivery the delivered message
      * @param confirmProcessed the action that should be invoked when the message can be considered as processed
      */
+    @Deprecated(
+        "This method does not provide all necessary information about a message",
+        ReplaceWith("handle(deliveryMetadata, delivery, confirmProcessed)")
+    )
     @Throws(IOException::class)
     fun handle(consumerTag: String, delivery: Delivery, confirmProcessed: Confirmation)
 
-    fun interface Confirmation {
+    @Throws(IOException::class)
+    fun handle(deliveryMetadata: DeliveryMetadata, delivery: Delivery, confirmProcessed: Confirmation) {
+        handle(deliveryMetadata.consumerTag, delivery, confirmProcessed)
+    }
+
+    interface Confirmation {
         @Throws(IOException::class)
         fun confirm()
+        @Throws(IOException::class)
+        fun reject()
     }
 }
