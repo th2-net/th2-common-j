@@ -319,6 +319,7 @@ dependencies {
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
++ Added `isRedelivered` flag to message
 
 ### 3.40.0
 
