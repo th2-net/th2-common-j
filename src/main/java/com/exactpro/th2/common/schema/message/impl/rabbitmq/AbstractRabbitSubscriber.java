@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.ConfirmationMessageListener;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
@@ -116,7 +117,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     try {
                         monitor = connectionManager.basicConsume(
                                 queue,
-                                (consumeTag, delivery, confirmation) -> {
+                                (deliveryMetadata, delivery, confirmProcessed) -> {
                                     Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
                                             .labels(th2Pin, th2Type, queue)
                                             .startTimer();
@@ -128,8 +129,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                                         try {
                                             value = valueFromBytes(delivery.getBody());
                                         } catch (Exception e) {
-                                            LOGGER.error("Couldn't parse delivery. Confirm message received", e);
-                                            confirmation.confirm();
+                                            confirmProcessed.reject();
                                             throw new IOException(
                                                     String.format(
                                                             "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
@@ -138,7 +138,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                                                     e
                                             );
                                         }
-                                        handle(consumeTag, delivery, value, confirmation);
+                                        handle(deliveryMetadata.getConsumerTag(), delivery, value, confirmProcessed);
                                     } finally {
                                         processTimer.observeDuration();
                                     }
@@ -225,7 +225,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             boolean hasManualConfirmation = false;
             for (ConfirmationMessageListener<T> listener : listeners) {
                 try {
-                    listener.handle(consumeTag, filteredValue, confirmation);
+                    boolean redeliver = delivery.getEnvelope().isRedeliver();
+                    listener.handle(new DeliveryMetadata(consumeTag, redeliver), filteredValue, confirmation);
                     if (!hasManualConfirmation) {
                         hasManualConfirmation = ConfirmationMessageListener.isManual(listener);
                     }
@@ -239,7 +240,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
             try {
-                confirmation.confirm();
+                confirmation.reject();
             } catch (IOException ex) {
                 LOGGER.error("Cannot confirm delivery for {}", consumeTag, ex);
             }
