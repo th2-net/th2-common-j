@@ -21,6 +21,12 @@ import java.io.IOException
 
 fun interface ManualAckDeliveryCallback {
 
+    /**
+     * Called when a delivery from queue is received
+     * @param deliveryMetadata contains the _consumer_ tag associated with the consumer and _isRedelivered_ flag.
+     * @param delivery the delivered message
+     * @param confirmProcessed the action that should be invoked when the message can be considered as processed
+     */
     @Throws(IOException::class)
     fun handle(deliveryMetadata: DeliveryMetadata, delivery: Delivery, confirmProcessed: Confirmation)
 

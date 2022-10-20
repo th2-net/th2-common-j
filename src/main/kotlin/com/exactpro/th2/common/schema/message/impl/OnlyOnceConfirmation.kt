@@ -30,7 +30,7 @@ class OnlyOnceConfirmation private constructor(
         if (called.compareAndSet(false, true)) {
             delegate.confirm()
         } else {
-            LOGGER.warn { "Confirmation '$id' invoked more that one time" }
+            LOGGER.warn { "Confirmation or rejection '$id' invoked more that one time" }
         }
     }
 
@@ -38,7 +38,7 @@ class OnlyOnceConfirmation private constructor(
         if (called.compareAndSet(false, true)) {
             delegate.reject()
         } else {
-            LOGGER.warn { "Confirmation '$id' invoked more that one time" }
+            LOGGER.warn { "Confirmation or rejection '$id' invoked more that one time" }
         }
     }
 

@@ -129,6 +129,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                                         try {
                                             value = valueFromBytes(delivery.getBody());
                                         } catch (Exception e) {
+                                            LOGGER.error("Couldn't parse delivery. Reject message received", e);
                                             confirmProcessed.reject();
                                             throw new IOException(
                                                     String.format(
@@ -238,11 +239,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 confirmation.confirm();
             }
         } catch (Exception e) {
-            LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
+            LOGGER.error("Can not parse value from delivery for: {}. Reject message received", consumeTag, e);
             try {
                 confirmation.reject();
             } catch (IOException ex) {
-                LOGGER.error("Cannot confirm delivery for {}", consumeTag, ex);
+                LOGGER.error("Cannot reject delivery for {}", consumeTag, ex);
             }
         }
     }
