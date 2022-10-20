@@ -59,6 +59,7 @@ class Log4jConfigUtils {
 
     private fun configureFirstLog4j(path: Path) {
         try {
+            LOGGER.info("Trying to apply logger config from {}. Expecting log4j syntax", path)
             PropertyConfigurator.configure(path.toUri().toURL())
             LOGGER.info("Logger configuration from {} file is applied", path)
         } catch (e: MalformedURLException) {
@@ -67,6 +68,7 @@ class Log4jConfigUtils {
     }
 
     private fun configureSecondLog4j(path: Path) {
+        LOGGER.info("Trying to apply logger config from {}. Expecting log4j2 syntax", path)
         val context = LogManager.getContext(false) as LoggerContext
         context.configLocation = path.toUri()
         LOGGER.info("Logger configuration from {} file is applied", path)

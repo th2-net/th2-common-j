@@ -57,7 +57,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
     ```
-    It can also be called by using `createFromArguments(args)` with the arguments `--namespace`, `--boxName` and `--contextName`. 
+    It also can be called by using `createFromArguments(args)` with arguments `--namespace`, `--boxName` and `--contextName`. 
     ContextName parameter is `@Nullable`; if it is set to null, the current context will not be changed.
 
 ### Configuration formats
