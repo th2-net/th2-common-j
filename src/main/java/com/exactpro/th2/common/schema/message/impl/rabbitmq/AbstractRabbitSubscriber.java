@@ -204,7 +204,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected void handle(String consumeTag, Delivery delivery, T value, Confirmation confirmation) {
+    protected void handle(String consumeTag, Delivery delivery, T value, Confirmation confirmation) throws IOException {
         try {
             String routingKey = delivery.getEnvelope().getRoutingKey();
             requireNonNull(value, () -> "Received value from " + routingKey + " is null");
@@ -240,11 +240,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             }
         } catch (Exception e) {
             LOGGER.error("Can not parse value from delivery for: {}. Reject message received", consumeTag, e);
-            try {
-                confirmation.reject();
-            } catch (IOException ex) {
-                LOGGER.error("Cannot reject delivery for {}", consumeTag, ex);
-            }
+            confirmation.reject();
         }
     }
 
