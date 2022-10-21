@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.common.schema.message
 
-interface ConfirmationMessageListener<T> {
+fun interface ConfirmationMessageListener<T> {
 
     @Throws(Exception::class)
     @Deprecated(
@@ -47,7 +47,7 @@ interface ConfirmationMessageListener<T> {
 /**
  * The interface marker that indicates that acknowledge will be manually invoked by the listener itself
  */
-interface ManualConfirmationListener<T> : ConfirmationMessageListener<T> {
+fun interface ManualConfirmationListener<T> : ConfirmationMessageListener<T> {
     /**
      * The listener must invoke the [confirmation] callback once it has processed the [message]
      * @see ConfirmationMessageListener.handle
