@@ -30,6 +30,8 @@ fun incrementTotalMetrics(
     groupCounter: Counter,
     gauge: Gauge
 ) {
+    if (true) return //FIXME: added for test
+
     val groupsBySessionAliasAndDirection = mutableMapOf<SessionAliasAndDirection, InternalCounter>()
     batch.groupsList.forEach { group ->
         if (group.messagesList.isNotEmpty()) {
