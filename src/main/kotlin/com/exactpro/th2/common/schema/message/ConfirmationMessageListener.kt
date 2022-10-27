@@ -52,7 +52,20 @@ fun interface ManualConfirmationListener<T> : ConfirmationMessageListener<T> {
      * The listener must invoke the [confirmation] callback once it has processed the [message]
      * @see ConfirmationMessageListener.handle
      */
-    override fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
+    @Deprecated(
+            "This method does not provide all necessary information about a message",
+            ReplaceWith("handle(deliveryMetadata, message, confirmation)")
+    )
+    override fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
+    }
+
+    @Throws(Exception::class)
+    override fun handle(deliveryMetadata: DeliveryMetadata, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
+
+    companion object {
+        @JvmStatic
+        fun <T> wrap(listener: MessageListener<T>): ManualConfirmationListener<T> = ManualDelegateListener(listener)
+    }
 }
 
 private class DelegateListener<T>(
@@ -61,6 +74,21 @@ private class DelegateListener<T>(
 
     override fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
         delegate.handle(consumerTag, message)
+    }
+
+    override fun onClose() {
+        delegate.onClose()
+    }
+
+    override fun toString(): String = "Delegate($delegate)"
+}
+
+private class ManualDelegateListener<T>(
+        private val delegate: MessageListener<T>,
+) : ManualConfirmationListener<T> {
+
+    override fun handle(deliveryMetadata: DeliveryMetadata, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
+        delegate.handle(deliveryMetadata, message)
     }
 
     override fun onClose() {

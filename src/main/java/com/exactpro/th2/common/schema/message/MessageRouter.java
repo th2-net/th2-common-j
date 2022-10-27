@@ -87,7 +87,7 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @throws IllegalStateException when more than 1 queue is found
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    default SubscriberMonitor subscribeWithManualAck(ConfirmationMessageListener<T> callback, String... queueAttr) {
+    default SubscriberMonitor subscribeWithManualAck(ManualConfirmationListener<T> callback, String... queueAttr) {
         // TODO: probably should not have default implementation
         throw new UnsupportedOperationException("The subscription with manual confirmation is not supported");
     }
@@ -97,7 +97,7 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param callback listener with manual confirmation
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    default SubscriberMonitor subscribeAllWithManualAck(ConfirmationMessageListener<T> callback) {
+    default SubscriberMonitor subscribeAllWithManualAck(ManualConfirmationListener<T> callback) {
         // TODO: probably should not have default implementation
         return subscribeAllWithManualAck(callback, QueueAttribute.SUBSCRIBE.toString());
     }
@@ -108,7 +108,7 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param queueAttr queues attributes
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    default SubscriberMonitor subscribeAllWithManualAck(ConfirmationMessageListener<T> callback, String... queueAttr) {
+    default SubscriberMonitor subscribeAllWithManualAck(ManualConfirmationListener<T> callback, String... queueAttr) {
         // TODO: probably should not have default implementation
         throw new UnsupportedOperationException("The subscription with manual confirmation is not supported");
     }
