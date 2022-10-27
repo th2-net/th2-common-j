@@ -17,16 +17,9 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.exception.RouterException
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
-import com.exactpro.th2.common.schema.message.MessageListener
-import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.MessageRouterContext
-import com.exactpro.th2.common.schema.message.MessageSender
-import com.exactpro.th2.common.schema.message.MessageSubscriber
+import com.exactpro.th2.common.schema.message.*
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
-import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import com.exactpro.th2.common.schema.message.appendAttributes
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
@@ -95,14 +88,14 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+        return subscribeWithManualAck(ManualConfirmationListener.wrap(callback), *attributes)
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeAllWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+        return subscribeAllWithManualAck(ManualConfirmationListener.wrap(callback), *attributes)
     }
 
-    override fun subscribeWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
+    override fun subscribeWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(size == 1) {
@@ -111,7 +104,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    override fun subscribeAllWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
+    override fun subscribeAllWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(isNotEmpty()) {
