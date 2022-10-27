@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.common.schema.message;
 
+@FunctionalInterface
 public interface ConfirmationMessageListener<T> {
     @Deprecated
     void handle(String consumerTag, T message, ManualAckDeliveryCallback.Confirmation confirmation) throws Exception;
