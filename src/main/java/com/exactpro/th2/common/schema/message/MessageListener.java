@@ -31,6 +31,4 @@ public interface MessageListener<T> {
     }
 
     default void onClose() {}
-
-
 }

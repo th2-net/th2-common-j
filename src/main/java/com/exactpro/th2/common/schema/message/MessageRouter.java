@@ -61,7 +61,17 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @throws IllegalStateException when more than 1 queue is found
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
+    @Deprecated
     SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr);
+
+    /**
+     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @param callback listener
+     * @param queueAttr queues attributes
+     * @throws IllegalStateException when more than 1 queue is found
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     */
+    SubscriberMonitor subscribe(AutoConfirmationListener<T> callback, String... queueAttr);
 
     /**
      * Listen <b>ALL</b> RabbitMQ queues in configurations
@@ -79,6 +89,19 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
     SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr);
+
+    /**
+     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @param queueAttr queues attributes
+     * @param callback listener with manual confirmation
+     * @throws IllegalStateException when more than 1 queue is found
+     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     */
+    @Deprecated
+    default SubscriberMonitor subscribeWithManualAck(ConfirmationMessageListener<T> callback, String... queueAttr) {
+        // TODO: probably should not have default implementation
+        throw new UnsupportedOperationException("The subscription with manual confirmation is not supported");
+    }
 
     /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes

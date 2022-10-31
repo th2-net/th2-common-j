@@ -87,19 +87,49 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
+    @Deprecated("") //FIXME:
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeWithManualAck(ManualConfirmationListener.wrap(callback), *attributes)
+        return subscribe(attributes = attributes, ConfirmationListener.wrap(callback)) {
+            check(size == 1) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $attributes and filters, expected 1, actual $size"
+            }
+        }
+    }
+
+    override fun subscribe(callback: AutoConfirmationListener<T>, vararg queueAttr: String): SubscriberMonitor {
+        return subscribe(attributes = queueAttr, ConfirmationListener.wrap(callback)) {
+            check(size == 1) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $queueAttr and filters, expected 1, actual $size"
+            }
+        }
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeAllWithManualAck(ManualConfirmationListener.wrap(callback), *attributes)
+        return subscribeAllWithManualAck(ManualConfirmationListener.wrap(callback), *attributes) //FIXME:
+    }
+
+//    override fun subscribeWithManualAck(
+//        callback: ConfirmationMessageListener<T>?,
+//        vararg queueAttr: String?
+//    ): SubscriberMonitor {
+//        return super.subscribeWithManualAck(callback, *queueAttr)
+//    }
+
+    override fun subscribeWithManualAck(
+        callback: ConfirmationMessageListener<T>,
+        vararg queueAttr: String
+    ): SubscriberMonitor {
+        return subscribe(attributes = queueAttr, callback) {
+            check(size == 1) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $queueAttr and filters, expected 1, actual $size"
+            }
+        }
     }
 
     override fun subscribeWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
-        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
-        return subscribe(pintAttributes, callback) {
+        return subscribe(attributes = attributes, callback) {
             check(size == 1) {
-                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $pintAttributes and filters, expected 1, actual $size"
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $attributes and filters, expected 1, actual $size"
             }
         }
     }
@@ -183,8 +213,18 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     private fun subscribe(
+        vararg attributes: String,
+        callback: ConfirmationListener<T>,
+        check: List<PinInfo>.() -> Unit
+    ): SubscriberMonitor {
+        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
+
+        return subscribe(pintAttributes, callback, check)
+    }
+
+    private fun subscribe(
         pintAttributes: Set<String>,
-        messageListener: ConfirmationMessageListener<T>,
+        messageListener: ConfirmationListener<T>,
         check: List<PinInfo>.() -> Unit
     ): SubscriberMonitor {
         val packages: List<PinInfo> = configuration.queues.asSequence()
