@@ -17,7 +17,8 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.exception.RouterException
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
+import com.exactpro.th2.common.schema.message.ConfirmationListener
+import com.exactpro.th2.common.schema.message.ManualConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
@@ -32,9 +33,9 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.google.protobuf.Message
-import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
+import mu.KotlinLogging
 
 typealias PinName = String
 typealias PinConfiguration = QueueConfiguration
@@ -95,14 +96,25 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
+        return subscribe(pintAttributes = pintAttributes, ConfirmationListener.wrap(callback)) {
+            check(size == 1) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $pintAttributes and filters, expected 1, actual $size"
+            }
+        }
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeAllWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
+        val listener = ConfirmationListener.wrap(callback)
+        return subscribe(pintAttributes = pintAttributes, listener) {
+            check(isNotEmpty()) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
+            }
+        }
     }
 
-    override fun subscribeWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
+    override fun subscribeWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(size == 1) {
@@ -111,7 +123,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    override fun subscribeAllWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
+    override fun subscribeAllWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(isNotEmpty()) {
@@ -191,7 +203,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     private fun subscribe(
         pintAttributes: Set<String>,
-        messageListener: ConfirmationMessageListener<T>,
+        messageListener: ConfirmationListener<T>,
         check: List<PinInfo>.() -> Unit
     ): SubscriberMonitor {
         val packages: List<PinInfo> = configuration.queues.asSequence()

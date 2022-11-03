@@ -16,7 +16,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener;
+import com.exactpro.th2.common.schema.message.ConfirmationListener;
 import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
@@ -68,7 +68,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             .register();
 
     protected final String th2Pin;
-    private final List<ConfirmationMessageListener<T>> listeners = new CopyOnWriteArrayList<>();
+    private final List<ConfirmationListener<T>> listeners = new CopyOnWriteArrayList<>();
     private final String queue;
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
@@ -160,8 +160,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
-    public void addListener(ConfirmationMessageListener<T> messageListener) {
-        if (ConfirmationMessageListener.isManual(messageListener)) {
+    public void addListener(ConfirmationListener<T> messageListener) {
+        if (ConfirmationListener.isManual(messageListener)) {
             if (!hasManualSubscriber.compareAndSet(false, true)) {
                 throw new IllegalStateException("cannot subscribe listener " + messageListener
                         + " because only one listener with manual confirmation is allowed per queue");
@@ -182,7 +182,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             monitor.unsubscribe();
         }
 
-        listeners.forEach(ConfirmationMessageListener::onClose);
+        listeners.forEach(ConfirmationListener::onClose);
         listeners.clear();
     }
 
@@ -224,12 +224,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             }
 
             boolean hasManualConfirmation = false;
-            for (ConfirmationMessageListener<T> listener : listeners) {
+            for (ConfirmationListener<T> listener : listeners) {
                 try {
                     boolean redeliver = delivery.getEnvelope().isRedeliver();
                     listener.handle(new DeliveryMetadata(consumeTag, redeliver), filteredValue, confirmation);
                     if (!hasManualConfirmation) {
-                        hasManualConfirmation = ConfirmationMessageListener.isManual(listener);
+                        hasManualConfirmation = ConfirmationListener.isManual(listener);
                     }
                 } catch (Exception listenerExc) {
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);

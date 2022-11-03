@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
@@ -40,16 +41,16 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribe({ consumerTag: String, message: MessageGroupBatch ->
-                callback.handle(consumerTag, buildFromGroupBatch(message))
+        return groupBatchRouter.subscribe({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribeAll({ consumerTag: String, message: MessageGroupBatch ->
-                callback.handle(consumerTag, buildFromGroupBatch(message))
+        return groupBatchRouter.subscribeAll({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )

@@ -17,7 +17,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
@@ -33,7 +33,7 @@ class NotificationEventBatchSubscriber(
     private val connectionManager: ConnectionManager,
     private val queue: String
 ) : MessageSubscriber<EventBatch> {
-    private val listeners = CopyOnWriteArrayList<ConfirmationMessageListener<EventBatch>>()
+    private val listeners = CopyOnWriteArrayList<ConfirmationListener<EventBatch>>()
     private lateinit var monitor: SubscriberMonitor
 
     @Deprecated(
@@ -80,13 +80,13 @@ class NotificationEventBatchSubscriber(
         )
     }
 
-    override fun addListener(messageListener: ConfirmationMessageListener<EventBatch>) {
+    override fun addListener(messageListener: ConfirmationListener<EventBatch>) {
         listeners.add(messageListener)
     }
 
     override fun close() {
         monitor.unsubscribe()
-        listeners.forEach(ConfirmationMessageListener<EventBatch>::onClose)
+        listeners.forEach(ConfirmationListener<EventBatch>::onClose)
         listeners.clear()
     }
 

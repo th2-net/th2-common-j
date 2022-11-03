@@ -20,7 +20,6 @@ import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -64,15 +63,6 @@ public interface MessageRouter<T> extends AutoCloseable {
     SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr);
 
     /**
-     * Listen <b>ALL</b> RabbitMQ queues in configurations
-     * @param callback listener
-     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
-     */
-    default SubscriberMonitor subscribeAll(MessageListener<T> callback) {
-        return subscribeAll(callback, QueueAttribute.SUBSCRIBE.toString());
-    }
-
-    /**
      * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
      * @param callback listener
      * @param queueAttr queues attributes
@@ -87,19 +77,9 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @throws IllegalStateException when more than 1 queue is found
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    default SubscriberMonitor subscribeWithManualAck(ConfirmationMessageListener<T> callback, String... queueAttr) {
+    default SubscriberMonitor subscribeWithManualAck(ManualConfirmationListener<T> callback, String... queueAttr) {
         // TODO: probably should not have default implementation
         throw new UnsupportedOperationException("The subscription with manual confirmation is not supported");
-    }
-
-    /**
-     * Listen <b>ALL</b> RabbitMQ queues in configurations
-     * @param callback listener with manual confirmation
-     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
-     */
-    default SubscriberMonitor subscribeAllWithManualAck(ConfirmationMessageListener<T> callback) {
-        // TODO: probably should not have default implementation
-        return subscribeAllWithManualAck(callback, QueueAttribute.SUBSCRIBE.toString());
     }
 
     /**
@@ -108,7 +88,7 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param queueAttr queues attributes
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
      */
-    default SubscriberMonitor subscribeAllWithManualAck(ConfirmationMessageListener<T> callback, String... queueAttr) {
+    default SubscriberMonitor subscribeAllWithManualAck(ManualConfirmationListener<T> callback, String... queueAttr) {
         // TODO: probably should not have default implementation
         throw new UnsupportedOperationException("The subscription with manual confirmation is not supported");
     }
