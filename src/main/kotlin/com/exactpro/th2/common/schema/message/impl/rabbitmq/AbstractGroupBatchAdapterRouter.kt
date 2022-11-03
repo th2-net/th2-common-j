@@ -16,11 +16,13 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
+import com.exactpro.th2.common.schema.message.addSubscribeAttributeByDefault
 import com.exactpro.th2.common.schema.message.appendAttributes
 
 abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
@@ -41,18 +43,20 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribe({ consumerTag: String, message: MessageGroupBatch ->
-                callback.handle(DeliveryMetadata(consumerTag), buildFromGroupBatch(message))
+        val listener = ConfirmationListener.wrap(callback)
+        return groupBatchRouter.subscribeWithManualAck({ consumerTag: DeliveryMetadata, message: MessageGroupBatch, confirmation ->
+                listener.handle(consumerTag, buildFromGroupBatch(message), confirmation)
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribeAll({ consumerTag: String, message: MessageGroupBatch ->
-                callback.handle(DeliveryMetadata(consumerTag), buildFromGroupBatch(message))
+        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
+        return groupBatchRouter.subscribeAll({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
-            *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
+            *appendAttributes(*attributesWithDefaultValue) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 

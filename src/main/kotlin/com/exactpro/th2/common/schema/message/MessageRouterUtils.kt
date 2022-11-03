@@ -102,3 +102,9 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
 
     append(')')
 }
+
+fun addSubscribeAttributeByDefault(vararg attributes: String): Array<out String> {
+    if (attributes.isNotEmpty())
+        return attributes
+    return arrayOf(QueueAttribute.SUBSCRIBE.toString())
+}

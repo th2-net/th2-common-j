@@ -21,14 +21,7 @@ package com.exactpro.th2.common.schema.message;
  */
 public interface MessageListener<T> {
 
-    @Deprecated(
-            since = "This method does not provide all necessary information about a message"
-    )
-    void handle(String consumerTag, T message) throws Exception;
-
-    default void handle(DeliveryMetadata deliveryMetadata, T message) throws Exception {
-        handle(deliveryMetadata.getConsumerTag(), message);
-    }
+    void handle(DeliveryMetadata deliveryMetadata, T message) throws Exception;
 
     default void onClose() {}
 }

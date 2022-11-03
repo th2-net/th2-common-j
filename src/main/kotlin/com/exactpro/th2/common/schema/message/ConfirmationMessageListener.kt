@@ -16,45 +16,6 @@
 
 package com.exactpro.th2.common.schema.message
 
-@Deprecated("") //FIXME: write message
-interface ConfirmationMessageListener<T>: ConfirmationListener<T> {
-
-    @Throws(Exception::class)
-    @Deprecated(
-        "This method does not provide all necessary information about a message",
-        ReplaceWith("handle(deliveryMetadata, message, confirmation)")
-    )
-    fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
-
-    @Throws(Exception::class)
-    override fun handle(deliveryMetadata: DeliveryMetadata, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
-        handle(deliveryMetadata.consumerTag, message, confirmation)
-    }
-
-    companion object {
-        @JvmStatic
-        fun <T> wrap(listener: MessageListener<T>): ConfirmationListener<T> = DelegateListener(listener)
-
-        @JvmStatic
-        fun <T> wrap(listener: AutoConfirmationListener<T>): ConfirmationListener<T> = DelegateListener(listener)
-
-        /**
-         * @return `true` if the listener uses manual acknowledgment
-         */
-        @JvmStatic
-        fun isManual(listener: ConfirmationListener<*>): Boolean = listener is ManualConfirmationListener<*>
-    }
-}
-
-fun interface AutoConfirmationListener<T> : MessageListener<T> {
-
-    override fun handle(consumerTag: String?, message: T) {
-        throw UnsupportedOperationException()
-    }
-
-    override fun handle(deliveryMetadata: DeliveryMetadata, message: T)
-}
-
 interface ConfirmationListener<T> {
     @Throws(Exception::class)
     fun handle(deliveryMetadata: DeliveryMetadata, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
@@ -63,10 +24,7 @@ interface ConfirmationListener<T> {
 
     companion object {
         @JvmStatic
-        fun <T> wrap(listener: MessageListener<T>): ConfirmationListener<T> = DelegateListener(listener)
-
-        @JvmStatic
-        fun <T> wrap(listener: AutoConfirmationListener<T>): ConfirmationListener<T> = DelegateListener(listener)
+        fun <T> wrap(listener: MessageListener<T>): ConfirmationListener<T> = AutoConfirmationListener(listener)
 
         /**
          * @return `true` if the listener uses manual acknowledgment
@@ -80,28 +38,16 @@ interface ConfirmationListener<T> {
  * The interface marker that indicates that acknowledge will be manually invoked by the listener itself
  */
 fun interface ManualConfirmationListener<T> : ConfirmationListener<T> {
+
     /**
      * The listener must invoke the [confirmation] callback once it has processed the [message]
-     * @see ConfirmationMessageListener.handle
+     * @see ConfirmationListener.handle
      */
-    @Deprecated(
-            "This method does not provide all necessary information about a message",
-            ReplaceWith("handle(deliveryMetadata, message, confirmation)")
-    )
-    fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
-        throw UnsupportedOperationException()
-    }
-
     @Throws(Exception::class)
     override fun handle(deliveryMetadata: DeliveryMetadata, message: T, confirmation: ManualAckDeliveryCallback.Confirmation)
-
-    companion object {
-        @JvmStatic
-        fun <T> wrap(listener: MessageListener<T>): ManualConfirmationListener<T> = ManualDelegateListener(listener)
-    }
 }
 
-private class DelegateListener<T>(
+private class AutoConfirmationListener<T>(
     private val delegate: MessageListener<T>,
 ) : ConfirmationListener<T> {
 
@@ -110,21 +56,6 @@ private class DelegateListener<T>(
         message: T,
         confirmation: ManualAckDeliveryCallback.Confirmation
     ) {
-        delegate.handle(deliveryMetadata, message)
-    }
-
-    override fun onClose() {
-        delegate.onClose()
-    }
-
-    override fun toString(): String = "Delegate($delegate)"
-}
-
-private class ManualDelegateListener<T>(
-        private val delegate: MessageListener<T>,
-) : ManualConfirmationListener<T> {
-
-    override fun handle(deliveryMetadata: DeliveryMetadata, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
         delegate.handle(deliveryMetadata, message)
     }
 

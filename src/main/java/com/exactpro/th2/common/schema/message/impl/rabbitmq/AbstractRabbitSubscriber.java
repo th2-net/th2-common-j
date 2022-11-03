@@ -17,7 +17,6 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.ConfirmationListener;
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener;
 import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
@@ -230,7 +229,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     boolean redeliver = delivery.getEnvelope().isRedeliver();
                     listener.handle(new DeliveryMetadata(consumeTag, redeliver), filteredValue, confirmation);
                     if (!hasManualConfirmation) {
-                        hasManualConfirmation = ConfirmationMessageListener.isManual(listener);
+                        hasManualConfirmation = ConfirmationListener.isManual(listener);
                     }
                 } catch (Exception listenerExc) {
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
