@@ -21,7 +21,7 @@ import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import com.exactpro.th2.common.schema.message.addSubscribeAttributeByDefault
+import com.exactpro.th2.common.schema.message.addPublishAttributeByDefault
 import com.exactpro.th2.common.schema.message.appendAttributes
 
 abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
@@ -42,7 +42,7 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribeWithManualAck({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch, _ ->
+        return groupBatchRouter.subscribe({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
                 callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
@@ -50,16 +50,15 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
         return groupBatchRouter.subscribeAll({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
                 callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
-            *appendAttributes(*attributesWithDefaultValue) { getRequiredSubscribeAttributes() }.toTypedArray()
+            *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 
     override fun send(messageBatch: T, vararg attributes: String) {
-        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
+        val attributesWithDefaultValue = addPublishAttributeByDefault(*attributes)
         groupBatchRouter.send(
             buildGroupBatch(messageBatch),
             *appendAttributes(*attributesWithDefaultValue) { getRequiredSendAttributes() }.toTypedArray()
@@ -67,7 +66,7 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun sendAll(messageBatch: T, vararg attributes: String) {
-        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
+        val attributesWithDefaultValue = addPublishAttributeByDefault(*attributes)
         groupBatchRouter.sendAll(
             buildGroupBatch(messageBatch),
             *appendAttributes(*attributesWithDefaultValue) { getRequiredSendAttributes() }.toTypedArray()
