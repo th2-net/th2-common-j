@@ -30,7 +30,6 @@ import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
-import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
 import com.google.protobuf.MessageOrBuilder
 import org.apache.commons.lang3.exception.ExceptionUtils
 
@@ -102,18 +101,4 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
         .apply { append(this) }
 
     append(')')
-}
-
-private val SUBSCRIBE_DEFAULT_ATTRIBUTES = arrayOf(SUBSCRIBE.toString())
-fun addSubscribeAttributeByDefault(vararg attributes: String): Array<out String> {
-    if (attributes.isNotEmpty())
-        return attributes
-    return SUBSCRIBE_DEFAULT_ATTRIBUTES
-}
-
-private val PUBLISH_DEFAULT_ATTRIBUTES = arrayOf(PUBLISH.toString())
-fun addPublishAttributeByDefault(vararg attributes: String): Array<out String> {
-    if (attributes.isNotEmpty())
-        return attributes
-    return PUBLISH_DEFAULT_ATTRIBUTES
 }

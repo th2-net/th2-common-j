@@ -27,7 +27,6 @@ import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import com.exactpro.th2.common.schema.message.addSubscribeAttributeByDefault
 import com.exactpro.th2.common.schema.message.appendAttributes
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -98,7 +97,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
-        return subscribe(attributes = attributes, ConfirmationListener.wrap(callback)) {
+        return subscribe(pintAttributes = pintAttributes, ConfirmationListener.wrap(callback)) {
             check(size == 1) {
                 "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $pintAttributes and filters, expected 1, actual $size"
             }
@@ -106,8 +105,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
-        val pintAttributes: Set<String> = appendAttributes(*attributesWithDefaultValue) { getRequiredSubscribeAttributes() }
+        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         val listener = ConfirmationListener.wrap(callback)
         return subscribe(pintAttributes = pintAttributes, listener) {
             check(isNotEmpty()) {
@@ -126,8 +124,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribeAllWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
-        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
-        val pintAttributes: Set<String> = appendAttributes(*attributesWithDefaultValue) { getRequiredSubscribeAttributes() }
+        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(isNotEmpty()) {
                 "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
@@ -202,16 +199,6 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             }
         }
         checkOrThrow(exceptions.values) { "Can't send to pin(s): ${exceptions.keys}" }
-    }
-
-    private fun subscribe(
-        vararg attributes: String,
-        callback: ConfirmationListener<T>,
-        check: List<PinInfo>.() -> Unit
-    ): SubscriberMonitor {
-        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
-
-        return subscribe(pintAttributes, callback, check)
     }
 
     private fun subscribe(

@@ -21,7 +21,6 @@ import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import com.exactpro.th2.common.schema.message.addPublishAttributeByDefault
 import com.exactpro.th2.common.schema.message.appendAttributes
 
 abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
@@ -58,18 +57,16 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun send(messageBatch: T, vararg attributes: String) {
-        val attributesWithDefaultValue = addPublishAttributeByDefault(*attributes)
         groupBatchRouter.send(
             buildGroupBatch(messageBatch),
-            *appendAttributes(*attributesWithDefaultValue) { getRequiredSendAttributes() }.toTypedArray()
+            *appendAttributes(*attributes) { getRequiredSendAttributes() }.toTypedArray()
         )
     }
 
     override fun sendAll(messageBatch: T, vararg attributes: String) {
-        val attributesWithDefaultValue = addPublishAttributeByDefault(*attributes)
         groupBatchRouter.sendAll(
             buildGroupBatch(messageBatch),
-            *appendAttributes(*attributesWithDefaultValue) { getRequiredSendAttributes() }.toTypedArray()
+            *appendAttributes(*attributes) { getRequiredSendAttributes() }.toTypedArray()
         )
     }
 
