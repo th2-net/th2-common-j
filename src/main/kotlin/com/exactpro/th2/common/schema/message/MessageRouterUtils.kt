@@ -103,8 +103,9 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
     append(')')
 }
 
+private val subscribeArray = arrayOf(QueueAttribute.SUBSCRIBE.toString())
 fun addSubscribeAttributeByDefault(vararg attributes: String): Array<out String> {
     if (attributes.isNotEmpty())
         return attributes
-    return arrayOf(QueueAttribute.SUBSCRIBE.toString())
+    return subscribeArray
 }

@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
@@ -43,9 +42,8 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        val listener = ConfirmationListener.wrap(callback)
-        return groupBatchRouter.subscribeWithManualAck({ consumerTag: DeliveryMetadata, message: MessageGroupBatch, confirmation ->
-                listener.handle(consumerTag, buildFromGroupBatch(message), confirmation)
+        return groupBatchRouter.subscribeWithManualAck({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch, _ ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
@@ -61,16 +59,18 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
     }
 
     override fun send(messageBatch: T, vararg attributes: String) {
+        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
         groupBatchRouter.send(
             buildGroupBatch(messageBatch),
-            *appendAttributes(*attributes) { getRequiredSendAttributes() }.toTypedArray()
+            *appendAttributes(*attributesWithDefaultValue) { getRequiredSendAttributes() }.toTypedArray()
         )
     }
 
     override fun sendAll(messageBatch: T, vararg attributes: String) {
+        val attributesWithDefaultValue = addSubscribeAttributeByDefault(*attributes)
         groupBatchRouter.sendAll(
             buildGroupBatch(messageBatch),
-            *appendAttributes(*attributes) { getRequiredSendAttributes() }.toTypedArray()
+            *appendAttributes(*attributesWithDefaultValue) { getRequiredSendAttributes() }.toTypedArray()
         )
     }
 
