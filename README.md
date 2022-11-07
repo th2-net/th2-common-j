@@ -160,9 +160,9 @@ Filters format:
 }
 ```
 
-The `CommonFactory` reads a grpc's router configuration from the `grpc_router.json` file.
-* enableSizeMeasuring - this option enables the gRPC message size measuring. Please note the feature decrease gRPC throughput. Default value is false.
-* keepAliveInterval - number of seconds before each keep alive message. Default value is 60
+The `CommonFactory` reads a gRPC router configuration from the `grpc_router.json` file.
+* enableSizeMeasuring - this option enables the gRPC message size measuring. Please note the feature decreases gRPC throughput. Default value is false.
+* keepAliveInterval - number of seconds between keep alive messages. Default value is 60
 * maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of bytes.
 
 ```json
@@ -173,7 +173,7 @@ The `CommonFactory` reads a grpc's router configuration from the `grpc_router.js
 }
 ```
 
-The `CommonFactory` reads a grpc's configuration from the `grpc.json` file.
+The `CommonFactory` reads a gRPC configuration from the `grpc.json` file.
 * services - grpc services configurations
 * server - grpc server configuration
 * endpoint - grpc endpoint configuration
@@ -358,7 +358,7 @@ dependencies {
 ## Release notes
 
 ### 3.42.0
-+ Added the `enableSizeMeasuring`, `maxMessageSize`, `keepAliveInterval` option into gRPC's router configuration. 
++ Added the `enableSizeMeasuring`, `maxMessageSize`, `keepAliveInterval` options into gRPC router configuration. 
   Default values are false, 4194304, 60  
 
 ### 3.41.1
