@@ -23,6 +23,5 @@
     "host": "host123",
     "port": 1234,
     "workers": 58
-  },
-  "keepAliveInterval": 400
+  }
 }

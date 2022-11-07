@@ -41,7 +41,7 @@ data class Filter(
 data class GrpcEndpointConfiguration(
     @JsonProperty(required = true) var host: String,
     @JsonProperty(required = true) var port: Int = 8080,
-    var attributes: List<String?> = emptyList(),
+    var attributes: List<String?> = emptyList()
 ) : Configuration()
 
 data class GrpcRetryConfiguration(

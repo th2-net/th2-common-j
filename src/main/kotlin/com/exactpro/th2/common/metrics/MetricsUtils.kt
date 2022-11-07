@@ -28,7 +28,7 @@ import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
 import kotlin.math.max
 
-
+@Deprecated("This old implementation for jmh test only. Please use the incrementTotalMetrics method instead")
 fun incrementTotalMetricsOld(
     batch: MessageGroupBatch,
     th2Pin: String,
