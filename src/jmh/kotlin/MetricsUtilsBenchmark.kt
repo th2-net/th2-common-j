@@ -17,8 +17,13 @@ package com.exactpro.th2
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
-import com.exactpro.th2.common.grpc.MessageGroup
+import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.direction
+import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.sequence
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.metrics.DIRECTION_LABEL
 import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
 import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
@@ -85,7 +90,6 @@ open class MetricsUtilsBenchmark {
                                 sequence = SEQUENCE_GENERATOR.next()
                                 sessionAlias = ALIAS
                             }
-                            }
                         }
                     }
                 }
@@ -100,18 +104,10 @@ open class MetricsUtilsBenchmark {
                 repeat(GROUP_IN_BATCH) {
                     addGroupsBuilder().apply {
                         repeat(MESSAGES_IN_GROUP) {
-                            addMessagesBuilder().apply {
-                                rawMessageBuilder.apply {
-                                    metadataBuilder.apply {
-                                        idBuilder.apply {
-                                            direction = DIRECTION_GENERATOR.next()
-                                            sequence = SEQUENCE_GENERATOR.next()
-                                            connectionIdBuilder.apply {
-                                                sessionAlias = ALIAS_GENERATOR.next()
-                                            }
-                                        }
-                                    }
-                                }
+                            this += RawMessage.newBuilder().apply {
+                                direction = DIRECTION_GENERATOR.next()
+                                sequence = SEQUENCE_GENERATOR.next()
+                                sessionAlias = ALIAS_GENERATOR.next()
                             }
                         }
                     }

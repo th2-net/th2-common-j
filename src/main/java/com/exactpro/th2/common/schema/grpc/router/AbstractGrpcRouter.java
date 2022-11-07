@@ -123,7 +123,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
     @Override
     public void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration) {
-        throwIsInit();
+        failIfInitialized();
 
         this.routerConfiguration = Objects.requireNonNull(routerConfiguration);
         this.configuration = Objects.requireNonNull(configuration);
@@ -132,9 +132,6 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     @Override
     public Server startServer(BindableService... services) {
         var serverConf = configuration.getServerConfiguration();
-        if (serverConf == null) {
-            throw new IllegalStateException("Can not find server configuration");
-        }
 
         NettyServerBuilder builder;
 

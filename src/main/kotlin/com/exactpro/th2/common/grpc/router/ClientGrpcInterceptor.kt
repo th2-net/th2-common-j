@@ -19,8 +19,8 @@ import io.grpc.CallOptions
 import io.grpc.Channel
 import io.grpc.ClientCall
 import io.grpc.ClientInterceptor
-import io.grpc.ForwardingClientCall
-import io.grpc.ForwardingClientCallListener
+import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
+import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener
 import io.grpc.Metadata
 import io.grpc.MethodDescriptor
 import io.prometheus.client.Counter
@@ -41,7 +41,7 @@ class ClientGrpcInterceptor(
 
         val methodDetails = method.toMethodDetails(pinName)
 
-        return object : ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(next.newCall(method, callOptions)) {
+        return object : SimpleForwardingClientCall<ReqT, RespT>(next.newCall(method, callOptions)) {
             override fun sendMessage(message: ReqT) {
                 message.publishMetrics(
                     "gRPC call ${methodDetails.serviceName}/${methodDetails.methodName} invoked on pin '$pinName'",
@@ -53,7 +53,7 @@ class ClientGrpcInterceptor(
 
             override fun start(responseListener: Listener<RespT>?, headers: Metadata?) {
                 val forwardingListener =
-                    object : ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(responseListener) {
+                    object : SimpleForwardingClientCallListener<RespT>(responseListener) {
                         override fun onMessage(message: RespT) {
                             message.publishMetrics(
                                 "gRPC ${methodDetails.serviceName}/${methodDetails.methodName} response received on pin '$pinName'",
