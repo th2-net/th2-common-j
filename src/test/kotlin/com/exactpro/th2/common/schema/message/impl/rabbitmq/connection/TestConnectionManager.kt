@@ -160,6 +160,7 @@ class TestConnectionManager {
 
                     Thread.sleep(500)
 
+                    // todo check isReady and isAlive, it should be false at some point
                     Assertions.assertEquals(1, counter.get())
                     Assertions.assertTrue(connectionManager.isAlive)
                     Assertions.assertTrue(connectionManager.isReady)
@@ -214,6 +215,7 @@ class TestConnectionManager {
                     RabbitTestContainerUtil.declareFanoutExchangeWithBinding(it, exchange, queueName)
                     Thread.sleep(1000)
                     Assertions.assertThrows(AlreadyClosedException::class.java) {
+                        //todo there should be retry
                         connectionManager.basicPublish(exchange, "", null, "Hello2".toByteArray(Charsets.UTF_8))
                     }
                     Assertions.assertEquals(0, counter.get())
