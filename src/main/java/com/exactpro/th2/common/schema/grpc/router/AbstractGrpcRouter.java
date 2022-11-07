@@ -153,7 +153,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
                 .bossEventLoopGroup(eventLoop)
                 .channelType(NioServerSocketChannel.class)
                 .keepAliveTimeout(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
-                .maxInboundMessageSize(configuration.getMaxMessageSize())
+                .maxInboundMessageSize(routerConfiguration.getMaxMessageSize())
                 .intercept(new ServerGrpcInterceptor("server",
                         createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),
                         createGetMetric(GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_MAP),
@@ -172,7 +172,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         loopGroups.add(eventLoop);
         servers.add(server);
 
-        LOGGER.info("Made gRPC server: host {}, port {}, keepAliveTime {}, max inbound message {}", serverConf.getHost(), serverConf.getPort(), routerConfiguration.getKeepAliveInterval(), configuration.getMaxMessageSize());
+        LOGGER.info("Made gRPC server: host {}, port {}, keepAliveTime {}, max inbound message {}", serverConf.getHost(), serverConf.getPort(), routerConfiguration.getKeepAliveInterval(), routerConfiguration.getMaxMessageSize());
 
         return server;
     }

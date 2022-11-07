@@ -19,7 +19,6 @@ package com.exactpro.th2.common.schema.grpc.router.impl;
 import com.exactpro.th2.common.grpc.router.ClientGrpcInterceptor;
 import com.exactpro.th2.common.grpc.router.MethodDetails;
 import com.exactpro.th2.common.schema.filter.strategy.impl.FieldValueChecker;
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
@@ -65,7 +64,6 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
 
     private final List<ServiceHolder<T>> services;
     private final @NotNull GrpcRouterConfiguration routerConfiguration;
-    private final @NotNull GrpcConfiguration configuration;
     private final @NotNull Function<MethodDetails, Counter.Child> methodInvokeCounter;
     private final @NotNull Function<MethodDetails, Counter.Child> methodReceiveCounter;
     private final @NotNull Function<MethodDetails, Counter.Child> requestBytesCounter;
@@ -78,15 +76,13 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
             @NotNull Function<MethodDetails, Counter.Child> methodReceiveCounter,
             @NotNull Function<MethodDetails, Counter.Child> requestBytesCounter,
             @NotNull Function<MethodDetails, Counter.Child> responseBytesCounter,
-            @NotNull GrpcRouterConfiguration routerConfiguration,
-            @NotNull GrpcConfiguration configuration
-            ) {
+            @NotNull GrpcRouterConfiguration routerConfiguration
+    ) {
         this.methodInvokeCounter = requireNonNull(methodInvokeCounter);
         this.methodReceiveCounter = requireNonNull(methodReceiveCounter);
         this.requestBytesCounter = requireNonNull(requestBytesCounter);
         this.responseBytesCounter = requireNonNull(responseBytesCounter);
         this.routerConfiguration = requireNonNull(routerConfiguration);
-        this.configuration = requireNonNull(configuration);
 
         services = new ArrayList<>(serviceConfigurations.size());
         for (final var config: serviceConfigurations) {
@@ -129,7 +125,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                         "that matches the provided alias: " + key);
             }
 
-            LOGGER.info("Made gRPC stub: host {}, port {}, keepAliveTime {}, max inbound message {}", endpoint.getHost(), endpoint.getPort(), routerConfiguration.getKeepAliveInterval(), configuration.getMaxMessageSize());
+            LOGGER.info("Made gRPC stub: host {}, port {}, keepAliveTime {}, max inbound message {}", endpoint.getHost(), endpoint.getPort(), routerConfiguration.getKeepAliveInterval(), routerConfiguration.getMaxMessageSize());
 
             return stubFactory.newStub(
                     ManagedChannelBuilder.forAddress(endpoint.getHost(), endpoint.getPort())
@@ -140,7 +136,7 @@ public class DefaultStubStorage<T extends AbstractStub<T>> implements StubStorag
                                     requestBytesCounter,
                                     responseBytesCounter))
                             .keepAliveTimeout(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
-                            .maxInboundMessageSize(configuration.getMaxMessageSize())
+                            .maxInboundMessageSize(routerConfiguration.getMaxMessageSize())
                             .build(),
                     CallOptions.DEFAULT
             );
