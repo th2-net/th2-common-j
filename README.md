@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.41.1)
+# th2 common library (Java) (3.42.0)
 
 ## Usage
 
@@ -160,6 +160,54 @@ Filters format:
 }
 ```
 
+The `CommonFactory` reads a gRPC router configuration from the `grpc_router.json` file.
+* enableSizeMeasuring - this option enables the gRPC message size measuring. Please note the feature decreases gRPC throughput. Default value is false.
+* keepAliveInterval - number of seconds between keep alive messages. Default value is 60
+* maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of bytes.
+
+```json
+{
+  "enableSizeMeasuring": false,
+  "keepAliveInterval": 60,
+  "maxMessageSize": 4194304
+}
+```
+
+The `CommonFactory` reads a gRPC configuration from the `grpc.json` file.
+* services - grpc services configurations
+* server - grpc server configuration
+* endpoint - grpc endpoint configuration
+
+```json
+{
+  "services": {
+    "test": {
+      "endpoints": {
+        "endpoint": {
+          "host": "host",
+          "port": 12345,
+          "attributes": [
+            "test_attr"
+          ]
+        }
+      },
+      "service-class": "com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration",
+      "strategy": {
+        "endpoints": [
+          "endpoint"
+        ],
+        "name": "robin"
+      }
+    }
+  },
+  "server": {
+    "host": "host123",
+    "port": 1234,
+    "workers": 58
+  }
+}
+```
+
 The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * dataCenter - the required setting defines the data center in the Cassandra cluster.
 * host - the required setting defines the Cassandra host.
@@ -308,6 +356,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.42.0
++ Added the `enableSizeMeasuring`, `maxMessageSize`, `keepAliveInterval` options into gRPC router configuration. 
+  Default values are false, 4194304, 60  
 
 ### 3.41.1
 
