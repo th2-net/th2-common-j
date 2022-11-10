@@ -20,7 +20,9 @@ import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.util.RabbitTestContainerUtil
-import com.rabbitmq.client.AlreadyClosedException
+import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getQueuesInfo
+import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.putMessageInQueue
+import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.restartContainer
 import com.rabbitmq.client.BuiltinExchangeType
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.utility.DockerImageName
+import org.testcontainers.utility.MountableFile
 
 private val LOGGER = KotlinLogging.logger { }
 
@@ -155,13 +158,19 @@ class TestConnectionManager {
 
                     LOGGER.info { "creating the queue..." }
                     RabbitTestContainerUtil.declareQueue(it, "wrong-queue")
-                    LOGGER.info { RabbitTestContainerUtil.putMessageInQueue(it, "wrong-queue") }
+                    LOGGER.info {
+                        "Adding message to the queue: \n" + putMessageInQueue(
+                            it,
+                            "wrong-queue"
+                        )
+                    }
                     LOGGER.info { "queues list: \n ${it.execInContainer("rabbitmqctl", "list_queues")}" }
 
-                    Thread.sleep(500)
-
                     // todo check isReady and isAlive, it should be false at some point
-                    Assertions.assertEquals(1, counter.get())
+                    Assertions.assertEquals(
+                        1,
+                        counter.get()
+                    ) { "Unexpected number of messages received. The message should be received" }
                     Assertions.assertTrue(connectionManager.isAlive)
                     Assertions.assertTrue(connectionManager.isReady)
                 }
@@ -198,92 +207,180 @@ class TestConnectionManager {
                     ),
                 ).use { connectionManager ->
                     Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        connectionManager.basicConsume(queueName, { _, delivery, _ ->
                             counter.incrementAndGet()
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
                         }) {
                             LOGGER.info { "Canceled $it" }
                         }
                     }.start()
 
-                    Thread.sleep(5000)
-
-                    LOGGER.info { "Starting publishing..." }
+                    LOGGER.info { "Starting first publishing..." }
                     connectionManager.basicPublish(exchange, "", null, "Hello1".toByteArray(Charsets.UTF_8))
                     Thread.sleep(1000)
                     LOGGER.info { "Publication finished!" }
+                    Assertions.assertEquals(
+                        0,
+                        counter.get()
+                    ) { "Unexpected number of messages received. The first message shouldn't be received" }
+                    Thread.sleep(1000)
+                    LOGGER.info { "Creating the correct exchange..." }
                     RabbitTestContainerUtil.declareFanoutExchangeWithBinding(it, exchange, queueName)
                     Thread.sleep(1000)
-                    Assertions.assertThrows(AlreadyClosedException::class.java) {
-                        //todo there should be retry
+                    LOGGER.info { "Exchange created!" }
+
+                    Assertions.assertDoesNotThrow {
                         connectionManager.basicPublish(exchange, "", null, "Hello2".toByteArray(Charsets.UTF_8))
                     }
-                    Assertions.assertEquals(0, counter.get())
+
+                    Thread.sleep(500)
+                    Assertions.assertEquals(
+                        1,
+                        counter.get()
+                    ) { "Unexpected number of messages received. The second message should be received" }
+
+                }
+            }
+    }
+
+    @Test
+    fun `connection manager handles ack timeout`() {
+        val queueName = "queue"
+        val prefetchCount = 10
+        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
+            .withRabbitMQConfig(MountableFile.forClasspathResource("rabbitmq_it.conf"))
+            .withQueue(queueName)
+            .use {
+                it.start()
+                LOGGER.info { "Started with port ${it.amqpPort}" }
+                val confirmationTimeout = Duration.ofSeconds(1)
+                val counter = AtomicInteger(0)
+                ConnectionManager(
+                    RabbitMQConfiguration(
+                        host = it.host,
+                        vHost = "",
+                        port = it.amqpPort,
+                        username = it.adminUsername,
+                        password = it.adminPassword,
+                    ),
+                    ConnectionManagerConfiguration(
+                        subscriberName = "test",
+                        prefetchCount = prefetchCount,
+                        confirmationTimeout = confirmationTimeout,
+                        minConnectionRecoveryTimeout = 100,
+                        maxConnectionRecoveryTimeout = 200,
+                        maxRecoveryAttempts = 5
+                    ),
+                ).use { connectionManager ->
+                    Thread {
+                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                            LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                            if (counter.get() != 0) {
+                                ack.confirm()
+                                LOGGER.info { "Confirmed!" }
+                            } else {
+                                LOGGER.info { "Left this message unacked" }
+                            }
+                            counter.incrementAndGet()
+                        }) {
+                            LOGGER.info { "Canceled $it" }
+                        }
+                    }.start()
+
+                    LOGGER.info { "Sending first message" }
+                    putMessageInQueue(it, queueName)
+
+                    LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
+                    LOGGER.info { "Sleeping..." }
+                    Thread.sleep(63000)
+
+                    LOGGER.info { "Sending second message" }
+                    putMessageInQueue(it, queueName)
+
+                    val queuesListExecResult = getQueuesInfo(it)
+                    LOGGER.info { "queues list: \n $queuesListExecResult" }
+
+                    Assertions.assertEquals(3, counter.get()) { "Wrong number of received messages" }
+                    Assertions.assertTrue(
+                        queuesListExecResult.toString().contains("$queueName\t0")
+                    ) { "There should be no messages left in the queue" }
+
+                }
+            }
+    }
+
+    @Test
+    fun `connection manager receives a messages after container restart`() {
+        val queueName = "queue"
+        val prefetchCount = 10
+        val amqpPort = 5672
+
+        val container = object : RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine")) {
+            fun addFixedPort(hostPort: Int, containerPort: Int) {
+                super.addFixedExposedPort(hostPort, containerPort)
+            }
+        }
+
+        container
+            .addFixedPort(amqpPort, amqpPort)
+        container
+            .withQueue(queueName)
+            .use {
+                it.start()
+                LOGGER.info { "Started with port ${it.amqpPort}" }
+                val counter = AtomicInteger(0)
+                val confirmationTimeout = Duration.ofSeconds(1)
+                ConnectionManager(
+                    RabbitMQConfiguration(
+                        host = it.host,
+                        vHost = "",
+                        port = amqpPort,
+                        username = it.adminUsername,
+                        password = it.adminPassword,
+                    ),
+                    ConnectionManagerConfiguration(
+                        subscriberName = "test",
+                        prefetchCount = prefetchCount,
+                        confirmationTimeout = confirmationTimeout,
+                        minConnectionRecoveryTimeout = 10000,
+                        maxConnectionRecoveryTimeout = 20000,
+                        connectionTimeout = 10000,
+                        maxRecoveryAttempts = 5
+                    ),
+                ).use { connectionManager ->
+
+                    Thread {
+                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                            counter.incrementAndGet()
+                            ack.confirm()
+                        }) {
+                            LOGGER.info { "Canceled $it" }
+                        }
+                    }.start()
+                    LOGGER.info { "Rabbit address- ${it.host}:${it.amqpPort}" }
+
+                    LOGGER.info { "Restarting the container" }
+                    restartContainer(it)
+                    Thread.sleep(10000)
+
+                    LOGGER.info { "Rabbit address after restart - ${it.host}:${it.amqpPort}" }
+                    LOGGER.info { getQueuesInfo(it) }
+
+                    LOGGER.info { "Starting publishing..." }
+                    putMessageInQueue(it, queueName)
+                    LOGGER.info { "Publication finished!" }
+                    LOGGER.info { getQueuesInfo(it) }
+
+                    Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
+                    Assertions.assertTrue(
+                        getQueuesInfo(it).toString().contains("$queueName\t0")
+                    ) { "There should be no messages left in the queue" }
 
                 }
             }
     }
 }
 
-//    @Test
-//    @Disabled
-//    fun `connection manager receives a messages after container restart`() {
-//        val routingKey = "routingKey"
-//        val queueName = "queue"
-//        val exchange = "test-exchange"
-//        val prefetchCount = 10
-//        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
-////            .withExchange(exchange, BuiltinExchangeType.FANOUT.type, false, false, true, emptyMap())
-//            .withQueue(queueName)
-////            .withBinding(exchange, queueName, emptyMap(), routingKey, "queue")
-//            .use {
-//                it.start()
-//                LOGGER.info { "Started with port ${it.amqpPort}" }
-//                val counter = AtomicInteger(0)
-//                val confirmationTimeout = Duration.ofSeconds(1)
-//                ConnectionManager(
-//                    RabbitMQConfiguration(
-//                        host = it.host,
-//                        vHost = "",
-//                        port = it.amqpPort,
-//                        username = it.adminUsername,
-//                        password = it.adminPassword,
-//                    ),
-//                    ConnectionManagerConfiguration(
-//                        subscriberName = "test",
-//                        prefetchCount = prefetchCount,
-//                        confirmationTimeout = confirmationTimeout,
-//                        minConnectionRecoveryTimeout = 100,
-//                        maxConnectionRecoveryTimeout = 200,
-//                        maxRecoveryAttempts = 5
-//                    ),
-//                ).use { connectionManager ->
-//                    Thread {
-//                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-//                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-//                            counter.incrementAndGet()
-//                        }) {
-//                            LOGGER.info { "Canceled $it" }
-//                        }
-//                    }.start()
-//
-//                    LOGGER.info { it.host + " " + it.httpPort + " " + it.amqpPort }
-//
-//
-//                    LOGGER.info { it.host + " " + it.httpPort + " " + it.amqpPort }
-//                    Thread.sleep(10000)
-//
-//                    LOGGER.info { "Starting publishing..." }
-//                    RabbitTestContainerUtil.putMessageInQueue(it, queueName)
-//                    LOGGER.info { "Publication finished!" }
-//
-//                    Assertions.assertEquals(1, counter.get())
-//                    Thread.sleep(1000)
-//
-//                }
-//            }
-//    }
-//}
-//
 
 

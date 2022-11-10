@@ -15,6 +15,7 @@
 
 package com.exactpro.th2.common.util
 
+import kotlin.random.Random
 import org.testcontainers.containers.Container
 import org.testcontainers.containers.RabbitMQContainer
 
@@ -25,6 +26,10 @@ class RabbitTestContainerUtil {
 
         }
 
+        fun removeQueue(rabbit: RabbitMQContainer, queueName: String): Container.ExecResult? {
+            return execCommandWithSplit(rabbit, "rabbitmqadmin delete queue name=$queueName")
+        }
+
         fun declareFanoutExchangeWithBinding(
             rabbit: RabbitMQContainer,
             exchangeName: String,
@@ -33,15 +38,34 @@ class RabbitTestContainerUtil {
             execCommandWithSplit(rabbit, "rabbitmqadmin declare exchange name=$exchangeName type=fanout")
             execCommandWithSplit(
                 rabbit,
-                """rabbitmqadmin declare binding source="$exchangeName" destination_type="queue" destination="$destinationQueue""""
+                "rabbitmqadmin declare binding source=$exchangeName destination_type=queue destination=$destinationQueue"
             )
         }
 
         fun putMessageInQueue(rabbit: RabbitMQContainer, queueName: String): Container.ExecResult? {
             return execCommandWithSplit(
                 rabbit,
-                """rabbitmqadmin publish exchange=amq.default routing_key=$queueName payload="hello""""
+                """rabbitmqadmin publish exchange=amq.default routing_key=$queueName payload="hello-${
+                    Random.nextInt(
+                        0,
+                        1000
+                    )
+                }""""
             )
+        }
+
+        fun getQueuesInfo(rabbit: RabbitMQContainer): Container.ExecResult? {
+            return execCommandWithSplit(rabbit, "rabbitmqctl list_queues")
+        }
+
+        fun restartContainer(rabbit: RabbitMQContainer) {
+            val tag: String = rabbit.containerId
+            val snapshotId: String = rabbit.dockerClient.commitCmd(tag)
+                .withRepository("temp-rabbit")
+                .withTag(tag).exec()
+            rabbit.stop()
+            rabbit.dockerImageName = snapshotId
+            rabbit.start()
         }
 
         private fun execCommandWithSplit(rabbit: RabbitMQContainer, command: String): Container.ExecResult? {
