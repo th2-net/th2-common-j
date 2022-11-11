@@ -19,7 +19,8 @@ import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import com.exactpro.th2.common.util.RabbitTestContainerUtil
+import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareFanoutExchangeWithBinding
+import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareQueue
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getQueuesInfo
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.putMessageInQueue
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.restartContainer
@@ -42,13 +43,15 @@ private val LOGGER = KotlinLogging.logger { }
 @IntegrationTest
 class TestConnectionManager {
 
+    private val RABBIT_IMAGE_NAME = "rabbitmq:3.8-management-alpine"
+
     @Test
     fun `connection manager reports unacked messages when confirmation timeout elapsed`() {
         val routingKey = "routingKey"
         val queueName = "queue"
         val exchange = "test-exchange"
         val prefetchCount = 10
-        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
+        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .withExchange(exchange, BuiltinExchangeType.FANOUT.type, false, false, true, emptyMap())
             .withQueue(queueName)
             .withBinding(exchange, queueName, emptyMap(), routingKey, "queue")
@@ -117,8 +120,9 @@ class TestConnectionManager {
         val routingKey = "routingKey"
         val queueName = "queue"
         val exchange = "test-exchange"
+        val wrongQueue = "wrong-queue"
         val prefetchCount = 10
-        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
+        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .withExchange(exchange, BuiltinExchangeType.FANOUT.type, false, false, true, emptyMap())
             .withQueue(queueName)
             .withBinding(exchange, queueName, emptyMap(), routingKey, "queue")
@@ -145,7 +149,7 @@ class TestConnectionManager {
                     ),
                 ).use { connectionManager ->
                     Thread {
-                        connectionManager.basicConsume("wrong-queue", { _, delivery, ack ->
+                        connectionManager.basicConsume(wrongQueue, { _, delivery, ack ->
                             LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
                             counter.incrementAndGet()
                             ack.confirm()
@@ -154,14 +158,14 @@ class TestConnectionManager {
                         }
                     }.start()
 
-                    Thread.sleep(500)
+//                    Thread.sleep(500)
 
                     LOGGER.info { "creating the queue..." }
-                    RabbitTestContainerUtil.declareQueue(it, "wrong-queue")
+                    declareQueue(it, wrongQueue)
                     LOGGER.info {
                         "Adding message to the queue: \n" + putMessageInQueue(
                             it,
-                            "wrong-queue"
+                            wrongQueue
                         )
                     }
                     LOGGER.info { "queues list: \n ${it.execInContainer("rabbitmqctl", "list_queues")}" }
@@ -182,7 +186,7 @@ class TestConnectionManager {
         val queueName = "queue"
         val exchange = "test-exchange"
         val prefetchCount = 10
-        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
+        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .withQueue(queueName)
             .use {
                 it.start()
@@ -217,23 +221,23 @@ class TestConnectionManager {
 
                     LOGGER.info { "Starting first publishing..." }
                     connectionManager.basicPublish(exchange, "", null, "Hello1".toByteArray(Charsets.UTF_8))
-                    Thread.sleep(1000)
+                    Thread.sleep(200)
                     LOGGER.info { "Publication finished!" }
                     Assertions.assertEquals(
                         0,
                         counter.get()
                     ) { "Unexpected number of messages received. The first message shouldn't be received" }
-                    Thread.sleep(1000)
+                    Thread.sleep(200)
                     LOGGER.info { "Creating the correct exchange..." }
-                    RabbitTestContainerUtil.declareFanoutExchangeWithBinding(it, exchange, queueName)
-                    Thread.sleep(1000)
+                    declareFanoutExchangeWithBinding(it, exchange, queueName)
+                    Thread.sleep(200)
                     LOGGER.info { "Exchange created!" }
 
                     Assertions.assertDoesNotThrow {
                         connectionManager.basicPublish(exchange, "", null, "Hello2".toByteArray(Charsets.UTF_8))
                     }
 
-                    Thread.sleep(500)
+                    Thread.sleep(200)
                     Assertions.assertEquals(
                         1,
                         counter.get()
@@ -245,10 +249,12 @@ class TestConnectionManager {
 
     @Test
     fun `connection manager handles ack timeout`() {
+        val configFilename = "rabbitmq_it.conf"
         val queueName = "queue"
         val prefetchCount = 10
-        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
-            .withRabbitMQConfig(MountableFile.forClasspathResource("rabbitmq_it.conf"))
+
+        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+            .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
             .withQueue(queueName)
             .use {
                 it.start()
@@ -315,7 +321,7 @@ class TestConnectionManager {
         val prefetchCount = 10
         val amqpPort = 5672
 
-        val container = object : RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine")) {
+        val container = object : RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME)) {
             fun addFixedPort(hostPort: Int, containerPort: Int) {
                 super.addFixedExposedPort(hostPort, containerPort)
             }
@@ -362,7 +368,7 @@ class TestConnectionManager {
 
                     LOGGER.info { "Restarting the container" }
                     restartContainer(it)
-                    Thread.sleep(10000)
+                    Thread.sleep(5000)
 
                     LOGGER.info { "Rabbit address after restart - ${it.host}:${it.amqpPort}" }
                     LOGGER.info { getQueuesInfo(it) }
@@ -380,6 +386,66 @@ class TestConnectionManager {
                 }
             }
     }
+
+    @Test
+    fun `connection manager publish a message and receives it`() {
+        val queueName = "queue"
+        val prefetchCount = 10
+        val exchange = "test-exchange"
+        val routingKey = "routingKey"
+
+        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+            .use {
+                it.start()
+                LOGGER.info { "Started with port ${it.amqpPort}" }
+                val counter = AtomicInteger(0)
+                val confirmationTimeout = Duration.ofSeconds(1)
+                ConnectionManager(
+                    RabbitMQConfiguration(
+                        host = it.host,
+                        vHost = "",
+                        port = it.amqpPort,
+                        username = it.adminUsername,
+                        password = it.adminPassword,
+                    ),
+                    ConnectionManagerConfiguration(
+                        subscriberName = "test",
+                        prefetchCount = prefetchCount,
+                        confirmationTimeout = confirmationTimeout,
+                        minConnectionRecoveryTimeout = 10000,
+                        maxConnectionRecoveryTimeout = 20000,
+                        connectionTimeout = 10000,
+                        maxRecoveryAttempts = 5
+                    ),
+                ).use { connectionManager ->
+
+                    declareQueue(it, queueName)
+                    declareFanoutExchangeWithBinding(it, exchange, queueName)
+
+                    connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
+
+                    Thread.sleep(500)
+                    Thread {
+                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                            counter.incrementAndGet()
+                            ack.confirm()
+                        }) {
+                            LOGGER.info { "Canceled $it" }
+                        }
+                    }.start()
+                    Thread.sleep(500)
+
+                    Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
+                    Assertions.assertTrue(
+                        getQueuesInfo(it).toString().contains("$queueName\t0")
+                    ) { "There should be no messages left in the queue" }
+
+                }
+            }
+    }
+
+
 }
 
 
