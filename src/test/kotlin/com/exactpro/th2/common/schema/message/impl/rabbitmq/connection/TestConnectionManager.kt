@@ -24,14 +24,15 @@ import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareQue
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getQueuesInfo
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.putMessageInQueue
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.restartContainer
-import com.rabbitmq.client.BuiltinExchangeType
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import mu.KotlinLogging
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.utility.DockerImageName
@@ -43,20 +44,16 @@ private val LOGGER = KotlinLogging.logger { }
 @IntegrationTest
 class TestConnectionManager {
 
-    private val RABBIT_IMAGE_NAME = "rabbitmq:3.8-management-alpine"
-
     @Test
     fun `connection manager reports unacked messages when confirmation timeout elapsed`() {
-        val routingKey = "routingKey"
-        val queueName = "queue"
-        val exchange = "test-exchange"
+        val routingKey = "routingKey1"
+        val queueName = "queue1"
+        val exchange = "test-exchange1"
         val prefetchCount = 10
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
-            .withExchange(exchange, BuiltinExchangeType.FANOUT.type, false, false, true, emptyMap())
-            .withQueue(queueName)
-            .withBinding(exchange, queueName, emptyMap(), routingKey, "queue")
-            .use {
-                it.start()
+        rabbit
+            .let {
+                declareQueue(rabbit, queueName)
+                declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val queue = ArrayBlockingQueue<ManualAckDeliveryCallback.Confirmation>(prefetchCount)
                 val countDown = CountDownLatch(prefetchCount)
@@ -117,17 +114,14 @@ class TestConnectionManager {
 
     @Test
     fun `connection manager receives a message from a queue that did not exist at the time of subscription`() {
-        val routingKey = "routingKey"
-        val queueName = "queue"
-        val exchange = "test-exchange"
-        val wrongQueue = "wrong-queue"
+        val queueName = "queue2"
+        val exchange = "test-exchange2"
+        val wrongQueue = "wrong-queue2"
         val prefetchCount = 10
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
-            .withExchange(exchange, BuiltinExchangeType.FANOUT.type, false, false, true, emptyMap())
-            .withQueue(queueName)
-            .withBinding(exchange, queueName, emptyMap(), routingKey, "queue")
-            .use {
-                it.start()
+        rabbit
+            .let {
+                declareQueue(rabbit, queueName)
+                declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val counter = AtomicInteger(0)
                 val confirmationTimeout = Duration.ofSeconds(1)
@@ -158,8 +152,6 @@ class TestConnectionManager {
                         }
                     }.start()
 
-//                    Thread.sleep(500)
-
                     LOGGER.info { "creating the queue..." }
                     declareQueue(it, wrongQueue)
                     LOGGER.info {
@@ -183,13 +175,12 @@ class TestConnectionManager {
 
     @Test
     fun `connection manager sends a message to wrong exchange`() {
-        val queueName = "queue"
-        val exchange = "test-exchange"
+        val queueName = "queue3"
+        val exchange = "test-exchange3"
         val prefetchCount = 10
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
-            .withQueue(queueName)
-            .use {
-                it.start()
+        rabbit
+            .let {
+                declareQueue(rabbit, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val confirmationTimeout = Duration.ofSeconds(1)
                 val counter = AtomicInteger(0)
@@ -250,7 +241,7 @@ class TestConnectionManager {
     @Test
     fun `connection manager handles ack timeout`() {
         val configFilename = "rabbitmq_it.conf"
-        val queueName = "queue"
+        val queueName = "queue4"
         val prefetchCount = 10
 
         RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
@@ -317,10 +308,9 @@ class TestConnectionManager {
 
     @Test
     fun `connection manager receives a messages after container restart`() {
-        val queueName = "queue"
+        val queueName = "queue5"
         val prefetchCount = 10
         val amqpPort = 5672
-
         val container = object : RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME)) {
             fun addFixedPort(hostPort: Int, containerPort: Int) {
                 super.addFixedExposedPort(hostPort, containerPort)
@@ -389,14 +379,13 @@ class TestConnectionManager {
 
     @Test
     fun `connection manager publish a message and receives it`() {
-        val queueName = "queue"
+        val queueName = "queue6"
         val prefetchCount = 10
-        val exchange = "test-exchange"
-        val routingKey = "routingKey"
+        val exchange = "test-exchange6"
+        val routingKey = "routingKey6"
 
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
-            .use {
-                it.start()
+        rabbit
+            .let {
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val counter = AtomicInteger(0)
                 val confirmationTimeout = Duration.ofSeconds(1)
@@ -443,6 +432,26 @@ class TestConnectionManager {
 
                 }
             }
+    }
+
+    companion object {
+
+        private const val RABBIT_IMAGE_NAME = "rabbitmq:3.8-management-alpine"
+        private lateinit var rabbit: RabbitMQContainer
+
+        @BeforeAll
+        @JvmStatic
+        fun initRabbit() {
+            rabbit =
+                RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+            rabbit.start()
+        }
+
+        @AfterAll
+        @JvmStatic
+        fun closeRabbit() {
+            rabbit.close()
+        }
     }
 
 
