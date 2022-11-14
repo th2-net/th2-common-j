@@ -263,7 +263,9 @@ public class ConnectionManager implements AutoCloseable {
                     if (castedReason.getReplyCode() != 200) {
                         StringBuilder errorBuilder = new StringBuilder("RabbitMQ soft error occupied: ");
                         castedReason.appendArgumentDebugStringTo(errorBuilder);
-                        errorBuilder.append(" on channel ");
+                        errorBuilder.append(" on channel with hash ")
+                                .append(channel.hashCode())
+                                .append(" ");
                         errorBuilder.append(channelCause);
                         String errorString = errorBuilder.toString();
                         LOGGER.warn(errorString);
@@ -281,7 +283,7 @@ public class ConnectionManager implements AutoCloseable {
                 channelsByPin
                         .entrySet()
                         .stream()
-                        .filter(entry -> channel.equals(entry.getValue().channel))
+                        .filter(entry -> Objects.nonNull(entry.getValue().channel) && channel.getChannelNumber() == entry.getValue().channel.getChannelNumber())
                         .collect(Collectors.toList());
         for (Map.Entry<PinId, ChannelHolder> mapEntry : mapEntries) {
             PinId pinId = mapEntry.getKey();
@@ -293,11 +295,7 @@ public class ConnectionManager implements AutoCloseable {
                     LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
 
                     channelsByPin.remove(pinId);
-//                mapEntry.getValue().lock.lock();
-//                var newChannel = getNewChannelFor(pinId);
-//                mapEntry.setValue(newChannel);
-//                mapEntry.getValue().lock.unlock();
-                channel.abort(); // todo ?????????
+                    channel.abort(400, "Aborted because of the recovery");
                     basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
                 } catch (IOException | InterruptedException e) {
                     throw new RuntimeException(e);
