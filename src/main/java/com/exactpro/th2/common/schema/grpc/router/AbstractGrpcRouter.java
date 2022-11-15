@@ -228,7 +228,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         return (MethodDetails) -> null;
     }
 
-    protected void throwIsInit() {
+    protected void failIfInitialized() {
         if (this.configuration != null) {
             throw new IllegalStateException("Grpc router already init");
         }

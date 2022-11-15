@@ -16,5 +16,6 @@
 
 package com.exactpro.th2.common.schema.message
 
-interface SubscriberExclusiveMonitor {
+interface SubscriberExclusiveMonitor : SubscriberMonitor {
+    val queue: String
 }

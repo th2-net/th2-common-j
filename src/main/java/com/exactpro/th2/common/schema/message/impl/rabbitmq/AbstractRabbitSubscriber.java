@@ -38,10 +38,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
@@ -68,14 +69,16 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
             .register();
 
+    protected final ReentrantLock publicLock = new ReentrantLock();
+    private boolean hasManualSubscriber = false;
+
     protected final String th2Pin;
-    private final List<ConfirmationMessageListener<T>> listeners = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<ConfirmationMessageListener<T>> listeners = new CopyOnWriteArrayList<>();
     private final String queue;
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+    private final ConnectionManager connectionManager;
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
     private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
     private final String th2Type;
-    private final AtomicBoolean hasManualSubscriber = new AtomicBoolean();
 
     private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
@@ -86,7 +89,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             @NotNull String th2Pin,
             @NotNull String th2Type
     ) {
-        this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
+        this.connectionManager = requireNonNull(connectionManager, "Connection can not be null");
         this.queue = requireNonNull(queue, "Queue can not be null");
         this.filterFunc.set(requireNonNull(filterFunc, "Filter function can not be null"));
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
@@ -106,85 +109,63 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
+    @Deprecated
     public void start() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
-        try {
-            consumerMonitor.updateAndGet(monitor -> {
-                if (monitor == null) {
-                    try {
-                        monitor = connectionManager.basicConsume(
-                                queue,
-                                (consumeTag, delivery, confirmation) -> {
-                                    Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
-                                            .labels(th2Pin, th2Type, queue)
-                                            .startTimer();
-                                    MESSAGE_SIZE_SUBSCRIBE_BYTES
-                                            .labels(th2Pin, th2Type, queue)
-                                            .inc(delivery.getBody().length);
-                                    try {
-                                        T value;
-                                        try {
-                                            value = valueFromBytes(delivery.getBody());
-                                        } catch (Exception e) {
-                                            LOGGER.error("Couldn't parse delivery. Confirm message received", e);
-                                            confirmation.confirm();
-                                            throw new IOException(
-                                                    String.format(
-                                                            "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
-                                                            delivery.getEnvelope(), queue, th2Pin
-                                                    ),
-                                                    e
-                                            );
-                                        }
-                                        handle(consumeTag, delivery, value, confirmation);
-                                    } finally {
-                                        processTimer.observeDuration();
-                                    }
-                                },
-                                this::canceled
-                        );
-                        LOGGER.info("Start listening queue name='{}'", queue);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    }
-                }
-
-                return monitor;
-            });
-        } catch (Exception e) {
-            throw new IllegalStateException("Can not start listening", e);
-        }
+        // Do nothing
     }
 
     @Override
     public void addListener(ConfirmationMessageListener<T> messageListener) {
-        if (ConfirmationMessageListener.isManual(messageListener)) {
-            if (!hasManualSubscriber.compareAndSet(false, true)) {
-                throw new IllegalStateException("cannot subscribe listener " + messageListener
-                        + " because only one listener with manual confirmation is allowed per queue");
+        try {
+            publicLock.lock();
+            boolean isManual = ConfirmationMessageListener.isManual(messageListener);
+            if (isManual) {
+                if (hasManualSubscriber) {
+                    throw new IllegalStateException("cannot subscribe listener " + messageListener
+                            + " because only one listener with manual confirmation is allowed per queue");
+                }
             }
+            if(listeners.addIfAbsent(messageListener)) {
+                hasManualSubscriber |= isManual;
+                subscribe();
+            }
+        } finally {
+            publicLock.unlock();
         }
-        listeners.add(messageListener);
     }
 
     @Override
-    public void close() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
+    public void removeListener(ConfirmationMessageListener<T> messageListener) {
+        try {
+            publicLock.lock();
+            boolean isManual = ConfirmationMessageListener.isManual(messageListener);
+            if (listeners.remove(messageListener)) {
+                hasManualSubscriber = !(hasManualSubscriber && isManual);
+                messageListener.onClose();
+            }
+        } finally {
+            publicLock.unlock();
         }
+    }
 
-        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
-        if (monitor != null) {
-            monitor.unsubscribe();
+    @Override
+    public void close() throws IOException {
+        try {
+            publicLock.lock();
+            SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+            if (monitor != null) {
+                monitor.unsubscribe();
+            }
+
+            ListIterator<ConfirmationMessageListener<T>> listIterator = listeners.listIterator();
+            while (listIterator.hasNext()) {
+                ConfirmationMessageListener<T> listener = listIterator.next();
+                listIterator.remove();
+                listener.onClose();
+            }
+        } finally {
+            publicLock.unlock();
         }
-
-        listeners.forEach(ConfirmationMessageListener::onClose);
-        listeners.clear();
     }
 
     protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
@@ -248,6 +229,53 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
+    private void subscribe() {
+        try {
+            consumerMonitor.updateAndGet(monitor -> {
+                if (monitor == null) {
+                    try {
+                        monitor = connectionManager.basicConsume(
+                                queue,
+                                (consumeTag, delivery, confirmation) -> {
+                                    try (Timer ignored = MESSAGE_PROCESS_DURATION_SECONDS
+                                            .labels(th2Pin, th2Type, queue)
+                                            .startTimer()) {
+                                        MESSAGE_SIZE_SUBSCRIBE_BYTES
+                                                .labels(th2Pin, th2Type, queue)
+                                                .inc(delivery.getBody().length);
+
+                                        T value;
+                                        try {
+                                            value = valueFromBytes(delivery.getBody());
+                                        } catch (Exception e) {
+                                            LOGGER.error("Couldn't parse delivery. Confirm message received", e);
+                                            confirmation.confirm();
+                                            throw new IOException(
+                                                    String.format(
+                                                            "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
+                                                            delivery.getEnvelope(), queue, th2Pin
+                                                    ),
+                                                    e
+                                            );
+                                        }
+                                        handle(consumeTag, delivery, value, confirmation);
+                                    }
+                                },
+                                this::canceled
+                        );
+                        LOGGER.info("Start listening queue name='{}', th2 pin='{}'", queue, th2Pin);
+                    } catch (IOException e) {
+                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
+                    }
+                }
+
+                return monitor;
+            });
+        } catch (Exception e) {
+            throw new IllegalStateException("Can not start listening", e);
+        }
+    }
+
     private void resubscribe() {
         LOGGER.info("Try to resubscribe subscriber for queue name='{}'", queue);
 
@@ -261,7 +289,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
 
         try {
-            start();
+            subscribe();
         } catch (Exception e) {
             LOGGER.error("Can not resubscribe subscriber for queue name='{}'", queue);
             healthMetrics.disable();

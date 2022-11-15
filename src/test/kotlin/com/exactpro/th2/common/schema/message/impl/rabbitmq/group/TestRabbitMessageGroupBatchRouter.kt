@@ -22,7 +22,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.SubscriberMonitor
+import com.exactpro.th2.common.schema.message.SubscriberExclusiveMonitor
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
@@ -45,7 +45,7 @@ import org.mockito.kotlin.verify
 
 class TestRabbitMessageGroupBatchRouter {
     private val connectionConfiguration = ConnectionManagerConfiguration()
-    private val monitor: SubscriberMonitor = mock { }
+    private val monitor: SubscriberExclusiveMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
         on { basicConsume(any(), any(), any()) }.thenReturn(monitor)

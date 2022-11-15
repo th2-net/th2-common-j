@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,6 +19,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
+import com.exactpro.th2.common.schema.message.SubscriberExclusiveMonitor
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.appendAttributes
 
@@ -39,21 +40,34 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
         this.groupBatchRouter = groupBatchRouter
     }
 
-    override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
+    override fun subscribeExclusive(callback: MessageListener<T>): SubscriberExclusiveMonitor {
+        return groupBatchRouter.subscribeExclusive { consumerTag: String, message: MessageGroupBatch ->
+            callback.handler(consumerTag, buildFromGroupBatch(message))
+        }
+    }
+
+    override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
         return groupBatchRouter.subscribe(
-            MessageListener { consumerTag: String, message: MessageGroupBatch ->
+            { consumerTag: String, message: MessageGroupBatch ->
                 callback.handler(consumerTag, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 
-    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
+    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
         return groupBatchRouter.subscribeAll(
-            MessageListener { consumerTag: String, message: MessageGroupBatch ->
+            { consumerTag: String, message: MessageGroupBatch ->
                 callback.handler(consumerTag, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
+        )
+    }
+
+    override fun sendExclusive(queue: String, messageBatch: T) {
+        groupBatchRouter.sendExclusive(
+            queue,
+            buildGroupBatch(messageBatch)
         )
     }
 

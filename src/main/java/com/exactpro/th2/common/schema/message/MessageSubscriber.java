@@ -20,12 +20,12 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Listen messages and transmit it to {@link MessageListener}
  */
-@NotThreadSafe
+@ThreadSafe
 public interface MessageSubscriber<T> extends AutoCloseable {
     // Please use constructor for initialization
     @Deprecated(since = "3.3.0", forRemoval = true)
@@ -35,7 +35,14 @@ public interface MessageSubscriber<T> extends AutoCloseable {
     @Deprecated
     void init(@NotNull ConnectionManager connectionManager, @NotNull SubscribeTarget subscribeTarget, @NotNull FilterFunction filterFunc);
 
+    /**
+     * @deprecated subscriber automatically subscribe after adding first listener and
+     * unsubscribe after remove the last one
+     */
+    @Deprecated
     void start() throws Exception;
 
     void addListener(ConfirmationMessageListener<T> messageListener);
+
+    void removeListener(ConfirmationMessageListener<T> messageListener);
 }
