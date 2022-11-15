@@ -308,7 +308,7 @@ class TestConnectionManager {
     }
 
     @Test
-    fun `connection manager handles ack timeout on a single channel`() {
+    fun `connection manager handles ack timeout with several channels`() {
         val configFilename = "rabbitmq_it.conf"
         val queueNames = arrayOf("separate_queues1", "separate_queues2", "separate_queues3")
         val prefetchCount = 10
@@ -324,7 +324,7 @@ class TestConnectionManager {
                 val confirmationTimeout = Duration.ofSeconds(1)
                 val counters = mapOf(
                     queueNames[0] to AtomicInteger(),           // this subscriber won't ack the first delivery
-                    queueNames[1] to AtomicInteger(1),
+                    queueNames[1] to AtomicInteger(-1), // this subscriber won't ack two first deliveries
                     queueNames[2] to AtomicInteger(1)
                 )
                 ConnectionManager(
@@ -351,7 +351,7 @@ class TestConnectionManager {
                         Thread {
                             connectionManager.basicConsume(queue, { _, delivery, ack ->
                                 LOGGER.info { "Received from queue $queue ${delivery.body.toString(Charsets.UTF_8)}" }
-                                if (counters[queue]!!.get() != 0) {
+                                if (counters[queue]!!.get() > 0) {
                                     ack.confirm()
                                     LOGGER.info { "Confirmed message form $queue" }
                                 } else {
@@ -375,7 +375,7 @@ class TestConnectionManager {
 
                     LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
                     LOGGER.info { "Sleeping..." }
-                    Thread.sleep(33000)
+                    Thread.sleep(30000)
 
                     LOGGER.info { "Sending the second message batch" }
                     putMessageInQueue(it, queueNames[0])
@@ -383,7 +383,7 @@ class TestConnectionManager {
                     putMessageInQueue(it, queueNames[2])
 
                     LOGGER.info { "Still sleeping. Waiting for PRECONDITION_FAILED..." }
-                    Thread.sleep(30000)
+                    Thread.sleep(32000)
 
                     LOGGER.info { "Sending the third message batch" }
                     putMessageInQueue(it, queueNames[0])
@@ -402,7 +402,7 @@ class TestConnectionManager {
                     // 0 + 1 failed ack + 2 successful ack + 1 ack of requeued message
                     Assertions.assertEquals(4, counters[queueNames[0]]!!.get())
                     { "Wrong number of received messages from queue ${queueNames[0]}" }
-                    // 1 + 3 successful ack
+                    // -1 + 2 failed ack + 2 ack of requeued message + 1 successful ack
                     Assertions.assertEquals(4, counters[queueNames[1]]!!.get())
                     { "Wrong number of received messages from queue ${queueNames[1]}" }
                     Assertions.assertEquals(4, counters[queueNames[2]]!!.get())
