@@ -15,8 +15,8 @@
 
 package com.exactpro.th2.common.grpc.router
 
-import io.grpc.ForwardingServerCall
-import io.grpc.ForwardingServerCallListener
+import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
+import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.Metadata
 import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
@@ -40,7 +40,7 @@ class ServerGrpcInterceptor (
 
         val methodDetails = call.methodDescriptor.toMethodDetails(pinName)
 
-        val forwardingCall = object : ForwardingServerCall.SimpleForwardingServerCall<ReqT, RespT>(call) {
+        val forwardingCall = object : SimpleForwardingServerCall<ReqT, RespT>(call) {
             override fun sendMessage(message: RespT) {
                 message.publishMetrics(
                     "gRPC ${methodDetails.serviceName}/${methodDetails.methodName} response message sent on '$pinName'",
@@ -53,7 +53,7 @@ class ServerGrpcInterceptor (
 
         val listener = next.startCall(forwardingCall, headers)
 
-        return object : ForwardingServerCallListener.SimpleForwardingServerCallListener<ReqT>(listener) {
+        return object : SimpleForwardingServerCallListener<ReqT>(listener) {
             override fun onMessage(message: ReqT) {
                 message.publishMetrics(
                     "gRPC call received on '$pinName': ${methodDetails.serviceName}/${methodDetails.methodName}",

@@ -17,6 +17,13 @@ package com.exactpro.th2
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Direction.FIRST
+import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.RawMessage
+import com.exactpro.th2.common.message.direction
+import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.sequence
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.DIRECTION_LABEL
@@ -53,8 +60,7 @@ open class MetricsUtilsBenchmark {
         @Setup
         open fun init() {
             messages = batch.groupsList.asSequence()
-                .map(MessageGroup::getMessagesList)
-                .flatMap(List<AnyMessage>::asSequence)
+                .flatMap { it.messagesList.asSequence() }
                 .toList()
 
             messageCounter = Counter.build("message_counter", "Message counter")
@@ -69,7 +75,7 @@ open class MetricsUtilsBenchmark {
                 .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
                 .register()
 
-            println("groups ${batch.groupsCount}, messages ${batch.groupsList.asSequence().map(MessageGroup::getMessagesList).map(List<AnyMessage>::size).sum()}")
+            println("groups ${batch.groupsCount}, messages ${messages.size}")
         }
 
     }
@@ -81,18 +87,10 @@ open class MetricsUtilsBenchmark {
                 repeat(GROUP_IN_BATCH) {
                     addGroupsBuilder().apply {
                         repeat(MESSAGES_IN_GROUP) {
-                            addMessagesBuilder().apply {
-                                rawMessageBuilder.apply {
-                                    metadataBuilder.apply {
-                                        idBuilder.apply {
-                                            direction = Direction.FIRST
-                                            sequence = SEQUENCE_GENERATOR.next()
-                                            connectionIdBuilder.apply {
-                                                sessionAlias = ALIAS
-                                            }
-                                        }
-                                    }
-                                }
+                            this += RawMessage.newBuilder().apply {
+                                direction = FIRST
+                                sequence = SEQUENCE_GENERATOR.next()
+                                sessionAlias = ALIAS
                             }
                         }
                     }
@@ -108,18 +106,10 @@ open class MetricsUtilsBenchmark {
                 repeat(GROUP_IN_BATCH) {
                     addGroupsBuilder().apply {
                         repeat(MESSAGES_IN_GROUP) {
-                            addMessagesBuilder().apply {
-                                rawMessageBuilder.apply {
-                                    metadataBuilder.apply {
-                                        idBuilder.apply {
-                                            direction = DIRECTION_GENERATOR.next()
-                                            sequence = SEQUENCE_GENERATOR.next()
-                                            connectionIdBuilder.apply {
-                                                sessionAlias = ALIAS_GENERATOR.next()
-                                            }
-                                        }
-                                    }
-                                }
+                            this += RawMessage.newBuilder().apply {
+                                direction = DIRECTION_GENERATOR.next()
+                                sequence = SEQUENCE_GENERATOR.next()
+                                sessionAlias = ALIAS_GENERATOR.next()
                             }
                         }
                     }
@@ -207,19 +197,10 @@ open class MetricsUtilsBenchmark {
         private const val GROUP_IN_BATCH = 3_000
         private const val MESSAGES_IN_GROUP = 1
 
-        private val SEQUENCE_GENERATOR = generateSequence(1L) { it + 1 }
-            .iterator()
+        private val SEQUENCE_GENERATOR = generateSequence(1L, Long::inc).iterator()
 
-        private val ALIAS_GENERATOR = sequence {
-            var counter = 0
-            while (true) {
-                yield(counter++ % ALIASES + 1)
-            }
-        }.map { ALIAS + it }
-            .iterator()
+        private val ALIAS_GENERATOR = generateSequence(0L, Long::inc).map { ALIAS + (it % ALIASES + 1) }.iterator()
 
-        private val DIRECTION_GENERATOR = generateSequence(1) { it + 1 }
-            .map { if (it % 2 == 0) Direction.FIRST else Direction.SECOND }
-            .iterator()
+        private val DIRECTION_GENERATOR = generateSequence(0, Int::inc).map { Direction.forNumber(it % 2) }.iterator()
     }
 }
