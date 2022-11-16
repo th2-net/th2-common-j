@@ -15,6 +15,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -213,7 +214,8 @@ public class ConnectionManager implements AutoCloseable {
         factory.setSharedExecutor(sharedExecutor);
 
         try {
-            this.connection = factory.newConnection();
+            connection = factory.newConnection();
+            LOGGER.info("Created RabbitMQ connection {} [{}]", connection, connection.hashCode());
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
@@ -292,7 +294,7 @@ public class ConnectionManager implements AutoCloseable {
     public String queueDeclare() throws IOException {
         ChannelHolder holder = new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
         return holder.mapWithLock( channel -> {
-            String queue = holder.channel.queueDeclare().getQueue();
+            String queue = holder.channel.queueDeclare("", false, true, false, Collections.emptyMap()).getQueue();
             LOGGER.info("Declared exclusive '{}' queue", queue);
             putChannelFor(PinId.forQueue(queue), holder);
             return queue;
@@ -386,6 +388,7 @@ public class ConnectionManager implements AutoCloseable {
             channel.basicQos(configuration.getPrefetchCount());
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
+            LOGGER.info("Created new RabbitMQ channel {} via connection {}", channel.getChannelNumber(), connection.hashCode());
             return channel;
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
@@ -568,7 +571,11 @@ public class ConnectionManager implements AutoCloseable {
         public <T> T mapWithLock(ChannelMapper<T> mapper) throws IOException {
             lock.lock();
             try {
-                return mapper.map(getChannel());
+                Channel channel = getChannel();
+                return mapper.map(channel);
+            } catch (IOException e) {
+                LOGGER.error("Operation failure on the {} channel", channel.getChannelNumber(), e);
+                throw e;
             } finally {
                 lock.unlock();
             }
