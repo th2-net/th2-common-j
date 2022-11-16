@@ -16,5 +16,10 @@
 package com.exactpro.th2.common.schema.grpc.configuration
 
 import com.exactpro.th2.common.schema.configuration.Configuration
+import io.grpc.internal.GrpcUtil
 
-data class GrpcRouterConfiguration(var workers: Int = 1) : Configuration()
+data class GrpcRouterConfiguration(
+    var enableSizeMeasuring: Boolean = false,
+    var keepAliveInterval: Long = 60L,
+    var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
+) : Configuration()

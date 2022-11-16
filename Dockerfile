@@ -1,4 +1,4 @@
-FROM gradle:6.6-jdk11 AS build
+FROM gradle:7.5.1-jdk11 AS build
 ARG release_version
 ARG bintray_user
 ARG bintray_key

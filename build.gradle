@@ -22,6 +22,7 @@ plugins {
     id 'com.google.protobuf' version '0.8.8' apply false
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
     id "org.owasp.dependencycheck" version "7.2.0"
+    id "me.champeau.jmh" version "0.6.8"
 }
 
 group = 'com.exactpro.th2'
@@ -173,6 +174,9 @@ dependencies {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
     api 'com.exactpro.th2:grpc-common:3.11.1'
+
+    jmh 'org.openjdk.jmh:jmh-core:0.9'
+    jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'

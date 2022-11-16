@@ -24,7 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 data class GrpcConfiguration(
     @JsonProperty var services: Map<String, GrpcServiceConfiguration> = emptyMap(),
     @JsonProperty(value = "server") var serverConfiguration: GrpcServerConfiguration = GrpcServerConfiguration(),
-    @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration()
+    @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration(),
 ) : Configuration()
 
 data class GrpcServiceConfiguration(
@@ -61,5 +61,5 @@ data class GrpcRetryConfiguration(
 data class GrpcServerConfiguration(
     var host: String? = "localhost",
     @JsonProperty(required = true) var port: Int = 8080,
-    var workers: Int = 1
+    var workers: Int = 5
 ) : Configuration()
