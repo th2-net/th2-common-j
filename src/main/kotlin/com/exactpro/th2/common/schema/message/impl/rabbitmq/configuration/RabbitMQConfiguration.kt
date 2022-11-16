@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration
 import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.Duration
+import java.util.concurrent.ThreadLocalRandom
 
 data class RabbitMQConfiguration(
     @JsonProperty(required = true) var host: String,
@@ -45,5 +46,50 @@ data class ConnectionManagerConfiguration(
     init {
         check(workingThreads > 0) { "expected 'workingThreads' greater than 0 but was $workingThreads" }
         check(!confirmationTimeout.run { isNegative || isZero }) { "expected 'confirmationTimeout' greater than 0 but was $confirmationTimeout" }
+    }
+
+    fun createRetryingDelaySequence(): Sequence<RetryingDelay> {
+        return generateSequence(RetryingDelay(0, minConnectionRecoveryTimeout)) {
+            RetryingDelay(it.tryNumber + 1, RetryingDelay.getRecoveryDelay(
+                it.tryNumber + 1,
+                minConnectionRecoveryTimeout,
+                maxConnectionRecoveryTimeout,
+                maxRecoveryAttempts,
+                retryTimeDeviationPercent
+            ))
+        }
+    }
+
+}
+
+data class RetryingDelay(val tryNumber: Int, val delay: Int) {
+    companion object {
+        fun getRecoveryDelay(
+            numberOfTries: Int,
+            minTime: Int,
+            maxTime: Int,
+            maxRecoveryAttempts: Int,
+            deviationPercent: Int
+        ): Int {
+            return if (numberOfTries <= maxRecoveryAttempts) {
+                getRecoveryDelayWithIncrement(numberOfTries, minTime, maxTime, maxRecoveryAttempts)
+            } else getRecoveryDelayWithDeviation(maxTime, deviationPercent)
+        }
+
+        private fun getRecoveryDelayWithDeviation(maxTime: Int, deviationPercent: Int): Int {
+            val recoveryDelay: Int
+            val deviation = maxTime * deviationPercent / 100
+            recoveryDelay = ThreadLocalRandom.current().nextInt(maxTime - deviation, maxTime + deviation + 1)
+            return recoveryDelay
+        }
+
+        private fun getRecoveryDelayWithIncrement(
+            numberOfTries: Int,
+            minTime: Int,
+            maxTime: Int,
+            maxRecoveryAttempts: Int
+        ): Int {
+            return minTime + (maxTime - minTime) / maxRecoveryAttempts * numberOfTries
+        }
     }
 }
