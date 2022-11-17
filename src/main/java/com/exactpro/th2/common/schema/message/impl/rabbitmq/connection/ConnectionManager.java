@@ -36,6 +36,7 @@ import com.rabbitmq.client.Method;
 import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
+import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.client.TopologyRecoveryException;
 import com.rabbitmq.client.impl.AMQImpl;
 import com.rabbitmq.client.impl.recovery.AutorecoveringChannel;
@@ -68,7 +69,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -76,7 +76,6 @@ public class ConnectionManager implements AutoCloseable {
 
     private final Connection connection;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
-    private final AtomicInteger connectionRecoveryAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
@@ -91,15 +90,15 @@ public class ConnectionManager implements AutoCloseable {
     private final RecoveryListener recoveryListener = new RecoveryListener() {
         @Override
         public void handleRecovery(Recoverable recoverable) {
-            LOGGER.debug("Count tries to recovery connection reset to 0");
-            connectionRecoveryAttempts.set(0);
             metrics.getReadinessMonitor().enable();
-            LOGGER.debug("Set RabbitMQ readiness to true");
+            LOGGER.debug("Recovery finished. Set RabbitMQ readiness to true");
             metrics.getLivenessMonitor().enable();
         }
 
         @Override
-        public void handleRecoveryStarted(Recoverable recoverable) {}
+        public void handleRecoveryStarted(Recoverable recoverable) {
+            LOGGER.debug("Recovery started...");
+        }
     };
 
     public ConnectionManagerConfiguration getConfiguration() {
@@ -193,20 +192,19 @@ public class ConnectionManager implements AutoCloseable {
         factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get());
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
-                    int tmpCountTriesToRecovery = connectionRecoveryAttempts.getAndIncrement();
                     int minTime = connectionManagerConfiguration.getMinConnectionRecoveryTimeout();
                     int maxTime = connectionManagerConfiguration.getMaxConnectionRecoveryTimeout();
                     int maxRecoveryAttempts = connectionManagerConfiguration.getMaxRecoveryAttempts();
                     int deviationPercent = connectionManagerConfiguration.getRetryTimeDeviationPercent();
 
-                    LOGGER.debug("Try to recovery connection to RabbitMQ. Count tries = {}", tmpCountTriesToRecovery);
-                    int recoveryDelay = RetryingDelay.Companion.getRecoveryDelay(tmpCountTriesToRecovery, minTime, maxTime, maxRecoveryAttempts, deviationPercent);
-                    if (tmpCountTriesToRecovery >= maxRecoveryAttempts && metrics.getLivenessMonitor().isEnabled()) {
-                        LOGGER.debug("Set RabbitMQ liveness to false. Can't recover connection");
+                    LOGGER.debug("Try to recovery connection to RabbitMQ. Count tries = {}", recoveryAttempts);
+                    int recoveryDelay = RetryingDelay.Companion.getRecoveryDelay(recoveryAttempts, minTime, maxTime, maxRecoveryAttempts, deviationPercent);
+                    if (recoveryAttempts >= maxRecoveryAttempts && metrics.getLivenessMonitor().isEnabled()) {
+                        LOGGER.info("Set RabbitMQ liveness to false. Can't recover connection");
                         metrics.getLivenessMonitor().disable();
                     }
 
-                    LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
+                    LOGGER.info("Recovery delay for '{}' try = {}", recoveryAttempts, recoveryDelay);
                     return recoveryDelay;
                 }
         );
@@ -218,6 +216,8 @@ public class ConnectionManager implements AutoCloseable {
         try {
             this.connection = factory.newConnection();
             addShutdownListenerToConnection(this.connection);
+            addBlockedListenersToConnection(this.connection);
+            addRecoveryListenerToConnection(this.connection);
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
         } catch (IOException | TimeoutException e) {
@@ -225,9 +225,6 @@ public class ConnectionManager implements AutoCloseable {
             LOGGER.debug("Set RabbitMQ readiness to false. Can not create connection", e);
             throw new IllegalStateException("Failed to create RabbitMQ connection using configuration", e);
         }
-
-        addBlockedListenersToConnection(this.connection);
-        addRecoveryListenerToConnection(this.connection);
     }
 
     private void addShutdownListenerToChannel(Channel channel, Boolean withRecovery) {
@@ -254,29 +251,33 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
+
+
     private void recoverSubscriptionsOfChannel(Channel channel) {
         channelChecker.execute(() -> {
-            var mapEntries =
-                    channelsByPin
-                            .entrySet()
-                            .stream()
-                            .filter(entry -> Objects.nonNull(entry.getValue().channel) && channel.getChannelNumber() == entry.getValue().channel.getChannelNumber())
-                            .collect(Collectors.toList());
-            for (Map.Entry<PinId, ChannelHolder> mapEntry : mapEntries) {
-                PinId pinId = mapEntry.getKey();
-                SubscriptionCallbacks subscriptionCallbacks = mapEntry.getValue().subscriptionCallbacks;
-                if (subscriptionCallbacks != null) {
+            try {
+                var pinToChannelHolderOptional =
+                        channelsByPin
+                                .entrySet()
+                                .stream()
+                                .filter(entry -> Objects.nonNull(entry.getValue().channel) && channel.getChannelNumber() == entry.getValue().channel.getChannelNumber())
+                                .findAny();
+                if (pinToChannelHolderOptional.isPresent()) {
+                    var pinIdToChannelHolder = pinToChannelHolderOptional.get();
+                    PinId pinId = pinIdToChannelHolder.getKey();
+                    ChannelHolder channelHolder = pinIdToChannelHolder.getValue();
 
-                    try {
+                    SubscriptionCallbacks subscriptionCallbacks = channelHolder.subscriptionCallbacks;
+                    if (subscriptionCallbacks != null) {
                         LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
-
                         channelsByPin.remove(pinId);
                         channel.abort(400, "Aborted because of the recovery");
                         basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
-                    } catch (IOException | InterruptedException e) {
-                        throw new RuntimeException(e);
                     }
                 }
+            } catch (IOException | InterruptedException e) {
+                LOGGER.warn("Exception during channel's subscriptions recovery", e);
+                throw new RuntimeException(e);
             }
         });
     }
@@ -354,13 +355,13 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws InterruptedException {
-        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey));
+        ChannelHolder holder = getOrCreateChannelFor(PinId.forRoutingKey(routingKey));
         holder.retryingPublishWithLock(channel -> channel.basicPublish(exchange, routingKey, props, body), configuration);
     }
 
     public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException, InterruptedException {
         PinId pinId = PinId.forQueue(queue);
-        ChannelHolder holder = getChannelFor(pinId, new SubscriptionCallbacks(deliverCallback, cancelCallback));
+        ChannelHolder holder = getOrCreateChannelFor(pinId, new SubscriptionCallbacks(deliverCallback, cancelCallback));
         String tag = holder.retryingConsumeWithLock(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
                     try {
@@ -372,8 +373,9 @@ public class ConnectionManager implements AutoCloseable {
                         Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, () -> holder.withLock(ch -> {
                             try {
                                 basicAck(ch, deliveryTag);
-                            } catch (Exception e) {
+                            } catch (IOException | ShutdownSignalException e) {
                                 LOGGER.warn("Error during basicAck of message with deliveryTag = {} inside channel #{}: {}", deliveryTag, ch.getChannelNumber(), e);
+                                throw e;
                             } finally {
                                 holder.release(() -> metrics.getReadinessMonitor().enable());
                             }
@@ -435,14 +437,14 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private ChannelHolder getChannelFor(PinId pinId) {
+    private ChannelHolder getOrCreateChannelFor(PinId pinId) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
             return new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
         });
     }
 
-    private ChannelHolder getChannelFor(PinId pinId, SubscriptionCallbacks subscriptionCallbacks) {
+    private ChannelHolder getOrCreateChannelFor(PinId pinId, SubscriptionCallbacks subscriptionCallbacks) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder with callbacks for {}", pinId);
             return new ChannelHolder(() -> createChannelWithOptionalRecovery(true), this::waitForConnectionRecovery, configuration.getPrefetchCount(), subscriptionCallbacks);
@@ -528,7 +530,10 @@ public class ConnectionManager implements AutoCloseable {
 
         @Override
         public void unsubscribe() throws Exception {
-            holder.withLock(false, channel -> action.execute(channel, tag));
+            holder.withLock(false, channel -> {
+                holder.subscriptionCallbacks = null;
+                action.execute(channel, tag);
+            });
         }
     }
 
@@ -586,7 +591,7 @@ public class ConnectionManager implements AutoCloseable {
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
         private final int maxCount;
-        private final SubscriptionCallbacks subscriptionCallbacks;
+        private SubscriptionCallbacks subscriptionCallbacks;
         @GuardedBy("lock")
         private int pending;
         @GuardedBy("lock")
@@ -649,7 +654,7 @@ public class ConnectionManager implements AutoCloseable {
                     try {
                         consumer.consume(tempChannel);
                         break;
-                    } catch (Exception e) {
+                    } catch (IOException | ShutdownSignalException e) {
                         int recoveryDelay = currentValue.getDelay();
                         LOGGER.warn("Retrying publishing #{}, waiting for {}ms, then recreating channel. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);

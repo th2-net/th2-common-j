@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.43.0)
+# th2 common library (Java) (3.42.1)
 
 ## Usage
 
@@ -359,7 +359,7 @@ dependencies {
 
 ## Release notes
 
-### 3.43.0
+### 3.42.1
 + Added retry in case of a RabbitMQ channel or connection error (when possible).
 + Added InterruptedException to basicConsume method signature.
 + Added additional logging for RabbitMQ errors.
