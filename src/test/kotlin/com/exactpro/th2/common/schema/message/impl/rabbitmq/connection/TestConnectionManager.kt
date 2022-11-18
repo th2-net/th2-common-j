@@ -679,18 +679,16 @@ class TestConnectionManager {
                             }
                         }
                         Thread.sleep(2000)
+                        Assertions.assertTrue(thread.isAlive)
                         LOGGER.info { "Interrupting..." }
                         thread.interrupt()
                         LOGGER.info { "Interrupted!" }
-                        Thread.sleep(4000)
+                        Thread.sleep(1000)
                         LOGGER.info { "Sleep done" }
 
                         Assertions.assertFalse(thread.isAlive)
 
-                        Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
-                        Assertions.assertTrue(
-                            getQueuesInfo(it).toString().contains("$queueName\t0")
-                        ) { "There should be no messages left in the queue" }
+                        Assertions.assertEquals(0, counter.get()) { "Wrong number of received messages" }
                     } finally {
                         Assertions.assertDoesNotThrow {
                             monitor?.unsubscribe()
