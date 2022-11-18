@@ -154,7 +154,7 @@ class TestConnectionManager {
                         assertTrue(connectionManager.isReady)
                     } finally {
                         Assertions.assertDoesNotThrow {
-                            monitor?.unsubscribe()
+                            monitor!!.unsubscribe()
                         }
                         thread?.let {
                             thread.interrupt()
@@ -589,12 +589,10 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    var monitor: SubscriberMonitor? = null
                     var thread: Thread? = null
                     try {
                         thread = thread {
-                            // marker that thread is actually running
-                            monitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                            connectionManager.basicConsume(queueName, { _, delivery, ack ->
                                 LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
                                 counter.incrementAndGet()
                                 ack.confirm()
@@ -612,9 +610,6 @@ class TestConnectionManager {
                         assertTarget(false, message = "Thread for consuming isn't stopped", func = thread::isAlive)
                         assertEquals(0, counter.get()) { "Wrong number of received messages" }
                     } finally {
-                        Assertions.assertDoesNotThrow {
-                            monitor?.unsubscribe()
-                        }
                         thread?.let {
                             thread.interrupt()
                             thread.join(100)
@@ -812,8 +807,4 @@ class TestConnectionManager {
         }
     }
 
-
 }
-
-
-
