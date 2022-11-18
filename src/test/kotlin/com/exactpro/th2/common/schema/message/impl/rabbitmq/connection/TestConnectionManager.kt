@@ -34,6 +34,9 @@ import kotlin.concurrent.thread
 import mu.KotlinLogging
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
@@ -51,28 +54,19 @@ class TestConnectionManager {
         val routingKey = "routingKey1"
         val queueName = "queue1"
         val exchange = "test-exchange1"
-        val prefetchCount = 10
         rabbit
             .let {
                 declareQueue(rabbit, queueName)
                 declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val queue = ArrayBlockingQueue<ManualAckDeliveryCallback.Confirmation>(prefetchCount)
-                val countDown = CountDownLatch(prefetchCount)
-                val confirmationTimeout = Duration.ofSeconds(1)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
-                    ConnectionManagerConfiguration(
+                val queue = ArrayBlockingQueue<ManualAckDeliveryCallback.Confirmation>(PREFETCH_COUNT)
+                val countDown = CountDownLatch(PREFETCH_COUNT)
+                createConnectionManager(
+                    it, ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
-                    ),
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                    )
                 ).use { manager ->
                     manager.basicConsume(queueName, { _, delivery, ack ->
                         LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
@@ -82,34 +76,29 @@ class TestConnectionManager {
                         LOGGER.info { "Canceled $it" }
                     }
 
-                    repeat(prefetchCount + 1) { index ->
+                    repeat(PREFETCH_COUNT + 1) { index ->
                         manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
                     }
 
-                    Assertions.assertTrue(
-                        countDown.await(
-                            1L,
-                            TimeUnit.SECONDS
-                        )
-                    ) { "Not all messages were received: ${countDown.count}" }
+                    countDown.assertComplete("Not all messages were received")
 
-                    Assertions.assertTrue(manager.isAlive) { "Manager should still be alive" }
-                    Assertions.assertTrue(manager.isReady) { "Manager should be ready until the confirmation timeout expires" }
+                    assertTrue(manager.isAlive) { "Manager should still be alive" }
+                    assertTrue(manager.isReady) { "Manager should be ready until the confirmation timeout expires" }
 
-                    Thread.sleep(confirmationTimeout.toMillis() + 100/*just in case*/) // wait for confirmation timeout
+                    Thread.sleep(CONFIRMATION_TIMEOUT.toMillis() + 100/*just in case*/) // wait for confirmation timeout
 
-                    Assertions.assertTrue(manager.isAlive) { "Manager should still be alive" }
-                    Assertions.assertFalse(manager.isReady) { "Manager should not be ready" }
+                    assertTrue(manager.isAlive) { "Manager should still be alive" }
+                    assertFalse(manager.isReady) { "Manager should not be ready" }
 
                     queue.poll().confirm()
 
-                    Assertions.assertTrue(manager.isAlive) { "Manager should still be alive" }
-                    Assertions.assertTrue(manager.isReady) { "Manager should be ready" }
+                    assertTrue(manager.isAlive) { "Manager should still be alive" }
+                    assertTrue(manager.isReady) { "Manager should be ready" }
 
                     val receivedData = generateSequence { queue.poll(10L, TimeUnit.MILLISECONDS) }
                         .onEach(ManualAckDeliveryCallback.Confirmation::confirm)
                         .count()
-                    Assertions.assertEquals(prefetchCount, receivedData) { "Unexpected number of messages received" }
+                    assertEquals(PREFETCH_COUNT, receivedData) { "Unexpected number of messages received" }
                 }
             }
     }
@@ -117,24 +106,15 @@ class TestConnectionManager {
     @Test
     fun `connection manager receives a message from a queue that did not exist at the time of subscription`() {
         val wrongQueue = "wrong-queue2"
-        val prefetchCount = 10
         rabbit
-            .let {
-                LOGGER.info { "Started with port ${it.amqpPort}" }
-                val counter = AtomicInteger(0)
-                val confirmationTimeout = Duration.ofSeconds(1)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+            .let { rabbitMQContainer ->
+                LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
+                createConnectionManager(
+                    rabbitMQContainer,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -142,37 +122,42 @@ class TestConnectionManager {
                 ).use { connectionManager ->
                     var thread: Thread? = null
                     try {
+                        val start = CountDownLatch(1)
+                        val consume = CountDownLatch(1)
                         thread = thread {
+                            start.countDown()
                             connectionManager.basicConsume(wrongQueue, { _, delivery, ack ->
                                 LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                                counter.incrementAndGet()
+                                consume.countDown()
                                 ack.confirm()
                             }) {
                                 LOGGER.info { "Canceled $it" }
                             }
                         }
 
-                        LOGGER.info { "creating the queue..." }
-                        declareQueue(it, wrongQueue)
-                        LOGGER.info {
-                            "Adding message to the queue: \n" + putMessageInQueue(
-                                it,
-                                wrongQueue
-                            )
-                        }
-                        LOGGER.info { "queues list: \n ${it.execInContainer("rabbitmqctl", "list_queues")}" }
-
+                        start.assertComplete("Thread for consuming isn't started")
                         // todo check isReady and isAlive, it should be false at some point
-                        Assertions.assertEquals(
-                            1,
-                            counter.get()
-                        ) { "Unexpected number of messages received. The message should be received" }
-                        Assertions.assertTrue(connectionManager.isAlive)
-                        Assertions.assertTrue(connectionManager.isReady)
+//                        assertTarget(false, "Readiness probe doesn't fall down", connectionManager::isReady)
+
+                        LOGGER.info { "creating the queue..." }
+                        declareQueue(rabbitMQContainer, wrongQueue)
+                        assertTarget(false, "Thread for consuming isn't completed", thread::isAlive)
+
+                        LOGGER.info {
+                            "Adding message to the queue:\n${putMessageInQueue(rabbitMQContainer, wrongQueue)}"
+                        }
+                        LOGGER.info { "queues list: \n ${rabbitMQContainer.execInContainer("rabbitmqctl", "list_queues")}" }
+
+                        consume.assertComplete("Unexpected number of messages received. The message should be received")
+
+                        assertTrue(connectionManager.isAlive)
+                        assertTrue(connectionManager.isReady)
                     } finally {
-                        thread?.interrupt()
-                        thread?.join(100)
-                        // assert fail
+                        thread?.let {
+                            thread.interrupt()
+                            thread.join(100)
+                            // todo assert fail
+                        }
                     }
 
                 }
@@ -183,44 +168,34 @@ class TestConnectionManager {
     fun `connection manager sends a message to wrong exchange`() {
         val queueName = "queue3"
         val exchange = "test-exchange3"
-        val prefetchCount = 10
         rabbit
             .let {
                 declareQueue(rabbit, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val confirmationTimeout = Duration.ofSeconds(1)
                 val counter = AtomicInteger(0)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, _ ->
-                            counter.incrementAndGet()
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                        }) {
-                            LOGGER.info { "Canceled $it" }
-                        }
-                    }.start()
+                    connectionManager.basicConsume(queueName, { _, delivery, _ ->
+                        counter.incrementAndGet()
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
 
                     LOGGER.info { "Starting first publishing..." }
                     connectionManager.basicPublish(exchange, "", null, "Hello1".toByteArray(Charsets.UTF_8))
                     Thread.sleep(200)
                     LOGGER.info { "Publication finished!" }
-                    Assertions.assertEquals(
+                    assertEquals(
                         0,
                         counter.get()
                     ) { "Unexpected number of messages received. The first message shouldn't be received" }
@@ -235,7 +210,7 @@ class TestConnectionManager {
                     }
 
                     Thread.sleep(200)
-                    Assertions.assertEquals(
+                    assertEquals(
                         1,
                         counter.get()
                     ) { "Unexpected number of messages received. The second message should be received" }
@@ -248,7 +223,6 @@ class TestConnectionManager {
     fun `connection manager handles ack timeout`() {
         val configFilename = "rabbitmq_it.conf"
         val queueName = "queue4"
-        val prefetchCount = 10
 
         RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
@@ -256,39 +230,30 @@ class TestConnectionManager {
             .use {
                 it.start()
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val confirmationTimeout = Duration.ofSeconds(1)
                 val counter = AtomicInteger(0)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                            if (counter.get() != 0) {
-                                ack.confirm()
-                                LOGGER.info { "Confirmed!" }
-                            } else {
-                                LOGGER.info { "Left this message unacked" }
-                            }
-                            counter.incrementAndGet()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                        if (counter.get() != 0) {
+                            ack.confirm()
+                            LOGGER.info { "Confirmed!" }
+                        } else {
+                            LOGGER.info { "Left this message unacked" }
                         }
-                    }.start()
+                        counter.incrementAndGet()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
 
                     LOGGER.info { "Sending first message" }
                     putMessageInQueue(it, queueName)
@@ -303,8 +268,8 @@ class TestConnectionManager {
                     val queuesListExecResult = getQueuesInfo(it)
                     LOGGER.info { "queues list: \n $queuesListExecResult" }
 
-                    Assertions.assertEquals(3, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
+                    assertEquals(3, counter.get()) { "Wrong number of received messages" }
+                    assertTrue(
                         queuesListExecResult.toString().contains("$queueName\t0")
                     ) { "There should be no messages left in the queue" }
 
@@ -316,7 +281,6 @@ class TestConnectionManager {
     fun `connection manager handles ack timeout with several channels`() {
         val configFilename = "rabbitmq_it.conf"
         val queueNames = arrayOf("separate_queues1", "separate_queues2", "separate_queues3")
-        val prefetchCount = 10
 
         RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
@@ -326,52 +290,43 @@ class TestConnectionManager {
             .use {
                 it.start()
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val confirmationTimeout = Duration.ofSeconds(1)
                 val counters = mapOf(
                     queueNames[0] to AtomicInteger(),           // this subscriber won't ack the first delivery
                     queueNames[1] to AtomicInteger(-1), // this subscriber won't ack two first deliveries
                     queueNames[2] to AtomicInteger(1)
                 )
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
 
-                    fun createThreadAndSubscribe(
+                    fun subscribeOnQueue(
                         queue: String
                     ) {
-                        Thread {
-                            connectionManager.basicConsume(queue, { _, delivery, ack ->
-                                LOGGER.info { "Received from queue $queue ${delivery.body.toString(Charsets.UTF_8)}" }
-                                if (counters[queue]!!.get() > 0) {
-                                    ack.confirm()
-                                    LOGGER.info { "Confirmed message form $queue" }
-                                } else {
-                                    LOGGER.info { "Left this message from $queue unacked" }
-                                }
-                                counters[queue]!!.incrementAndGet()
-                            }, {
-                                LOGGER.info { "Canceled message form queue $queue" }
-                            })
-                        }.start()
+                        connectionManager.basicConsume(queue, { _, delivery, ack ->
+                            LOGGER.info { "Received from queue $queue ${delivery.body.toString(Charsets.UTF_8)}" }
+                            if (counters[queue]!!.get() > 0) {
+                                ack.confirm()
+                                LOGGER.info { "Confirmed message form $queue" }
+                            } else {
+                                LOGGER.info { "Left this message from $queue unacked" }
+                            }
+                            counters[queue]!!.incrementAndGet()
+                        }, {
+                            LOGGER.info { "Canceled message form queue $queue" }
+                        })
                     }
 
-                    createThreadAndSubscribe(queueNames[0])
-                    createThreadAndSubscribe(queueNames[1])
-                    createThreadAndSubscribe(queueNames[2])
+                    subscribeOnQueue(queueNames[0])
+                    subscribeOnQueue(queueNames[1])
+                    subscribeOnQueue(queueNames[2])
 
                     LOGGER.info { "Sending the first message batch" }
                     putMessageInQueue(it, queueNames[0])
@@ -399,18 +354,18 @@ class TestConnectionManager {
                     LOGGER.info { "queues list: \n $queuesListExecResult" }
 
                     for (queueName in queueNames) {
-                        Assertions.assertTrue(queuesListExecResult.toString().contains("$queueName\t0"))
+                        assertTrue(queuesListExecResult.toString().contains("$queueName\t0"))
                         { "There should be no messages left in queue $queueName" }
                     }
 
 
                     // 0 + 1 failed ack + 2 successful ack + 1 ack of requeued message
-                    Assertions.assertEquals(4, counters[queueNames[0]]!!.get())
+                    assertEquals(4, counters[queueNames[0]]!!.get())
                     { "Wrong number of received messages from queue ${queueNames[0]}" }
                     // -1 + 2 failed ack + 2 ack of requeued message + 1 successful ack
-                    Assertions.assertEquals(4, counters[queueNames[1]]!!.get())
+                    assertEquals(4, counters[queueNames[1]]!!.get())
                     { "Wrong number of received messages from queue ${queueNames[1]}" }
-                    Assertions.assertEquals(4, counters[queueNames[2]]!!.get())
+                    assertEquals(4, counters[queueNames[2]]!!.get())
                     { "Wrong number of received messages from queue ${queueNames[2]}" }
 
                 }
@@ -420,7 +375,6 @@ class TestConnectionManager {
     @Test
     fun `connection manager receives a messages after container restart`() {
         val queueName = "queue5"
-        val prefetchCount = 10
         val amqpPort = 5672
         val container = object : RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME)) {
             fun addFixedPort(hostPort: Int, containerPort: Int) {
@@ -436,7 +390,6 @@ class TestConnectionManager {
                 it.start()
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val counter = AtomicInteger(0)
-                val confirmationTimeout = Duration.ofSeconds(1)
                 ConnectionManager(
                     RabbitMQConfiguration(
                         host = it.host,
@@ -447,8 +400,8 @@ class TestConnectionManager {
                     ),
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 1000,
                         maxConnectionRecoveryTimeout = 2000,
                         connectionTimeout = 1000,
@@ -456,15 +409,13 @@ class TestConnectionManager {
                     ),
                 ).use { connectionManager ->
 
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                            counter.incrementAndGet()
-                            ack.confirm()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
-                        }
-                    }.start()
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                        counter.incrementAndGet()
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
                     LOGGER.info { "Rabbit address- ${it.host}:${it.amqpPort}" }
 
                     LOGGER.info { "Restarting the container" }
@@ -482,8 +433,8 @@ class TestConnectionManager {
                     restartContainer(it)
                     Thread.sleep(5000)
 
-                    Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
+                    assertEquals(1, counter.get()) { "Wrong number of received messages" }
+                    assertTrue(
                         getQueuesInfo(it).toString().contains("$queueName\t0")
                     ) { "There should be no messages left in the queue" }
 
@@ -494,7 +445,6 @@ class TestConnectionManager {
     @Test
     fun `connection manager publish a message and receives it`() {
         val queueName = "queue6"
-        val prefetchCount = 10
         val exchange = "test-exchange6"
         val routingKey = "routingKey6"
 
@@ -502,19 +452,12 @@ class TestConnectionManager {
             .let {
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val counter = AtomicInteger(0)
-                val confirmationTimeout = Duration.ofSeconds(1)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 10000,
                         maxConnectionRecoveryTimeout = 20000,
                         connectionTimeout = 10000,
@@ -527,20 +470,18 @@ class TestConnectionManager {
 
                     connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
 
-                    Thread.sleep(500)
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                            counter.incrementAndGet()
-                            ack.confirm()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
-                        }
-                    }.start()
-                    Thread.sleep(500)
+                    Thread.sleep(200)
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                        counter.incrementAndGet()
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
+                    Thread.sleep(200)
 
-                    Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
+                    assertEquals(1, counter.get()) { "Wrong number of received messages" }
+                    assertTrue(
                         getQueuesInfo(it).toString().contains("$queueName\t0")
                     ) { "There should be no messages left in the queue" }
 
@@ -555,7 +496,6 @@ class TestConnectionManager {
         val exchange = "test-exchange7"
         val routingKey = "routingKey7"
 
-        val prefetchCount = 10
 
         RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
@@ -565,39 +505,30 @@ class TestConnectionManager {
             .use {
                 it.start()
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val confirmationTimeout = Duration.ofSeconds(1)
                 val counter = AtomicInteger(0)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} " }
-                            if (counter.get() != 0) {
-                                ack.confirm()
-                                LOGGER.info { "Confirmed!" }
-                            } else {
-                                LOGGER.info { "Left this message unacked" }
-                            }
-                            counter.incrementAndGet()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} " }
+                        if (counter.get() != 0) {
+                            ack.confirm()
+                            LOGGER.info { "Confirmed!" }
+                        } else {
+                            LOGGER.info { "Left this message unacked" }
                         }
-                    }.start()
+                        counter.incrementAndGet()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
 
 
                     LOGGER.info { "Sending the first message" }
@@ -619,8 +550,8 @@ class TestConnectionManager {
                     val queuesListExecResult = getQueuesInfo(it)
                     LOGGER.info { "queues list: \n $queuesListExecResult" }
 
-                    Assertions.assertEquals(4, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
+                    assertEquals(4, counter.get()) { "Wrong number of received messages" }
+                    assertTrue(
                         queuesListExecResult.toString().contains("$queueName\t0")
                     ) { "There should be no messages left in the queue" }
 
@@ -631,35 +562,22 @@ class TestConnectionManager {
     @Test
     fun `thread interruption test`() {
         val queueName = "queue8"
-        val prefetchCount = 10
         rabbit
             .let {
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val counter = AtomicInteger(0)
-                val confirmationTimeout = Duration.ofSeconds(1)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 2000,
                         connectionTimeout = 1000,
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-
-//                    declareQueue(it, queueName)
-//                    declareFanoutExchangeWithBinding(it, exchange, queueName)
-//
-//                    connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
 
                     val thread = Thread {
                         // marker that thread is actually running
@@ -694,24 +612,16 @@ class TestConnectionManager {
     @Test
     fun `connection manager handles subscription cancel`() {
         val queueName = "queue9"
-        val prefetchCount = 10
         rabbit
             .let {
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 val counter = AtomicInteger(0)
-                val confirmationTimeout = Duration.ofSeconds(1)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 2000,
                         connectionTimeout = 1000,
@@ -740,8 +650,8 @@ class TestConnectionManager {
                         Thread.sleep(1000)
                     }
 
-                    Assertions.assertEquals(3, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
+                    assertEquals(3, counter.get()) { "Wrong number of received messages" }
+                    assertTrue(
                         getQueuesInfo(it).toString().contains("$queueName\t2")
                     ) { "There should be messages in the queue" }
 
@@ -753,7 +663,6 @@ class TestConnectionManager {
     fun `connection manager handles ack timeout and subscription cancel`() {
         val configFilename = "rabbitmq_it.conf"
         val queueName = "queue"
-        val prefetchCount = 10
 
         RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
@@ -761,20 +670,13 @@ class TestConnectionManager {
             .use {
                 it.start()
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val confirmationTimeout = Duration.ofSeconds(1)
                 val counter = AtomicInteger(0)
-                ConnectionManager(
-                    RabbitMQConfiguration(
-                        host = it.host,
-                        vHost = "",
-                        port = it.amqpPort,
-                        username = it.adminUsername,
-                        password = it.adminPassword,
-                    ),
+                createConnectionManager(
+                    it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = prefetchCount,
-                        confirmationTimeout = confirmationTimeout,
+                        prefetchCount = PREFETCH_COUNT,
+                        confirmationTimeout = CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -815,8 +717,8 @@ class TestConnectionManager {
                     val queuesListExecResult = getQueuesInfo(it)
                     LOGGER.info { "queues list: \n $queuesListExecResult" }
 
-                    Assertions.assertEquals(2, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
+                    assertEquals(2, counter.get()) { "Wrong number of received messages" }
+                    assertTrue(
                         queuesListExecResult.toString().contains("$queueName\t1")
                     ) { "There should a message left in the queue" }
 
@@ -824,10 +726,42 @@ class TestConnectionManager {
             }
     }
 
+    private fun CountDownLatch.assertComplete(message: String) {
+        assertTrue(
+            await(
+                1L,
+                TimeUnit.SECONDS
+            )
+        ) { "$message, actual count: $count" }
+    }
+
+    private fun assertTarget(target: Boolean, message: String, func: () -> Boolean) {
+        val start = System.currentTimeMillis()
+        while (System.currentTimeMillis() - start < 1_000) {
+            if (func() == target) {
+                return
+            }
+        }
+        assertEquals(target, func(), message)
+    }
+    private fun createConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
+        ConnectionManager(
+            RabbitMQConfiguration(
+                host = container.host,
+                vHost = "",
+                port = container.amqpPort,
+                username = container.adminUsername,
+                password = container.adminPassword,
+            ),
+            configuration
+        )
+
     companion object {
 
         private const val RABBIT_IMAGE_NAME = "rabbitmq:3.8-management-alpine"
         private lateinit var rabbit: RabbitMQContainer
+        private const val PREFETCH_COUNT = 10
+        private val CONFIRMATION_TIMEOUT = Duration.ofSeconds(1)
 
         @BeforeAll
         @JvmStatic
