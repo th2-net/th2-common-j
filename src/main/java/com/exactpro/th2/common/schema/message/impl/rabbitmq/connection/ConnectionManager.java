@@ -91,13 +91,13 @@ public class ConnectionManager implements AutoCloseable {
         @Override
         public void handleRecovery(Recoverable recoverable) {
             metrics.getReadinessMonitor().enable();
-            LOGGER.debug("Recovery finished. Set RabbitMQ readiness to true");
+            LOGGER.info("Recovery finished. Set RabbitMQ readiness to true");
             metrics.getLivenessMonitor().enable();
         }
 
         @Override
         public void handleRecoveryStarted(Recoverable recoverable) {
-            LOGGER.debug("Recovery started...");
+            LOGGER.warn("Recovery started...");
         }
     };
 
@@ -668,24 +668,38 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) throws InterruptedException {
-            Iterator<RetryingDelay> iterator = configuration.createRetryingDelaySequence().iterator();
             lock.lock();
             try {
+                Iterator<RetryingDelay> iterator = null;
                 Channel tempChannel = getChannel();
                 while (true) {
-                    RetryingDelay currentValue = iterator.next();
                     try {
                         return mapper.map(tempChannel);
-                    } catch (Exception e) {
-                        int recoveryDelay = currentValue.getDelay();
-                        LOGGER.warn("Retrying consume #{}, waiting for {}ms, then recreating channel. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
-                        TimeUnit.MILLISECONDS.sleep(recoveryDelay);
+                    } catch (IOException e) {
+                        iterator = handleAndSleep(configuration, iterator, "Retrying consume", e);
+                    } catch (ShutdownSignalException e) {
+                        iterator = handleAndSleep(configuration, iterator, "Retrying consume", e);
                         tempChannel = recreateChannel();
                     }
                 }
             } finally {
                 lock.unlock();
             }
+        }
+
+        @NotNull
+        private static Iterator<RetryingDelay> handleAndSleep(
+                ConnectionManagerConfiguration configuration,
+                Iterator<RetryingDelay> iterator,
+                String comment,
+                Exception e) throws InterruptedException {
+            iterator = iterator == null ? configuration.createRetryingDelaySequence().iterator() : iterator;
+            RetryingDelay currentValue = iterator.next();
+            int recoveryDelay = currentValue.getDelay();
+
+            LOGGER.warn("{} #{}, waiting for {} ms, then recreating channel. Reason: {}", comment, currentValue.getTryNumber(), recoveryDelay, e);
+            TimeUnit.MILLISECONDS.sleep(recoveryDelay);
+            return iterator;
         }
 
         /**
