@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
 import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
+import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareFanoutExchangeWithBinding
@@ -121,7 +122,7 @@ class TestConnectionManager {
         rabbit
             .let {
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val counter = AtomicInteger(0)
+                val counter = CountDownLatch(1)
                 val confirmationTimeout = Duration.ofSeconds(1)
                 ConnectionManager(
                     RabbitMQConfiguration(
@@ -141,11 +142,12 @@ class TestConnectionManager {
                     ),
                 ).use { connectionManager ->
                     var thread: Thread? = null
+                    var monitor: SubscriberMonitor? = null
                     try {
                         thread = thread {
-                            connectionManager.basicConsume(wrongQueue, { _, delivery, ack ->
+                            monitor = connectionManager.basicConsume(wrongQueue, { _, delivery, ack ->
                                 LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                                counter.incrementAndGet()
+                                counter.countDown()
                                 ack.confirm()
                             }) {
                                 LOGGER.info { "Canceled $it" }
@@ -164,15 +166,20 @@ class TestConnectionManager {
 
                         // todo check isReady and isAlive, it should be false at some point
                         Assertions.assertEquals(
-                            1,
-                            counter.get()
+                            0,
+                            counter.count
                         ) { "Unexpected number of messages received. The message should be received" }
                         Assertions.assertTrue(connectionManager.isAlive)
                         Assertions.assertTrue(connectionManager.isReady)
                     } finally {
+                        counter.await()
+                        Assertions.assertDoesNotThrow {
+                            monitor?.unsubscribe()
+                        }
                         thread?.interrupt()
                         thread?.join(100)
-                        // assert fail
+                        Assertions.assertNotNull(thread)
+                        Assertions.assertFalse(thread!!.isAlive)
                     }
 
                 }
@@ -207,36 +214,44 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    connectionManager.basicConsume(queueName, { _, delivery, _ ->
-                        counter.incrementAndGet()
-                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                    }) {
-                        LOGGER.info { "Canceled $it" }
+                    var monitor: SubscriberMonitor? = null
+                    try {
+                        monitor = connectionManager.basicConsume(queueName, { _, delivery, _ ->
+                            counter.incrementAndGet()
+                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                        }) {
+                            LOGGER.info { "Canceled $it" }
+                        }
+
+                        LOGGER.info { "Starting first publishing..." }
+                        connectionManager.basicPublish(exchange, "", null, "Hello1".toByteArray(Charsets.UTF_8))
+                        Thread.sleep(200)
+                        LOGGER.info { "Publication finished!" }
+                        Assertions.assertEquals(
+                            0,
+                            counter.get()
+                        ) { "Unexpected number of messages received. The first message shouldn't be received" }
+                        Thread.sleep(200)
+                        LOGGER.info { "Creating the correct exchange..." }
+                        declareFanoutExchangeWithBinding(it, exchange, queueName)
+                        Thread.sleep(200)
+                        LOGGER.info { "Exchange created!" }
+
+                        Assertions.assertDoesNotThrow {
+                            connectionManager.basicPublish(exchange, "", null, "Hello2".toByteArray(Charsets.UTF_8))
+                        }
+
+                        Thread.sleep(200)
+                        Assertions.assertEquals(
+                            1,
+                            counter.get()
+                        ) { "Unexpected number of messages received. The second message should be received" }
+                    } finally {
+                        Assertions.assertNotNull(monitor)
+                        Assertions.assertDoesNotThrow {
+                            monitor!!.unsubscribe()
+                        }
                     }
-
-                    LOGGER.info { "Starting first publishing..." }
-                    connectionManager.basicPublish(exchange, "", null, "Hello1".toByteArray(Charsets.UTF_8))
-                    Thread.sleep(200)
-                    LOGGER.info { "Publication finished!" }
-                    Assertions.assertEquals(
-                        0,
-                        counter.get()
-                    ) { "Unexpected number of messages received. The first message shouldn't be received" }
-                    Thread.sleep(200)
-                    LOGGER.info { "Creating the correct exchange..." }
-                    declareFanoutExchangeWithBinding(it, exchange, queueName)
-                    Thread.sleep(200)
-                    LOGGER.info { "Exchange created!" }
-
-                    Assertions.assertDoesNotThrow {
-                        connectionManager.basicPublish(exchange, "", null, "Hello2".toByteArray(Charsets.UTF_8))
-                    }
-
-                    Thread.sleep(200)
-                    Assertions.assertEquals(
-                        1,
-                        counter.get()
-                    ) { "Unexpected number of messages received. The second message should be received" }
 
                 }
             }
@@ -513,26 +528,33 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
+                    var monitor: SubscriberMonitor? = null
+                    try {
+                        declareQueue(it, queueName)
+                        declareFanoutExchangeWithBinding(it, exchange, queueName)
 
-                    declareQueue(it, queueName)
-                    declareFanoutExchangeWithBinding(it, exchange, queueName)
+                        connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
 
-                    connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
+                        Thread.sleep(200)
+                        monitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                            counter.incrementAndGet()
+                            ack.confirm()
+                        }) {
+                            LOGGER.info { "Canceled $it" }
+                        }
+                        Thread.sleep(200)
 
-                    Thread.sleep(200)
-                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                        counter.incrementAndGet()
-                        ack.confirm()
-                    }) {
-                        LOGGER.info { "Canceled $it" }
+                        Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
+                        Assertions.assertTrue(
+                            getQueuesInfo(it).toString().contains("$queueName\t0")
+                        ) { "There should be no messages left in the queue" }
+                    } finally {
+                        Assertions.assertNotNull(monitor)
+                        Assertions.assertDoesNotThrow {
+                            monitor!!.unsubscribe()
+                        }
                     }
-                    Thread.sleep(200)
-
-                    Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
-                        getQueuesInfo(it).toString().contains("$queueName\t0")
-                    ) { "There should be no messages left in the queue" }
 
                 }
             }
@@ -643,33 +665,41 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-
-                    val thread = Thread {
-                        // marker that thread is actually running
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                            counter.incrementAndGet()
-                            ack.confirm()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
+                    var monitor: SubscriberMonitor? = null
+                    var thread: Thread? = null
+                    try {
+                        thread = thread {
+                            // marker that thread is actually running
+                            monitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                                LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                                counter.incrementAndGet()
+                                ack.confirm()
+                            }) {
+                                LOGGER.info { "Canceled $it" }
+                            }
                         }
+                        Thread.sleep(2000)
+                        LOGGER.info { "Interrupting..." }
+                        thread.interrupt()
+                        LOGGER.info { "Interrupted!" }
+                        Thread.sleep(4000)
+                        LOGGER.info { "Sleep done" }
+
+                        Assertions.assertFalse(thread.isAlive)
+
+                        Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
+                        Assertions.assertTrue(
+                            getQueuesInfo(it).toString().contains("$queueName\t0")
+                        ) { "There should be no messages left in the queue" }
+                    } finally {
+                        Assertions.assertDoesNotThrow {
+                            monitor?.unsubscribe()
+                        }
+                        Assertions.assertNotNull(thread)
+                        thread?.interrupt()
+                        thread?.join(100)
+                        Assertions.assertFalse(thread!!.isAlive)
                     }
-                    thread.start()
-                    Thread.sleep(2000)
-                    LOGGER.info { "Interrupting..." }
-                    thread.interrupt()
-                    LOGGER.info { "Interrupted!" }
-                    // todo try join
-                    Thread.sleep(4000)
-                    LOGGER.info { "Sleep done" }
-
-// todo                    assert thread.isAlive
-
-//                    Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
-//                    Assertions.assertTrue(
-//                        getQueuesInfo(it).toString().contains("$queueName\t0")
-//                    ) { "There should be no messages left in the queue" }
-
                 }
             }
     }
@@ -702,31 +732,40 @@ class TestConnectionManager {
                     ),
                 ).use { connectionManager ->
 
-                    declareQueue(it, queueName)
+                    var thread: Thread? = null
+                    var monitor: SubscriberMonitor?
+                    try {
+                        declareQueue(it, queueName)
 
-                    val thread = Thread {
-                        val subscriberMonitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                            counter.incrementAndGet()
-                            ack.confirm()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
+                        thread = thread {
+                            monitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                                LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                                counter.incrementAndGet()
+                                ack.confirm()
+                            }) {
+                                LOGGER.info { "Canceled $it" }
+                            }
+
+                            Thread.sleep(3500)
+                            LOGGER.info { "Unsubscribing..." }
+                            monitor!!.unsubscribe()
+                        }
+                        for (i in 1..5) {
+                            putMessageInQueue(it, queueName)
+                            Thread.sleep(1000)
                         }
 
-                        Thread.sleep(3500)
-                        LOGGER.info { "Unsubscribing..." }
-                        subscriberMonitor.unsubscribe()
+                        Assertions.assertEquals(3, counter.get()) { "Wrong number of received messages" }
+                        Assertions.assertTrue(
+                            getQueuesInfo(it).toString().contains("$queueName\t2")
+                        ) { "There should be messages in the queue" }
+                    } finally {
+                        Assertions.assertNotNull(thread)
+                        Assertions.assertDoesNotThrow {
+                            thread!!.interrupt()
+                        }
+                        Assertions.assertFalse(thread!!.isAlive)
                     }
-                    thread.start()
-                    for (i in 1..5) {
-                        putMessageInQueue(it, queueName)
-                        Thread.sleep(1000)
-                    }
-
-                    Assertions.assertEquals(3, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
-                        getQueuesInfo(it).toString().contains("$queueName\t2")
-                    ) { "There should be messages in the queue" }
 
                 }
             }
@@ -763,46 +802,54 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    Thread {
-                        val subscriberMonitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                            if (counter.get() == 0) {
-                                ack.confirm()
-                                LOGGER.info { "Confirmed!" }
-                            } else {
-                                LOGGER.info { "Left this message unacked" }
+                    var thread: Thread? = null
+                    try {
+                        thread = thread {
+                            val subscriberMonitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                                LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                                if (counter.get() == 0) {
+                                    ack.confirm()
+                                    LOGGER.info { "Confirmed!" }
+                                } else {
+                                    LOGGER.info { "Left this message unacked" }
+                                }
+                                counter.incrementAndGet()
+                            }) {
+                                LOGGER.info { "Canceled $it" }
                             }
-                            counter.incrementAndGet()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
+
+                            Thread.sleep(30000)
+                            LOGGER.info { "Unsubscribing..." }
+                            subscriberMonitor.unsubscribe()
                         }
 
-                        Thread.sleep(30000)
-                        LOGGER.info { "Unsubscribing..." }
-                        subscriberMonitor.unsubscribe()
-                    }.start()
+                        LOGGER.info { "Sending first message" }
+                        putMessageInQueue(it, queueName)
 
-                    LOGGER.info { "Sending first message" }
-                    putMessageInQueue(it, queueName)
+                        LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
 
-                    LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
+                        LOGGER.info { "Sending second message" }
+                        putMessageInQueue(it, queueName)
+                        LOGGER.info { "Sleeping..." }
+                        Thread.sleep(63000)
 
-                    LOGGER.info { "Sending second message" }
-                    putMessageInQueue(it, queueName)
-                    LOGGER.info { "Sleeping..." }
-                    Thread.sleep(63000)
-
-                    LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
+                        LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
 
 
-                    val queuesListExecResult = getQueuesInfo(it)
-                    LOGGER.info { "queues list: \n $queuesListExecResult" }
+                        val queuesListExecResult = getQueuesInfo(it)
+                        LOGGER.info { "queues list: \n $queuesListExecResult" }
 
-                    Assertions.assertEquals(2, counter.get()) { "Wrong number of received messages" }
-                    Assertions.assertTrue(
-                        queuesListExecResult.toString().contains("$queueName\t1")
-                    ) { "There should a message left in the queue" }
-
+                        Assertions.assertEquals(2, counter.get()) { "Wrong number of received messages" }
+                        Assertions.assertTrue(
+                            queuesListExecResult.toString().contains("$queueName\t1")
+                        ) { "There should a message left in the queue" }
+                    } finally {
+                        Assertions.assertNotNull(thread)
+                        Assertions.assertDoesNotThrow {
+                            thread!!.interrupt()
+                        }
+                        Assertions.assertFalse(thread!!.isAlive)
+                    }
                 }
             }
     }
