@@ -26,21 +26,20 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Subscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
-
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
 import io.prometheus.client.Histogram.Timer;
-
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -73,7 +72,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private boolean hasManualSubscriber = false;
 
     protected final String th2Pin;
-    private final CopyOnWriteArrayList<ConfirmationMessageListener<T>> listeners = new CopyOnWriteArrayList<>();
+    private final Set<ConfirmationMessageListener<T>> listeners = ConcurrentHashMap.newKeySet();
     private final String queue;
     private final ConnectionManager connectionManager;
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
@@ -125,7 +124,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                             + " because only one listener with manual confirmation is allowed per queue");
                 }
             }
-            if(listeners.addIfAbsent(messageListener)) {
+            if(listeners.add(messageListener)) {
                 hasManualSubscriber |= isManual;
                 subscribe();
             }
@@ -157,7 +156,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 monitor.unsubscribe();
             }
 
-            ListIterator<ConfirmationMessageListener<T>> listIterator = listeners.listIterator();
+            Iterator<ConfirmationMessageListener<T>> listIterator = listeners.iterator();
             while (listIterator.hasNext()) {
                 ConfirmationMessageListener<T> listener = listIterator.next();
                 listIterator.remove();
