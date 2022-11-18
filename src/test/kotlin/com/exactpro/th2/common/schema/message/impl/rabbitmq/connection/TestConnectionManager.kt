@@ -135,13 +135,13 @@ class TestConnectionManager {
                             }
                         }
 
-                        assertTarget(true, "Thread for consuming isn't started", thread::isAlive)
+                        assertTarget(true, message = "Thread for consuming isn't started", func = thread::isAlive)
                         // todo check isReady and isAlive, it should be false at some point
 //                        assertTarget(false, "Readiness probe doesn't fall down", connectionManager::isReady)
 
                         LOGGER.info { "creating the queue..." }
                         declareQueue(rabbitMQContainer, wrongQueue)
-                        assertTarget(false, "Thread for consuming isn't completed", thread::isAlive)
+                        assertTarget(false, message = "Thread for consuming isn't completed", func = thread::isAlive)
 
                         LOGGER.info {
                             "Adding message to the queue:\n${putMessageInQueue(rabbitMQContainer, wrongQueue)}"
@@ -241,7 +241,7 @@ class TestConnectionManager {
             .use {
                 it.start()
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val counter = AtomicInteger(0)
+
                 createConnectionManager(
                     it,
                     ConnectionManagerConfiguration(
@@ -253,25 +253,23 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
+                    val consume = CountDownLatch(3)
+
                     connectionManager.basicConsume(queueName, { _, delivery, ack ->
                         LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                        if (counter.get() != 0) {
-                            ack.confirm()
-                            LOGGER.info { "Confirmed!" }
-                        } else {
-                            LOGGER.info { "Left this message unacked" }
-                        }
-                        counter.incrementAndGet()
+                        consume.countDown()
                     }) {
                         LOGGER.info { "Canceled $it" }
                     }
 
                     LOGGER.info { "Sending first message" }
                     putMessageInQueue(it, queueName)
+                    assertTarget(3 - 1, message = "Consume first message") { consume.count }
 
                     LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
-                    LOGGER.info { "Sleeping..." }
-                    Thread.sleep(63000)
+                    LOGGER.info { "Waiting for ack timeout ..." }
+
+                    assertTarget(3 - 2, 63_000,"Consume first message again") { consume.count }
 
                     LOGGER.info { "Sending second message" }
                     putMessageInQueue(it, queueName)
@@ -279,9 +277,9 @@ class TestConnectionManager {
                     val queuesListExecResult = getQueuesInfo(it)
                     LOGGER.info { "queues list: \n $queuesListExecResult" }
 
-                    assertEquals(3, counter.get()) { "Wrong number of received messages" }
+                    consume.assertComplete("Wrong number of received messages")
                     assertTrue(
-                        queuesListExecResult.toString().contains("$queueName\t0")
+                        queuesListExecResult.toString().contains("$queueName\t2")
                     ) { "There should be no messages left in the queue" }
 
                 }
@@ -605,16 +603,16 @@ class TestConnectionManager {
                             }
                         }
                         Thread.sleep(2000)
-                        Assertions.assertTrue(thread.isAlive)
+                        assertTrue(thread.isAlive)
                         LOGGER.info { "Interrupting..." }
                         thread.interrupt()
                         LOGGER.info { "Interrupted!" }
                         Thread.sleep(1000)
                         LOGGER.info { "Sleep done" }
 
-                        Assertions.assertFalse(thread.isAlive)
+                        assertFalse(thread.isAlive)
 
-                        Assertions.assertEquals(0, counter.get()) { "Wrong number of received messages" }
+                        assertEquals(0, counter.get()) { "Wrong number of received messages" }
                     } finally {
                         Assertions.assertDoesNotThrow {
                             monitor?.unsubscribe()
@@ -622,7 +620,7 @@ class TestConnectionManager {
                         Assertions.assertNotNull(thread)
                         thread?.interrupt()
                         thread?.join(100)
-                        Assertions.assertFalse(thread!!.isAlive)
+                        assertFalse(thread!!.isAlive)
                     }
                 }
             }
@@ -680,7 +678,7 @@ class TestConnectionManager {
                         Assertions.assertDoesNotThrow {
                             thread!!.interrupt()
                         }
-                        Assertions.assertFalse(thread!!.isAlive)
+                        assertFalse(thread!!.isAlive)
                     }
 
                 }
@@ -756,7 +754,7 @@ class TestConnectionManager {
                         Assertions.assertDoesNotThrow {
                             thread!!.interrupt()
                         }
-                        Assertions.assertFalse(thread!!.isAlive)
+                        assertFalse(thread!!.isAlive)
                     }
                 }
             }
@@ -771,13 +769,13 @@ class TestConnectionManager {
         ) { "$message, actual count: $count" }
     }
 
-    private fun assertTarget(target: Boolean, message: String, func: () -> Boolean) {
+    private fun <T> assertTarget(target: T, timeout: Long = 1_000, message: String, func: () -> T) {
         val start = System.currentTimeMillis()
-        while (System.currentTimeMillis() - start < 1_000) {
+        while (System.currentTimeMillis() - start < timeout) {
             if (func() == target) {
                 return
             }
-            Thread.yield()
+            Thread.sleep(100)
         }
         assertEquals(target, func(), message)
     }
