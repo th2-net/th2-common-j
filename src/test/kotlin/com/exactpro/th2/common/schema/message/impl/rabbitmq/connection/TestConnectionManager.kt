@@ -602,25 +602,24 @@ class TestConnectionManager {
                                 LOGGER.info { "Canceled $it" }
                             }
                         }
-                        Thread.sleep(2000)
+
+                        assertTarget(true, message = "Thread for consuming isn't started", func = thread::isAlive)
+                        Thread.sleep(1000)
                         assertTrue(thread.isAlive)
                         LOGGER.info { "Interrupting..." }
                         thread.interrupt()
                         LOGGER.info { "Interrupted!" }
-                        Thread.sleep(1000)
-                        LOGGER.info { "Sleep done" }
-
-                        assertFalse(thread.isAlive)
-
+                        assertTarget(false, message = "Thread for consuming isn't stopped", func = thread::isAlive)
                         assertEquals(0, counter.get()) { "Wrong number of received messages" }
                     } finally {
                         Assertions.assertDoesNotThrow {
                             monitor?.unsubscribe()
                         }
-                        Assertions.assertNotNull(thread)
-                        thread?.interrupt()
-                        thread?.join(100)
-                        assertFalse(thread!!.isAlive)
+                        thread?.let {
+                            thread.interrupt()
+                            thread.join(100)
+                            assertFalse(thread.isAlive)
+                        }
                     }
                 }
             }
