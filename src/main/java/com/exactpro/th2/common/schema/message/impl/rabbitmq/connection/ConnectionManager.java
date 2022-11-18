@@ -515,7 +515,7 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicAck(deliveryTag, false);
     }
 
-    private static class RabbitMqSubscriberMonitor implements SubscriberMonitor {
+    private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
 
         private final ChannelHolder holder;
         private final String tag;
@@ -531,8 +531,9 @@ public class ConnectionManager implements AutoCloseable {
         @Override
         public void unsubscribe() throws Exception {
             holder.withLock(false, channel -> {
-                holder.subscriptionCallbacks = null;
+                channelsByPin.values().remove(holder);
                 action.execute(channel, tag);
+                channel.abort();
             });
         }
     }
@@ -591,7 +592,7 @@ public class ConnectionManager implements AutoCloseable {
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
         private final int maxCount;
-        private SubscriptionCallbacks subscriptionCallbacks;
+        private final SubscriptionCallbacks subscriptionCallbacks;
         @GuardedBy("lock")
         private int pending;
         @GuardedBy("lock")

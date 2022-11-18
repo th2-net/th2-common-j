@@ -207,14 +207,12 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, _ ->
-                            counter.incrementAndGet()
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                        }) {
-                            LOGGER.info { "Canceled $it" }
-                        }
-                    }.start()
+                    connectionManager.basicConsume(queueName, { _, delivery, _ ->
+                        counter.incrementAndGet()
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
 
                     LOGGER.info { "Starting first publishing..." }
                     connectionManager.basicPublish(exchange, "", null, "Hello1".toByteArray(Charsets.UTF_8))
@@ -275,20 +273,18 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                            if (counter.get() != 0) {
-                                ack.confirm()
-                                LOGGER.info { "Confirmed!" }
-                            } else {
-                                LOGGER.info { "Left this message unacked" }
-                            }
-                            counter.incrementAndGet()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                        if (counter.get() != 0) {
+                            ack.confirm()
+                            LOGGER.info { "Confirmed!" }
+                        } else {
+                            LOGGER.info { "Left this message unacked" }
                         }
-                    }.start()
+                        counter.incrementAndGet()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
 
                     LOGGER.info { "Sending first message" }
                     putMessageInQueue(it, queueName)
@@ -350,28 +346,26 @@ class TestConnectionManager {
                     ),
                 ).use { connectionManager ->
 
-                    fun createThreadAndSubscribe(
+                    fun subscribeOnQueue(
                         queue: String
                     ) {
-                        Thread {
-                            connectionManager.basicConsume(queue, { _, delivery, ack ->
-                                LOGGER.info { "Received from queue $queue ${delivery.body.toString(Charsets.UTF_8)}" }
-                                if (counters[queue]!!.get() > 0) {
-                                    ack.confirm()
-                                    LOGGER.info { "Confirmed message form $queue" }
-                                } else {
-                                    LOGGER.info { "Left this message from $queue unacked" }
-                                }
-                                counters[queue]!!.incrementAndGet()
-                            }, {
-                                LOGGER.info { "Canceled message form queue $queue" }
-                            })
-                        }.start()
+                        connectionManager.basicConsume(queue, { _, delivery, ack ->
+                            LOGGER.info { "Received from queue $queue ${delivery.body.toString(Charsets.UTF_8)}" }
+                            if (counters[queue]!!.get() > 0) {
+                                ack.confirm()
+                                LOGGER.info { "Confirmed message form $queue" }
+                            } else {
+                                LOGGER.info { "Left this message from $queue unacked" }
+                            }
+                            counters[queue]!!.incrementAndGet()
+                        }, {
+                            LOGGER.info { "Canceled message form queue $queue" }
+                        })
                     }
 
-                    createThreadAndSubscribe(queueNames[0])
-                    createThreadAndSubscribe(queueNames[1])
-                    createThreadAndSubscribe(queueNames[2])
+                    subscribeOnQueue(queueNames[0])
+                    subscribeOnQueue(queueNames[1])
+                    subscribeOnQueue(queueNames[2])
 
                     LOGGER.info { "Sending the first message batch" }
                     putMessageInQueue(it, queueNames[0])
@@ -456,15 +450,13 @@ class TestConnectionManager {
                     ),
                 ).use { connectionManager ->
 
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                            counter.incrementAndGet()
-                            ack.confirm()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
-                        }
-                    }.start()
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                        counter.incrementAndGet()
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
                     LOGGER.info { "Rabbit address- ${it.host}:${it.amqpPort}" }
 
                     LOGGER.info { "Restarting the container" }
@@ -527,17 +519,15 @@ class TestConnectionManager {
 
                     connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
 
-                    Thread.sleep(500)
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                            counter.incrementAndGet()
-                            ack.confirm()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
-                        }
-                    }.start()
-                    Thread.sleep(500)
+                    Thread.sleep(200)
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                        counter.incrementAndGet()
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
+                    Thread.sleep(200)
 
                     Assertions.assertEquals(1, counter.get()) { "Wrong number of received messages" }
                     Assertions.assertTrue(
@@ -584,20 +574,18 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-                    Thread {
-                        connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} " }
-                            if (counter.get() != 0) {
-                                ack.confirm()
-                                LOGGER.info { "Confirmed!" }
-                            } else {
-                                LOGGER.info { "Left this message unacked" }
-                            }
-                            counter.incrementAndGet()
-                        }) {
-                            LOGGER.info { "Canceled $it" }
+                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} " }
+                        if (counter.get() != 0) {
+                            ack.confirm()
+                            LOGGER.info { "Confirmed!" }
+                        } else {
+                            LOGGER.info { "Left this message unacked" }
                         }
-                    }.start()
+                        counter.incrementAndGet()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
 
 
                     LOGGER.info { "Sending the first message" }
@@ -655,11 +643,6 @@ class TestConnectionManager {
                         maxRecoveryAttempts = 5
                     ),
                 ).use { connectionManager ->
-
-//                    declareQueue(it, queueName)
-//                    declareFanoutExchangeWithBinding(it, exchange, queueName)
-//
-//                    connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
 
                     val thread = Thread {
                         // marker that thread is actually running
