@@ -54,7 +54,7 @@ public interface MessageRouter<T> extends AutoCloseable {
     void init(@NotNull MessageRouterContext context);
 
     /**
-     * Create new exclusive queue and subscribe to it. Only own connection can use the particular queue.
+     * Create new exclusive queue and subscribe to it. Only declaring connection can use this queue.
      * Please note Exclusive queues are deleted when their declaring connection is closed or gone (e.g. due to underlying TCP connection loss).
      * They therefore are only suitable for client-specific transient state.
      * @return {@link SubscriberExclusiveMonitor} object to manage subscription.
