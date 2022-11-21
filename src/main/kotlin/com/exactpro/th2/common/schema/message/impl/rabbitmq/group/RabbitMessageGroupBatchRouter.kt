@@ -28,6 +28,7 @@ import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
+import com.exactpro.th2.common.schema.message.toBuilderWithMetadata
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import com.google.protobuf.Message
@@ -49,7 +50,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
             return message
         }
 
-        val builder = MessageGroupBatch.newBuilder()
+        val builder = message.toBuilderWithMetadata()
         message.groupsList.forEach { group ->
             if (group.messagesList.all { filterMessage(it, pinConfiguration.filters) }) {
                 builder.addGroups(group)
@@ -82,7 +83,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         return RabbitMessageGroupBatchSubscriber(
             connectionManager,
             pinConfig.queue,
-            FilterFunction { msg: Message, filters: List<RouterFilter> -> filterMessage(msg, filters) },
+            { msg: Message, filters: List<RouterFilter> -> filterMessage(msg, filters) },
             pinName,
             pinConfig.filters,
             connectionManager.configuration.messageRecursionLimit

@@ -28,6 +28,7 @@ import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
+import com.exactpro.th2.common.schema.message.toBuilderWithMetadata
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
 import com.exactpro.th2.common.schema.message.toShortDebugString
 import com.google.protobuf.CodedInputStream
@@ -75,7 +76,7 @@ class RabbitMessageGroupBatchSubscriber(
             }
             .toList()
 
-        return if (groups.isEmpty()) null else MessageGroupBatch.newBuilder().addAllGroups(groups).build()
+        return if (groups.isEmpty()) null else batch.toBuilderWithMetadata().addAllGroups(groups).build()
     }
 
     override fun handle(

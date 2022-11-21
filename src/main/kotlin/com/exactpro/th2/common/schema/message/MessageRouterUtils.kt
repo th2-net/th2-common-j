@@ -25,6 +25,8 @@ import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatchMetadata
+import com.exactpro.th2.common.grpc.MessageGroupBatchOrBuilder
 import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
@@ -77,8 +79,14 @@ fun appendAttributes(
 }
 
 fun MessageGroupBatch.toShortDebugString(): String = buildString {
-    append("MessageGroupBatch(ids = ")
+    append("MessageGroupBatch ")
 
+    val sourceMetadata = metadata
+    if (sourceMetadata !== MessageGroupBatchMetadata.getDefaultInstance()) {
+        append("external user queue = ${sourceMetadata.externalUserQueue} ")
+    }
+
+    append("(ids = ")
     groupsList.asSequence()
         .flatMap { it.messagesList.asSequence() }
         .map(AnyMessage::logId)
@@ -86,4 +94,11 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
         .apply { append(this) }
 
     append(')')
+}
+
+fun MessageGroupBatchOrBuilder.toBuilderWithMetadata(): MessageGroupBatch.Builder = MessageGroupBatch.newBuilder().apply {
+    val sourceMetadata = this@toBuilderWithMetadata.metadata
+    if (sourceMetadata !== MessageGroupBatchMetadata.getDefaultInstance()) {
+        metadata = sourceMetadata
+    }
 }
