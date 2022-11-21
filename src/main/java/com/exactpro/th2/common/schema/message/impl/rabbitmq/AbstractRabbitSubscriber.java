@@ -118,11 +118,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         publicLock.lock();
         try {
             boolean isManual = ConfirmationMessageListener.isManual(messageListener);
-            if (isManual) {
-                if (hasManualSubscriber) {
+            if (isManual && hasManualSubscriber) {
                     throw new IllegalStateException("cannot subscribe listener " + messageListener
                             + " because only one listener with manual confirmation is allowed per queue");
-                }
             }
             if(listeners.add(messageListener)) {
                 hasManualSubscriber |= isManual;
@@ -139,7 +137,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         try {
             boolean isManual = ConfirmationMessageListener.isManual(messageListener);
             if (listeners.remove(messageListener)) {
-                hasManualSubscriber = !(hasManualSubscriber && isManual);
+                hasManualSubscriber &= !isManual;
                 messageListener.onClose();
             }
         } finally {
