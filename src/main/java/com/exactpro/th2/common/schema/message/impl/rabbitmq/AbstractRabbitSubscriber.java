@@ -115,8 +115,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void addListener(ConfirmationMessageListener<T> messageListener) {
+        publicLock.lock();
         try {
-            publicLock.lock();
             boolean isManual = ConfirmationMessageListener.isManual(messageListener);
             if (isManual) {
                 if (hasManualSubscriber) {
@@ -135,8 +135,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void removeListener(ConfirmationMessageListener<T> messageListener) {
+        publicLock.lock();
         try {
-            publicLock.lock();
             boolean isManual = ConfirmationMessageListener.isManual(messageListener);
             if (listeners.remove(messageListener)) {
                 hasManualSubscriber = !(hasManualSubscriber && isManual);
@@ -149,8 +149,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     @Override
     public void close() throws IOException {
+        publicLock.lock();
         try {
-            publicLock.lock();
             SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
             if (monitor != null) {
                 monitor.unsubscribe();

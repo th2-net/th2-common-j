@@ -89,7 +89,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    override fun subscribeExclusive(callback: MessageListener<T>): SubscriberExclusiveMonitor {
+    override fun subscribeExclusive(callback: MessageListener<T>): ExclusiveSubscriberMonitor {
         val queue = connectionManager.queueDeclare()
         val pinConfig = PinConfiguration("", queue, "", isReadable = true, isWritable = false)
 
@@ -98,7 +98,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             addListener(messageListener)
         }
 
-        return object: SubscriberExclusiveMonitor {
+        return object: ExclusiveSubscriberMonitor {
             override val queue: String = queue
 
             override fun unsubscribe() {

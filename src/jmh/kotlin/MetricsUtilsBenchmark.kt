@@ -24,8 +24,6 @@ import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.sequence
 import com.exactpro.th2.common.message.sessionAlias
-import com.exactpro.th2.common.grpc.MessageGroup
-import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.DIRECTION_LABEL
 import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
 import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL

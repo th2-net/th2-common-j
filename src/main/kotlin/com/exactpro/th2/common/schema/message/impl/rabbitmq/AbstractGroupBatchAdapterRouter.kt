@@ -19,7 +19,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
-import com.exactpro.th2.common.schema.message.SubscriberExclusiveMonitor
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.appendAttributes
 
@@ -40,7 +40,7 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
         this.groupBatchRouter = groupBatchRouter
     }
 
-    override fun subscribeExclusive(callback: MessageListener<T>): SubscriberExclusiveMonitor {
+    override fun subscribeExclusive(callback: MessageListener<T>): ExclusiveSubscriberMonitor {
         return groupBatchRouter.subscribeExclusive { consumerTag: String, message: MessageGroupBatch ->
             callback.handler(consumerTag, buildFromGroupBatch(message))
         }

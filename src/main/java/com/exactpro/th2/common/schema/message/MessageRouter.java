@@ -57,9 +57,9 @@ public interface MessageRouter<T> extends AutoCloseable {
      * Create new exclusive queue and subscribe to it. Only own connection can use the particular queue.
      * Please note Exclusive queues are deleted when their declaring connection is closed or gone (e.g. due to underlying TCP connection loss).
      * They therefore are only suitable for client-specific transient state.
-     * @return {@link SubscriberExclusiveMonitor} object to manage subscription.
+     * @return {@link ExclusiveSubscriberMonitor} object to manage subscription.
      */
-    SubscriberExclusiveMonitor subscribeExclusive(MessageListener<T> callback);
+    ExclusiveSubscriberMonitor subscribeExclusive(MessageListener<T> callback);
 
     /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes

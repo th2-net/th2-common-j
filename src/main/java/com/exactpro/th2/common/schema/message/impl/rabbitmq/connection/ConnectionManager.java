@@ -35,7 +35,7 @@ import java.util.function.Supplier;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import com.exactpro.th2.common.schema.message.SubscriberExclusiveMonitor;
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -301,7 +301,7 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
-    public SubscriberExclusiveMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
+    public ExclusiveSubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
         String tag = holder.mapWithLock(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
@@ -438,7 +438,7 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicAck(deliveryTag, false);
     }
 
-    private static class RabbitMqSubscriberMonitor implements SubscriberExclusiveMonitor {
+    private static class RabbitMqSubscriberMonitor implements ExclusiveSubscriberMonitor {
 
         private final ChannelHolder holder;
         private final String queue;
