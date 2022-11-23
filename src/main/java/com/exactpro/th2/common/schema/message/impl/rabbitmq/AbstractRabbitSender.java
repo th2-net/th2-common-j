@@ -55,6 +55,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
     private final String th2Type;
+    private final boolean retry;
 
     public AbstractRabbitSender(
             @NotNull ConnectionManager connectionManager,
@@ -63,11 +64,23 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             @NotNull String th2Pin,
             @NotNull String th2Type
     ) {
+        this(connectionManager, exchangeName, routingKey, th2Pin, th2Type, false);
+    }
+
+    public AbstractRabbitSender(
+            @NotNull ConnectionManager connectionManager,
+            @NotNull String exchangeName,
+            @NotNull String routingKey,
+            @NotNull String th2Pin,
+            @NotNull String th2Type,
+            boolean retry
+    ) {
         this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
         this.exchangeName.set(requireNonNull(exchangeName, "Exchange name can not be null"));
         this.routingKey.set(requireNonNull(routingKey, "Routing key can not be null"));
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
         this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
+        this.retry = retry;
     }
 
     @Deprecated
@@ -89,7 +102,11 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             MESSAGE_PUBLISH_TOTAL
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
                     .inc();
-            connection.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
+            if (retry) {
+                connection.basicPublishWithRetry(exchangeName.get(), routingKey.get(), null, bytes);
+            } else {
+                connection.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
+            }
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",
