@@ -26,10 +26,6 @@ class RabbitTestContainerUtil {
 
         }
 
-        fun removeQueue(rabbit: RabbitMQContainer, queueName: String): Container.ExecResult? {
-            return execCommandWithSplit(rabbit, "rabbitmqadmin delete queue name=$queueName")
-        }
-
         fun declareFanoutExchangeWithBinding(
             rabbit: RabbitMQContainer,
             exchangeName: String,
@@ -58,6 +54,19 @@ class RabbitTestContainerUtil {
             return execCommandWithSplit(rabbit, "rabbitmqctl list_queues")
         }
 
+        fun getChannelsInfo(rabbit: RabbitMQContainer): String {
+            return execCommandWithSplit(rabbit, "rabbitmqctl list_consumers").toString()
+
+        }
+
+        fun getSubscribedChannelsCount(
+            rabbitMQContainer: RabbitMQContainer,
+            queue: String,
+        ): Int {
+            val channelsInfo = getChannelsInfo(rabbitMQContainer)
+            return channelsInfo.countMatches(queue)
+        }
+
         fun restartContainer(rabbit: RabbitMQContainer) {
             val tag: String = rabbit.containerId
             val snapshotId: String = rabbit.dockerClient.commitCmd(tag)
@@ -72,6 +81,13 @@ class RabbitTestContainerUtil {
             return rabbit.execInContainer(
                 *command.split(" ").toTypedArray()
             )
+        }
+
+        private fun String.countMatches(pattern: String): Int {
+            return this.substringAfter("active\targuments")
+                .split(pattern)
+                .dropLastWhile { s -> s.isEmpty() }
+                .toTypedArray().size - 1
         }
 
     }

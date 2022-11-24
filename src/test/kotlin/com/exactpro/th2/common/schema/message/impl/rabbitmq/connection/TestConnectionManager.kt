@@ -22,7 +22,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Connec
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareFanoutExchangeWithBinding
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareQueue
+import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getChannelsInfo
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getQueuesInfo
+import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getSubscribedChannelsCount
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.putMessageInQueue
 import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.restartContainer
 import com.rabbitmq.client.BuiltinExchangeType
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -146,10 +149,18 @@ class TestConnectionManager {
                         LOGGER.info {
                             "Adding message to the queue:\n${putMessageInQueue(rabbitMQContainer, wrongQueue)}"
                         }
-                        LOGGER.info { "queues list: \n ${rabbitMQContainer.execInContainer("rabbitmqctl", "list_queues")}" }
+                        LOGGER.info {
+                            "queues list: \n ${
+                                rabbitMQContainer.execInContainer(
+                                    "rabbitmqctl",
+                                    "list_queues"
+                                )
+                            }"
+                        }
 
                         consume.assertComplete("Unexpected number of messages received. The message should be received")
 
+                        assertEquals(1, getSubscribedChannelsCount(rabbitMQContainer, wrongQueue))
                         assertTrue(connectionManager.isAlive)
                         assertTrue(connectionManager.isReady)
                     } finally {
@@ -255,7 +266,7 @@ class TestConnectionManager {
                 ).use { connectionManager ->
                     val consume = CountDownLatch(3)
 
-                    connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                    connectionManager.basicConsume(queueName, { _, delivery, _ ->
                         LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
                         consume.countDown()
                     }) {
@@ -267,15 +278,24 @@ class TestConnectionManager {
                     assertTarget(3 - 1, message = "Consume first message") { consume.count }
 
                     LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
+                    val channels1 = getChannelsInfo(it)
+
+                    LOGGER.info { channels1 }
                     LOGGER.info { "Waiting for ack timeout ..." }
 
-                    assertTarget(3 - 2, 63_000,"Consume first message again") { consume.count }
+                    assertTarget(3 - 2, 63_000, "Consume first message again") { consume.count }
+                    val channels2 = getChannelsInfo(it)
+                    LOGGER.info { channels2 }
 
                     LOGGER.info { "Sending second message" }
                     putMessageInQueue(it, queueName)
 
                     val queuesListExecResult = getQueuesInfo(it)
                     LOGGER.info { "queues list: \n $queuesListExecResult" }
+
+                    assertEquals(1, getSubscribedChannelsCount(it, queueName))
+                    { "There is must be single channel after recovery" }
+                    assertNotEquals(channels1, channels2) { "The recovered channel must have another pid" }
 
                     consume.assertComplete("Wrong number of received messages")
                     assertTrue(
@@ -365,8 +385,8 @@ class TestConnectionManager {
                     for (queueName in queueNames) {
                         assertTrue(queuesListExecResult.toString().contains("$queueName\t0"))
                         { "There should be no messages left in queue $queueName" }
+                        assertEquals(1, getSubscribedChannelsCount(it, queueName))
                     }
-
 
                     // 0 + 1 failed ack + 2 successful ack + 1 ack of requeued message
                     assertEquals(4, counters[queueNames[0]]!!.get())
@@ -428,14 +448,18 @@ class TestConnectionManager {
 
                     LOGGER.info { "Restarting the container" }
                     restartContainer(it)
+                    Thread.sleep(5000)
 
                     LOGGER.info { "Rabbit address after restart - ${it.host}:${it.amqpPort}" }
                     LOGGER.info { getQueuesInfo(it) }
 
                     LOGGER.info { "Starting publishing..." }
                     putMessageInQueue(it, queueName)
+                    assertEquals(1, getSubscribedChannelsCount(it, queueName))
+
                     LOGGER.info { "Publication finished!" }
                     LOGGER.info { getQueuesInfo(it) }
+
 
                     consume.assertComplete("Wrong number of received messages")
                     assertTrue(
@@ -476,15 +500,16 @@ class TestConnectionManager {
                         connectionManager.basicPublish(exchange, routingKey, null, "Hello1".toByteArray(Charsets.UTF_8))
 
                         Thread.sleep(200)
-                    monitor =connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                        LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
-                        counter.incrementAndGet()
-                        ack.confirm()
-                    }) {
-                        LOGGER.info { "Canceled $it" }
-                    }
-                    Thread.sleep(200)
+                        monitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
+                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.routingKey}" }
+                            counter.incrementAndGet()
+                            ack.confirm()
+                        }) {
+                            LOGGER.info { "Canceled $it" }
+                        }
+                        Thread.sleep(200)
 
+                        assertEquals(1, getSubscribedChannelsCount(it, queueName))
                         assertEquals(1, counter.get()) { "Wrong number of received messages" }
                         assertTrue(
                             getQueuesInfo(it).toString().contains("$queueName\t0")
@@ -561,6 +586,7 @@ class TestConnectionManager {
                     val queuesListExecResult = getQueuesInfo(it)
                     LOGGER.info { "queues list: \n $queuesListExecResult" }
 
+                    assertEquals(1, getSubscribedChannelsCount(it, queueName))
                     assertEquals(4, counter.get()) { "Wrong number of received messages" }
                     assertTrue(
                         queuesListExecResult.toString().contains("$queueName\t0")
@@ -609,6 +635,7 @@ class TestConnectionManager {
                         LOGGER.info { "Interrupted!" }
                         assertTarget(false, message = "Thread for consuming isn't stopped", func = thread::isAlive)
                         assertEquals(0, counter.get()) { "Wrong number of received messages" }
+                        assertEquals(0, getSubscribedChannelsCount(it, queueName)) {"There should be no subscribed channels"}
                     } finally {
                         thread?.let {
                             thread.interrupt()
@@ -662,6 +689,8 @@ class TestConnectionManager {
                             putMessageInQueue(it, queueName)
                             Thread.sleep(1000)
                         }
+
+                        assertEquals(0, getSubscribedChannelsCount(it, queueName)) {"There should be no subscribed channels"}
 
                         assertEquals(3, counter.get()) { "Wrong number of received messages" }
                         assertTrue(
@@ -739,6 +768,7 @@ class TestConnectionManager {
                         val queuesListExecResult = getQueuesInfo(it)
                         LOGGER.info { "queues list: \n $queuesListExecResult" }
 
+                        assertEquals(0, getSubscribedChannelsCount(it, queueName))
                         assertEquals(2, counter.get()) { "Wrong number of received messages" }
                         assertTrue(
                             queuesListExecResult.toString().contains("$queueName\t1")
@@ -773,6 +803,8 @@ class TestConnectionManager {
         }
         assertEquals(target, func(), message)
     }
+
+
     private fun createConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
         ConnectionManager(
             RabbitMQConfiguration(

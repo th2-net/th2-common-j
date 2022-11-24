@@ -74,7 +74,7 @@ public class ConnectionManager implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
-    private final Connection connection;
+    public final Connection connection;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final ConnectionManagerConfiguration configuration;
@@ -271,7 +271,6 @@ public class ConnectionManager implements AutoCloseable {
                     if (subscriptionCallbacks != null) {
                         LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
                         channelsByPin.remove(pinId);
-                        channel.abort(400, "Aborted because of the recovery");
                         basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
                     }
                 }
