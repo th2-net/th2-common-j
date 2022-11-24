@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
+import com.exactpro.th2.common.schema.message.ManualConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
@@ -53,6 +54,35 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
                 callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
+        )
+    }
+
+    override fun subscribeWithManualAck(
+        callback: ManualConfirmationListener<T>,
+        vararg queueAttr: String
+    ): SubscriberMonitor {
+        val listener =
+            ManualConfirmationListener<MessageGroupBatch> { deliveryMetadata, message, confirmation ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message), confirmation)
+            }
+
+        return groupBatchRouter.subscribeWithManualAck(
+            listener,
+            *appendAttributes(*queueAttr) { getRequiredSubscribeAttributes() }.toTypedArray()
+        )
+    }
+
+    override fun subscribeAllWithManualAck(
+        callback: ManualConfirmationListener<T>,
+        vararg queueAttr: String
+    ): SubscriberMonitor {
+        val listener =
+            ManualConfirmationListener<MessageGroupBatch> { deliveryMetadata, message, confirmation ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message), confirmation)
+            }
+
+        return groupBatchRouter.subscribeAllWithManualAck(listener,
+            *appendAttributes(*queueAttr) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 
