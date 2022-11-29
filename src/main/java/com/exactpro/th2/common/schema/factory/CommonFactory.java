@@ -124,6 +124,10 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
+    /**
+     * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
+     */
+    @Deprecated(since = "4.0.0", forRemoval = true)
     protected CommonFactory(Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
                             Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
                             Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
@@ -135,31 +139,29 @@ public class CommonFactory extends AbstractCommonFactory {
                             @Nullable Path oldDictionariesDir,
                             Map<String, String> environmentVariables,
                             ConfigurationManager configurationManager) {
-        super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
-
-        this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
-        this.dictionaryTypesDir = defaultPathIfNull(dictionaryTypesDir, DICTIONARY_TYPE_DIR_NAME);
-        this.dictionaryAliasesDir = defaultPathIfNull(dictionaryAliasesDir, DICTIONARY_ALIAS_DIR_NAME);
-        this.oldDictionariesDir = requireNonNullElse(oldDictionariesDir, CONFIG_DEFAULT_PATH);
-        this.configurationManager = configurationManager;
-
-        start();
+        this(new FactorySettings()
+                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
+                .messageRouterRawBatchClass(messageRouterRawBatchClass)
+                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
+                .eventBatchRouterClass(eventBatchRouterClass)
+                .grpcRouterClass(grpcRouterClass)
+                .variables(environmentVariables)
+                .custom(custom)
+                .dictionaryTypesDir(dictionaryTypesDir)
+                .dictionaryAliasesDir(dictionaryAliasesDir)
+                .oldDictionariesDir(oldDictionariesDir)
+        );
     }
 
     public CommonFactory(FactorySettings settings) {
-        this(settings.getMessageRouterParsedBatchClass(),
-                settings.getMessageRouterRawBatchClass(),
-                settings.getMessageRouterMessageGroupBatchClass(),
-                settings.getEventBatchRouterClass(),
-                settings.getGrpcRouterClass(),
-                settings.getCustom(),
-                settings.getDictionaryTypesDir(),
-                settings.getDictionaryAliasesDir(),
-                settings.getOldDictionariesDir(),
-                settings.getVariables(),
-                createConfigurationManager(settings));
+        super(settings);
+        custom = defaultPathIfNull(settings.getCustom(), CUSTOM_FILE_NAME);
+        dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), DICTIONARY_TYPE_DIR_NAME);
+        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), DICTIONARY_ALIAS_DIR_NAME);
+        oldDictionariesDir = requireNonNullElse(settings.getOldDictionariesDir(), CONFIG_DEFAULT_PATH);
+        configurationManager = createConfigurationManager(settings);
+        start();
     }
-
 
     /**
      * @deprecated Please use {@link CommonFactory#CommonFactory(FactorySettings)}
@@ -171,23 +173,21 @@ public class CommonFactory extends AbstractCommonFactory {
                          Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
                          Class<? extends GrpcRouter> grpcRouterClass,
                          Path rabbitMQ, Path routerMQ, Path routerGRPC, Path cradle, Path custom, Path prometheus, Path dictionariesDir, Path boxConfiguration) {
-
-        this(new FactorySettings(messageRouterParsedBatchClass,
-                messageRouterRawBatchClass,
-                messageRouterMessageGroupBatchClass,
-                eventBatchRouterClass,
-                grpcRouterClass,
-                rabbitMQ,
-                routerMQ,
-                null,
-                routerGRPC,
-                null,
-                cradle,
-                null,
-                prometheus,
-                boxConfiguration,
-                custom,
-                dictionariesDir));
+        this(new FactorySettings()
+                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
+                .messageRouterRawBatchClass(messageRouterRawBatchClass)
+                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
+                .eventBatchRouterClass(eventBatchRouterClass)
+                .grpcRouterClass(grpcRouterClass)
+                .rabbitMQ(rabbitMQ)
+                .routerMQ(routerMQ)
+                .routerGRPC(routerGRPC)
+                .cradleConfidential(cradle)
+                .prometheus(prometheus)
+                .boxConfiguration(boxConfiguration)
+                .custom(custom)
+                .dictionaryTypesDir(dictionariesDir)
+        );
     }
 
     /**

@@ -51,6 +51,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             .register();
 
     protected final String th2Pin;
+    protected final String bookName;
     private final AtomicReference<String> routingKey = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
     private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
@@ -61,13 +62,15 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             @NotNull String exchangeName,
             @NotNull String routingKey,
             @NotNull String th2Pin,
-            @NotNull String th2Type
+            @NotNull String th2Type,
+            @NotNull String bookName
     ) {
         this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
         this.exchangeName.set(requireNonNull(exchangeName, "Exchange name can not be null"));
         this.routingKey.set(requireNonNull(routingKey, "Routing key can not be null"));
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
         this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
+        this.bookName = requireNonNull(bookName, "Book name can not be null");
     }
 
     @Deprecated

@@ -16,6 +16,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
@@ -49,7 +50,6 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
                                 val counter = CountDownLatch(1)
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
-
                                     secondRouter.sendExclusive(monitor.queue, MessageGroupBatch.getDefaultInstance())
                                     assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
@@ -77,10 +77,6 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
                     createRouter(firstManager).use { firstRouter ->
                         createConnectionManager(rabbitMQContainer).use { secondManager ->
                             createRouter(secondManager).use { secondRouter ->
-                                firstRouter.subscribe({ _, _ ->
-
-                                })
-
                                 val counter = CountDownLatch(1)
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
@@ -104,7 +100,8 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
                 DefaultMessageRouterContext(
                     connectionManager,
                     mock { },
-                    MessageRouterConfiguration()
+                    MessageRouterConfiguration(),
+                    BoxConfiguration()
                 )
             )
         }

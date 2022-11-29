@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
+import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
+import com.exactpro.th2.common.event.bean.BaseTest.BOX_CONFIGURATION
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
@@ -25,6 +27,7 @@ import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
+import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -101,10 +104,10 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes message group batch with metadata`() {
             val batch = MessageGroupBatch.newBuilder().apply {
                 metadataBuilder.apply {
-                    externalUserQueue = "externalUserQueue"
+                    externalQueue = "externalQueue"
                 }
                 addGroupsBuilder().apply {
-                    this += message("test-message", Direction.FIRST, "test-alias")
+                    this += message("test-book", "test-message", Direction.FIRST, "test-alias")
                 }
             }.build()
 
@@ -123,7 +126,7 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(
                 MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message1", Direction.FIRST, "test-alias") }
+                        .apply { this += message(BOOK_NAME, "test-message1", Direction.FIRST, "test-alias") }
                     ).build()
             )
 
@@ -134,7 +137,7 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes to the correct pin according to attributes`() {
             val batch = MessageGroupBatch.newBuilder()
                 .addGroups(MessageGroup.newBuilder()
-                    .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                    .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                 ).build()
             router.send(batch, "test")
 
@@ -151,7 +154,7 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                     ).build())
             }.apply {
                 Assertions.assertEquals(
@@ -166,7 +169,7 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
-                        .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                        .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                     ).build(),
                     "unexpected"
                 )
@@ -182,7 +185,7 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes to all correct pin according to attributes`() {
             val batch = MessageGroupBatch.newBuilder()
                 .addGroups(MessageGroup.newBuilder()
-                    .apply { this += message("test-message", Direction.FIRST, "test-alias") }
+                    .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
                 ).build()
             router.sendAll(batch)
 
@@ -215,7 +218,7 @@ class TestRabbitMessageGroupBatchRouter {
                     routingKey = "publish",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish")
+                    attributes = listOf("publish", "test")
                 ),
                 "test1" to QueueConfiguration(
                     routingKey = "",
@@ -236,17 +239,17 @@ class TestRabbitMessageGroupBatchRouter {
         fun `publishes message group batch with metadata`() {
             val batch = MessageGroupBatch.newBuilder().apply {
                 metadataBuilder.apply {
-                    externalUserQueue = "externalUserQueue"
+                    externalQueue = "externalQueue"
                 }
                 addGroupsBuilder().apply {
-                    this += message("test-message", Direction.FIRST, "test-alias")
+                    this += message("test-book", "test-message", Direction.FIRST, "test-alias")
                 }
             }.build()
 
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("publish"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -311,7 +314,8 @@ class TestRabbitMessageGroupBatchRouter {
             init(DefaultMessageRouterContext(
                 connectionManager,
                 mock { },
-                MessageRouterConfiguration(pins)
+                MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
+                BOX_CONFIGURATION
             ))
         }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,11 +14,20 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.exception.RouterException
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
-import com.exactpro.th2.common.schema.message.*
+import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
+import com.exactpro.th2.common.schema.message.MessageListener
+import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.common.schema.message.MessageRouterContext
+import com.exactpro.th2.common.schema.message.MessageSender
+import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
+import com.exactpro.th2.common.schema.message.SubscriberMonitor
+import com.exactpro.th2.common.schema.message.appendAttributes
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
@@ -32,6 +41,7 @@ typealias PinName = String
 typealias PinConfiguration = QueueConfiguration
 typealias Queue = String
 typealias RoutingKey = String
+typealias BookName = String
 
 abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     private val _context = AtomicReference<MessageRouterContext?>()
@@ -46,6 +56,9 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     protected val connectionManager: ConnectionManager
         get() = context.connectionManager
+
+    private val boxConfiguration: BoxConfiguration
+        get() = context.boxConfiguration
 
     private val subscribers = ConcurrentHashMap<Queue, MessageSubscriber<T>>()
     private val senders = ConcurrentHashMap<RoutingKey, MessageSender<T>>()
@@ -166,7 +179,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     protected open fun getRequiredSubscribeAttributes() = REQUIRED_SUBSCRIBE_ATTRIBUTES
 
     //TODO: implement common sender
-    protected abstract fun createSender(pinConfig: PinConfiguration, pinName: PinName): MessageSender<T>
+    protected abstract fun createSender(pinConfig: PinConfiguration, pinName: PinName, bookName: BookName): MessageSender<T>
 
     //TODO: implement common subscriber
     protected abstract fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T>
@@ -255,7 +268,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             "The $pinName isn't writable, configuration: $pinConfig"
         }
 
-        return@computeIfAbsent createSender(pinConfig, pinName)
+        return@computeIfAbsent createSender(pinConfig, pinName, boxConfiguration.bookName)
     }
 
     private fun ConcurrentHashMap<Queue, MessageSubscriber<T>>.getSubscriber(

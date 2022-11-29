@@ -18,6 +18,7 @@ package com.exactpro.th2.common.event
 import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_NAME
 import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_TYPE
 import com.exactpro.th2.common.event.EventUtils.toEventID
+import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
@@ -30,19 +31,19 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import java.time.Instant
 
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
-
-    private val parentEventId: EventID = toEventID("parentEventId")!!
+    private val parentEventId: EventID = toEventID(Instant.now(), BOOK_NAME, "parentEventId")
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
 
     @Test
     fun `call the toProto method on a simple event`() {
-        Event.start().toProto(null).run {
+        Event.start().toProto(BOOK_NAME).run {
             checkDefaultEventFields()
             assertFalse(hasParentId())
         }
@@ -56,9 +57,8 @@ class TestEvent {
     @Test
     fun `set parent to the toListProto method`() {
         val event = Event.start()
-
         val toListProtoWithParent = event.toListProto(parentEventId)
-        val toListProtoWithoutParent = event.toListProto(null)
+        val toListProtoWithoutParent = event.toListProto(BOOK_NAME)
         assertAll(
             { assertEquals(1, toListProtoWithParent.size) },
             { assertEquals(1, toListProtoWithoutParent.size) },
@@ -193,17 +193,17 @@ class TestEvent {
     fun `root event to list batch proto with size limit`() {
         val rootName = "root"
         val childName = "child"
-        val rootEvent = Event.start().apply {
-            name = rootName
-            bodyData(data).apply {
-                addSubEventWithSamePeriod().apply {
-                    name = childName
-                    bodyData(data)
+        val rootEvent = Event.start().also {
+            it.name = rootName
+            it.bodyData(data).apply {
+                addSubEventWithSamePeriod().also { subEvent ->
+                    subEvent.name = childName
+                    subEvent.bodyData(data)
                 }
             }
         }
 
-        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, null)
+        val batches = rootEvent.toBatchesProtoWithLimit(dataSize, BOOK_NAME)
         assertEquals(2, batches.size)
         checkEventStatus(batches, 2, 0)
 
@@ -215,17 +215,17 @@ class TestEvent {
     fun `root event to list batch proto without size limit`() {
         val rootName = "root"
         val childName = "child"
-        val rootEvent = Event.start().apply {
-            name = rootName
-            bodyData(data).apply {
-                addSubEventWithSamePeriod().apply {
-                    name = childName
-                    bodyData(data)
+        val rootEvent = Event.start().also {
+            it.name = rootName
+            it.bodyData(data).apply {
+                addSubEventWithSamePeriod().also { subEvent ->
+                    subEvent.name = childName
+                    subEvent.bodyData(data)
                 }
             }
         }
 
-        val batch = rootEvent.toBatchProto(null)
+        val batch = rootEvent.toBatchProto(BOOK_NAME)
         checkEventStatus(listOf(batch), 2, 0)
         batch.checkEventBatch(false, listOf(rootName, childName))
     }
@@ -268,9 +268,7 @@ class TestEvent {
 
     @Test
     fun `pack single event single batch`() {
-        val rootEvent = Event.start()
-
-        val batch = rootEvent.toBatchProto(parentEventId)
+        val batch = Event.start().toBatchProto(parentEventId)
         assertFalse(batch.hasParentEventId())
         checkEventStatus(listOf(batch), 1, 0)
     }
@@ -280,7 +278,6 @@ class TestEvent {
             { assertTrue(hasId()) },
             { assertEquals(UNKNOWN_EVENT_NAME, name) },
             { assertEquals(UNKNOWN_EVENT_TYPE, type) },
-            { assertTrue(hasStartTimestamp()) },
             { assertTrue(hasEndTimestamp()) },
             { assertEquals(SUCCESS, status) },
             { assertEquals(ByteString.copyFrom("[]".toByteArray()), body) },

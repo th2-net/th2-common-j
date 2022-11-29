@@ -20,7 +20,7 @@ import com.exactpro.th2.common.event.bean.Message;
 import static java.util.Objects.requireNonNull;
 
 public class MessageBuilder {
-    public final static String MESSAGE_TYPE = "message";
+    public static final String MESSAGE_TYPE = "message";
 
     private String text;
 

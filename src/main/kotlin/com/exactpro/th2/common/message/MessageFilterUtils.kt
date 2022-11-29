@@ -40,19 +40,10 @@ import com.exactpro.th2.common.grpc.ValueFilter.KindCase.NULL_VALUE
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 
 private val DEFAULT_TIME_PRECISION_REGEX = Regex("(\\d[HMS])(?!\$)")
 
-@Deprecated(
-        message = "The message type from MessageFilter will be removed in the future",
-        replaceWith = ReplaceWith(
-                expression = "rootMessageFilter(messageType)"
-        ),
-        level = DeprecationLevel.WARNING
-)
-fun messageFilter(messageType: String): MessageFilter.Builder = MessageFilter.newBuilder().setMessageType(messageType)
 fun messageFilter(): MessageFilter.Builder = MessageFilter.newBuilder()
 fun rootMessageFilter(messageType: String): RootMessageFilter.Builder = RootMessageFilter.newBuilder().setMessageType(messageType)
 

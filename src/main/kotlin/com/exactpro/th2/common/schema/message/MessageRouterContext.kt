@@ -15,13 +15,13 @@
 
 package com.exactpro.th2.common.schema.message
 
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 
 interface MessageRouterContext {
-
     val connectionManager: ConnectionManager
     val routerMonitor: MessageRouterMonitor
     val configuration: MessageRouterConfiguration
-
+    val boxConfiguration: BoxConfiguration
 }

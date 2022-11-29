@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.common.schema.filter.strategy.impl
 
+import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.RawMessage
@@ -25,14 +26,11 @@ import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfigura
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import org.apache.commons.collections4.MultiMapUtils
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.junit.jupiter.params.provider.ValueSource
 
 class TestAnyMessageFilterStrategy {
     private val strategy = AnyMessageFilterStrategy()
@@ -93,7 +91,7 @@ class TestAnyMessageFilterStrategy {
 
     companion object {
         private val PARSED_MESSAGE_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test", Direction.FIRST, "test-alias")
+            message(BOOK_NAME, "test", Direction.FIRST, "test-alias")
         ).build()
 
         private val RAW_MESSAGE_MATCH = AnyMessage.newBuilder().setRawMessage(
@@ -106,7 +104,7 @@ class TestAnyMessageFilterStrategy {
         ).build()
 
         private val PARSED_MESSAGE_MISS_MATCH = AnyMessage.newBuilder().setMessage(
-            message("test1", Direction.SECOND, "test-alias1")
+            message(BOOK_NAME, "test1", Direction.SECOND, "test-alias1")
         ).build()
 
         private val RAW_MESSAGE_MISS_MATCH = AnyMessage.newBuilder().setRawMessage(

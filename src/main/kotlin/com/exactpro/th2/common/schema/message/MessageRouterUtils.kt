@@ -24,6 +24,7 @@ import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatchMetadata
 import com.exactpro.th2.common.grpc.MessageGroupBatchOrBuilder
@@ -36,14 +37,28 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
-    parentId: String? = null
+    parentId: EventID
+) = storeEvent(event, event.toProto(parentId))
+
+
+fun MessageRouter<EventBatch>.storeEvent(
+    event: Event,
+    bookName: String
+) = storeEvent(event, event.toProto(bookName))
+
+private fun MessageRouter<EventBatch>.storeEvent(
+    event: Event,
+    protoEvent: com.exactpro.th2.common.grpc.Event
 ): Event = event.apply {
-    val batch = EventBatch.newBuilder().addEvents(toProtoEvent(parentId)).build()
-    sendAll(batch, PUBLISH.toString(), EVENT.toString())
+    sendAll(
+        EventBatch.newBuilder().addEvents(protoEvent).build(),
+        PUBLISH.toString(),
+        EVENT.toString()
+    )
 }
 
 fun MessageRouter<EventBatch>.storeEvent(
-    parentId: String,
+    parentId: EventID,
     name: String,
     type: String,
     cause: Throwable? = null
@@ -83,7 +98,7 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
 
     val sourceMetadata = metadata
     if (sourceMetadata !== MessageGroupBatchMetadata.getDefaultInstance()) {
-        append("external user queue = ${sourceMetadata.externalUserQueue} ")
+        append("external user queue = ${sourceMetadata.externalQueue} ")
     }
 
     append("(ids = ")

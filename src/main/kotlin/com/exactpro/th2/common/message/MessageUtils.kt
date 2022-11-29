@@ -53,6 +53,7 @@ import com.exactpro.th2.common.grpc.Value.KindCase.NULL_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import com.exactpro.th2.common.grpc.ValueFilter
 import com.exactpro.th2.common.grpc.ValueOrBuilder
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.value.getBigDecimal
 import com.exactpro.th2.common.value.getBigInteger
 import com.exactpro.th2.common.value.getDouble
@@ -86,8 +87,9 @@ typealias FieldValueFilters = Map<String, ValueFilter>
 typealias JavaDuration = java.time.Duration
 
 fun message() : Message.Builder = Message.newBuilder()
-fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType)
-fun message(messageType: String, direction: Direction, sessionAlias: String): Message.Builder = Message.newBuilder().setMetadata(messageType, direction, sessionAlias)
+fun message(messageType: String): Message.Builder = Message.newBuilder().setMetadata(messageType = messageType)
+fun message(bookName: String, messageType: String, direction: Direction, sessionAlias: String) =
+    Message.newBuilder().setMetadata(bookName, messageType, direction, sessionAlias)
 
 operator fun Message.get(key: String): Value? = getField(key)
 fun Message.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
@@ -153,14 +155,21 @@ fun Message.copy(): Message.Builder = Message.newBuilder().setMetadata(metadata)
 
 fun Message.Builder.copy(): Message.Builder = Message.newBuilder().setMetadata(metadata).putAllFields(fieldsMap).setParentEventId(parentEventId)
 
-fun Message.Builder.setMetadata(messageType: String? = null, direction: Direction? = null, sessionAlias: String? = null, sequence: Long? = null, timestamp: Instant? = null): Message.Builder =
+fun Message.Builder.setMetadata(
+    bookName: String? = null,
+    messageType: String? = null,
+    direction: Direction? = null,
+    sessionAlias: String? = null,
+    sequence: Long? = null,
+    timestamp: Instant? = null
+): Message.Builder =
     setMetadata(MessageMetadata.newBuilder().also {
         if (messageType != null) {
             it.messageType = messageType
         }
-        it.timestamp = (timestamp ?: Instant.now()).toTimestamp()
         if (direction != null || sessionAlias != null) {
             it.id = MessageID.newBuilder().apply {
+                this.timestamp = (timestamp ?: Instant.now()).toTimestamp()
                 if (direction != null) {
                     this.direction = direction
                 }
@@ -169,6 +178,9 @@ fun Message.Builder.setMetadata(messageType: String? = null, direction: Directio
                 }
                 if (sequence != null) {
                     this.sequence = sequence
+                }
+                if (bookName != null) {
+                    this.bookName = bookName
                 }
             }.build()
         }
@@ -286,6 +298,14 @@ fun ListValue.toListValueFilter(): ListValueFilter {
         }.build()
     }
 }
+
+val Message.bookName
+    get(): String = metadata.id.bookName
+var Message.Builder.bookName
+    get(): String = metadata.id.bookName
+    set(value) {
+        metadataBuilder.idBuilder.bookName = value
+    }
 
 val Message.messageType
     get(): String = metadata.messageType
@@ -408,6 +428,13 @@ val AnyMessage.sequence: Long
     get() = when {
         hasMessage() -> message.metadata.id.sequence
         hasRawMessage() -> rawMessage.metadata.id.sequence
+        else -> error("Message ${shortDebugString(this)} doesn't have message or rawMessage")
+    }
+
+val AnyMessage.bookName: BookName
+    get() = when {
+        hasMessage() -> message.metadata.id.bookName
+        hasRawMessage() -> rawMessage.metadata.id.bookName
         else -> error("Message ${shortDebugString(this)} doesn't have message or rawMessage")
     }
 

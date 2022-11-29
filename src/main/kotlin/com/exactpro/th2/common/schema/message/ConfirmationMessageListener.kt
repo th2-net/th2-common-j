@@ -51,7 +51,7 @@ private class DelegateListener<T>(
 ) : ConfirmationMessageListener<T> {
 
     override fun handle(consumerTag: String, message: T, confirmation: ManualAckDeliveryCallback.Confirmation) {
-        delegate.handler(consumerTag, message)
+        delegate.handle(consumerTag, message)
     }
 
     override fun onClose() {

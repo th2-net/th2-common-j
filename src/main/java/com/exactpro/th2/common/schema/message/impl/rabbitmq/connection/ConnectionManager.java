@@ -68,7 +68,7 @@ import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
 
 public class ConnectionManager implements AutoCloseable {
-
+    public static final String EMPTY_ROUTING_KEY = "";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
     private final Connection connection;
@@ -350,6 +350,15 @@ public class ConnectionManager implements AutoCloseable {
 
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
+    }
+
+    public String queueExclusiveDeclareAndBind(String exchange) throws IOException, TimeoutException {
+        try(Channel channel = createChannel()) {
+            String queue = channel.queueDeclare().getQueue();
+            channel.queueBind(queue, exchange, EMPTY_ROUTING_KEY);
+            LOGGER.info("Declared the '{}' queue to listen to the '{}'", queue, exchange);
+            return queue;
+        }
     }
 
     private void shutdownExecutor(ExecutorService executor, int closeTimeout, String name) {

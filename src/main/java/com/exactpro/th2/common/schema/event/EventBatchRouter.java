@@ -59,12 +59,13 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
 
     @NotNull
     @Override
-    protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration, @NotNull String pinName) {
+    protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration, @NotNull String pinName, @NotNull String bookName) {
         return new EventBatchSender(
                 getConnectionManager(),
                 queueConfiguration.getExchange(),
                 queueConfiguration.getRoutingKey(),
-                pinName
+                pinName,
+                bookName
         );
     }
 
