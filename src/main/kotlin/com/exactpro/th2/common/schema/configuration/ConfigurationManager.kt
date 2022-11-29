@@ -16,29 +16,24 @@
 package com.exactpro.th2.common.schema.configuration
 
 import com.exactpro.th2.common.ConfigurationProvider
+import com.exactpro.th2.common.Module
 import com.exactpro.th2.common.ModuleFactory
 import com.fasterxml.jackson.databind.ObjectMapper
-import mu.KotlinLogging
-import org.apache.commons.text.StringSubstitutor
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.*
+import java.util.ServiceLoader
 import java.util.concurrent.ConcurrentHashMap
+import mu.KotlinLogging
+import org.apache.commons.text.StringSubstitutor
 
 class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
     private val cache: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
     private val modulesFactoryMapping: MutableMap<Class<*>, ModuleFactory> = ConcurrentHashMap()
-    private val configurationFactoryMapping: MutableMap<Class<*>, ModuleFactory> = ConcurrentHashMap()
 
     init {
         ServiceLoader.load(ModuleFactory::class.java).forEach { moduleFactory ->
-            moduleFactory.configurationClasses.forEach {
-                configurationFactoryMapping[it] = moduleFactory
-            }
-            moduleFactory.moduleClasses.forEach {
-                modulesFactoryMapping[it] = moduleFactory
-            }
+            modulesFactoryMapping[moduleFactory.moduleType] = moduleFactory
         }
     }
 
@@ -64,7 +59,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         }
     }
 
-    fun <T> getModuleWithConfigurationProvider(
+    fun <T : Module> getModuleWithConfigurationProvider(
         moduleClass: Class<T>,
         configurationProvider: ConfigurationProvider
     ): T {
@@ -73,23 +68,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
             LOGGER.error { "Mapping does not contain module factory for $moduleClass" }
             "Mapping does not contain module factory for $moduleClass"
         }
-        val module: T = moduleFactory.loadModule(configurationProvider, moduleClass) as T
-        checkNotNull(module) {
-            LOGGER.error { "Returned null instead of instance of class $moduleClass" }
-            "Returned null instead of instance of class $moduleClass"
-        }
-        return module
-    }
-
-    fun <T : Configuration> getConfigurationWithConfigurationProvider(
-        configClass: Class<T>,
-        configurationProvider: ConfigurationProvider
-    ): T {
-        return cache.computeIfAbsent(configClass) {
-            checkNotNull(configurationFactoryMapping[configClass]) {
-            "Unknown class $configClass"
-        }.loadConfiguration(configurationProvider, configClass)
-        } as T
+        return moduleFactory.create(configurationProvider) as T
     }
 
     fun <T> getConfigurationOrLoad(

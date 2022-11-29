@@ -15,18 +15,22 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import com.beust.jcommander.JCommander;
 import com.exactpro.th2.common.ConfigurationProvider;
 import com.exactpro.th2.common.ConfigurationProviderFactory;
+import com.exactpro.th2.common.Module;
 import com.exactpro.th2.common.ModuleApi;
+import com.exactpro.th2.common.cli.CommonFactoryArgs;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.module.provider.FileConfigurationProvider;
+import com.exactpro.th2.common.module.provider.FileConfigurationProviderConfig;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
-import com.exactpro.th2.common.schema.configuration.Configuration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
+import com.exactpro.th2.common.schema.configuration.ConfigurationProviderConfig;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
@@ -48,11 +52,6 @@ import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import kotlin.text.Charsets;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -79,8 +78,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
-import static com.exactpro.th2.common.util.CommandLineUtilsKt.createLongOption;
-import static com.exactpro.th2.common.util.CommandLineUtilsKt.createLongOptionWithUnlimitedArgs;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -97,12 +94,10 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
     private static final String ROUTER_MQ_FILE_NAME = "mq.json";
     private static final String GRPC_FILE_NAME = "grpc.json";
     private static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
-//    private static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
     private static final String PROMETHEUS_FILE_NAME = "prometheus.json";
     private static final String CUSTOM_FILE_NAME = "custom.json";
     private static final String BOX_FILE_NAME = "box.json";
     private static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
-//    private static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
 
     /** @deprecated please use {@link #DICTIONARY_ALIAS_DIR_NAME} */
     @Deprecated
@@ -149,7 +144,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
                             Map<String, String> environmentVariables,
                             ConfigurationManager configurationManager,
                             Class<? extends ConfigurationProvider> configurationProviderClass,
-                            String[] configurationProviderArgs) {
+                            ConfigurationProviderConfig providerConfig) {
         super(messageRouterParsedBatchClass, messageRouterRawBatchClass, messageRouterMessageGroupBatchClass, eventBatchRouterClass, grpcRouterClass, environmentVariables);
 
         this.custom = defaultPathIfNull(custom, CUSTOM_FILE_NAME);
@@ -159,7 +154,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
         this.configurationManager = configurationManager;
 
         var factory = loadFactoryForProvider(configurationProviderClass);
-        this.configurationProvider = factory.get().createProvider(configurationProviderArgs);
+        this.configurationProvider = factory.get().create(providerConfig);
 
         start();
     }
@@ -177,7 +172,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
                 settings.getVariables(),
                 createConfigurationManager(settings),
                 settings.getConfigurationProviderClass(),
-                settings.getConfigurationProviderArgs());
+                settings.getConfigurationProviderConfig());
     }
 
     /**
@@ -197,7 +192,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
                 eventBatchRouterClass,
                 grpcRouterClass,
                 FileConfigurationProvider.class,
-                new String[0],
+                new FileConfigurationProviderConfig(),
                 rabbitMQ,
                 routerMQ,
                 null,
@@ -311,48 +306,21 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
      * @throws IllegalArgumentException - Cannot parse command line arguments
      */
     public static CommonFactory createFromArguments(String... args) {
-        Options options = new Options();
-
-        Option configOption = new Option("c", "configs", true, null);
-        options.addOption(configOption);
-
-        Option rabbitConfigurationOption = createLongOption(options, "rabbitConfiguration");
-        Option messageRouterConfigurationOption = createLongOption(options, "messageRouterConfiguration");
-        Option grpcRouterConfigurationOption = createLongOption(options, "grpcRouterConfiguration");
-        Option grpcConfigurationOption = createLongOption(options, "grpcConfiguration");
-        Option grpcRouterConfigOption = createLongOption(options, "grpcRouterConfig");
-        Option customConfigurationOption = createLongOption(options, "customConfiguration");
-        Option dictionariesDirOption = createLongOption(options, "dictionariesDir");
-        Option prometheusConfigurationOption = createLongOption(options, "prometheusConfiguration");
-        Option boxConfigurationOption = createLongOption(options, "boxConfiguration");
-        Option namespaceOption = createLongOption(options, "namespace");
-        Option boxNameOption = createLongOption(options, "boxName");
-        Option contextNameOption = createLongOption(options, "contextName");
-        Option dictionariesOption = createLongOptionWithUnlimitedArgs(options, "dictionaries");
-        Option connectionManagerConfigurationOption = createLongOption(options, "connectionManagerConfiguration");
-        Option configurationProviderClassOption = createLongOption(options, "configurationProviderClass");
-
-        configurationProviderFactoryLoader.forEach(configurationProviderFactory -> {
-            configurationProviderFactory.addOwnOptionsToCmd(options);
-        });
 
         try {
-            CommandLine cmd = new DefaultParser().parse(options, args);
+            CommonFactoryArgs parsedArgs = parseAsCommonConfig(args);
 
-            String configs = cmd.getOptionValue(configOption.getLongOpt());
+            String configs = parsedArgs.config;
 
-            if (cmd.hasOption(namespaceOption.getLongOpt()) && cmd.hasOption(boxNameOption.getLongOpt())) {
-                String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
-                String boxName = cmd.getOptionValue(boxNameOption.getLongOpt());
-                String contextName = cmd.getOptionValue(contextNameOption.getLongOpt());
+            if (parsedArgs.namespace != null && parsedArgs.boxName != null) {
 
                 Map<DictionaryType, String> dictionaries = new HashMap<>();
-                if (cmd.hasOption(dictionariesOption.getLongOpt())) {
-                    for (String singleDictionary : cmd.getOptionValues(dictionariesOption.getLongOpt())) {
+                if (parsedArgs.dictionaries != null) {
+                    for (String singleDictionary : parsedArgs.dictionaries) {
                         String[] keyValue = singleDictionary.split("=");
 
                         if (keyValue.length != 2 || StringUtils.isEmpty(keyValue[0].trim()) || StringUtils.isEmpty(keyValue[1].trim())) {
-                            throw new IllegalStateException(String.format("Argument '%s' in '%s' option has wrong format.", singleDictionary, dictionariesOption.getLongOpt()));
+                            throw new IllegalStateException(String.format("Argument '%s' in '%s' option has wrong format.", singleDictionary, "dictionaries"));
                         }
 
                         String typeStr = keyValue[1].trim();
@@ -367,41 +335,63 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
                     }
                 }
 
-                return createFromKubernetes(namespace, boxName, contextName, dictionaries);
+                return createFromKubernetes(parsedArgs.namespace, parsedArgs.boxName, parsedArgs.contextName, dictionaries);
             }
 
             if (configs != null) {
                 configureLogger(configs);
             }
             FactorySettings settings = new FactorySettings();
-            settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_FILE_NAME));
-            settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_FILE_NAME));
-            settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
-            settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_FILE_NAME));
-            settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_FILE_NAME));
-            settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
-            settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
-            settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
-            settings.setDictionaryTypesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_TYPE_DIR_NAME));
-            settings.setDictionaryAliasesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_ALIAS_DIR_NAME));
-            String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
+            settings.setRabbitMQ(calculatePath(parsedArgs.rabbitConfiguration, configs, RABBIT_MQ_FILE_NAME));
+            settings.setRouterMQ(calculatePath(parsedArgs.messageRouterConfiguration, configs, ROUTER_MQ_FILE_NAME));
+            settings.setConnectionManagerSettings(calculatePath(parsedArgs.connectionManagerConfiguration, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
+            settings.setGrpc(calculatePath(parsedArgs.grpcConfiguration, parsedArgs.grpcRouterConfiguration, configs, GRPC_FILE_NAME));
+            settings.setRouterGRPC(calculatePath(parsedArgs.grpcRouterConfig, configs, ROUTER_GRPC_FILE_NAME));
+            settings.setPrometheus(calculatePath(parsedArgs.prometheusConfiguration, configs, PROMETHEUS_FILE_NAME));
+            settings.setBoxConfiguration(calculatePath(parsedArgs.boxConfiguration, configs, BOX_FILE_NAME));
+            settings.setCustom(calculatePath(parsedArgs.customConfiguration, configs, CUSTOM_FILE_NAME));
+            settings.setDictionaryTypesDir(calculatePath(parsedArgs.dictionariesDir, configs, DICTIONARY_TYPE_DIR_NAME));
+            settings.setDictionaryAliasesDir(calculatePath(parsedArgs.dictionariesDir, configs, DICTIONARY_ALIAS_DIR_NAME));
+            String oldDictionariesDir = parsedArgs.dictionariesDir;
             settings.setOldDictionariesDir(oldDictionariesDir == null ? (configs == null ? CONFIG_DEFAULT_PATH : Path.of(configs)) : Path.of(oldDictionariesDir));
 
-            String configurationProviderClassName = cmd.getOptionValue(configurationProviderClassOption.getLongOpt(),
-                    DEFAULT_CONFIGURATION_PROVIDER.getName());
+            String configurationProviderClassName = defaultIfNull(parsedArgs.configurationProviderClass, DEFAULT_CONFIGURATION_PROVIDER.getName());
+
             var providerClass = (Class<? extends ConfigurationProvider>) Class.forName(configurationProviderClassName);
             var factory = loadFactoryForProvider(providerClass);
-            String[] providerArguments = factory.get().parseCommandLine(cmd);
+            ConfigurationProviderFactory configurationProviderFactory = factory.get();
+
+
+            ConfigurationProviderConfig configurationProviderConfig =
+                    parseAs(args, configurationProviderFactory.settings());
+
             settings.setConfigurationProviderClass(providerClass);
-            settings.setConfigurationProviderArgs(providerArguments);
+            settings.setConfigurationProviderConfig(configurationProviderConfig);
 
             return new CommonFactory(settings);
-        } catch (ParseException e) {
-            throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
         } catch (ClassNotFoundException e) {
             LOGGER.error("Failed to find configuration provider class: " + e.getMessage());
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
         }
+    }
+
+    private static ConfigurationProviderConfig parseAs(String[] args, ConfigurationProviderConfig config) {
+        JCommander.newBuilder()
+                .addObject(config)
+                .addObject(new CommonFactoryArgs())
+                .acceptUnknownOptions(false)
+                .build()
+                .parse(args);
+        return config;
+    }
+    private static CommonFactoryArgs parseAsCommonConfig(String[] args) {
+        CommonFactoryArgs commonFactoryArgs = new CommonFactoryArgs();
+        JCommander.newBuilder()
+                .addObject(commonFactoryArgs)
+                .acceptUnknownOptions(true)
+                .build()
+                .parse(args);
+        return commonFactoryArgs;
     }
 
     private static ServiceLoader.@NotNull Provider<ConfigurationProviderFactory> loadFactoryForProvider(
@@ -418,7 +408,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
     }
 
     @Override
-    public <M> M loadModule(@NotNull Class<M> clazz) {
+    public <M extends Module> @NotNull M loadModule(@NotNull Class<M> clazz) {
         if (configurationProvider == null) {
             LOGGER.error("Configuration provider hasn't been provided");
             throw new IllegalStateException("Configuration provider hasn't been provided");
@@ -426,14 +416,6 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
         return configurationManager.getModuleWithConfigurationProvider(clazz, configurationProvider);
     }
 
-    @Override
-    public <C extends Configuration> @NotNull C loadConfiguration(@NotNull Class<C> clazz) {
-        if (configurationProvider == null) {
-            LOGGER.error("Configuration provider hasn't been provided");
-            throw new IllegalStateException("Configuration provider hasn't been provided");
-        }
-        return configurationManager.getConfigurationWithConfigurationProvider(clazz, configurationProvider);
-    }
 
     /**
      * Create {@link CommonFactory} via configs map from Kubernetes
@@ -775,11 +757,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
         return path != null ? Path.of(path) : (configsPath != null ? Path.of(configsPath, fileName) : CONFIG_DEFAULT_PATH.resolve(fileName));
     }
 
-    private static Path calculatePath(CommandLine cmd, Option option, String configs, String fileName) {
-        return calculatePath(cmd.getOptionValue(option.getLongOpt()), configs, fileName);
-    }
-
-    private static Path calculatePath(CommandLine cmd, Option current, Option deprecated, String configs, String fileName) {
-        return calculatePath(defaultIfNull(cmd.getOptionValue(current.getLongOpt()), cmd.getOptionValue(deprecated.getLongOpt())), configs, fileName);
+    private static Path calculatePath(String current, String deprecated, String configs, String fileName) {
+        return calculatePath(defaultIfNull(current, deprecated), configs, fileName);
     }
 }

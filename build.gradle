@@ -174,12 +174,17 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'
 
-    implementation 'com.exactpro.th2:common-j-cassandra-cradle:0.0.1-th2-1436-init-3181374693-6b81dc9-SNAPSHOT'
-    implementation "com.exactpro.th2:common-api-j:0.0.1-th2-1436-init-3180908004-e67b670-SNAPSHOT"
+    // todo remove
+//    implementation 'com.exactpro.th2:full-cradle-manager:2.22.0-local'
+    implementation 'com.exactpro.th2:basic-cradle-manager:2.22.0-local'
+    implementation 'com.exactpro.th2:cradle-manager-api:2.22.0-local'
+    implementation "com.exactpro.th2:common-api-j:0.0.1-th2-1436-init-3574652642-d3de09f-SNAPSHOT"
 
     annotationProcessor 'com.google.auto.service:auto-service:1.0.1'
     compileOnly 'com.google.auto.service:auto-service:1.0.1'
 
+    implementation 'com.beust:jcommander:1.82'
+    implementation "commons-cli:commons-cli"
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"
