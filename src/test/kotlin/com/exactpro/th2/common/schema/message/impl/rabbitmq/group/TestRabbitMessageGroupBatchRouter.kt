@@ -32,6 +32,7 @@ import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterC
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
@@ -97,6 +98,27 @@ class TestRabbitMessageGroupBatchRouter {
         ))
 
         @Test
+        fun `publishes message group batch with metadata`() {
+            val batch = MessageGroupBatch.newBuilder().apply {
+                metadataBuilder.apply {
+                    externalUserQueue = "externalUserQueue"
+                }
+                addGroupsBuilder().apply {
+                    this += message("test-message", Direction.FIRST, "test-alias")
+                }
+            }.build()
+
+            router.send(batch, "test")
+
+            val captor = argumentCaptor<ByteArray>()
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            val publishedBytes = captor.firstValue
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
+                "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
+            }
+        }
+
+        @Test
         fun `does not publish anything if all messages are filtered`() {
             router.send(
                 MessageGroupBatch.newBuilder()
@@ -119,7 +141,7 @@ class TestRabbitMessageGroupBatchRouter {
             val captor = argumentCaptor<ByteArray>()
             verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
-            Assertions.assertArrayEquals(batch.toByteArray(), publishedBytes) {
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
             }
         }
@@ -171,13 +193,13 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertAll(
                 Executable {
                     val publishedBytes = captor.firstValue
-                    Assertions.assertArrayEquals(originalBytes, publishedBytes) {
+                    assertArrayEquals(originalBytes, publishedBytes) {
                         "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
                     }
                 },
                 Executable {
                     val publishedBytes = captor.secondValue
-                    Assertions.assertArrayEquals(originalBytes, publishedBytes) {
+                    assertArrayEquals(originalBytes, publishedBytes) {
                         "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
                     }
                 }
@@ -209,6 +231,27 @@ class TestRabbitMessageGroupBatchRouter {
                 )
             )
         )
+
+        @Test
+        fun `publishes message group batch with metadata`() {
+            val batch = MessageGroupBatch.newBuilder().apply {
+                metadataBuilder.apply {
+                    externalUserQueue = "externalUserQueue"
+                }
+                addGroupsBuilder().apply {
+                    this += message("test-message", Direction.FIRST, "test-alias")
+                }
+            }.build()
+
+            router.send(batch, "test")
+
+            val captor = argumentCaptor<ByteArray>()
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            val publishedBytes = captor.firstValue
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
+                "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
+            }
+        }
 
         @Test
         fun `subscribes to correct queue`() {

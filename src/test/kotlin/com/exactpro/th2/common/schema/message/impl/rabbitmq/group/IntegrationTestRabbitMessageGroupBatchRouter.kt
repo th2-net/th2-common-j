@@ -21,6 +21,7 @@ import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterC
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.rabbitmq.client.BuiltinExchangeType
 import mu.KotlinLogging
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
@@ -36,7 +37,7 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
 
     @Test
     fun `subscribe to exclusive queue`() {
-        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
+        RabbitMQContainer(DockerImageName.parse(RABBITMQ_3_8_MANAGEMENT_ALPINE))
             .use { rabbitMQContainer ->
                 rabbitMQContainer.start()
                 LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
@@ -45,6 +46,41 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
                     createRouter(firstManager).use { firstRouter ->
                         createConnectionManager(rabbitMQContainer).use { secondManager ->
                             createRouter(secondManager).use { secondRouter ->
+                                val counter = CountDownLatch(1)
+                                val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
+                                try {
+
+                                    secondRouter.sendExclusive(monitor.queue, MessageGroupBatch.getDefaultInstance())
+                                    assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
+
+                                } finally {
+                                    monitor.unsubscribe()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+    }
+
+    @Test
+    fun `send receive message group batch`() {
+        RabbitMQContainer(DockerImageName.parse(RABBITMQ_3_8_MANAGEMENT_ALPINE))
+            .withExchange(EXCHANGE, BuiltinExchangeType.DIRECT.type, false, false, true, emptyMap())
+            .withQueue(QUEUE_NAME)
+            .withBinding(EXCHANGE, QUEUE_NAME, emptyMap(), ROUTING_KEY, "queue")
+            .use { rabbitMQContainer ->
+                rabbitMQContainer.start()
+                LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
+
+                createConnectionManager(rabbitMQContainer).use { firstManager ->
+                    createRouter(firstManager).use { firstRouter ->
+                        createConnectionManager(rabbitMQContainer).use { secondManager ->
+                            createRouter(secondManager).use { secondRouter ->
+                                firstRouter.subscribe({ _, _ ->
+
+                                })
+
                                 val counter = CountDownLatch(1)
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
@@ -96,6 +132,11 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
+
+        private const val RABBITMQ_3_8_MANAGEMENT_ALPINE = "rabbitmq:3.8-management-alpine"
+        private const val ROUTING_KEY = "routingKey"
+        private const val QUEUE_NAME = "queue"
+        private const val EXCHANGE = "test-exchange"
 
         private const val DEFAULT_PREFETCH_COUNT = 10
         private val DEFAULT_CONFIRMATION_TIMEOUT: Duration = Duration.ofSeconds(1)
