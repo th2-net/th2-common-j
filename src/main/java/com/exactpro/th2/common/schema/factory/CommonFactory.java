@@ -65,6 +65,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -363,7 +364,7 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
 
 
             ConfigurationProviderConfig configurationProviderConfig =
-                    parseAs(args, configurationProviderFactory.settings());
+                    parseAs(args, configurationProviderFactory.getConfigClass().getDeclaredConstructor().newInstance());
 
             settings.setConfigurationProviderClass(providerClass);
             settings.setConfigurationProviderConfig(configurationProviderConfig);
@@ -372,6 +373,9 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
         } catch (ClassNotFoundException e) {
             LOGGER.error("Failed to find configuration provider class: " + e.getMessage());
             throw new IllegalArgumentException("Incorrect arguments " + Arrays.toString(args), e);
+        } catch (InvocationTargetException | InstantiationException | IllegalAccessException | NoSuchMethodException e) {
+            LOGGER.error("Failed to create and initialize a new instance of ConfigurationProviderConfig: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
@@ -394,17 +398,17 @@ public class CommonFactory extends AbstractCommonFactory implements ModuleApi {
         return commonFactoryArgs;
     }
 
-    private static ServiceLoader.@NotNull Provider<ConfigurationProviderFactory> loadFactoryForProvider(
+    @NotNull
+    private static ServiceLoader.Provider<ConfigurationProviderFactory> loadFactoryForProvider(
             Class<? extends ConfigurationProvider> providerClass) {
 
         var optionalFactory = configurationProviderFactoryLoader.stream()
                 .filter(factory -> factory.get().getType().equals(providerClass))
                 .findFirst();
-        if (optionalFactory.isEmpty()) {
+        return optionalFactory.orElseThrow(() -> {
             LOGGER.error("Cannot find provider {}", providerClass);
-            throw new IllegalArgumentException("Cannot find provider " + providerClass);
-        }
-        return optionalFactory.get();
+            return new IllegalArgumentException("Cannot find provider " + providerClass);
+        });
     }
 
     @Override

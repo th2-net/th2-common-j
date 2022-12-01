@@ -35,8 +35,12 @@ open class FileConfigurationProviderFactory : ConfigurationProviderFactory {
         )
     }
 
+    override val configClass: Class<out ConfigurationProviderConfig>
+        get() = FileConfigurationProviderConfig::class.java
+
     override val type: Class<out ConfigurationProvider>
         get() = FileConfigurationProvider::class.java
+
 
     override fun create(config: ConfigurationProviderConfig): ConfigurationProvider {
         if (config is FileConfigurationProviderConfig) {
@@ -46,11 +50,8 @@ open class FileConfigurationProviderFactory : ConfigurationProviderFactory {
                 config.fileProviderExtension
             )
         } else {
-            throw IllegalArgumentException()
+            throw IllegalArgumentException("Wrong provider config: expected FileConfigurationProviderConfig, actual ${config::class.java}")
         }
     }
 
-    override fun settings(): ConfigurationProviderConfig {
-        return FileConfigurationProviderConfig()
-    }
 }

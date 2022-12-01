@@ -28,7 +28,8 @@ import mu.KotlinLogging
 import org.apache.commons.text.StringSubstitutor
 
 class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
-    private val cache: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
+    private val configurationCache: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
+    private val moduleCache: MutableMap<Class<*>, Module> = ConcurrentHashMap()
     private val modulesFactoryMapping: MutableMap<Class<*>, ModuleFactory> = ConcurrentHashMap()
 
     init {
@@ -63,12 +64,12 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         moduleClass: Class<T>,
         configurationProvider: ConfigurationProvider
     ): T {
-        val moduleFactory: ModuleFactory? = modulesFactoryMapping[moduleClass]
-        checkNotNull(moduleFactory) {
-            LOGGER.error { "Mapping does not contain module factory for $moduleClass" }
-            "Mapping does not contain module factory for $moduleClass"
-        }
-        return moduleFactory.create(configurationProvider) as T
+        return moduleCache.computeIfAbsent(moduleClass) {
+            checkNotNull(modulesFactoryMapping[moduleClass]) {
+                LOGGER.error { "Mapping does not contain module factory for $moduleClass" }
+                "Mapping does not contain module factory for $moduleClass"
+            }.create(configurationProvider)
+        } as T
     }
 
     fun <T> getConfigurationOrLoad(
@@ -77,7 +78,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         configClass: Class<T>,
         optional: Boolean
     ): T {
-        return cache.computeIfAbsent(configClass) {
+        return configurationCache.computeIfAbsent(configClass) {
             checkNotNull(configurationPath[configClass]) {
                 "Unknown class $configClass"
             }.let {
