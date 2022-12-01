@@ -22,7 +22,9 @@ import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.google.auto.service.AutoService
 
+@AutoService(ConfigurationProviderFactory::class)
 open class FileConfigurationProviderFactory : ConfigurationProviderFactory {
 
     private val objectMapper: ObjectMapper = ObjectMapper()
