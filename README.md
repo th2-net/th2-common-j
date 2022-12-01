@@ -57,7 +57,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
     ```
-    It also can be called by using `createFromArguments(args)` with arguments `--namespace`, `--boxName` and `--contextName`. 
+    It can also be called by using `createFromArguments(args)` with the arguments `--namespace`, `--boxName` and `--contextName`. 
     ContextName parameter is `@Nullable`; if it is set to null, the current context will not be changed.
 
 ### Configuration formats
@@ -79,7 +79,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * minConnectionRecoveryTimeout - this option defines a minimal interval in milliseconds between reconnect attempts, with its default value set to 10000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout. 
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with its default value set to 60000. Common factory increases the reconnect interval values from minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if unlimited, the default value is set to 10.
-* messageRecursionLimit - an integer number denotes how deep nested protobuf message might be, default = 100
+* messageRecursionLimit - an integer number denotes how deep the nested protobuf message might be, set by default 100
 
 ```json
 {
@@ -108,12 +108,12 @@ The `CommonFactory` reads a message's router configuration from the `mq.json` fi
         * first
         * second
         * subscribe
-        * publish        
+        * publish
         * parsed
         * raw
         * store
         * event
-      
+
     * filters - pin's message's filters
         * metadata - a metadata filters
         * message - a message's fields filters
@@ -126,7 +126,7 @@ Filters format:
 * expectedValue - expected field's value (not used for all operations)
 * operation - operation's type
     * `EQUAL` - the filter passes if the field is equal to the exact value
-    * `NOT_EQUAL` - the filter passes if the field does not equal the exact value
+    * `NOT_EQUAL` - the filter passes if the field is not equal to the exact value
     * `EMPTY` - the filter passes if the field is empty
     * `NOT_EMPTY` - the filter passes if the field is not empty
     * `WILDCARD` - filters the field by wildcard expression
@@ -177,7 +177,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 * cradleMaxMessageBatchSize - this option defines the maximum message batch size in bytes with its default value set to 1048576.
 * timeout - this option defines connection timeout in milliseconds. If set to 0 or omitted, the default value of 5000 is used.
 * pageSize - this option defines the size of the result set to fetch at a time. If set to 0 or omitted, the default value of 5000 is used.
-* prepareStorage - enables database schema initialization if Cradle is used. By default, it has value of `false`
+* prepareStorage - enables database schema initialization if Cradle is used. By default, it has a value of `false`.
+* eventBatchDurationMillis - this option defines default duration for test event batch duration, used when no duration data was available for particular test event partition. If set to 0 or omitted, the default value of 5000 is used.
 
 ```json
 {
@@ -191,7 +192,8 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
   "cradleMaxMessageBatchSize": 1048576,
   "timeout": 5000,
   "pageSize": 5000,
-  "prepareStorage": false
+  "prepareStorage": false,
+  "eventBatchDurationMillis": 5000
 }
 ```
 
@@ -199,9 +201,9 @@ The `CommonFactory` reads a Cradle configuration from the cradle.json file.
 
 1. It is necessary to have Kubernetes configuration written in ~/.kube/config. See more on kubectl configuration [here](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
 
-1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again. 
+1. Also note that `generated_configs` directory will be created to store `.json` files with configs from Kubernetes. Those files are overridden when `CommonFactory.createFromKubernetes(namespace, boxName)` and `CommonFactory.createFromKubernetes(namespace, boxName, contextName)` are invoked again.
 
-1. User needs to have authentication with service account token that has the necessary access to read CRs and secrets from the specified namespace. 
+1. Users need to have authentication with the service account token that has the necessary access to read CRs and secrets from the specified namespace.
 
 After that you can receive various Routers through factory properties:
 ```
@@ -243,6 +245,17 @@ The default attributes are:
 
 This library allows you to:
 
+## Routers
+
+### gRPC router
+
+This kind of router provides the ability for boxes to interact between each other via gRPC interface.
+
+#### Server
+
+gRPC router rises a gRPC server with enabled [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial) since the 3.38.0 version.
+It means that the users can execute calls from the console or through scripts via [grpcurl](https://github.com/fullstorydev/grpcurl#grpcurl) without gRPC schema (files with proto extensions describes gRPC service structure) 
+
 ## Export common metrics to Prometheus
   
 It can be performed by the following utility methods in CommonMetrics class
@@ -252,15 +265,15 @@ It can be performed by the following utility methods in CommonMetrics class
 
 NOTES:
 
-* in order for the metrics to be exported, you also will need to create an instance of CommonFactory
+* in order for the metrics to be exported, you will also need to create an instance of CommonFactory
 * common JVM metrics will also be exported alongside common service metrics
 * some metric labels are enumerations (`th2_type`: `MESSAGE_GROUP`, `EVENT`, `<customTag>`;`message_type`: `RAW_MESSAGE`, `MESSAGE`)
 
 RABBITMQ METRICS:
-* th2_rabbitmq_message_size_publish_bytes (`th2_pin`, `th2_type`, `exchange`, `routing_key`): number of published message bytes to RabbitMQ. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
-* th2_rabbitmq_message_publish_total (`th2_pin`, `th2_type`, `exchange`, `routing_key`): quantity of published messages to RabbitMQ. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
-* th2_rabbitmq_message_size_subscribe_bytes (`th2_pin`, `th2_type`, `queue`): number of bytes received from RabbitMQ, it includes bytes of messages dropped after filters. For information about the number of dropped messages, please refer to 'th2_message_dropped_subscribe_total' and 'th2_message_group_dropped_subscribe_total'. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
-* th2_rabbitmq_message_process_duration_seconds (`th2_pin`, `th2_type`, `queue`): time of message processing during subscription from RabbitMQ in seconds. The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+* th2_rabbitmq_message_size_publish_bytes (`th2_pin`, `th2_type`, `exchange`, `routing_key`): number of published message bytes to RabbitMQ. The message is intended for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+* th2_rabbitmq_message_publish_total (`th2_pin`, `th2_type`, `exchange`, `routing_key`): quantity of published messages to RabbitMQ. The message is intended for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+* th2_rabbitmq_message_size_subscribe_bytes (`th2_pin`, `th2_type`, `queue`): number of bytes received from RabbitMQ, it includes bytes of messages dropped after filters. For information about the number of dropped messages, please refer to 'th2_message_dropped_subscribe_total' and 'th2_message_group_dropped_subscribe_total'. The message is intended for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
+* th2_rabbitmq_message_process_duration_seconds (`th2_pin`, `th2_type`, `queue`): time of message processing during subscription from RabbitMQ in seconds. The message is intended for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content
 
 GRPC METRICS:
 * th2_grpc_invoke_call_total (`th2_pin`, `service_name`, `service_method`): total number of calling particular gRPC method
@@ -289,14 +302,14 @@ EVENTS METRICS:
 
 ### Test extensions:
 
-To be able to use test extensions please fill build.gradle as in example below: 
+To be able to use test extensions please fill build.gradle as in the example below: 
 ```groovy
 plugins {
     id 'java-test-fixtures'
 }
 
 dependencies {
-    testImplementation testFixtures("com.exactpro.th2:common:3.39.0")
+    testImplementation testFixtures("com.exactpro.th2:common:3.42.0")
 }
 ```
 
@@ -309,6 +322,30 @@ dependencies {
 + Added `prepareStorage` property to `cradle.json`
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
 
+
+### 3.42.0
+
++ Added `check_simple_collections_order` parameter to `RootComparisonSettings`
++ Started using cradle 3.2, version with grouped messages
++ Provided configuration for eventBatchDurationMillis in Cradle configuration
++ **NOTE:** The pin filters for messages works differently.
+  Previously the whole group of messages was dropped if any on them does not match the filter.
+  The current behavior is different: only mismatched messages will be dropped.
+  It might break code if it relies on previous behavior
+
+### 3.41.0
+
++ Work was done to eliminate vulnerabilities in _common_ and _bom_ dependencies. 
+  + **th2-bom must be updated to _4.0.1_ or higher.**
+
+### 3.40.0
+
++ gRPC router creates server support [grpc-service-reflection](https://github.com/grpc/grpc-java/blob/master/documentation/server-reflection-tutorial.md#grpc-server-reflection-tutorial)
+
+### 3.39.3
+
++ Fixed:
+    + The message is not confirmed when the delivery has incorrect format
 
 ### 3.39.2
 
@@ -356,7 +393,7 @@ dependencies {
 
 ### 3.34.0
 
-+ Added ability to read dictionaries by aliases and as group of all available aliases
++ Added the ability to read dictionaries by aliases and as group of all available aliases
 + New methods for api: loadDictionary(String), getDictionaryAliases(), loadSingleDictionary()
 
 ### 3.33.0
@@ -409,7 +446,7 @@ dependencies {
 
 ### 3.29.1
 
-+ Fix problem with filtering by `message_type` in MessageGroupBatch router
++ Fix the problem with filtering by `message_type` in MessageGroupBatch router
 
 ### 3.29.0
 
@@ -486,7 +523,7 @@ dependencies {
 
 ### 3.21.0
 + Added classes for management metrics.
-+ Added ability for resubscribe on canceled subscriber.
++ Added the ability for resubscribe on canceled subscriber.
 
 ### 3.20.0
 
@@ -495,7 +532,7 @@ dependencies {
 
 ### 3.19.0
 
-+ Added the Event.toListBatchProto method to covert instance of the Event class to list of event batches.
++ Added the Event.toListBatchProto method to covert an instance of the Event class to list of event batches.
 
 ### 3.18.2
 
@@ -508,7 +545,7 @@ dependencies {
 
 #### Changed:
 
-+ The `toMetadataFilter` returns `null` the original metadata has nothing to compare
++ The `toMetadataFilter` returns `null` if the original metadata has nothing to compare
 + The `toRootMessageFilter` does not add the `MetadataFilter` if the message's metadata has nothing to compare
 
 ### 3.18.0
@@ -519,7 +556,7 @@ dependencies {
 
 ### 3.17.0
 + Extended message utility class
-  + Added the toRootMessageFilter method to convert message to root message filter
+  + Added the toRootMessageFilter method to convert a message to root message filter
 
 ### 3.16.5
 + Update `th2-grpc-common` and `th2-grpc-service-generator` versions to `3.2.0` and `3.1.12` respectively
@@ -536,7 +573,7 @@ dependencies {
 ### 3.16.2
 
 + Restore backward compatibility for MessageConverter factory methods.
-  **NOTE: one of the methods was not restored and update to this version might require manual update for your code**.
+  **NOTE: one of the methods was not restored and an update to this version might require manual update for your code**.
   The old methods without `toTraceString` supplier will be removed in the future
 + Fixed configuration for gRPC server.
   + Added the property `workers`, which changes the count of gRPC server's threads

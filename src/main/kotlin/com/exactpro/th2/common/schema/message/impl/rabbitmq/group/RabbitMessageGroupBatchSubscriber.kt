@@ -15,7 +15,9 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
+import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.metrics.DIRECTION_LABEL
 import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
@@ -29,6 +31,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.util.filterMessagesToNewGroup
 import com.exactpro.th2.common.schema.message.toShortDebugString
 import com.google.protobuf.CodedInputStream
 import com.rabbitmq.client.Delivery
@@ -57,25 +60,24 @@ class RabbitMessageGroupBatchSubscriber(
             return batch
         }
 
-        val groups = batch.groupsList.asSequence()
-            .filter { group ->
-                group.messagesList.all { message ->
-                    callFilterFunction(message, filters)
-                }.also { allMessagesMatch ->
-                    if (!allMessagesMatch) {
-                        logger.debug { "Skipped message group because none or some of its messages didn't match any filters: ${group.toJson()}" }
-                        incrementDroppedMetrics(
-                            group.messagesList,
-                            th2Pin,
-                            MESSAGE_DROPPED_SUBSCRIBE_TOTAL,
-                            MESSAGE_GROUP_DROPPED_SUBSCRIBE_TOTAL
-                        )
-                    }
-                }
-            }
-            .toList()
+        val newBatch = MessageGroupBatch.newBuilder()
 
-        return if (groups.isEmpty()) null else MessageGroupBatch.newBuilder().addAllGroups(groups).build()
+        batch.groupsList.forEach { group ->
+            val dropped = group.filterMessagesToNewGroup(newBatch) { callFilterFunction(it, filters) }
+            if (dropped.isNotEmpty()) {
+                logger.debug {
+                    "Skipped ${dropped.size} message(s) from group because it(they) didn't match any filters: ${dropped.joinToString { it.logId }}"
+                }
+                incrementDroppedMetrics(
+                    dropped,
+                    th2Pin,
+                    MESSAGE_DROPPED_SUBSCRIBE_TOTAL,
+                    MESSAGE_GROUP_DROPPED_SUBSCRIBE_TOTAL
+                )
+            }
+        }
+
+        return if (newBatch.groupsList.isEmpty()) null else newBatch.build()
     }
 
     override fun handle(

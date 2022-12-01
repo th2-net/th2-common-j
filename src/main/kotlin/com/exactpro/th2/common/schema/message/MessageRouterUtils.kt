@@ -97,8 +97,7 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
     groupsList.asSequence()
         .flatMap { it.messagesList.asSequence() }
         .map(AnyMessage::logId)
-        .toSortedSet()
-        .apply { append(this) }
+        .joinTo(this, prefix = "[", postfix = "]")
 
     append(')')
 }

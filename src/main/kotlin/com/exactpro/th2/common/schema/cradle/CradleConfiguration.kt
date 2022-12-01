@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -66,5 +66,6 @@ data class CradleNonConfidentialConfiguration(
     var pageSize: Int = 5000,
     var cradleMaxEventBatchSize: Int = CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE,
     var cradleMaxMessageBatchSize: Int = CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE,
-    var prepareStorage: Boolean = false
+    var prepareStorage: Boolean = false,
+    var eventBatchDurationMillis: Long = CassandraStorageSettings.DEFAULT_EVENT_BATCH_DURATION_MILLIS
 ) : Configuration()
