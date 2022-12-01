@@ -168,7 +168,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.0.1")
+    api platform("com.exactpro.th2:bom:4.0.2")
     api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
@@ -213,7 +213,7 @@ dependencies {
 
     implementation 'io.github.microutils:kotlin-logging:2.1.23'
 
-    implementation 'org.apache.logging.log4j:log4j-slf4j-impl'
+    implementation 'org.apache.logging.log4j:log4j-slf4j2-impl'
     implementation 'org.apache.logging.log4j:log4j-1.2-api'
     implementation 'org.apache.logging.log4j:log4j-core'
 
