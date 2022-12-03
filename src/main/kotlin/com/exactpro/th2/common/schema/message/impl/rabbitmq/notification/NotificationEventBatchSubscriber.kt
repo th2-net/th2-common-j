@@ -17,7 +17,8 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
+import com.exactpro.th2.common.schema.message.ConfirmationListener
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.MessageSubscriber
@@ -25,15 +26,15 @@ import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.rabbitmq.client.Delivery
-import mu.KotlinLogging
 import java.util.concurrent.CopyOnWriteArrayList
+import mu.KotlinLogging
 
 // DRAFT of notification router
 class NotificationEventBatchSubscriber(
     private val connectionManager: ConnectionManager,
     private val queue: String
 ) : MessageSubscriber<EventBatch> {
-    private val listeners = CopyOnWriteArrayList<ConfirmationMessageListener<EventBatch>>()
+    private val listeners = CopyOnWriteArrayList<ConfirmationListener<EventBatch>>()
     private lateinit var monitor: SubscriberMonitor
 
     @Deprecated(
@@ -59,11 +60,11 @@ class NotificationEventBatchSubscriber(
     override fun start() {
         monitor = connectionManager.basicConsume(
             queue,
-            { consumerTag: String, delivery: Delivery, confirmation: ManualAckDeliveryCallback.Confirmation ->
+            { deliveryMetadata: DeliveryMetadata, delivery: Delivery, confirmation: ManualAckDeliveryCallback.Confirmation ->
                 try {
                     for (listener in listeners) {
                         try {
-                            listener.handle(consumerTag, EventBatch.parseFrom(delivery.body), confirmation)
+                            listener.handle(deliveryMetadata, EventBatch.parseFrom(delivery.body), confirmation)
                         } catch (listenerExc: Exception) {
                             LOGGER.warn(
                                 "Message listener from class '{}' threw exception",
@@ -80,17 +81,17 @@ class NotificationEventBatchSubscriber(
         )
     }
 
-    override fun removeListener(messageListener: ConfirmationMessageListener<EventBatch>) {
+    override fun removeListener(messageListener: ConfirmationListener<EventBatch>) {
         listeners.remove(messageListener)
     }
 
-    override fun addListener(messageListener: ConfirmationMessageListener<EventBatch>) {
+    override fun addListener(messageListener: ConfirmationListener<EventBatch>) {
         listeners.add(messageListener)
     }
 
     override fun close() {
         monitor.unsubscribe()
-        listeners.forEach(ConfirmationMessageListener<EventBatch>::onClose)
+        listeners.forEach(ConfirmationListener<EventBatch>::onClose)
         listeners.clear()
     }
 

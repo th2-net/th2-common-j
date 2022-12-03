@@ -17,8 +17,8 @@
 package com.exactpro.th2.common.schema.message.impl
 
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
-import mu.KotlinLogging
 import java.util.concurrent.atomic.AtomicBoolean
+import mu.KotlinLogging
 
 class OnlyOnceConfirmation private constructor(
     private val id: String,
@@ -30,7 +30,15 @@ class OnlyOnceConfirmation private constructor(
         if (called.compareAndSet(false, true)) {
             delegate.confirm()
         } else {
-            LOGGER.warn { "Confirmation '$id' invoked more that one time" }
+            LOGGER.warn { "Confirmation or rejection '$id' invoked more that one time" }
+        }
+    }
+
+    override fun reject() {
+        if (called.compareAndSet(false, true)) {
+            delegate.reject()
+        } else {
+            LOGGER.warn { "Confirmation or rejection '$id' invoked more that one time" }
         }
     }
 

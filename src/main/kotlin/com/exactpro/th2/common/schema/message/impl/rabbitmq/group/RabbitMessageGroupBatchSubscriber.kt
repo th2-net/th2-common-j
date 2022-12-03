@@ -23,6 +23,7 @@ import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
 import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
 import com.exactpro.th2.common.metrics.incrementDroppedMetrics
 import com.exactpro.th2.common.metrics.incrementTotalMetrics
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
@@ -80,7 +81,7 @@ class RabbitMessageGroupBatchSubscriber(
     }
 
     override fun handle(
-        consumeTag: String,
+        deliveryMetadata: DeliveryMetadata,
         delivery: Delivery,
         value: MessageGroupBatch,
         confirmation: ManualAckDeliveryCallback.Confirmation
@@ -92,7 +93,7 @@ class RabbitMessageGroupBatchSubscriber(
             MESSAGE_GROUP_SUBSCRIBE_TOTAL,
             MESSAGE_GROUP_SEQUENCE_SUBSCRIBE
         )
-        super.handle(consumeTag, delivery, value, confirmation)
+        super.handle(deliveryMetadata, delivery, value, confirmation)
     }
 
     private fun parseEncodedBatch(body: ByteArray?): MessageGroupBatch {

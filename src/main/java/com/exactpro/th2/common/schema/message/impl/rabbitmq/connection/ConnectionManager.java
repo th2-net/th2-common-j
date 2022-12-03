@@ -14,39 +14,9 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.BiConsumer;
-import java.util.function.Supplier;
-
-import javax.annotation.concurrent.GuardedBy;
-
-import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor;
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.impl.OnlyOnceConfirmation;
@@ -66,6 +36,35 @@ import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.concurrent.GuardedBy;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
     public static final String EMPTY_ROUTING_KEY = "";
@@ -311,13 +310,32 @@ public class ConnectionManager implements AutoCloseable {
                         String routingKey = envelope.getRoutingKey();
                         LOGGER.trace("Received delivery {} from queue={} routing_key={}", deliveryTag, queue, routingKey);
 
-                        Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, () -> holder.withLock(ch -> {
-                            try {
-                                basicAck(ch, deliveryTag);
-                            } finally {
-                                holder.release(() -> metrics.getReadinessMonitor().enable());
+                        Confirmation wrappedConfirmation = new Confirmation() {
+                            @Override
+                            public void reject() throws IOException {
+                                holder.withLock(ch -> {
+                                    try {
+                                        basicReject(ch, deliveryTag);
+                                    } finally {
+                                        holder.release(() -> metrics.getReadinessMonitor().enable());
+                                    }
+                                });
                             }
-                        }));
+
+                            @Override
+                            public void confirm() throws IOException {
+                                holder.withLock(ch -> {
+                                    try {
+                                        basicAck(ch, deliveryTag);
+                                    } finally {
+                                        holder.release(() -> metrics.getReadinessMonitor().enable());
+                                    }
+                                });
+                            }
+                        };
+
+                        Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, wrappedConfirmation);
+
 
                         holder.withLock(() -> holder.acquireAndSubmitCheck(() ->
                                 channelChecker.schedule(() -> {
@@ -331,7 +349,8 @@ public class ConnectionManager implements AutoCloseable {
                                     return false; // to cast to Callable
                                 }, configuration.getConfirmationTimeout().toMillis(), TimeUnit.MILLISECONDS)
                         ));
-                        deliverCallback.handle(tagTmp, delivery, confirmation);
+                        boolean redeliver = envelope.isRedeliver();
+                        deliverCallback.handle(new DeliveryMetadata(tagTmp, redeliver), delivery, confirmation);
                     } catch (IOException | RuntimeException e) {
                         LOGGER.error("Cannot handle delivery for tag {}: {}", tagTmp, e.getMessage(), e);
                     }
@@ -445,6 +464,10 @@ public class ConnectionManager implements AutoCloseable {
      */
     private static void basicAck(Channel channel, long deliveryTag) throws IOException {
         channel.basicAck(deliveryTag, false);
+    }
+
+    private static void basicReject(Channel channel, long deliveryTag) throws IOException {
+        channel.basicReject(deliveryTag, false);
     }
 
     private static class RabbitMqSubscriberMonitor implements ExclusiveSubscriberMonitor {

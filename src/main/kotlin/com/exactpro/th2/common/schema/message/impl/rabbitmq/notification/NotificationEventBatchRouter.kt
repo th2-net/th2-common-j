@@ -17,7 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.exception.RouterException
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.NotificationRouter
@@ -54,7 +54,7 @@ class NotificationEventBatchRouter : NotificationRouter<EventBatch> {
 
     override fun subscribe(callback: MessageListener<EventBatch>): SubscriberMonitor {
         try {
-            subscriber.addListener(ConfirmationMessageListener.wrap(callback))
+            subscriber.addListener(ConfirmationListener.wrap(callback))
             subscriber.start()
         } catch (e: Exception) {
             val errorMessage = "Listener can't be subscribed via the queue $queue"

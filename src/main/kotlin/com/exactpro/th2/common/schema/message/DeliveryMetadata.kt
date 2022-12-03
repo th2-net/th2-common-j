@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
- *
+ * Copyright 2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,14 +13,9 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message;
+package com.exactpro.th2.common.schema.message
 
-/**
- * Listen message from {@link MessageSubscriber}
- */
-public interface MessageListener<T> {
-
-    void handle(DeliveryMetadata deliveryMetadata, T message) throws Exception;
-
-    default void onClose() {}
-}
+data class DeliveryMetadata(
+    val consumerTag: String,
+    val isRedelivered: Boolean = false
+)

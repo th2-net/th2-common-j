@@ -263,6 +263,13 @@ class TestRabbitMessageGroupBatchRouter {
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
         }
+        @Test
+        fun `subscribes with manual ack to correct queue`() {
+            val monitor = router.subscribeWithManualAck(mock { }, "1")
+            Assertions.assertNotNull(monitor) { "monitor must not be null" }
+
+            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+        }
 
         @Test
         fun `subscribes to all matched queues`() {

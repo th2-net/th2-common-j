@@ -32,8 +32,8 @@ sourceCompatibility = 11
 targetCompatibility = 11
 
 ext {
-    cradleVersion       = '4.0.0-dev-version-4-2548754188-SNAPSHOT'
-    junitVersion      = '5.8.2'
+    cradleVersion       = '5.0.0-dev-version-5-2567311063-SNAPSHOT'
+    junitVersion        = '5.8.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
 
@@ -258,6 +258,7 @@ sourceSets {
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     kotlinOptions.jvmTarget = "11"
+    kotlinOptions.freeCompilerArgs += "-Xjvm-default=all"
 }
 
 clean {

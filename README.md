@@ -57,7 +57,7 @@ Then you will create an instance of imported class, by choosing one of the follo
     ```
     var factory = CommonFactory.createFromKubernetes(namespace, boxName, contextName);
     ```
-    It can also be called by using `createFromArguments(args)` with the arguments `--namespace`, `--boxName` and `--contextName`. 
+    It also can be called by using `createFromArguments(args)` with arguments `--namespace`, `--boxName` and `--contextName`. 
     ContextName parameter is `@Nullable`; if it is set to null, the current context will not be changed.
 
 ### Configuration formats
@@ -367,6 +367,7 @@ dependencies {
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
++ Added `isRedelivered` flag to message
 
 ### 3.42.0
 + Added the `enableSizeMeasuring`, `maxMessageSize`, `keepAliveInterval` options into gRPC router configuration. 

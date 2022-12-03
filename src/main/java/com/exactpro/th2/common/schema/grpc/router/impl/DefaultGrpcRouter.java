@@ -180,7 +180,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                 })
                 .collect(Collectors.toList());
         if (result.isEmpty()) {
-            throw new IllegalStateException("No services matching the provided class were found in the configuration: "
+            throw  new IllegalStateException("No services matching the provided class were found in the configuration: "
                     + proxyService.getName());
         }
 

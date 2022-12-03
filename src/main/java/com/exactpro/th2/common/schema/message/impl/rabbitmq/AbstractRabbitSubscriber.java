@@ -16,7 +16,8 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener;
+import com.exactpro.th2.common.schema.message.ConfirmationListener;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
@@ -72,7 +73,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private boolean hasManualSubscriber = false;
 
     protected final String th2Pin;
-    private final Set<ConfirmationMessageListener<T>> listeners = ConcurrentHashMap.newKeySet();
+    private final Set<ConfirmationListener<T>> listeners = ConcurrentHashMap.newKeySet();
     private final String queue;
     private final ConnectionManager connectionManager;
     private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
@@ -114,13 +115,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
-    public void addListener(ConfirmationMessageListener<T> messageListener) {
+    public void addListener(ConfirmationListener<T> messageListener) {
         publicLock.lock();
         try {
-            boolean isManual = ConfirmationMessageListener.isManual(messageListener);
+            boolean isManual = ConfirmationListener.isManual(messageListener);
             if (isManual && hasManualSubscriber) {
-                    throw new IllegalStateException("cannot subscribe listener " + messageListener
-                            + " because only one listener with manual confirmation is allowed per queue");
+                throw new IllegalStateException("cannot subscribe listener " + messageListener
+                        + " because only one listener with manual confirmation is allowed per queue");
             }
             if(listeners.add(messageListener)) {
                 hasManualSubscriber |= isManual;
@@ -132,10 +133,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
-    public void removeListener(ConfirmationMessageListener<T> messageListener) {
+    public void removeListener(ConfirmationListener<T> messageListener) {
         publicLock.lock();
         try {
-            boolean isManual = ConfirmationMessageListener.isManual(messageListener);
+            boolean isManual = ConfirmationListener.isManual(messageListener);
             if (listeners.remove(messageListener)) {
                 hasManualSubscriber &= !isManual;
                 messageListener.onClose();
@@ -154,9 +155,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 monitor.unsubscribe();
             }
 
-            Iterator<ConfirmationMessageListener<T>> listIterator = listeners.iterator();
+            Iterator<ConfirmationListener<T>> listIterator = listeners.iterator();
             while (listIterator.hasNext()) {
-                ConfirmationMessageListener<T> listener = listIterator.next();
+                ConfirmationListener<T> listener = listIterator.next();
                 listIterator.remove();
                 listener.onClose();
             }
@@ -183,7 +184,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected void handle(String consumeTag, Delivery delivery, T value, Confirmation confirmation) {
+    protected void handle(DeliveryMetadata deliveryMetadata, Delivery delivery, T value, Confirmation confirmation) throws IOException {
         try {
             String routingKey = delivery.getEnvelope().getRoutingKey();
             requireNonNull(value, () -> "Received value from " + routingKey + " is null");
@@ -203,11 +204,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             }
 
             boolean hasManualConfirmation = false;
-            for (ConfirmationMessageListener<T> listener : listeners) {
+            for (ConfirmationListener<T> listener : listeners) {
                 try {
-                    listener.handle(consumeTag, filteredValue, confirmation);
+                    listener.handle(deliveryMetadata, filteredValue, confirmation);
                     if (!hasManualConfirmation) {
-                        hasManualConfirmation = ConfirmationMessageListener.isManual(listener);
+                        hasManualConfirmation = ConfirmationListener.isManual(listener);
                     }
                 } catch (Exception listenerExc) {
                     LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
@@ -217,12 +218,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 confirmation.confirm();
             }
         } catch (Exception e) {
-            LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
-            try {
-                confirmation.confirm();
-            } catch (IOException ex) {
-                LOGGER.error("Cannot confirm delivery for {}", consumeTag, ex);
-            }
+            LOGGER.error("Can not parse value from delivery for: {}. Reject message received", deliveryMetadata, e);
+            confirmation.reject();
         }
     }
 
@@ -233,7 +230,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     try {
                         monitor = connectionManager.basicConsume(
                                 queue,
-                                (consumeTag, delivery, confirmation) -> {
+                                (deliveryMetadata, delivery, confirmProcessed) -> {
                                     try (Timer ignored = MESSAGE_PROCESS_DURATION_SECONDS
                                             .labels(th2Pin, th2Type, queue)
                                             .startTimer()) {
@@ -245,8 +242,8 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                                         try {
                                             value = valueFromBytes(delivery.getBody());
                                         } catch (Exception e) {
-                                            LOGGER.error("Couldn't parse delivery. Confirm message received", e);
-                                            confirmation.confirm();
+                                            LOGGER.error("Couldn't parse delivery. Reject message received", e);
+                                            confirmProcessed.reject();
                                             throw new IOException(
                                                     String.format(
                                                             "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
@@ -255,7 +252,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                                                     e
                                             );
                                         }
-                                        handle(consumeTag, delivery, value, confirmation);
+                                        handle(deliveryMetadata, delivery, value, confirmProcessed);
                                     }
                                 },
                                 this::canceled

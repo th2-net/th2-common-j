@@ -42,7 +42,7 @@ public interface MessageSubscriber<T> extends AutoCloseable {
     @Deprecated
     void start() throws Exception;
 
-    void addListener(ConfirmationMessageListener<T> messageListener);
+    void addListener(ConfirmationListener<T> messageListener);
 
-    void removeListener(ConfirmationMessageListener<T> messageListener);
+    void removeListener(ConfirmationListener<T> messageListener);
 }
