@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.grpc.router
 
-import com.exactpro.th2.common.value.toValue
+import com.google.protobuf.Message
 import io.grpc.MethodDescriptor
 import io.prometheus.client.Counter
 import mu.KotlinLogging
@@ -39,8 +39,12 @@ abstract class AbstractGrpcInterceptor (
             sizeBytesCounter: Counter.Child?,
             methodInvokeCounter: Counter.Child,
         ) {
+            require(this is Message) {
+                "Passed object of ${this::class.java} class is not implement the ${Message::class.java} interface"
+            }
+
             val size: Int? = sizeBytesCounter?.let {
-                toValue().serializedSize.also {
+                serializedSize.also {
                     sizeBytesCounter.inc(it.toDouble())
                 }
             }

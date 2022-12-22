@@ -293,7 +293,12 @@ public class ConnectionManager implements AutoCloseable {
     public String queueDeclare() throws IOException {
         ChannelHolder holder = new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
         return holder.mapWithLock( channel -> {
-            String queue = holder.channel.queueDeclare("", false, true, false, Collections.emptyMap()).getQueue();
+            String queue = channel.queueDeclare(
+                    "", // queue name
+                    false, // durable
+                    true, // exclusive
+                    false, // autoDelete
+                    Collections.emptyMap()).getQueue();
             LOGGER.info("Declared exclusive '{}' queue", queue);
             putChannelFor(PinId.forQueue(queue), holder);
             return queue;

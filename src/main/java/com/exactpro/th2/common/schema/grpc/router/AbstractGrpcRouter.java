@@ -68,6 +68,12 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected GrpcRouterConfiguration routerConfiguration;
     protected GrpcConfiguration configuration;
 
+    // Metrics below are collectd to maps to improve getting <Metric>.Child performance.
+    // Prometheus metric has the `labels` tread-safe method for getting <Metric>.Child but its logic includes:
+    // * array String creation
+    // * covert the array to list
+    // * search <Metric>.Child by the list
+
     protected static final Counter GRPC_INVOKE_CALL_TOTAL = Counter.build()
             .name("th2_grpc_invoke_call_total")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)

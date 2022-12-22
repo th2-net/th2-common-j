@@ -26,7 +26,6 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.MessageGroupBatchMetadata
 import com.exactpro.th2.common.grpc.MessageGroupBatchOrBuilder
 import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
@@ -96,9 +95,8 @@ fun appendAttributes(
 fun MessageGroupBatch.toShortDebugString(): String = buildString {
     append("MessageGroupBatch ")
 
-    val sourceMetadata = metadata
-    if (sourceMetadata !== MessageGroupBatchMetadata.getDefaultInstance()) {
-        append("external user queue = ${sourceMetadata.externalQueue} ")
+    if (hasMetadata()) {
+        append("external user queue = ${metadata.externalQueue} ")
     }
 
     append("(ids = ")
@@ -112,8 +110,7 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
 }
 
 fun MessageGroupBatchOrBuilder.toBuilderWithMetadata(): MessageGroupBatch.Builder = MessageGroupBatch.newBuilder().apply {
-    val sourceMetadata = this@toBuilderWithMetadata.metadata
-    if (sourceMetadata !== MessageGroupBatchMetadata.getDefaultInstance()) {
-        metadata = sourceMetadata
+    if (this@toBuilderWithMetadata.hasMetadata()) {
+        metadata = this@toBuilderWithMetadata.metadata
     }
 }
