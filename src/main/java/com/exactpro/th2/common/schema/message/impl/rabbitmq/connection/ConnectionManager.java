@@ -396,7 +396,8 @@ public class ConnectionManager implements AutoCloseable {
         try {
             Channel channel = connection.createChannel();
             Objects.requireNonNull(channel, () -> "No channels are available in the connection. Max channel number: " + connection.getChannelMax());
-            channel.basicQos(configuration.getPrefetchCount());
+            channel.basicQos(configuration.getPrefetchSize(), configuration.getPrefetchCount(), false);
+            LOGGER.info("{} has been configured by prefetch size: {}, prefetch count: {}, global: {}", channel, configuration.getPrefetchSize(), configuration.getPrefetchCount(), false);
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
             return channel;
@@ -540,7 +541,8 @@ public class ConnectionManager implements AutoCloseable {
         ) {
             this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
             this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
-            this.maxCount = maxCount;
+            this.maxCount = maxCount == 0 ? Integer.MAX_VALUE : maxCount;
+            LOGGER.info("Created channel holder with max message count {}", this.maxCount);
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
