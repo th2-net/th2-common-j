@@ -499,7 +499,7 @@ public class CommonFactory extends AbstractCommonFactory {
                     writeFile(boxConfigurationPath, boxConfig);
                 }
 
-                writeDictionaries(boxName, configPath, dictionaryTypePath, dictionaries, configMaps.list());
+                writeDictionaries(dictionaryTypePath, dictionaryAliasPath, dictionaries, configMaps.list());
             }
 
             return new CommonFactory(settings);
@@ -635,51 +635,61 @@ public class CommonFactory extends AbstractCommonFactory {
         return file;
     }
 
-    private static void writeDictionaries(String boxName, Path oldDictionariesDir, Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+    private static void writeDictionaries(Path oldDictionariesDir, Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+        createDirectory(dictionariesDir);
+
         for(ConfigMap configMap : configMapList.getItems()) {
             String configMapName = configMap.getMetadata().getName();
-            if(configMapName.startsWith(boxName) && configMapName.endsWith("-dictionary")) {
-                configMap.getData().forEach((fileName, base64) -> {
-                    try {
-                        writeFile(oldDictionariesDir.resolve(fileName), base64);
-                    } catch (IOException e) {
-                        LOGGER.error("Can not write dictionary '{}' from config map with name '{}'", fileName, configMapName);
-                    }
-                });
+
+            if (!configMapName.endsWith("-dictionary")) {
+                continue;
             }
+
+            String dictionaryName = configMapName.substring(0, configMapName.lastIndexOf('-'));
+
+            dictionaries.entrySet().stream()
+                    .filter(entry -> Objects.equals(entry.getValue(), dictionaryName))
+                    .forEach(entry -> {
+                        DictionaryType type = entry.getKey();
+                        try {
+                            Path dictionaryTypeDir = type.getDictionary(oldDictionariesDir);
+                            createDirectory(dictionaryTypeDir);
+
+                            if (configMap.getData().size() != 1) {
+                                throw new IllegalStateException(
+                                        String.format("Can not save dictionary '%s' with type '%s', because can not find dictionary data in config map", dictionaryName, type)
+                                );
+                            }
+
+                            downloadFiles(dictionariesDir, configMap);
+                            downloadFiles(dictionaryTypeDir, configMap);
+                        } catch (Exception e) {
+                            throw new IllegalStateException("Loading the " + dictionaryName + " dictionary with type " + type + " failures", e);
+                        }
+                    });
         }
+    }
 
-        for (Map.Entry<DictionaryType, String> entry : dictionaries.entrySet()) {
-            DictionaryType type = entry.getKey();
-            String dictionaryName = entry.getValue();
-            for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
-                String configName = dictionaryConfigMap.getMetadata().getName();
-                if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
-                    Path dictionaryTypeDir = type.getDictionary(dictionariesDir);
-
-                    if (Files.notExists(dictionaryTypeDir)) {
-                        Files.createDirectories(dictionaryTypeDir);
-                    } else if (!Files.isDirectory(dictionaryTypeDir)) {
-                        throw new IllegalStateException(
-                                String.format("Can not save dictionary '%s' with type '%s', because '%s' is not directory", dictionaryName, type, dictionaryTypeDir)
-                        );
-                    }
-
-                    Set<String> fileNameSet = dictionaryConfigMap.getData().keySet();
-
-                    if (fileNameSet.size() != 1) {
-                        throw new IllegalStateException(
-                                String.format("Can not save dictionary '%s' with type '%s', because can not find dictionary data in config map", dictionaryName, type)
-                        );
-                    }
-
-                    String fileName = fileNameSet.stream().findFirst().orElse(null);
-                    Path dictionaryPath = dictionaryTypeDir.resolve(fileName);
-                    writeFile(dictionaryPath, dictionaryConfigMap.getData().get(fileName));
-                    LOGGER.debug("Dictionary written in folder: " + dictionaryPath);
-                    break;
+    private static void downloadFiles(Path baseDir, ConfigMap configMap) {
+        String configMapName = configMap.getMetadata().getName();
+        configMap.getData().forEach((fileName, base64) -> {
+            try {
+                Path path = baseDir.resolve(fileName);
+                if (!Files.exists(path)) {
+                    writeFile(path, base64);
+                    LOGGER.info("The '{}' config has been downloaded from the '{}' config map to the '{}' path", fileName, configMapName, path);
                 }
+            } catch (IOException e) {
+                LOGGER.error("Can not download the '{}' file from the '{}' config map", fileName, configMapName);
             }
+        });
+    }
+
+    private static void createDirectory(Path dir) throws IOException {
+        if (Files.notExists(dir)) {
+            Files.createDirectories(dir);
+        } else if (!Files.isDirectory(dir)) {
+            throw new IllegalStateException("Can not save dictionary '" + dir + "' because the '" + dir + "' has already exist and isn't a directory");
         }
     }
 
