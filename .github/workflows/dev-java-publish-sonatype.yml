@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-job:
-    uses: th2-net/.github/.github/workflows/compound-java-dev.yml@th2-4135-trivy-workflow
+    uses: th2-net/.github/.github/workflows/compound-java-dev.yml@main
     with:
       build-target: 'Sonatype'
       runsOn: ubuntu-latest

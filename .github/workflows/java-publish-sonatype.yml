@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    uses: th2-net/.github/.github/workflows/compound-java.yml@th2-4135-trivy-workflow
+    uses: th2-net/.github/.github/workflows/compound-java.yml@main
     with:
       build-target: 'Sonatype'
       runsOn: ubuntu-latest
