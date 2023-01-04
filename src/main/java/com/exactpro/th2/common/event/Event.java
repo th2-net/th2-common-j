@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import com.exactpro.th2.common.message.MessageUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -53,16 +55,18 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 
+//TODO: move to common-utils-j
+@SuppressWarnings("unused")
 public class Event {
     private static final Logger LOGGER = LoggerFactory.getLogger(Event.class);
-
     public static final String UNKNOWN_EVENT_NAME = "Unknown event name";
     public static final String UNKNOWN_EVENT_TYPE = "Unknown event type";
     public static final EventID DEFAULT_EVENT_ID = EventID.getDefaultInstance();
-
     protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER = ThreadLocal.withInitial(() -> new ObjectMapper().setSerializationInclusion(NON_NULL));
+    protected final String UUID = generateUUID();
+    protected final AtomicLong ID_COUNTER = new AtomicLong();
 
-    protected final String id = generateUUID();
+    protected final String id = UUID + '-' + ID_COUNTER.incrementAndGet();
     protected final List<Event> subEvents = new ArrayList<>();
     protected final List<MessageID> attachedMessageIDS = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
@@ -231,7 +235,12 @@ public class Event {
      * @return current event
      */
     public Event messageID(MessageID attachedMessageID) {
-        attachedMessageIDS.add(requireNonNull(attachedMessageID, "Attached message id can't be null"));
+        requireNonNull(attachedMessageID, "Attached message id can't be null");
+        if (MessageUtils.isValid(attachedMessageID)) {
+            attachedMessageIDS.add(attachedMessageID);
+        } else {
+            throw new IllegalArgumentException("Attached " + MessageUtils.toJson(attachedMessageID) + " message id");
+        }
         return this;
     }
 
