@@ -316,6 +316,8 @@ dependencies {
 ### 4.0.0
 
 + Migration to books/pages cradle 4.0.0
++ Migration to bom 4.0.2
++ Removed log4j 1.x from dependency
 + Removed `cradleInstanceName` parameter from `cradle.json`
 + Added `prepareStorage` property to `cradle.json`
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
