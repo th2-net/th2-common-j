@@ -34,14 +34,10 @@ class Log4jConfigUtils {
             ?.let { path ->
                 try {
                     LOGGER.info("Trying to apply logger config from {}. Expecting log4j syntax", path)
-                    LOGGER.debug("test")
-                    LOGGER.trace("test")
                     val loggerContext = LoggerContext.getContext(false)
                     loggerContext.configLocation = path.toUri()
                     loggerContext.reconfigure()
                     LOGGER.info("Logger configuration from {} file is applied", path)
-                    LOGGER.debug("test")
-                    LOGGER.trace("test")
                 } catch (e: MalformedURLException) {
                     LOGGER.error(e.message, e)
                 }
