@@ -22,3 +22,14 @@ jobs:
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
       sonatypeSigningKey: ${{ secrets.SONATYPE_GPG_ARMORED_KEY }}
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
+  owasp-scan:
+    needs: [build-job]
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Owasp scan
+        run: ./gradlew dependencyCheckAnalyze
+      - name: Check ls
+        run: ls
+      - name: Check reports
+        run: ls ./reports
