@@ -25,4 +25,4 @@ jobs:
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
   owasp-scan:
     needs: [build-job]
-    uses: th2-net/.github/.github/workflows/compound-java-dev.yml@th2-4566-gradle-owasp-scan
+    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@th2-4566-gradle-owasp-scan
