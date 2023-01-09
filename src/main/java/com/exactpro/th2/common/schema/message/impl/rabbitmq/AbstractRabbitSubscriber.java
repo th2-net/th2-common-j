@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,6 +25,7 @@ import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.google.common.base.Suppliers;
 import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
@@ -43,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
@@ -52,6 +54,9 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
+
+    @SuppressWarnings("rawtypes")
+    private static final Supplier EMPTY_INITIALIZER = Suppliers.memoize(() -> null);
 
     private static final Counter MESSAGE_SIZE_SUBSCRIBE_BYTES = Counter.build()
             .name("th2_rabbitmq_message_size_subscribe_bytes")
@@ -76,7 +81,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final Set<ConfirmationListener<T>> listeners = ConcurrentHashMap.newKeySet();
     private final String queue;
     private final ConnectionManager connectionManager;
-    private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
+    private final AtomicReference<Supplier<SubscriberMonitor>> consumerMonitor = new AtomicReference<>(emptySupplier());
     private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
     private final String th2Type;
 
@@ -150,7 +155,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     public void close() throws IOException {
         publicLock.lock();
         try {
-            SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+            SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
             if (monitor != null) {
                 monitor.unsubscribe();
             }
@@ -225,46 +230,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     private void subscribe() {
         try {
-            consumerMonitor.updateAndGet(monitor -> {
-                if (monitor == null) {
-                    try {
-                        monitor = connectionManager.basicConsume(
-                                queue,
-                                (deliveryMetadata, delivery, confirmProcessed) -> {
-                                    try (Timer ignored = MESSAGE_PROCESS_DURATION_SECONDS
-                                            .labels(th2Pin, th2Type, queue)
-                                            .startTimer()) {
-                                        MESSAGE_SIZE_SUBSCRIBE_BYTES
-                                                .labels(th2Pin, th2Type, queue)
-                                                .inc(delivery.getBody().length);
-
-                                        T value;
-                                        try {
-                                            value = valueFromBytes(delivery.getBody());
-                                        } catch (Exception e) {
-                                            LOGGER.error("Couldn't parse delivery. Reject message received", e);
-                                            confirmProcessed.reject();
-                                            throw new IOException(
-                                                    String.format(
-                                                            "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
-                                                            delivery.getEnvelope(), queue, th2Pin
-                                                    ),
-                                                    e
-                                            );
-                                        }
-                                        handle(deliveryMetadata, delivery, value, confirmProcessed);
-                                    }
-                                },
-                                this::canceled
-                        );
-                        LOGGER.info("Start listening queue name='{}', th2 pin='{}'", queue, th2Pin);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    }
-                }
-
-                return monitor;
-            });
+            consumerMonitor.updateAndGet(previous -> previous == EMPTY_INITIALIZER
+                            ? Suppliers.memoize(this::basicConsume)
+                            : previous)
+                    .get(); // initialize subscribtion
         } catch (Exception e) {
             throw new IllegalStateException("Can not start listening", e);
         }
@@ -273,7 +242,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private void resubscribe() {
         LOGGER.info("Try to resubscribe subscriber for queue name='{}'", queue);
 
-        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
         if (monitor != null) {
             try {
                 monitor.unsubscribe();
@@ -290,9 +259,51 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
     }
 
+    private SubscriberMonitor basicConsume() {
+        try {
+            LOGGER.info("Start listening queue name='{}', th2 pin='{}'", queue, th2Pin);
+            return connectionManager.basicConsume(queue, this::handle, this::canceled);
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not subscribe to queue = " + queue, e);
+        }
+    }
+
+    private void handle(DeliveryMetadata deliveryMetadata,
+                        Delivery delivery,
+                        Confirmation confirmProcessed) throws IOException {
+        try (Timer ignored = MESSAGE_PROCESS_DURATION_SECONDS
+                .labels(th2Pin, th2Type, queue)
+                .startTimer()) {
+            MESSAGE_SIZE_SUBSCRIBE_BYTES
+                    .labels(th2Pin, th2Type, queue)
+                    .inc(delivery.getBody().length);
+
+            T value;
+            try {
+                value = valueFromBytes(delivery.getBody());
+            } catch (Exception e) {
+                LOGGER.error("Couldn't parse delivery. Reject message received", e);
+                confirmProcessed.reject();
+                throw new IOException(
+                        String.format(
+                                "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
+                                delivery.getEnvelope(), queue, th2Pin
+                        ),
+                        e
+                );
+            }
+            handle(deliveryMetadata, delivery, value, confirmProcessed);
+        }
+    }
+
     private void canceled(String consumerTag) {
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
         healthMetrics.getReadinessMonitor().disable();
         resubscribe();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Supplier<T> emptySupplier() {
+        return (Supplier<T>) EMPTY_INITIALIZER;
     }
 }
