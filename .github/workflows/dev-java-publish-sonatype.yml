@@ -17,6 +17,7 @@ jobs:
     with:
       build-target: 'Sonatype'
       runsOn: ubuntu-latest
+      scanner-enabled: false
     secrets:
       sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
@@ -24,12 +25,4 @@ jobs:
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
   owasp-scan:
     needs: [build-job]
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-      - name: Owasp scan
-        run: ./gradlew dependencyCheckAnalyze
-      - name: Check ls
-        run: ls
-      - name: Check reports
-        run: ls ./reports
+    uses: th2-net/.github/.github/workflows/compound-java-dev.yml@th2-4566-gradle-owasp-scan

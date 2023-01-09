@@ -270,5 +270,5 @@ clean {
 }
 
 dependencyCheck {
-    formats=['JSON']
+    formats=['SARIF']
 }
