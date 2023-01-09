@@ -308,12 +308,12 @@ public class Event {
 
     public com.exactpro.th2.common.grpc.Event toProto(
             @NotNull String bookName,
-            @NotNull String scope
+            @Nullable String scope
     ) throws JsonProcessingException {
         return toProto(
                 null,
                 requireNonBlankBookName(bookName),
-                requireNonBlankScope(scope)
+                scope
         );
     }
 

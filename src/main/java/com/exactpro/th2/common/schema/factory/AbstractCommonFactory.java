@@ -634,7 +634,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                             .description("Root event")
                             .status(Event.Status.PASSED)
                             .type("Microservice")
-                            .toProto(boxConfiguration.getBookName());
+                            .toProto(boxConfiguration.getBookName(), boxConfiguration.getBoxName());
 
                     try {
                         getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
