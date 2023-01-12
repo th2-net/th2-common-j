@@ -175,7 +175,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.0.2")
+    api platform("com.exactpro.th2:bom:4.0.2-th2-4566-reusable-workflow-3903912923-5271b68")
     api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
