@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,6 +21,7 @@ import com.exactpro.th2.common.schema.message.ManualConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.appendAttributes
 
@@ -41,7 +42,13 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
         this.groupBatchRouter = groupBatchRouter
     }
 
-    override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
+    override fun subscribeExclusive(callback: MessageListener<T>): ExclusiveSubscriberMonitor {
+        return groupBatchRouter.subscribeExclusive { deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
+            callback.handle(deliveryMetadata, buildFromGroupBatch(message))
+        }
+    }
+
+    override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
         return groupBatchRouter.subscribe({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
                 callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
@@ -49,7 +56,7 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
         )
     }
 
-    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
+    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
         return groupBatchRouter.subscribeAll({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
                 callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
@@ -83,6 +90,13 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
 
         return groupBatchRouter.subscribeAllWithManualAck(listener,
             *appendAttributes(*queueAttr) { getRequiredSubscribeAttributes() }.toTypedArray()
+        )
+    }
+
+    override fun sendExclusive(queue: String, messageBatch: T) {
+        groupBatchRouter.sendExclusive(
+            queue,
+            buildGroupBatch(messageBatch)
         )
     }
 

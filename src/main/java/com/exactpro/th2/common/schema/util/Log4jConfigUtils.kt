@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.schema.util
 
-import org.apache.log4j.PropertyConfigurator
+import org.apache.logging.log4j.core.LoggerContext
 import org.slf4j.LoggerFactory
 import java.net.MalformedURLException
 import java.nio.file.Files
@@ -34,7 +34,9 @@ class Log4jConfigUtils {
             ?.let { path ->
                 try {
                     LOGGER.info("Trying to apply logger config from {}. Expecting log4j syntax", path)
-                    PropertyConfigurator.configure(path.toUri().toURL())
+                    val loggerContext = LoggerContext.getContext(false)
+                    loggerContext.configLocation = path.toUri()
+                    loggerContext.reconfigure()
                     LOGGER.info("Logger configuration from {} file is applied", path)
                 } catch (e: MalformedURLException) {
                     LOGGER.error(e.message, e)

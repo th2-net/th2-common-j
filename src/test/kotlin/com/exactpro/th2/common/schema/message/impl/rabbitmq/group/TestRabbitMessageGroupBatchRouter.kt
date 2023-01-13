@@ -24,7 +24,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.SubscriberMonitor
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
@@ -35,6 +35,7 @@ import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterC
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
@@ -48,7 +49,7 @@ import org.mockito.kotlin.verify
 
 class TestRabbitMessageGroupBatchRouter {
     private val connectionConfiguration = ConnectionManagerConfiguration()
-    private val monitor: SubscriberMonitor = mock { }
+    private val monitor: ExclusiveSubscriberMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
         on { basicConsume(any(), any(), any()) }.thenReturn(monitor)
@@ -100,6 +101,27 @@ class TestRabbitMessageGroupBatchRouter {
         ))
 
         @Test
+        fun `publishes message group batch with metadata`() {
+            val batch = MessageGroupBatch.newBuilder().apply {
+                metadataBuilder.apply {
+                    externalQueue = "externalQueue"
+                }
+                addGroupsBuilder().apply {
+                    this += message("test-book", "test-message", Direction.FIRST, "test-alias")
+                }
+            }.build()
+
+            router.send(batch, "test")
+
+            val captor = argumentCaptor<ByteArray>()
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            val publishedBytes = captor.firstValue
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
+                "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
+            }
+        }
+
+        @Test
         fun `does not publish anything if all messages are filtered`() {
             router.send(
                 MessageGroupBatch.newBuilder()
@@ -122,7 +144,7 @@ class TestRabbitMessageGroupBatchRouter {
             val captor = argumentCaptor<ByteArray>()
             verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
-            Assertions.assertArrayEquals(batch.toByteArray(), publishedBytes) {
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
             }
         }
@@ -174,13 +196,13 @@ class TestRabbitMessageGroupBatchRouter {
             Assertions.assertAll(
                 Executable {
                     val publishedBytes = captor.firstValue
-                    Assertions.assertArrayEquals(originalBytes, publishedBytes) {
+                    assertArrayEquals(originalBytes, publishedBytes) {
                         "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
                     }
                 },
                 Executable {
                     val publishedBytes = captor.secondValue
-                    Assertions.assertArrayEquals(originalBytes, publishedBytes) {
+                    assertArrayEquals(originalBytes, publishedBytes) {
                         "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
                     }
                 }
@@ -196,7 +218,7 @@ class TestRabbitMessageGroupBatchRouter {
                     routingKey = "publish",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish")
+                    attributes = listOf("publish", "test")
                 ),
                 "test1" to QueueConfiguration(
                     routingKey = "",
@@ -212,6 +234,27 @@ class TestRabbitMessageGroupBatchRouter {
                 )
             )
         )
+
+        @Test
+        fun `publishes message group batch with metadata`() {
+            val batch = MessageGroupBatch.newBuilder().apply {
+                metadataBuilder.apply {
+                    externalQueue = "externalQueue"
+                }
+                addGroupsBuilder().apply {
+                    this += message("test-book", "test-message", Direction.FIRST, "test-alias")
+                }
+            }.build()
+
+            router.send(batch, "test")
+
+            val captor = argumentCaptor<ByteArray>()
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("publish"), anyOrNull(), captor.capture())
+            val publishedBytes = captor.firstValue
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
+                "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
+            }
+        }
 
         @Test
         fun `subscribes to correct queue`() {

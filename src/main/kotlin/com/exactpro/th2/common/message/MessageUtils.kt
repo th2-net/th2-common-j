@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -347,6 +347,22 @@ var RawMessage.Builder.sessionAlias
     get(): String = metadata.id.connectionId.sessionAlias
     set(value) {
         metadataBuilder.idBuilder.connectionIdBuilder.sessionAlias = value
+    }
+
+val Message.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+var Message.Builder.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionGroup = value
+    }
+
+val RawMessage.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+var RawMessage.Builder.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionGroup = value
     }
 
 val Message.sequence

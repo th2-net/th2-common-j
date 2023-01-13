@@ -19,6 +19,7 @@ import com.exactpro.th2.common.schema.exception.RouterException
 import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
 import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.ManualConfirmationListener
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
@@ -77,6 +78,13 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         this.context = context
     }
 
+    override fun sendExclusive(queue: String, message: T) {
+        val pinConfig = PinConfiguration(queue, "", "", isReadable = false, isWritable = true)
+
+        senders.getSender(queue, pinConfig)
+            .send(message)
+    }
+
     override fun send(message: T, vararg attributes: String) {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSendAttributes() }
         send(message, pintAttributes) {
@@ -91,6 +99,24 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         send(message, pintAttributes) {
             check(isNotEmpty()) {
                 "Found incorrect number of pins ${map(PinInfo::pinName)} to send all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
+            }
+        }
+    }
+
+    override fun subscribeExclusive(callback: MessageListener<T>): ExclusiveSubscriberMonitor {
+        val queue = connectionManager.queueDeclare()
+        val pinConfig = PinConfiguration("", queue, "", isReadable = true, isWritable = false)
+
+        val messageListener = ConfirmationListener.wrap(callback)
+        val messageSubscriber = subscribers.getSubscriber(queue, pinConfig).apply {
+            addListener(messageListener)
+        }
+
+        return object: ExclusiveSubscriberMonitor {
+            override val queue: String = queue
+
+            override fun unsubscribe() {
+                messageSubscriber.removeListener(messageListener)
             }
         }
     }
@@ -219,13 +245,12 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             runCatching {
                 subscribers.getSubscriber(pinName, pinConfig).apply {
                     addListener(messageListener)
-                    start() //TODO: replace to lazy start on add listener(s)
                 }
             }.onFailure { e ->
                 LOGGER.error(e) { "Listener can't be subscribed via the $pinName pin" }
                 exceptions[pinName] = e
-            }.onSuccess {
-                monitors.add(SubscriberMonitor { close() })
+            }.onSuccess { messageSubscriber ->
+                monitors.add(SubscriberMonitor { messageSubscriber.removeListener(messageListener) })
             }
         }
 

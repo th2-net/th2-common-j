@@ -17,13 +17,19 @@
 package com.exactpro.th2.common.metrics
 
 import com.exactpro.th2.common.grpc.AnyMessage
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase.MESSAGE
+import com.exactpro.th2.common.grpc.AnyMessage.KindCase.RAW_MESSAGE
+import com.exactpro.th2.common.grpc.Direction.FIRST
+import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.message.getSessionAliasAndDirection
 import com.exactpro.th2.common.message.sequence
 import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
+import kotlin.math.max
 
-fun incrementTotalMetrics(
+@Deprecated("This old implementation for jmh test only. Please use the incrementTotalMetrics method instead")
+fun incrementTotalMetricsOld(
     batch: MessageGroupBatch,
     th2Pin: String,
     messageCounter: Counter,
@@ -56,6 +62,64 @@ fun incrementTotalMetrics(
         groupCounter
             .labels(th2Pin, *it.key.labels)
             .inc(it.value.number.toDouble())
+    }
+}
+
+data class SessionStats(
+    var sequence: Long = 0L,
+    var groups: Int = 0,
+    var messages: Int = 0,
+    var rawMessages: Int = 0,
+)
+
+fun incrementTotalMetrics(
+    batch: MessageGroupBatch,
+    th2Pin: String,
+    messageCounter: Counter,
+    groupCounter: Counter,
+    gauge: Gauge,
+) {
+    val incomingStatsBySession = mutableMapOf<String, SessionStats>()
+    val outgoingStatsBySession = mutableMapOf<String, SessionStats>()
+
+    for (group in batch.groupsList) {
+        val messages = group.messagesList
+
+        if (messages.isEmpty()) continue
+
+        val firstMessage = messages[0]
+        val id = if (firstMessage.hasMessage()) firstMessage.message.metadata.id else firstMessage.rawMessage.metadata.id
+        val sessionAlias = id.connectionId.sessionAlias
+
+        val stats = when (id.direction) {
+            FIRST -> incomingStatsBySession.getOrPut(sessionAlias, ::SessionStats)
+            else -> outgoingStatsBySession.getOrPut(sessionAlias, ::SessionStats)
+        }
+
+        stats.groups++
+
+        messages.forEach {
+            when {
+                it.hasMessage() -> stats.messages++
+                else -> stats.rawMessages++
+            }
+        }
+
+        stats.sequence = max(stats.sequence, id.sequence)
+    }
+
+    incomingStatsBySession.forEach { (alias, stats) ->
+        gauge.labels(th2Pin, alias, FIRST.name).set(stats.sequence.toDouble())
+        groupCounter.labels(th2Pin, alias, FIRST.name).inc(stats.groups.toDouble())
+        messageCounter.labels(th2Pin, alias, FIRST.name, MESSAGE.name).inc(stats.messages.toDouble())
+        messageCounter.labels(th2Pin, alias, FIRST.name, RAW_MESSAGE.name).inc(stats.rawMessages.toDouble())
+    }
+
+    outgoingStatsBySession.forEach { (alias, stats) ->
+        gauge.labels(th2Pin, alias, SECOND.name).set(stats.sequence.toDouble())
+        groupCounter.labels(th2Pin, alias, SECOND.name).inc(stats.groups.toDouble())
+        messageCounter.labels(th2Pin, alias, SECOND.name, MESSAGE.name).inc(stats.messages.toDouble())
+        messageCounter.labels(th2Pin, alias, SECOND.name, RAW_MESSAGE.name).inc(stats.rawMessages.toDouble())
     }
 }
 

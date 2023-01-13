@@ -4,7 +4,7 @@ buildscript {
     }
 
     ext {
-        kotlin_version = "1.5.32"
+        kotlin_version = "1.6.21"
     }
 
     dependencies {
@@ -21,6 +21,8 @@ plugins {
     id 'signing'
     id 'com.google.protobuf' version '0.8.8' apply false
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
+    id "org.owasp.dependencycheck" version "7.2.0"
+    id "me.champeau.jmh" version "0.6.8"
 }
 
 group = 'com.exactpro.th2'
@@ -45,6 +47,7 @@ repositories {
             name 'Sonatype_releases'
             url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
+    mavenLocal()
 
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
@@ -167,12 +170,19 @@ tasks.register('integrationTest', Test) {
 
 dependencies {
     api platform('com.exactpro.th2:bom:4.0.2')
-    api "com.exactpro.th2:cradle-core:${cradleVersion}"
-    api 'com.exactpro.th2:grpc-common:4.0.0-th2-2150-books-pages-2338290872-SNAPSHOT'
+    api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
+    }
+    api 'com.exactpro.th2:grpc-common:4.1.0-th2-2150-books-pages-3871780258-SNAPSHOT'
+
+    jmh 'org.openjdk.jmh:jmh-core:0.9'
+    jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'
-    implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
+    implementation ("com.exactpro.th2:cradle-cassandra:${cradleVersion}") {
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
+    }
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"
@@ -190,16 +200,19 @@ dependencies {
     implementation "commons-cli:commons-cli"
 
     implementation "com.fasterxml.jackson.core:jackson-core"
-    implementation "com.fasterxml.jackson.core:jackson-databind"
-    implementation "com.fasterxml.jackson.core:jackson-annotations"
+    api("com.fasterxml.jackson.core:jackson-databind") {
+        because('provide ability to use object mapper in components')
+    }
+    api("com.fasterxml.jackson.core:jackson-annotations") {
+        because('providee ability to use jackson annotations in components')
+    }
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
     implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
-    // TODO: need to update jackson kotlin module to get rid of kotlin-reflect 1.3.72
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
 
     implementation 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
 
-    implementation 'io.github.microutils:kotlin-logging:2.1.21'
+    api 'io.github.microutils:kotlin-logging:2.1.21'
 
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl'
     implementation 'org.apache.logging.log4j:log4j-core'
@@ -209,10 +222,14 @@ dependencies {
     implementation 'io.prometheus:simpleclient_httpserver'
     implementation 'io.prometheus:simpleclient_log4j2'
 
-    implementation 'io.fabric8:kubernetes-client:4.13.0'
+    implementation ('com.squareup.okhttp3:okhttp:4.10.0') {
+        because ('fix vulnerability in transitive dependency <kubernetes-client>')
+    }
+    implementation 'io.fabric8:kubernetes-client:6.1.1'
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
     testImplementation "org.testcontainers:testcontainers:1.17.1"
     testImplementation "org.testcontainers:rabbitmq:1.17.1"
 
@@ -245,4 +262,15 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
 
 clean {
     delete sharedDir
+}
+
+dependencyCheck {
+    formats=['JSON', 'HTML']
+    failBuildOnCVSS=5
+
+    analyzers {
+        assemblyEnabled = false
+        nugetconfEnabled = false
+        nodeEnabled = false
+    }
 }

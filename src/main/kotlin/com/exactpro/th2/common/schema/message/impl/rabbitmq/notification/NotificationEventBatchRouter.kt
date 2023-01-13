@@ -37,7 +37,6 @@ class NotificationEventBatchRouter : NotificationRouter<EventBatch> {
             context.configuration.globalNotification.exchange
         )
         queue = context.connectionManager.queueExclusiveDeclareAndBind(
-            NOTIFICATION_QUEUE_PREFIX,
             context.configuration.globalNotification.exchange
         )
         subscriber = NotificationEventBatchSubscriber(context.connectionManager, queue)

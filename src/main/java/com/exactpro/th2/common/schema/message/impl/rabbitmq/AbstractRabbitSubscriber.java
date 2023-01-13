@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,6 +25,7 @@ import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.google.common.base.Suppliers;
 import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
@@ -36,11 +37,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
@@ -50,6 +54,9 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
+
+    @SuppressWarnings("rawtypes")
+    private static final Supplier EMPTY_INITIALIZER = Suppliers.memoize(() -> null);
 
     private static final Counter MESSAGE_SIZE_SUBSCRIBE_BYTES = Counter.build()
             .name("th2_rabbitmq_message_size_subscribe_bytes")
@@ -67,14 +74,16 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                     "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
             .register();
 
+    protected final ReentrantLock publicLock = new ReentrantLock();
+    private boolean hasManualSubscriber = false;
+
     protected final String th2Pin;
-    private final List<ConfirmationListener<T>> listeners = new CopyOnWriteArrayList<>();
+    private final Set<ConfirmationListener<T>> listeners = ConcurrentHashMap.newKeySet();
     private final String queue;
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
-    private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
+    private final ConnectionManager connectionManager;
+    private final AtomicReference<Supplier<SubscriberMonitor>> consumerMonitor = new AtomicReference<>(emptySupplier());
     private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
     private final String th2Type;
-    private final AtomicBoolean hasManualSubscriber = new AtomicBoolean();
 
     private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
@@ -85,7 +94,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             @NotNull String th2Pin,
             @NotNull String th2Type
     ) {
-        this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
+        this.connectionManager = requireNonNull(connectionManager, "Connection can not be null");
         this.queue = requireNonNull(queue, "Queue can not be null");
         this.filterFunc.set(requireNonNull(filterFunc, "Filter function can not be null"));
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
@@ -105,85 +114,61 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     }
 
     @Override
+    @Deprecated
     public void start() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
-        try {
-            consumerMonitor.updateAndGet(monitor -> {
-                if (monitor == null) {
-                    try {
-                        monitor = connectionManager.basicConsume(
-                                queue,
-                                (deliveryMetadata, delivery, confirmProcessed) -> {
-                                    Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
-                                            .labels(th2Pin, th2Type, queue)
-                                            .startTimer();
-                                    MESSAGE_SIZE_SUBSCRIBE_BYTES
-                                            .labels(th2Pin, th2Type, queue)
-                                            .inc(delivery.getBody().length);
-                                    try {
-                                        T value;
-                                        try {
-                                            value = valueFromBytes(delivery.getBody());
-                                        } catch (Exception e) {
-                                            LOGGER.error("Couldn't parse delivery. Reject message received", e);
-                                            confirmProcessed.reject();
-                                            throw new IOException(
-                                                    String.format(
-                                                            "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
-                                                            delivery.getEnvelope(), queue, th2Pin
-                                                    ),
-                                                    e
-                                            );
-                                        }
-                                        handle(deliveryMetadata.getConsumerTag(), delivery, value, confirmProcessed);
-                                    } finally {
-                                        processTimer.observeDuration();
-                                    }
-                                },
-                                this::canceled
-                        );
-                        LOGGER.info("Start listening queue name='{}'", queue);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    }
-                }
-
-                return monitor;
-            });
-        } catch (Exception e) {
-            throw new IllegalStateException("Can not start listening", e);
-        }
+        // Do nothing
     }
 
     @Override
     public void addListener(ConfirmationListener<T> messageListener) {
-        if (ConfirmationListener.isManual(messageListener)) {
-            if (!hasManualSubscriber.compareAndSet(false, true)) {
+        publicLock.lock();
+        try {
+            boolean isManual = ConfirmationListener.isManual(messageListener);
+            if (isManual && hasManualSubscriber) {
                 throw new IllegalStateException("cannot subscribe listener " + messageListener
                         + " because only one listener with manual confirmation is allowed per queue");
             }
+            if(listeners.add(messageListener)) {
+                hasManualSubscriber |= isManual;
+                subscribe();
+            }
+        } finally {
+            publicLock.unlock();
         }
-        listeners.add(messageListener);
     }
 
     @Override
-    public void close() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
+    public void removeListener(ConfirmationListener<T> messageListener) {
+        publicLock.lock();
+        try {
+            boolean isManual = ConfirmationListener.isManual(messageListener);
+            if (listeners.remove(messageListener)) {
+                hasManualSubscriber &= !isManual;
+                messageListener.onClose();
+            }
+        } finally {
+            publicLock.unlock();
         }
+    }
 
-        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
-        if (monitor != null) {
-            monitor.unsubscribe();
+    @Override
+    public void close() throws IOException {
+        publicLock.lock();
+        try {
+            SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
+            if (monitor != null) {
+                monitor.unsubscribe();
+            }
+
+            Iterator<ConfirmationListener<T>> listIterator = listeners.iterator();
+            while (listIterator.hasNext()) {
+                ConfirmationListener<T> listener = listIterator.next();
+                listIterator.remove();
+                listener.onClose();
+            }
+        } finally {
+            publicLock.unlock();
         }
-
-        listeners.forEach(ConfirmationListener::onClose);
-        listeners.clear();
     }
 
     protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
@@ -204,7 +189,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected void handle(String consumeTag, Delivery delivery, T value, Confirmation confirmation) throws IOException {
+    protected void handle(DeliveryMetadata deliveryMetadata, Delivery delivery, T value, Confirmation confirmation) throws IOException {
         try {
             String routingKey = delivery.getEnvelope().getRoutingKey();
             requireNonNull(value, () -> "Received value from " + routingKey + " is null");
@@ -226,8 +211,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             boolean hasManualConfirmation = false;
             for (ConfirmationListener<T> listener : listeners) {
                 try {
-                    boolean redeliver = delivery.getEnvelope().isRedeliver();
-                    listener.handle(new DeliveryMetadata(consumeTag, redeliver), filteredValue, confirmation);
+                    listener.handle(deliveryMetadata, filteredValue, confirmation);
                     if (!hasManualConfirmation) {
                         hasManualConfirmation = ConfirmationListener.isManual(listener);
                     }
@@ -239,15 +223,26 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 confirmation.confirm();
             }
         } catch (Exception e) {
-            LOGGER.error("Can not parse value from delivery for: {}. Reject message received", consumeTag, e);
+            LOGGER.error("Can not parse value from delivery for: {}. Reject message received", deliveryMetadata, e);
             confirmation.reject();
+        }
+    }
+
+    private void subscribe() {
+        try {
+            consumerMonitor.updateAndGet(previous -> previous == EMPTY_INITIALIZER
+                            ? Suppliers.memoize(this::basicConsume)
+                            : previous)
+                    .get(); // initialize subscribtion
+        } catch (Exception e) {
+            throw new IllegalStateException("Can not start listening", e);
         }
     }
 
     private void resubscribe() {
         LOGGER.info("Try to resubscribe subscriber for queue name='{}'", queue);
 
-        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
         if (monitor != null) {
             try {
                 monitor.unsubscribe();
@@ -257,10 +252,47 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
 
         try {
-            start();
+            subscribe();
         } catch (Exception e) {
             LOGGER.error("Can not resubscribe subscriber for queue name='{}'", queue);
             healthMetrics.disable();
+        }
+    }
+
+    private SubscriberMonitor basicConsume() {
+        try {
+            LOGGER.info("Start listening queue name='{}', th2 pin='{}'", queue, th2Pin);
+            return connectionManager.basicConsume(queue, this::handle, this::canceled);
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not subscribe to queue = " + queue, e);
+        }
+    }
+
+    private void handle(DeliveryMetadata deliveryMetadata,
+                        Delivery delivery,
+                        Confirmation confirmProcessed) throws IOException {
+        try (Timer ignored = MESSAGE_PROCESS_DURATION_SECONDS
+                .labels(th2Pin, th2Type, queue)
+                .startTimer()) {
+            MESSAGE_SIZE_SUBSCRIBE_BYTES
+                    .labels(th2Pin, th2Type, queue)
+                    .inc(delivery.getBody().length);
+
+            T value;
+            try {
+                value = valueFromBytes(delivery.getBody());
+            } catch (Exception e) {
+                LOGGER.error("Couldn't parse delivery. Reject message received", e);
+                confirmProcessed.reject();
+                throw new IOException(
+                        String.format(
+                                "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
+                                delivery.getEnvelope(), queue, th2Pin
+                        ),
+                        e
+                );
+            }
+            handle(deliveryMetadata, delivery, value, confirmProcessed);
         }
     }
 
@@ -268,5 +300,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
         healthMetrics.getReadinessMonitor().disable();
         resubscribe();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Supplier<T> emptySupplier() {
+        return (Supplier<T>) EMPTY_INITIALIZER;
     }
 }
