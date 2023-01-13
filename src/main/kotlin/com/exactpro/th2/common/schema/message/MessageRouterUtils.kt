@@ -39,11 +39,12 @@ fun MessageRouter<EventBatch>.storeEvent(
     parentId: EventID
 ) = storeEvent(event, event.toProto(parentId))
 
-
+@JvmOverloads
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
-    bookName: String
-) = storeEvent(event, event.toProto(bookName))
+    bookName: String,
+    scope: String? = null
+) = storeEvent(event, event.toProto(bookName, scope))
 
 private fun MessageRouter<EventBatch>.storeEvent(
     event: Event,

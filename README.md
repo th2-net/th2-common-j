@@ -1,4 +1,4 @@
-# th2 common library (Java) (4.0.0+)
+# th2 common library (Java) (5.1.0+)
 
 ## Usage
 
@@ -361,7 +361,11 @@ dependencies {
 
 ## Release notes
 
-### 4.0.0
+### 5.1.0
+
++ Migrated to grpc-common 4.1.0
+
+### 5.0.0
 
 + Migration to books/pages cradle 4.0.0
 + Migration to bom 4.0.2
