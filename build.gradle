@@ -62,7 +62,7 @@ configurations {
 }
 
 java {
-    withJavadocJar()
+    //withJavadocJar()
     withSourcesJar()
 }
 
@@ -175,7 +175,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.0.2-th2-4566-reusable-workflow-3911930050-33f11ed-SNAPSHOT")
+    api platform("com.exactpro.th2:bom:4.0.2-th2-4566-reusable-workflow-3923663207-8cad772-SNAPSHOT")
     api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
