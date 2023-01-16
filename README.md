@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.42.0)
+# th2 common library (Java) (3.43.0)
 
 ## Usage
 
@@ -356,6 +356,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.43.0
++ There is no support for log4j version 1.
++ Work was done to eliminate vulnerabilities in _common_ and _bom_ dependencies.
+    + **th2-bom must be updated to _4.0.3_ or higher.**
 
 ### 3.42.0
 + Added the `enableSizeMeasuring`, `maxMessageSize`, `keepAliveInterval` options into gRPC router configuration. 
