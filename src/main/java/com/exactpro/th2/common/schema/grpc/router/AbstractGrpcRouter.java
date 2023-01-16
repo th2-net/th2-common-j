@@ -15,7 +15,8 @@
 
 package com.exactpro.th2.common.schema.grpc.router;
 
-import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
+import com.exactpro.th2.common.grpc.router.ServerGrpcInterceptor;
+import com.exactpro.th2.common.grpc.router.MethodDetails;
 import com.exactpro.th2.common.metrics.CommonMetrics;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
@@ -24,6 +25,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.protobuf.services.ProtoReflectionService;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.concurrent.EventExecutorGroup;
@@ -35,11 +37,14 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 
 /**
  * Abstract implementation for {@link GrpcRouter}
@@ -60,6 +65,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected final List<Server> servers = new ArrayList<>();
     protected final List<EventExecutorGroup> loopGroups = new ArrayList<>();
     protected final List<ExecutorService> executors = new ArrayList<>();
+    protected GrpcRouterConfiguration routerConfiguration;
     protected GrpcConfiguration configuration;
 
     protected static final Counter GRPC_INVOKE_CALL_TOTAL = Counter.build()
@@ -68,11 +74,15 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .help("Total number of calling particular gRPC method")
             .register();
 
+    protected static final Map<MethodDetails, Counter.Child> GRPC_INVOKE_CALL_MAP = new ConcurrentHashMap<>();
+
     protected static final Counter GRPC_INVOKE_CALL_REQUEST_BYTES = Counter.build()
             .name("th2_grpc_invoke_call_request_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes sent to particular gRPC call")
             .register();
+
+    protected static final Map<MethodDetails, Counter.Child> GRPC_INVOKE_CALL_REQUEST_SIZE_MAP = new ConcurrentHashMap<>();
 
     protected static final Counter GRPC_INVOKE_CALL_RESPONSE_BYTES = Counter.build()
             .name("th2_grpc_invoke_call_response_bytes")
@@ -80,11 +90,15 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .help("Number of bytes sent to particular gRPC call")
             .register();
 
+    protected static final Map<MethodDetails, Counter.Child> GRPC_INVOKE_CALL_RESPONSE_SIZE_MAP = new ConcurrentHashMap<>();
+
     protected static final Counter GRPC_RECEIVE_CALL_TOTAL = Counter.build()
             .name("th2_grpc_receive_call_total")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Total number of consuming particular gRPC method")
             .register();
+
+    protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_MAP = new ConcurrentHashMap<>();
 
     protected static final Counter GRPC_RECEIVE_CALL_REQUEST_BYTES = Counter.build()
             .name("th2_grpc_receive_call_request_bytes")
@@ -92,11 +106,15 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .help("Number of bytes received from particular gRPC call")
             .register();
 
+    protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_REQUEST_SIZE_MAP = new ConcurrentHashMap<>();
+
     protected static final Counter GRPC_RECEIVE_CALL_RESPONSE_BYTES = Counter.build()
             .name("th2_grpc_receive_call_response_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes sent to particular gRPC call")
             .register();
+
+    protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_RESPONSE_SIZE_MAP = new ConcurrentHashMap<>();
 
     @Override
     public void init(GrpcRouterConfiguration configuration) {
@@ -105,17 +123,15 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
 
     @Override
     public void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration) {
-        throwIsInit();
+        failIfInitialized();
 
+        this.routerConfiguration = Objects.requireNonNull(routerConfiguration);
         this.configuration = Objects.requireNonNull(configuration);
     }
 
     @Override
     public Server startServer(BindableService... services) {
         var serverConf = configuration.getServerConfiguration();
-        if (serverConf == null) {
-            throw new IllegalStateException("Can not find server configuration");
-        }
 
         NettyServerBuilder builder;
 
@@ -133,7 +149,15 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         builder = builder.workerEventLoopGroup(eventLoop)
                 .bossEventLoopGroup(eventLoop)
                 .channelType(NioServerSocketChannel.class)
-                .intercept(new GrpcInterceptor("server", GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_REQUEST_BYTES, GRPC_RECEIVE_CALL_RESPONSE_BYTES));
+                .keepAliveTimeout(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
+                .maxInboundMessageSize(routerConfiguration.getMaxMessageSize())
+                .intercept(new ServerGrpcInterceptor("server",
+                        createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),
+                        createGetMetric(GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_MAP),
+                        createGetMeasuringMetric(GRPC_RECEIVE_CALL_REQUEST_BYTES, GRPC_RECEIVE_CALL_REQUEST_SIZE_MAP),
+                        createGetMeasuringMetric(GRPC_RECEIVE_CALL_RESPONSE_BYTES, GRPC_RECEIVE_CALL_RESPONSE_SIZE_MAP)));
+
+        builder.addService(ProtoReflectionService.newInstance());
 
         for (BindableService service : services) {
             builder.addService(service);
@@ -145,13 +169,9 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
         loopGroups.add(eventLoop);
         servers.add(server);
 
-        return server;
-    }
+        LOGGER.info("Made gRPC server: host {}, port {}, keepAliveTime {}, max inbound message {}", serverConf.getHost(), serverConf.getPort(), routerConfiguration.getKeepAliveInterval(), routerConfiguration.getMaxMessageSize());
 
-    protected void throwIsInit() {
-        if (this.configuration != null) {
-            throw new IllegalStateException("Grpc router already init");
-        }
+        return server;
     }
 
     @Override
@@ -190,5 +210,27 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
                 LOGGER.error("Failed to shutdown executor service: {}", executor, e);
             }
         });
+    }
+
+    protected Function<MethodDetails, Counter.Child> createGetMetric(Counter counter, Map<MethodDetails, Counter.Child> map) {
+        return (MethodDetails methodDetails) -> map
+                .computeIfAbsent(methodDetails,
+                        (key) -> counter
+                                .labels(methodDetails.getPinName(),
+                                        methodDetails.getServiceName(),
+                                        methodDetails.getMethodName()));
+    }
+
+    protected Function<MethodDetails, Counter.Child> createGetMeasuringMetric(Counter counter, Map<MethodDetails, Counter.Child> map) {
+        if (routerConfiguration.getEnableSizeMeasuring()) {
+            return createGetMetric(counter, map);
+        }
+        return (MethodDetails) -> null;
+    }
+
+    protected void failIfInitialized() {
+        if (this.configuration != null) {
+            throw new IllegalStateException("Grpc router already init");
+        }
     }
 }
