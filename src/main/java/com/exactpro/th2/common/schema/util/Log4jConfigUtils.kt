@@ -15,12 +15,11 @@
 
 package com.exactpro.th2.common.schema.util
 
-import org.apache.logging.log4j.LogManager
-import org.apache.logging.log4j.core.LoggerContext
-import org.slf4j.LoggerFactory
+import java.net.MalformedURLException
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.io.path.Path
+import org.apache.logging.log4j.core.LoggerContext
+import org.slf4j.LoggerFactory
 
 class Log4jConfigUtils {
 
@@ -30,23 +29,28 @@ class Log4jConfigUtils {
         pathList: List<String>,
         fileName: String,
     ) {
-        val configPath = Path(fileName)
-        if(Files.exists(configPath)) {
-            configureSecondLog4j(configPath)
-            return
-        }
-
-        LOGGER.info(
-            "Neither of {} paths contains config files {}. Use default configuration",
-            pathList,
-            fileName
-        )
-    }
-
-    private fun configureSecondLog4j(path: Path) {
-        val context = LogManager.getContext(false) as LoggerContext
-        context.configLocation = path.toUri()
-        LOGGER.info("Logger configuration from {} file is applied", path)
+        pathList.asSequence()
+            .map { Path.of(it, fileName) }
+            .filter(Files::exists)
+            .firstOrNull()
+            ?.let { path ->
+                try {
+                    LOGGER.info("Trying to apply logger config from {}. Expecting log4j syntax", path)
+                    val loggerContext = LoggerContext.getContext(false)
+                    loggerContext.configLocation = path.toUri()
+                    loggerContext.reconfigure()
+                    LOGGER.info("Logger configuration from {} file is applied", path)
+                } catch (e: MalformedURLException) {
+                    LOGGER.error(e.message, e)
+                }
+            }
+            ?: run {
+                LOGGER.info(
+                    "Neither of {} paths contains config file {}. Use default configuration",
+                    pathList,
+                    fileName
+                )
+            }
     }
 
 }
