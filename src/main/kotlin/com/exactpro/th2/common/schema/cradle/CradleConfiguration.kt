@@ -33,7 +33,9 @@ data class CradleConfiguration(
     var cradleMaxEventBatchSize: Long,
     var cradleMaxMessageBatchSize: Long,
     var prepareStorage: Boolean,
-    var statisticsPersistenceIntervalMillis: Long
+    var statisticsPersistenceIntervalMillis: Long,
+    var maxUncompressedMessageBatchSize: Long,
+    var maxUncompressedEventBatchSize: Long
 ) : Configuration() {
     constructor(
         cradleConfidentialConfiguration: CradleConfidentialConfiguration,
