@@ -50,7 +50,9 @@ data class CradleConfiguration(
         cradleNonConfidentialConfiguration.cradleMaxEventBatchSize,
         cradleNonConfidentialConfiguration.cradleMaxMessageBatchSize,
         cradleNonConfidentialConfiguration.prepareStorage,
-        cradleNonConfidentialConfiguration.statisticsPersistenceIntervalMillis
+        cradleNonConfidentialConfiguration.statisticsPersistenceIntervalMillis,
+        cradleNonConfidentialConfiguration.maxUncompressedMessageBatchSize,
+        cradleNonConfidentialConfiguration.maxUncompressedEventBatchSize
     )
 }
 
@@ -69,5 +71,7 @@ data class CradleNonConfidentialConfiguration(
     var cradleMaxEventBatchSize: Long = CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE.toLong(),
     var cradleMaxMessageBatchSize: Long = CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE.toLong(),
     var prepareStorage: Boolean = false,
-    var statisticsPersistenceIntervalMillis: Long = CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS.toLong()
+    var statisticsPersistenceIntervalMillis: Long = CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS.toLong(),
+    var maxUncompressedMessageBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_MESSAGE_BATCH_SIZE.toLong(),
+    var maxUncompressedEventBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE.toLong()
 ) : Configuration()
