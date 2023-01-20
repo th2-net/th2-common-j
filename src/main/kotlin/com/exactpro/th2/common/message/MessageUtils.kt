@@ -307,6 +307,14 @@ var Message.Builder.bookName
         metadataBuilder.idBuilder.bookName = value
     }
 
+val RawMessage.bookName
+    get(): String = metadata.id.bookName
+var RawMessage.Builder.bookName
+    get(): String = metadata.id.bookName
+    set(value) {
+        metadataBuilder.idBuilder.bookName = value
+    }
+
 val Message.messageType
     get(): String = metadata.messageType
 var Message.Builder.messageType
