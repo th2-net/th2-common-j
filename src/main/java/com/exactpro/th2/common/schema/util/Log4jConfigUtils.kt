@@ -15,20 +15,20 @@
 
 package com.exactpro.th2.common.schema.util
 
-import org.apache.logging.log4j.core.LoggerContext
-import org.slf4j.LoggerFactory
 import java.net.MalformedURLException
 import java.nio.file.Files
 import java.nio.file.Path
+import org.apache.logging.log4j.core.LoggerContext
+import org.slf4j.LoggerFactory
 
 class Log4jConfigUtils {
 
     fun configure(
         pathList: List<String>,
-        versionFileName: String
+        fileName: String,
     ) {
         pathList.asSequence()
-            .map { Path.of(it, versionFileName) }
+            .map { Path.of(it, fileName) }
             .filter(Files::exists)
             .firstOrNull()
             ?.let { path ->
@@ -46,7 +46,7 @@ class Log4jConfigUtils {
                 LOGGER.info(
                     "Neither of {} paths contains config file {}. Use default configuration",
                     pathList,
-                    versionFileName
+                    fileName
                 )
             }
     }
