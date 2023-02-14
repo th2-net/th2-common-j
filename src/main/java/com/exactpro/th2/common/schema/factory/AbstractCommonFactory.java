@@ -707,7 +707,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             return router;
         });
 
-        // FIXME: delete when publish confirms will be used.
+        // FIXME: test and migrate to publish confirms approach 
         try {
             Thread.sleep(CONNECTION_MANAGER_SHUTDOWN_TIMEOUT_MS);
         } catch (InterruptedException e) {

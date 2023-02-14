@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.45.0)
+# th2 common library (Java) (3.44.1)
 
 ## Usage
 
@@ -357,7 +357,7 @@ dependencies {
 
 ## Release notes
 
-### 3.45.0
+### 3.44.1
 + Closing ConnectionManager after timeout.
 
 ### 3.44.0
