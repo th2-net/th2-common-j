@@ -118,6 +118,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
 
+    protected static final Long CONNECTION_MANAGER_SHUTDOWN_TIMEOUT_MS = 1000L;
+
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
     static  {
@@ -704,6 +706,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
             return router;
         });
+
+        // FIXME: delete when publish confirms will be used.
+        try {
+            Thread.sleep(CONNECTION_MANAGER_SHUTDOWN_TIMEOUT_MS);
+        } catch (InterruptedException e) {
+            LOGGER.error("Error while waiting timeout before ConnectionManager close.");
+        }
 
         rabbitMqConnectionManager.updateAndGet(connection -> {
             if (connection != null) {

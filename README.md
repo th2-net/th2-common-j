@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.44.0)
+# th2 common library (Java) (3.45.0)
 
 ## Usage
 
@@ -356,6 +356,12 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.45.0
++ Closing ConnectionManager after timeout.
+
+### 3.44.0
++ bom upgrade to `4.1.0`
 
 ### 3.43.0
 + There is no support for log4j version 1.
