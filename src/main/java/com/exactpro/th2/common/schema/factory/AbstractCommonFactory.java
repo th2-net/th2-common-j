@@ -118,7 +118,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
 
-    protected static final Long CONNECTION_MANAGER_SHUTDOWN_TIMEOUT_MS = 1000L;
+    protected static final Long CONNECTION_MANAGER_SHUTDOWN_TIMEOUT_MS = 3000L;
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
