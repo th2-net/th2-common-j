@@ -220,7 +220,10 @@ class TestJsonConfiguration {
             111,
             123,
             321,
-            false
+            false,
+            5000,
+            1280001,
+            1280002
         )
 
         private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")
