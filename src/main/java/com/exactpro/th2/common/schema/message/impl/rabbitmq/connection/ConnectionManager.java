@@ -304,8 +304,12 @@ public class ConnectionManager implements AutoCloseable {
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), true);
-        holder.addMessage(holder.channel.getNextPublishSeqNo(), body);
-        holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
+        holder.withLock(
+                channel -> {
+                    holder.addMessage(channel.getNextPublishSeqNo(), body);
+                    channel.basicPublish(exchange, routingKey, props, body);
+                }
+        );
     }
 
     public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
