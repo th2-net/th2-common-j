@@ -459,8 +459,8 @@ public class CommonFactory extends AbstractCommonFactory {
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
             Map<String, String> cradleConfidential = cradleConfidentialConfigmap.getData();
             Map<String, String> cradleNonConfidential = cradleNonConfidentialConfigmap.getData();
-            @Nullable String loggingData = boxData.getOrDefault(LOG4J_PROPERTIES_NAME,
-                    loggingConfigMap == null ? null : loggingConfigMap.getData().get(LOG4J_PROPERTIES_NAME)
+            @Nullable String loggingData = boxData.getOrDefault(LOG4J2_PROPERTIES_NAME,
+                    loggingConfigMap == null ? null : loggingConfigMap.getData().get(LOG4J2_PROPERTIES_NAME)
             );
 
             File generatedConfigsDirFile = configPath.toFile();
