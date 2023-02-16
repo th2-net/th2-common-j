@@ -14,11 +14,14 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -65,6 +68,8 @@ import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+
+import static com.exactpro.th2.common.schema.message.MessageRouterUtils.toShortDebugString;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -275,8 +280,9 @@ public class ConnectionManager implements AutoCloseable {
             try {
                 if(channel.isPublisher) {
                     channel.channel.waitForConfirms(closeTimeout);
+                } else {
+                    channel.channel.close();
                 }
-                channel.channel.close();
             } catch (Exception e) {
                 LOGGER.error("Error while closing channel", e);
             }
@@ -298,6 +304,7 @@ public class ConnectionManager implements AutoCloseable {
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), true);
+        holder.addMessage(holder.channel.getNextPublishSeqNo(), body);
         holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
     }
 
@@ -368,11 +375,11 @@ public class ConnectionManager implements AutoCloseable {
     private ChannelHolder getChannelFor(PinId pinId, boolean isPublisher) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
-            return new ChannelHolder(() -> createChannel(isPublisher), this::waitForConnectionRecovery, configuration.getPrefetchCount(), isPublisher);
+            return new ChannelHolder(() -> createChannel(isPublisher, pinId), this::waitForConnectionRecovery, configuration.getPrefetchCount(), isPublisher);
         });
     }
 
-    private Channel createChannel(boolean isPublisher) {
+    private Channel createChannel(boolean isPublisher, PinId pinId) {
         waitForConnectionRecovery(connection);
 
         try {
@@ -386,10 +393,15 @@ public class ConnectionManager implements AutoCloseable {
                 channel.addConfirmListener(
                         (deliveryTag, multiple) -> {
                             if(LOGGER.isTraceEnabled()) {
+                                ChannelHolder channel1 = channelsByPin.get(pinId);
+                                String sequence = "null";
+                                if(channel1 != null) {
+                                    sequence = channel1.outstandingConfirms.get(deliveryTag);
+                                }
                                 if(!multiple) {
-                                    LOGGER.trace("Message with delivery tag {} confirmed.", deliveryTag);
+                                    LOGGER.trace("Message with delivery tag {} confirmed. Message: {}", deliveryTag, sequence);
                                 } else {
-                                    LOGGER.trace("Messages prior to delivery tag {} confirmed.", deliveryTag);
+                                    LOGGER.trace("Messages prior to delivery tag {} confirmed. Message: {}", deliveryTag, sequence);
                                 }
                             }
                         },
@@ -523,6 +535,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private static class ChannelHolder {
+        ConcurrentNavigableMap<Long, String> outstandingConfirms = new ConcurrentSkipListMap<>();
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
@@ -639,6 +652,14 @@ public class ConnectionManager implements AutoCloseable {
             }
             reconnectionChecker.accept(channel, waitForRecovery);
             return channel;
+        }
+
+        public void addMessage(long sequence, byte[] data) {
+            try {
+                outstandingConfirms.put(sequence, toShortDebugString(MessageGroupBatch.parseFrom(data)));
+            } catch (Exception e) {
+                LOGGER.error("Error while converting body to message group batch.", e);
+            }
         }
     }
 
