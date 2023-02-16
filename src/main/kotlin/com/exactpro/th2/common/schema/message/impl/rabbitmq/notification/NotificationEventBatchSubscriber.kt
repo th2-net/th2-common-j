@@ -29,6 +29,7 @@ import com.rabbitmq.client.Delivery
 import java.util.concurrent.CopyOnWriteArrayList
 import mu.KotlinLogging
 
+// DRAFT of notification router
 class NotificationEventBatchSubscriber(
     private val connectionManager: ConnectionManager,
     private val queue: String
@@ -78,6 +79,10 @@ class NotificationEventBatchSubscriber(
             },
             { LOGGER.warn("Consuming cancelled for: '{}'", it) }
         )
+    }
+
+    override fun removeListener(messageListener: ConfirmationListener<EventBatch>) {
+        listeners.remove(messageListener)
     }
 
     override fun addListener(messageListener: ConfirmationListener<EventBatch>) {

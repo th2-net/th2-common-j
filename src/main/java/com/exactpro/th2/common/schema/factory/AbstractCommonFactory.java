@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -113,7 +113,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
-    protected static final String LOG4J_PROPERTIES_NAME = "log4j.properties";
 
     protected static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -645,7 +644,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                             .description("Root event")
                             .status(Event.Status.PASSED)
                             .type("Microservice")
-                            .toProto(boxConfiguration.getBookName());
+                            .toProto(boxConfiguration.getBookName(), boxConfiguration.getBoxName());
 
                     try {
                         getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
@@ -841,7 +840,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
         Log4jConfigUtils log4jConfigUtils = new Log4jConfigUtils();
-        log4jConfigUtils.configure(listPath, LOG4J_PROPERTIES_NAME, LOG4J2_PROPERTIES_NAME);
+        log4jConfigUtils.configure(listPath, LOG4J2_PROPERTIES_NAME);
         loggingManifests();
     }
 

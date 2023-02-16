@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -33,7 +33,6 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Initialization message router
-     * @param connectionManager
      * @param configuration message router configuration
      */
     @Deprecated(since = "3.2.2", forRemoval = true)
@@ -52,6 +51,14 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @param context router context
      */
     void init(@NotNull MessageRouterContext context);
+
+    /**
+     * Creates a new exclusive queue and subscribes to it. Only declaring connection can use this queue.
+     * Please note Exclusive queues are deleted when their declaring connection is closed or gone (e.g. due to underlying TCP connection loss).
+     * They, therefore, are only suitable for client-specific transient states.
+     * @return {@link ExclusiveSubscriberMonitor} object to manage subscription.
+     */
+    ExclusiveSubscriberMonitor subscribeExclusive(MessageListener<T> callback);
 
     /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
@@ -94,9 +101,14 @@ public interface MessageRouter<T> extends AutoCloseable {
     }
 
     /**
+     * Send the message to the queue
+     * @throws IOException if router can not send message
+     */
+    void sendExclusive(String queue, T message) throws IOException;
+
+    /**
      * Send message to <b>SOME</b> RabbitMQ queues which match the filter for this message
-     * @param message
-     * @throws IOException if can not send message
+     * @throws IOException if router can not send message
      */
     default void send(T message) throws IOException {
         send(message, QueueAttribute.PUBLISH.toString());
@@ -104,7 +116,6 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Send message to <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
-     * @param message
      * @param queueAttr schemas queues attributes
      * @throws IOException if can not send message
      * @throws IllegalStateException when more than 1 queue is found
@@ -113,7 +124,6 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Send message to <b>SOME</b> RabbitMQ queue by intersection schemas queues attributes
-     * @param message
      * @param queueAttr schemas queues attributes
      * @throws IOException if can not send message
      */

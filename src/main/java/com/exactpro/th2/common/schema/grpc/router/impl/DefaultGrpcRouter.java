@@ -15,7 +15,7 @@
 
 package com.exactpro.th2.common.schema.grpc.router.impl;
 
-import com.exactpro.th2.common.grpc.router.GrpcInterceptor;
+import com.exactpro.th2.common.grpc.router.ClientGrpcInterceptor;
 import com.exactpro.th2.common.schema.exception.InitGrpcRouterException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration;
@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -63,9 +64,8 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
      * @param cls class of service
      * @param <T> type of service
      * @return service instance
-     * @throws ClassNotFoundException if matching the service class to protobuf stub has failed
      */
-    public <T> T getService(@NotNull Class<T> cls) throws ClassNotFoundException {
+    public <T> T getService(@NotNull Class<T> cls) {
         List<Provider<T>> implementations = ServiceLoader.load(Objects.requireNonNull(cls, "Services class can not be null"))
                 .stream().collect(Collectors.toList());
 
@@ -85,7 +85,13 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                     .newInstance(
                             configuration.getRetryConfiguration(),
                             stubsStorages.computeIfAbsent(cls, key ->
-                                    new DefaultStubStorage<>(getServiceConfig(key), GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES)
+                                    new DefaultStubStorage<>(getServiceConfig(key),
+                                            createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),
+                                            createGetMetric(GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_MAP),
+                                            createGetMeasuringMetric(GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_REQUEST_SIZE_MAP),
+                                            createGetMeasuringMetric(GRPC_INVOKE_CALL_RESPONSE_BYTES, GRPC_INVOKE_CALL_RESPONSE_SIZE_MAP),
+                                            routerConfiguration
+                                    )
                             )
                     );
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
@@ -191,8 +197,16 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                         "that matching the provided alias: " + key);
             }
 
+            LOGGER.info("Made gRPC channel: host {}, port {}, keepAliveTime {}, max inbound message {}", grpcServer.getHost(), grpcServer.getPort(), routerConfiguration.getKeepAliveInterval(), routerConfiguration.getMaxMessageSize());
+
             return ManagedChannelBuilder.forAddress(grpcServer.getHost(), grpcServer.getPort())
-                    .intercept(new GrpcInterceptor(pinName, GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_RESPONSE_BYTES))
+                    .intercept(new ClientGrpcInterceptor(pinName,
+                            createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),
+                            createGetMetric(GRPC_RECEIVE_CALL_TOTAL, GRPC_RECEIVE_CALL_MAP),
+                            createGetMeasuringMetric(GRPC_INVOKE_CALL_REQUEST_BYTES, GRPC_INVOKE_CALL_REQUEST_SIZE_MAP),
+                            createGetMeasuringMetric(GRPC_INVOKE_CALL_RESPONSE_BYTES, GRPC_INVOKE_CALL_RESPONSE_SIZE_MAP)))
+                    .keepAliveTimeout(routerConfiguration.getKeepAliveInterval(), TimeUnit.SECONDS)
+                    .maxInboundMessageSize(routerConfiguration.getMaxMessageSize())
                     .usePlaintext()
                     .build();
         });

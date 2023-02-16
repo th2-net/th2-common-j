@@ -17,6 +17,7 @@
 package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
@@ -70,11 +71,11 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected void handle(String consumeTag, Delivery delivery, EventBatch value,
+    protected void handle(DeliveryMetadata deliveryMetadata, Delivery delivery, EventBatch value,
                           Confirmation confirmation) throws IOException {
         EVENT_SUBSCRIBE_TOTAL
                 .labels(th2Pin)
                 .inc(value.getEventsCount());
-        super.handle(consumeTag, delivery, value, confirmation);
+        super.handle(deliveryMetadata, delivery, value, confirmation);
     }
 }

@@ -138,11 +138,11 @@ class TestJsonConfiguration {
                         init(GrpcRawRobinStrategy(listOf("endpoint")))
                     },
                     GrpcConfiguration::class.java,
-                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, listOf("test_attr"))),
+                    mapOf("endpoint" to GrpcEndpointConfiguration("host", 12345, attributes = listOf("test_attr"))),
                     emptyList()
                 )
             ),
-            GrpcServerConfiguration("host123", 1234, 58)
+            GrpcServerConfiguration("host123", 1234, 58),
         )
 
         private val RABBITMQ_CONF_JSON = loadConfJson("rabbitMq")

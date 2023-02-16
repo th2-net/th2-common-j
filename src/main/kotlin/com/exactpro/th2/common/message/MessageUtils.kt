@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 @file:JvmName("MessageUtils")
+@file:Suppress("unused")
 
 package com.exactpro.th2.common.message
 
@@ -40,6 +41,7 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.MessageFilter
 import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.MessageIDOrBuilder
 import com.exactpro.th2.common.grpc.MessageMetadata
 import com.exactpro.th2.common.grpc.MessageOrBuilder
 import com.exactpro.th2.common.grpc.MetadataFilter
@@ -78,9 +80,7 @@ import java.math.BigInteger
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.Calendar
-import java.util.Date
-import java.util.TimeZone
+import java.util.*
 
 typealias FieldValues = Map<String, Value>
 typealias FieldValueFilters = Map<String, ValueFilter>
@@ -97,7 +97,7 @@ operator fun Message.Builder.get(key: String): Value? = getField(key)
 fun Message.Builder.getField(fieldName: String): Value? = getFieldsOrDefault(fieldName, null)
 
 fun Message.hasField(key: String) : Boolean = fieldsMap.containsKey(key)
-fun Message.Builder.hasField(key: String) : Boolean = fieldsMap.containsKey(key);
+fun Message.Builder.hasField(key: String) : Boolean = fieldsMap.containsKey(key)
 
 fun Message.getString(fieldName: String): String? = getField(fieldName)?.getString()
 fun Message.getInt(fieldName: String): Int? = getField(fieldName)?.getInt()
@@ -127,9 +127,9 @@ fun Message.Builder.updateMessage(key: String, updateFunc: Message.Builder.() ->
 fun Message.Builder.updateString(key: String, updateFunc: String.() -> String) : Message.Builder = apply { updateField(key) { updateString(updateFunc) } }
 
 fun Message.Builder.updateOrAddField(key: String, updateFunc: (Value.Builder?) -> ValueOrBuilder?): Message.Builder = apply { set(key, updateFunc(getField(key)?.toBuilder())) }
-fun Message.Builder.updateOrAddList(key: String, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddList(updateFunc) ?: updateFunc(null)?.toValue() } }
-fun Message.Builder.updateOrAddMessage(key: String, updateFunc: (Message.Builder?) -> MessageOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null)?.toValue() } }
-fun Message.Builder.updateOrAddString(key: String, updateFunc:(String?) -> String) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddString(updateFunc) ?: updateFunc(null)?.toValue() } }
+fun Message.Builder.updateOrAddList(key: String, updateFunc: (ListValue.Builder?) -> ListValueOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddList(updateFunc) ?: updateFunc(null).toValue() } }
+fun Message.Builder.updateOrAddMessage(key: String, updateFunc: (Message.Builder?) -> MessageOrBuilder) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddMessage(updateFunc) ?: updateFunc(null).toValue() } }
+fun Message.Builder.updateOrAddString(key: String, updateFunc:(String?) -> String) : Message.Builder = apply { updateOrAddField(key) { it?.updateOrAddString(updateFunc) ?: updateFunc(null).toValue() } }
 
 fun Message.Builder.addField(key: String, value: Any?): Message.Builder = apply { putFields(key, value?.toValue() ?: nullValue()) }
 
@@ -307,6 +307,14 @@ var Message.Builder.bookName
         metadataBuilder.idBuilder.bookName = value
     }
 
+val RawMessage.bookName
+    get(): String = metadata.id.bookName
+var RawMessage.Builder.bookName
+    get(): String = metadata.id.bookName
+    set(value) {
+        metadataBuilder.idBuilder.bookName = value
+    }
+
 val Message.messageType
     get(): String = metadata.messageType
 var Message.Builder.messageType
@@ -349,6 +357,22 @@ var RawMessage.Builder.sessionAlias
         metadataBuilder.idBuilder.connectionIdBuilder.sessionAlias = value
     }
 
+val Message.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+var Message.Builder.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionGroup = value
+    }
+
+val RawMessage.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+var RawMessage.Builder.sessionGroup
+    get(): String = metadata.id.connectionId.sessionGroup
+    set(value) {
+        metadataBuilder.idBuilder.connectionIdBuilder.sessionGroup = value
+    }
+
 val Message.sequence
     get(): Long = metadata.id.sequence
 var Message.Builder.sequence
@@ -388,10 +412,14 @@ var RawMessage.Builder.subsequence
     }
 
 val Message.logId: String
-    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ".$it" }}"
+    get() = "$sessionAlias:${
+        direction.toString().lowercase(Locale.getDefault())
+    }:$sequence${subsequence.joinToString("") { ".$it" }}"
 
 val RawMessage.logId: String
-    get() = "$sessionAlias:${direction.toString().toLowerCase()}:$sequence${subsequence.joinToString("") { ".$it" }}"
+    get() = "$sessionAlias:${
+        direction.toString().lowercase(Locale.getDefault())
+    }:$sequence${subsequence.joinToString("") { ".$it" }}"
 
 val AnyMessage.logId: String
     get() = when (kindCase) {
@@ -425,7 +453,7 @@ val AnyMessage.bookName: BookName
 fun getDebugString(className: String, ids: List<MessageID>): String {
     val sessionAliasAndDirection = getSessionAliasAndDirection(ids[0])
     val sequences = ids.joinToString { it.sequence.toString() }
-    return "$className: session_alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}, sequnces = $sequences"
+    return "$className: session_alias = ${sessionAliasAndDirection[0]}, direction = ${sessionAliasAndDirection[1]}, sequences = $sequences"
 }
 
 @JvmOverloads
@@ -442,6 +470,12 @@ fun Message.toTreeTable(): TreeTable = TreeTableBuilder().apply {
         row(key, value.toTreeTableEntry())
     }
 }.build()
+
+val MessageIDOrBuilder.isValid: Boolean
+    get() = bookName.isNotBlank()
+            && hasConnectionId() && connectionId.sessionAlias.isNotBlank()
+            && hasTimestamp() && timestamp.seconds > 0 && timestamp.nanos > 0
+            && sequence > 0
 
 private fun Value.toTreeTableEntry(): TreeTableEntry = when {
     hasMessageValue() -> CollectionBuilder().apply {

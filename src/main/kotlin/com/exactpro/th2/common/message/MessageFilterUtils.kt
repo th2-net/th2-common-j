@@ -41,6 +41,7 @@ import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
 import com.fasterxml.jackson.annotation.JsonProperty
+import java.util.*
 
 private val DEFAULT_TIME_PRECISION_REGEX = Regex("(\\d[HMS])(?!\$)")
 
@@ -127,7 +128,10 @@ private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = Collecti
     if (hasTimePrecision()) {
         val timePrecision = timePrecision.toJavaDuration().toString().substring(2)
         row("time-precision", RowBuilder()
-            .column(IgnoreFieldColumn(DEFAULT_TIME_PRECISION_REGEX.replace(timePrecision, "$1 ").toLowerCase()))
+            .column(
+                IgnoreFieldColumn(
+                    DEFAULT_TIME_PRECISION_REGEX.replace(timePrecision, "$1 ").lowercase(Locale.getDefault())
+                ))
             .build())
     }
     if (decimalPrecision.isNotBlank()) {

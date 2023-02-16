@@ -20,11 +20,13 @@ import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfigura
 import com.exactpro.th2.common.schema.strategy.route.RoutingStrategy
 import com.exactpro.th2.service.RetryPolicy
 import com.fasterxml.jackson.annotation.JsonProperty
+import io.grpc.internal.GrpcUtil
 
 data class GrpcConfiguration(
     @JsonProperty var services: Map<String, GrpcServiceConfiguration> = emptyMap(),
     @JsonProperty(value = "server") var serverConfiguration: GrpcServerConfiguration = GrpcServerConfiguration(),
-    @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration()
+    @JsonProperty var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
+    @JsonProperty var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration(),
 ) : Configuration()
 
 data class GrpcServiceConfiguration(
@@ -41,7 +43,7 @@ data class Filter(
 data class GrpcEndpointConfiguration(
     @JsonProperty(required = true) var host: String,
     @JsonProperty(required = true) var port: Int = 8080,
-    var attributes: List<String?> = emptyList()
+    var attributes: List<String?> = emptyList(),
 ) : Configuration()
 
 data class GrpcRetryConfiguration(
@@ -61,5 +63,5 @@ data class GrpcRetryConfiguration(
 data class GrpcServerConfiguration(
     var host: String? = "localhost",
     @JsonProperty(required = true) var port: Int = 8080,
-    var workers: Int = 1
+    var workers: Int = 5
 ) : Configuration()

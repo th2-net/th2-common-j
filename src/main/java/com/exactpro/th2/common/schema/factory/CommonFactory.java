@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -39,7 +39,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedB
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
-import io.fabric8.kubernetes.api.model.DoneableConfigMap;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -51,9 +50,9 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +70,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -439,15 +439,15 @@ public class CommonFactory extends AbstractCommonFactory {
 
             var configMaps = client.configMaps();
 
-            Resource<ConfigMap, DoneableConfigMap> boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
+            Resource<ConfigMap> boxConfigMapResource = configMaps.inNamespace(namespace).withName(boxName + "-app-config");
 
             if (boxConfigMapResource.get() == null) {
                 throw new IllegalArgumentException("Failed to find config maps by boxName " + boxName);
             }
-            Resource<ConfigMap, DoneableConfigMap> rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName(RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP);
-            Resource<ConfigMap, DoneableConfigMap> cradleConfidentialConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_EXTERNAL_MAP);
-            Resource<ConfigMap, DoneableConfigMap> cradleNonConfidentialConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_MANAGER_CONFIG_MAP);
-            Resource<ConfigMap, DoneableConfigMap> loggingConfigMapResource = configMaps.inNamespace(namespace).withName(LOGGING_CONFIG_MAP);
+            Resource<ConfigMap> rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName(RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP);
+            Resource<ConfigMap> cradleConfidentialConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_EXTERNAL_MAP);
+            Resource<ConfigMap> cradleNonConfidentialConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_MANAGER_CONFIG_MAP);
+            Resource<ConfigMap> loggingConfigMapResource = configMaps.inNamespace(namespace).withName(LOGGING_CONFIG_MAP);
 
             ConfigMap boxConfigMap = boxConfigMapResource.require();
             ConfigMap rabbitMqConfigMap = rabbitMqConfigMapResource.require();
@@ -476,7 +476,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 box.setBoxName(boxName);
 
                 if (loggingData != null) {
-                    writeFile(configPath.resolve(LOG4J_PROPERTIES_NAME), loggingData);
+                    writeFile(configPath.resolve(LOG4J2_PROPERTIES_NAME), loggingData);
                     configureLogger(configPath.toString());
                 }
 
@@ -502,7 +502,7 @@ public class CommonFactory extends AbstractCommonFactory {
                     writeFile(boxConfigurationPath, boxConfig);
                 }
 
-                writeDictionaries(boxName, configPath, dictionaryTypePath, dictionaries, configMaps.list());
+                writeDictionaries(dictionaryTypePath, dictionaryAliasPath, dictionaries, configMaps.list());
             }
 
             return new CommonFactory(settings);
@@ -638,51 +638,61 @@ public class CommonFactory extends AbstractCommonFactory {
         return file;
     }
 
-    private static void writeDictionaries(String boxName, Path oldDictionariesDir, Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+    private static void writeDictionaries(Path oldDictionariesDir, Path dictionariesDir, Map<DictionaryType, String> dictionaries, ConfigMapList configMapList) throws IOException {
+        createDirectory(dictionariesDir);
+
         for(ConfigMap configMap : configMapList.getItems()) {
             String configMapName = configMap.getMetadata().getName();
-            if(configMapName.startsWith(boxName) && configMapName.endsWith("-dictionary")) {
-                configMap.getData().forEach((fileName, base64) -> {
-                    try {
-                        writeFile(oldDictionariesDir.resolve(fileName), base64);
-                    } catch (IOException e) {
-                        LOGGER.error("Can not write dictionary '{}' from config map with name '{}'", fileName, configMapName);
-                    }
-                });
+
+            if (!configMapName.endsWith("-dictionary")) {
+                continue;
             }
+
+            String dictionaryName = configMapName.substring(0, configMapName.lastIndexOf('-'));
+
+            dictionaries.entrySet().stream()
+                    .filter(entry -> Objects.equals(entry.getValue(), dictionaryName))
+                    .forEach(entry -> {
+                        DictionaryType type = entry.getKey();
+                        try {
+                            Path dictionaryTypeDir = type.getDictionary(oldDictionariesDir);
+                            createDirectory(dictionaryTypeDir);
+
+                            if (configMap.getData().size() != 1) {
+                                throw new IllegalStateException(
+                                        String.format("Can not save dictionary '%s' with type '%s', because can not find dictionary data in config map", dictionaryName, type)
+                                );
+                            }
+
+                            downloadFiles(dictionariesDir, configMap);
+                            downloadFiles(dictionaryTypeDir, configMap);
+                        } catch (Exception e) {
+                            throw new IllegalStateException("Loading the " + dictionaryName + " dictionary with type " + type + " failures", e);
+                        }
+                    });
         }
+    }
 
-        for (Map.Entry<DictionaryType, String> entry : dictionaries.entrySet()) {
-            DictionaryType type = entry.getKey();
-            String dictionaryName = entry.getValue();
-            for (ConfigMap dictionaryConfigMap : configMapList.getItems()) {
-                String configName = dictionaryConfigMap.getMetadata().getName();
-                if (configName.endsWith("-dictionary") && configName.substring(0, configName.lastIndexOf('-')).equals(dictionaryName)) {
-                    Path dictionaryTypeDir = type.getDictionary(dictionariesDir);
-
-                    if (Files.notExists(dictionaryTypeDir)) {
-                        Files.createDirectories(dictionaryTypeDir);
-                    } else if (!Files.isDirectory(dictionaryTypeDir)) {
-                        throw new IllegalStateException(
-                                String.format("Can not save dictionary '%s' with type '%s', because '%s' is not directory", dictionaryName, type, dictionaryTypeDir)
-                        );
-                    }
-
-                    Set<String> fileNameSet = dictionaryConfigMap.getData().keySet();
-
-                    if (fileNameSet.size() != 1) {
-                        throw new IllegalStateException(
-                                String.format("Can not save dictionary '%s' with type '%s', because can not find dictionary data in config map", dictionaryName, type)
-                        );
-                    }
-
-                    String fileName = fileNameSet.stream().findFirst().orElse(null);
-                    Path dictionaryPath = dictionaryTypeDir.resolve(fileName);
-                    writeFile(dictionaryPath, dictionaryConfigMap.getData().get(fileName));
-                    LOGGER.debug("Dictionary written in folder: " + dictionaryPath);
-                    break;
+    private static void downloadFiles(Path baseDir, ConfigMap configMap) {
+        String configMapName = configMap.getMetadata().getName();
+        configMap.getData().forEach((fileName, base64) -> {
+            try {
+                Path path = baseDir.resolve(fileName);
+                if (!Files.exists(path)) {
+                    writeFile(path, base64);
+                    LOGGER.info("The '{}' config has been downloaded from the '{}' config map to the '{}' path", fileName, configMapName, path);
                 }
+            } catch (IOException e) {
+                LOGGER.error("Can not download the '{}' file from the '{}' config map", fileName, configMapName);
             }
+        });
+    }
+
+    private static void createDirectory(Path dir) throws IOException {
+        if (Files.notExists(dir)) {
+            Files.createDirectories(dir);
+        } else if (!Files.isDirectory(dir)) {
+            throw new IllegalStateException("Can not save dictionary '" + dir + "' because the '" + dir + "' has already exist and isn't a directory");
         }
     }
 
