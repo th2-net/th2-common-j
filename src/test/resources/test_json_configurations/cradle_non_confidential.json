@@ -3,5 +3,8 @@
   "pageSize": 111,
   "cradleMaxEventBatchSize": 123,
   "cradleMaxMessageBatchSize": 321,
-  "prepareStorage": false
+  "prepareStorage": false,
+  "statisticsPersistenceIntervalMillis": 5000,
+  "maxUncompressedMessageBatchSize": 1280001,
+  "maxUncompressedEventBatchSize": 1280002
 }

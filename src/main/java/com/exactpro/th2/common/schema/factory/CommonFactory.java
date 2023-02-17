@@ -115,6 +115,7 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String GENERATED_CONFIG_DIR_NAME = "generated_configs";
     private static final String RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP = "rabbit-mq-external-app-config";
     private static final String CRADLE_EXTERNAL_MAP = "cradle-external";
+    private static final String CRADLE_MANAGER_CONFIG_MAP = "cradle-manager";
     private static final String LOGGING_CONFIG_MAP = "logging-config";
 
     private final Path custom;
@@ -444,17 +445,20 @@ public class CommonFactory extends AbstractCommonFactory {
                 throw new IllegalArgumentException("Failed to find config maps by boxName " + boxName);
             }
             Resource<ConfigMap> rabbitMqConfigMapResource = configMaps.inNamespace(namespace).withName(RABBIT_MQ_EXTERNAL_APP_CONFIG_MAP);
-            Resource<ConfigMap> cradleConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_EXTERNAL_MAP);
+            Resource<ConfigMap> cradleConfidentialConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_EXTERNAL_MAP);
+            Resource<ConfigMap> cradleNonConfidentialConfigMapResource = configMaps.inNamespace(namespace).withName(CRADLE_MANAGER_CONFIG_MAP);
             Resource<ConfigMap> loggingConfigMapResource = configMaps.inNamespace(namespace).withName(LOGGING_CONFIG_MAP);
 
             ConfigMap boxConfigMap = boxConfigMapResource.require();
             ConfigMap rabbitMqConfigMap = rabbitMqConfigMapResource.require();
-            ConfigMap cradleConfigMap = cradleConfigMapResource.require();
+            ConfigMap cradleConfidentialConfigmap = cradleConfidentialConfigMapResource.require();
+            ConfigMap cradleNonConfidentialConfigmap = cradleNonConfidentialConfigMapResource.require();
             @Nullable ConfigMap loggingConfigMap = loggingConfigMapResource.get();
 
             Map<String, String> boxData = boxConfigMap.getData();
             Map<String, String> rabbitMqData = rabbitMqConfigMap.getData();
-            Map<String, String> cradleConfigData = cradleConfigMap.getData();
+            Map<String, String> cradleConfidential = cradleConfidentialConfigmap.getData();
+            Map<String, String> cradleNonConfidential = cradleNonConfidentialConfigmap.getData();
             @Nullable String loggingData = boxData.getOrDefault(LOG4J2_PROPERTIES_NAME,
                     loggingConfigMap == null ? null : loggingConfigMap.getData().get(LOG4J2_PROPERTIES_NAME)
             );
@@ -481,8 +485,8 @@ public class CommonFactory extends AbstractCommonFactory {
                 settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
                 settings.setGrpc(writeFile(configPath, GRPC_FILE_NAME, boxData));
                 settings.setRouterGRPC(writeFile(configPath, ROUTER_GRPC_FILE_NAME, boxData));
-                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_FILE_NAME, cradleConfigData));
-                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_FILE_NAME, boxData));
+                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_FILE_NAME, cradleConfidential));
+                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_FILE_NAME, cradleNonConfidential));
                 settings.setPrometheus(writeFile(configPath, PROMETHEUS_FILE_NAME, boxData));
                 settings.setCustom(writeFile(configPath, CUSTOM_FILE_NAME, boxData));
 
