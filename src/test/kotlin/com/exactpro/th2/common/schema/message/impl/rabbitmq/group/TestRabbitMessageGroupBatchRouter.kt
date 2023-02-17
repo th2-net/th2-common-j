@@ -165,8 +165,8 @@ class TestRabbitMessageGroupBatchRouter {
             router.sendAll(batch)
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), captor.capture())
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(),  captor.capture())
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(),  captor.capture())
             val originalBytes = batch.toByteArray()
             Assertions.assertAll(
                 Executable {

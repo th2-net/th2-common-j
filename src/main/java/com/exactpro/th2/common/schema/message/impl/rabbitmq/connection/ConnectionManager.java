@@ -14,11 +14,14 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
+import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -65,6 +68,8 @@ import com.rabbitmq.client.Recoverable;
 import com.rabbitmq.client.RecoveryListener;
 import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.TopologyRecoveryException;
+
+import static com.exactpro.th2.common.schema.message.MessageRouterUtils.toShortDebugString;
 
 public class ConnectionManager implements AutoCloseable {
 
@@ -270,10 +275,21 @@ public class ConnectionManager implements AutoCloseable {
         LOGGER.info("Closing connection manager");
 
         int closeTimeout = configuration.getConnectionCloseTimeout();
+
+        for(ChannelHolder channel : channelsByPin.values()) {
+            try {
+                if(channel.isPublisher) {
+                    channel.channel.waitForConfirmsOrDie(closeTimeout);
+                } else {
+                    channel.channel.close();
+                }
+            } catch (Exception e) {
+                LOGGER.error("Error while closing channel", e);
+            }
+        }
+
         if (connection.isOpen()) {
             try {
-                // We close the connection and don't close channels
-                // because when a channel's connection is closed, so is the channel
                 connection.close(closeTimeout);
             } catch (IOException e) {
                 LOGGER.error("Cannot close connection", e);
@@ -285,12 +301,12 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
-        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey));
+        ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), true);
         holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
     }
 
     public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-        ChannelHolder holder = getChannelFor(PinId.forQueue(queue));
+        ChannelHolder holder = getChannelFor(PinId.forQueue(queue), false);
         String tag = holder.mapWithLock(channel ->
                 channel.basicConsume(queue, false, subscriberName + "_" + nextSubscriberId.getAndIncrement(), (tagTmp, delivery) -> {
                     try {
@@ -353,10 +369,10 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private ChannelHolder getChannelFor(PinId pinId) {
+    private ChannelHolder getChannelFor(PinId pinId, boolean isPublisher) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
-            return new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
+            return new ChannelHolder(() -> createChannel(), this::waitForConnectionRecovery, configuration.getPrefetchCount(), isPublisher);
         });
     }
 
@@ -492,6 +508,7 @@ public class ConnectionManager implements AutoCloseable {
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
         private final int maxCount;
+        private final boolean isPublisher;
         @GuardedBy("lock")
         private int pending;
         @GuardedBy("lock")
@@ -502,11 +519,13 @@ public class ConnectionManager implements AutoCloseable {
         public ChannelHolder(
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker,
-                int maxCount
+                int maxCount,
+                boolean isPublisher
         ) {
             this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
             this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
             this.maxCount = maxCount;
+            this.isPublisher = isPublisher;
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
@@ -598,6 +617,33 @@ public class ConnectionManager implements AutoCloseable {
         private Channel getChannel(boolean waitForRecovery) {
             if (channel == null) {
                 channel = supplier.get();
+                try {
+                    if(isPublisher) {
+                        channel.confirmSelect();
+                        channel.addConfirmListener(
+                                (deliveryTag, multiple) -> {
+                                    if(LOGGER.isTraceEnabled()) {
+                                        if(!multiple) {
+                                            LOGGER.trace("Message with delivery tag {} confirmed. Ids:\n{}", deliveryTag);
+                                        } else {
+                                            LOGGER.trace("Messages prior to delivery tag {} confirmed. Id:\n{}", deliveryTag);
+                                        }
+                                    }
+                                },
+                                (deliveryTag, multiple) -> {
+                                    if(LOGGER.isErrorEnabled()) {
+                                        if(!multiple) {
+                                            LOGGER.error("Message with delivery tag {} was nacked. Ids:\n{}", deliveryTag);
+                                        } else {
+                                            LOGGER.error("Messages prior to delivery tag {} was nacked. Id:\n{}", deliveryTag);
+                                        }
+                                    }
+                                }
+                        );
+                    }
+                } catch (IOException e) {
+                    throw new IllegalStateException("Can not create channel", e);
+                }
             }
             reconnectionChecker.accept(channel, waitForRecovery);
             return channel;
