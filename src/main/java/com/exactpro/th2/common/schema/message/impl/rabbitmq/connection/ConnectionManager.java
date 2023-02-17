@@ -300,14 +300,9 @@ public class ConnectionManager implements AutoCloseable {
         shutdownExecutor(channelChecker, closeTimeout, "channel-checker");
     }
 
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, String id, byte[] body) throws IOException {
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), true);
-        holder.withLock(
-            channel -> {
-                holder.addMessage(channel.getNextPublishSeqNo(), id);
-                channel.basicPublish(exchange, routingKey, props, body);
-            }
-        );
+        holder.withLock(channel -> channel.basicPublish(exchange, routingKey, props, body));
     }
 
     public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
@@ -509,7 +504,6 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private static class ChannelHolder {
-        private final ConcurrentNavigableMap<Long, String> outstandingConfirms = new ConcurrentSkipListMap<>();
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
@@ -616,19 +610,6 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        public void addMessage(long sequence, String ids) {
-            outstandingConfirms.put(sequence, ids);
-        }
-
-        private String removeMessages(long sequence, boolean multiple) {
-            if(multiple) {
-                var confirmed = outstandingConfirms.headMap(sequence, true);
-                return String.join("\n", confirmed.values());
-            } else {
-                return outstandingConfirms.remove(sequence);
-            }
-        }
-
         private Channel getChannel() {
             return getChannel(true);
         }
@@ -641,22 +622,20 @@ public class ConnectionManager implements AutoCloseable {
                         channel.confirmSelect();
                         channel.addConfirmListener(
                                 (deliveryTag, multiple) -> {
-                                    String ids = removeMessages(deliveryTag, multiple);
                                     if(LOGGER.isTraceEnabled()) {
                                         if(!multiple) {
-                                            LOGGER.trace("Message with delivery tag {} confirmed. Ids:\n{}", deliveryTag, ids);
+                                            LOGGER.trace("Message with delivery tag {} confirmed. Ids:\n{}", deliveryTag);
                                         } else {
-                                            LOGGER.trace("Messages prior to delivery tag {} confirmed. Id:\n{}", deliveryTag, ids);
+                                            LOGGER.trace("Messages prior to delivery tag {} confirmed. Id:\n{}", deliveryTag);
                                         }
                                     }
                                 },
                                 (deliveryTag, multiple) -> {
-                                    String ids = removeMessages(deliveryTag, multiple);
                                     if(LOGGER.isErrorEnabled()) {
                                         if(!multiple) {
-                                            LOGGER.error("Message with delivery tag {} was nacked. Ids:\n{}", deliveryTag, ids);
+                                            LOGGER.error("Message with delivery tag {} was nacked. Ids:\n{}", deliveryTag);
                                         } else {
-                                            LOGGER.error("Messages prior to delivery tag {} was nacked. Id:\n{}", deliveryTag, ids);
+                                            LOGGER.error("Messages prior to delivery tag {} was nacked. Id:\n{}", deliveryTag);
                                         }
                                     }
                                 }
