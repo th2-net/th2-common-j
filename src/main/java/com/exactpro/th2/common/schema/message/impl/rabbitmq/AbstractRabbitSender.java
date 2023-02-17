@@ -89,7 +89,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             MESSAGE_PUBLISH_TOTAL
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
                     .inc();
-            connection.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
+            connection.basicPublish(exchangeName.get(), routingKey.get(), null, toShortDebugString(value), bytes);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",

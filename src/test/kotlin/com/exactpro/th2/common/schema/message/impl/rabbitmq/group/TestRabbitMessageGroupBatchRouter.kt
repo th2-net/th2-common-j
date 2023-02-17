@@ -105,7 +105,7 @@ class TestRabbitMessageGroupBatchRouter {
                     ).build()
             )
 
-            verify(connectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
+            verify(connectionManager, never()).basicPublish(any(), any(), anyOrNull(), anyOrNull(), any())
         }
 
         @Test
@@ -117,7 +117,7 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             Assertions.assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -165,8 +165,8 @@ class TestRabbitMessageGroupBatchRouter {
             router.sendAll(batch)
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), captor.capture())
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), anyOrNull(),  captor.capture())
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), anyOrNull(),  captor.capture())
             val originalBytes = batch.toByteArray()
             Assertions.assertAll(
                 Executable {

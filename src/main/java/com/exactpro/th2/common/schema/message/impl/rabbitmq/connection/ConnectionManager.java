@@ -279,7 +279,7 @@ public class ConnectionManager implements AutoCloseable {
         for(ChannelHolder channel : channelsByPin.values()) {
             try {
                 if(channel.isPublisher) {
-                    channel.channel.waitForConfirms(closeTimeout);
+                    channel.channel.waitForConfirmsOrDie(closeTimeout);
                 } else {
                     channel.channel.close();
                 }
@@ -290,8 +290,6 @@ public class ConnectionManager implements AutoCloseable {
 
         if (connection.isOpen()) {
             try {
-                // We close the connection and don't close channels
-                // because when a channel's connection is closed, so is the channel
                 connection.close(closeTimeout);
             } catch (IOException e) {
                 LOGGER.error("Cannot close connection", e);
@@ -302,13 +300,13 @@ public class ConnectionManager implements AutoCloseable {
         shutdownExecutor(channelChecker, closeTimeout, "channel-checker");
     }
 
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException {
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, String id, byte[] body) throws IOException {
         ChannelHolder holder = getChannelFor(PinId.forRoutingKey(routingKey), true);
         holder.withLock(
-                channel -> {
-                    holder.addMessage(channel.getNextPublishSeqNo(), body);
-                    channel.basicPublish(exchange, routingKey, props, body);
-                }
+            channel -> {
+                holder.addMessage(channel.getNextPublishSeqNo(), id);
+                channel.basicPublish(exchange, routingKey, props, body);
+            }
         );
     }
 
@@ -379,11 +377,11 @@ public class ConnectionManager implements AutoCloseable {
     private ChannelHolder getChannelFor(PinId pinId, boolean isPublisher) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
-            return new ChannelHolder(() -> createChannel(isPublisher, pinId), this::waitForConnectionRecovery, configuration.getPrefetchCount(), isPublisher);
+            return new ChannelHolder(() -> createChannel(), this::waitForConnectionRecovery, configuration.getPrefetchCount(), isPublisher);
         });
     }
 
-    private Channel createChannel(boolean isPublisher, PinId pinId) {
+    private Channel createChannel() {
         waitForConnectionRecovery(connection);
 
         try {
@@ -392,34 +390,6 @@ public class ConnectionManager implements AutoCloseable {
             channel.basicQos(configuration.getPrefetchCount());
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
-            if(isPublisher) {
-                channel.confirmSelect();
-                channel.addConfirmListener(
-                        (deliveryTag, multiple) -> {
-                            if(LOGGER.isTraceEnabled()) {
-                                ChannelHolder channel1 = channelsByPin.get(pinId);
-                                String sequence = "null";
-                                if(channel1 != null) {
-                                    sequence = channel1.outstandingConfirms.get(deliveryTag);
-                                }
-                                if(!multiple) {
-                                    LOGGER.trace("Message with delivery tag {} confirmed. Message: {}", deliveryTag, sequence);
-                                } else {
-                                    LOGGER.trace("Messages prior to delivery tag {} confirmed. Message: {}", deliveryTag, sequence);
-                                }
-                            }
-                        },
-                        (deliveryTag, multiple) -> {
-                            if(LOGGER.isErrorEnabled()) {
-                                if(!multiple) {
-                                    LOGGER.error("Message with delivery tag {} was nacked.", deliveryTag);
-                                } else {
-                                    LOGGER.error("Messages prior to delivery tag {} was nacked", deliveryTag);
-                                }
-                            }
-                        }
-                );
-            }
             return channel;
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
@@ -539,7 +509,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private static class ChannelHolder {
-        ConcurrentNavigableMap<Long, String> outstandingConfirms = new ConcurrentSkipListMap<>();
+        private final ConcurrentNavigableMap<Long, String> outstandingConfirms = new ConcurrentSkipListMap<>();
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
@@ -646,6 +616,19 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
+        public void addMessage(long sequence, String ids) {
+            outstandingConfirms.put(sequence, ids);
+        }
+
+        private String removeMessages(long sequence, boolean multiple) {
+            if(multiple) {
+                var confirmed = outstandingConfirms.headMap(sequence, true);
+                return String.join("\n", confirmed.values());
+            } else {
+                return outstandingConfirms.remove(sequence);
+            }
+        }
+
         private Channel getChannel() {
             return getChannel(true);
         }
@@ -653,17 +636,38 @@ public class ConnectionManager implements AutoCloseable {
         private Channel getChannel(boolean waitForRecovery) {
             if (channel == null) {
                 channel = supplier.get();
+                try {
+                    if(isPublisher) {
+                        channel.confirmSelect();
+                        channel.addConfirmListener(
+                                (deliveryTag, multiple) -> {
+                                    String ids = removeMessages(deliveryTag, multiple);
+                                    if(LOGGER.isTraceEnabled()) {
+                                        if(!multiple) {
+                                            LOGGER.trace("Message with delivery tag {} confirmed. Ids:\n{}", deliveryTag, ids);
+                                        } else {
+                                            LOGGER.trace("Messages prior to delivery tag {} confirmed. Id:\n{}", deliveryTag, ids);
+                                        }
+                                    }
+                                },
+                                (deliveryTag, multiple) -> {
+                                    String ids = removeMessages(deliveryTag, multiple);
+                                    if(LOGGER.isErrorEnabled()) {
+                                        if(!multiple) {
+                                            LOGGER.error("Message with delivery tag {} was nacked. Ids:\n{}", deliveryTag, ids);
+                                        } else {
+                                            LOGGER.error("Messages prior to delivery tag {} was nacked. Id:\n{}", deliveryTag, ids);
+                                        }
+                                    }
+                                }
+                        );
+                    }
+                } catch (IOException e) {
+                    throw new IllegalStateException("Can not create channel", e);
+                }
             }
             reconnectionChecker.accept(channel, waitForRecovery);
             return channel;
-        }
-
-        public void addMessage(long sequence, byte[] data) {
-            try {
-                outstandingConfirms.put(sequence, toShortDebugString(MessageGroupBatch.parseFrom(data)));
-            } catch (Exception e) {
-                LOGGER.error("Error while converting body to message group batch.", e);
-            }
         }
     }
 

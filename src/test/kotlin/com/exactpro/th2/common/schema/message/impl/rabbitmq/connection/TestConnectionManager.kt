@@ -77,7 +77,7 @@ class TestConnectionManager {
                     }
 
                     repeat(prefetchCount + 1) { index ->
-                        manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
+                        manager.basicPublish(exchange, routingKey, null, "", "Hello $index".toByteArray(Charsets.UTF_8))
                     }
 
                     Assertions.assertTrue(countDown.await(1L, TimeUnit.SECONDS)) { "Not all messages were received: ${countDown.count}" }
