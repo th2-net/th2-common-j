@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.1.1+)
+# th2 common library (Java) (5.1.1)
 
 ## Usage
 
@@ -365,6 +365,7 @@ dependencies {
 
 + Added script for publishing dev-release for maven artefacts
 + Migrated to bom:4.2.0
++ Migrated to grpc-common:4.1.1-dev
 
 ### 5.1.0
 
