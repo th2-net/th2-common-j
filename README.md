@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.1.0+)
+# th2 common library (Java) (5.1.1+)
 
 ## Usage
 
@@ -360,6 +360,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.1.1
+
++ Added script for publishing dev-release for maven artefacts
++ Migrated to bom:4.2.0
 
 ### 5.1.0
 
