@@ -5,6 +5,7 @@ on:
     branches-ignore:
     - master
     - version-*
+    - dev-version-*
     - dependabot*
     # paths:
     # - gradle.properties
