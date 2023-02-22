@@ -1,4 +1,4 @@
-# th2 common library (Java) (3.44.0)
+# th2 common library (Java) (3.44.1)
 
 ## Usage
 
@@ -356,6 +356,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 3.44.1
++ Remove unused dependency 
++ Updated bom:4.2.0
 
 ### 3.43.0
 + There is no support for log4j version 1.
