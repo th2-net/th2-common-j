@@ -269,7 +269,7 @@ clean {
 }
 
 dependencyCheck {
-    formats=['JSON', 'HTML']
+    formats=['SARIF', 'JSON', 'HTML']
     failBuildOnCVSS=5
 
     analyzers {
