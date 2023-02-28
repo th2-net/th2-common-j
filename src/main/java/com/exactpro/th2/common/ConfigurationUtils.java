@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Supplier;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -31,12 +32,11 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 public class ConfigurationUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationUtils.class);
-    private static final ObjectMapper YAML_READER = new ObjectMapper(new YAMLFactory());
+    private static final ObjectMapper JSON_READER = new ObjectMapper(new JsonFactory());
 
     @Nullable
     public static String getEnv(String key, @Nullable String defaultValue) {
@@ -47,7 +47,7 @@ public class ConfigurationUtils {
     public static <T> T getJsonEnv(String key, TypeReference<T> cls) {
         String env = getEnv(key, null);
         try {
-            return env == null ? null : YAML_READER.readValue(env, cls);
+            return env == null ? null : JSON_READER.readValue(env, cls);
         } catch (IOException e) {
             LOGGER.error("Can not parse json environment variable with key: " + key, e);
             return null;
@@ -55,7 +55,7 @@ public class ConfigurationUtils {
     }
 
     public static <T> T load(Class<T> _class, InputStream inputStream) throws IOException {
-        return YAML_READER.readValue(inputStream, _class);
+        return JSON_READER.readValue(inputStream, _class);
     }
 
     /**
