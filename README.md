@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.1.1)
+# th2 common library (Java) (5.2.0)
 
 ## Usage
 
@@ -361,6 +361,10 @@ dependencies {
 
 ## Release notes
 
+### 5.2.0
+
++ Merged with 3.44.1
+
 ### 5.1.1
 
 + Added script for publishing dev-release for maven artefacts
@@ -380,6 +384,12 @@ dependencies {
 + Added `prepareStorage` property to `cradle.json`
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
 + Added `isRedelivered` flag to message
+
+---
+
+### 3.44.1
++ Remove unused dependency 
++ Updated bom:4.2.0
 
 ### 3.43.0
 + There is no support for log4j version 1.

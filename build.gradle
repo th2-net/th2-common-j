@@ -21,15 +21,12 @@ plugins {
     id 'signing'
     id 'com.google.protobuf' version '0.8.8' apply false
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
-    id "org.owasp.dependencycheck" version "7.2.0"
+    id "org.owasp.dependencycheck" version "8.1.1"
     id "me.champeau.jmh" version "0.6.8"
 }
 
 group = 'com.exactpro.th2'
 version = release_version
-
-sourceCompatibility = 11
-targetCompatibility = 11
 
 ext {
     cradleVersion       = '5.0.0-dev-version-5-2567311063-SNAPSHOT'
@@ -62,6 +59,9 @@ configurations {
 }
 
 java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+
     withJavadocJar()
     withSourcesJar()
 }
@@ -176,10 +176,11 @@ tasks.register('integrationTest', Test) {
 
 dependencies {
     api platform("com.exactpro.th2:bom:4.2.0")
+    api 'com.exactpro.th2:grpc-common:4.2.0-dev'
     api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
-    api 'com.exactpro.th2:grpc-common:4.1.1-dev'
+    api 'io.github.microutils:kotlin-logging:2.1.21'
 
     jmh 'org.openjdk.jmh:jmh-core:0.9'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
@@ -213,12 +214,9 @@ dependencies {
         because('providee ability to use jackson annotations in components')
     }
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
-    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
 
     implementation 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
-
-    api 'io.github.microutils:kotlin-logging:2.1.21'
 
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl'
     implementation 'org.apache.logging.log4j:log4j-core'
@@ -231,7 +229,9 @@ dependencies {
     implementation ('com.squareup.okhttp3:okhttp:4.10.0') {
         because ('fix vulnerability in transitive dependency <kubernetes-client>')
     }
-    implementation 'io.fabric8:kubernetes-client:6.1.1'
+    implementation ('io.fabric8:kubernetes-client:6.1.1') {
+        exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
+    }
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
@@ -271,7 +271,7 @@ clean {
 }
 
 dependencyCheck {
-    formats=['JSON', 'HTML']
+    formats=['SARIF', 'JSON', 'HTML']
     failBuildOnCVSS=5
 
     analyzers {
