@@ -218,6 +218,7 @@ class TestJsonConfiguration {
         private val CRADLE_NON_CONFIDENTIAL_CONF = CradleNonConfidentialConfiguration(
             888,
             111,
+            5,
             123,
             321,
             false,

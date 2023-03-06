@@ -29,7 +29,7 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    cradleVersion       = '5.0.0-dev-version-5-2567311063-SNAPSHOT'
+    cradleVersion       = '5.0.0-separate-executor-4341698850-6476db6-SNAPSHOT'
     junitVersion        = '5.8.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
@@ -187,9 +187,10 @@ dependencies {
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'
-    implementation ("com.exactpro.th2:cradle-cassandra:${cradleVersion}") {
+    api ("com.exactpro.th2:cradle-cassandra:${cradleVersion}") {
         exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
     }
+    implementation "com.datastax.oss:java-driver-core"
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"
@@ -202,6 +203,7 @@ dependencies {
     implementation "org.jetbrains:annotations"
 
     implementation "org.apache.commons:commons-lang3"
+    implementation "commons-io:commons-io"
     implementation "org.apache.commons:commons-collections4"
     implementation "org.apache.commons:commons-text"
     implementation "commons-cli:commons-cli"

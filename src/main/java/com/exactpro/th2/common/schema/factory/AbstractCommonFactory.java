@@ -541,6 +541,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (nonConfidentialConfiguration.getMaxUncompressedEventBatchSize() > 0) {
                         cassandraStorageSettings.setMaxUncompressedTestEventSize((int) nonConfidentialConfiguration.getMaxUncompressedEventBatchSize());
                     }
+                    if (nonConfidentialConfiguration.getComposingServiceThreads() > 0) {
+                        cassandraStorageSettings.setComposingServiceThreads(nonConfidentialConfiguration.getComposingServiceThreads());
+                    }
 
                     manager = new CassandraCradleManager(
                             cassandraConnectionSettings,

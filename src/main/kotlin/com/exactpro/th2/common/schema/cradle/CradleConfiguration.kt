@@ -70,6 +70,7 @@ data class CradleConfidentialConfiguration(
 data class CradleNonConfidentialConfiguration(
     var timeout: Long = CassandraStorageSettings.DEFAULT_TIMEOUT,
     var pageSize: Int = 5000,
+    var composingServiceThreads: Int = 5,
     var cradleMaxEventBatchSize: Long = CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE.toLong(),
     var cradleMaxMessageBatchSize: Long = CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE.toLong(),
     var prepareStorage: Boolean = false,
