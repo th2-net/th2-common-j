@@ -70,11 +70,12 @@ data class CradleConfidentialConfiguration(
 data class CradleNonConfidentialConfiguration(
     var timeout: Long = CassandraStorageSettings.DEFAULT_TIMEOUT,
     var pageSize: Int = 5000,
-    var composingServiceThreads: Int = 5,
+    var composingServiceThreads: Int = CradleStorage.DEFAULT_COMPOSING_SERVICE_THREADS,
     var cradleMaxEventBatchSize: Long = CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE.toLong(),
     var cradleMaxMessageBatchSize: Long = CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE.toLong(),
     var prepareStorage: Boolean = false,
     var statisticsPersistenceIntervalMillis: Long = CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS.toLong(),
     var maxUncompressedMessageBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_MESSAGE_BATCH_SIZE.toLong(),
-    var maxUncompressedEventBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE.toLong()
+    var maxUncompressedEventBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE.toLong(),
+    var counterPersistenceInterval: Int = CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS,
 ) : Configuration()
