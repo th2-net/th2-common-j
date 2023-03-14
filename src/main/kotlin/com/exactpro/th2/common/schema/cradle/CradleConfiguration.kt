@@ -17,6 +17,7 @@ package com.exactpro.th2.common.schema.cradle
 
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.cassandra.CassandraStorageSettings
+import com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_STORE_INDIVIDUAL_MESSAGE_SESSIONS
 import com.exactpro.th2.common.schema.configuration.Configuration
 import com.fasterxml.jackson.annotation.JsonProperty
 
@@ -78,4 +79,5 @@ data class CradleNonConfidentialConfiguration(
     var maxUncompressedMessageBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_MESSAGE_BATCH_SIZE.toLong(),
     var maxUncompressedEventBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE.toLong(),
     var counterPersistenceInterval: Int = CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS,
+    var storeIndividualMessageSessions: Boolean = DEFAULT_STORE_INDIVIDUAL_MESSAGE_SESSIONS,
 ) : Configuration()

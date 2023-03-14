@@ -547,6 +547,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     if (nonConfidentialConfiguration.getCounterPersistenceInterval() >= 0) {
                         cassandraStorageSettings.setCounterPersistenceInterval(nonConfidentialConfiguration.getCounterPersistenceInterval());
                     }
+                    cassandraStorageSettings.setStoreIndividualMessageSessions(nonConfidentialConfiguration.getStoreIndividualMessageSessions());
 
                     manager = new CassandraCradleManager(
                             cassandraConnectionSettings,
