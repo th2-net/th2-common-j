@@ -29,7 +29,7 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    cradleVersion       = '5.0.0-separate-executor-4414654669-6b36e1b-SNAPSHOT'
+    cradleVersion       = '5.0.0-separate-executor-4510022000-c224fbb-SNAPSHOT'
     junitVersion        = '5.8.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
@@ -240,6 +240,7 @@ dependencies {
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
     testImplementation "org.testcontainers:testcontainers:1.17.1"
     testImplementation "org.testcontainers:rabbitmq:1.17.1"
+    testImplementation "com.datastax.oss:java-driver-core:4.15.0"
 
     testFixturesImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"

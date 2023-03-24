@@ -33,7 +33,6 @@ import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
@@ -60,6 +59,7 @@ import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.kotlin.KotlinFeature;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
@@ -92,8 +92,11 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.stream.StreamSupport;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_CONSISTENCY_LEVEL;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_TIMEOUT;
+import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_RESULT_PAGE_SIZE;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
@@ -105,7 +108,6 @@ import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
  */
 public abstract class AbstractCommonFactory implements AutoCloseable {
 
-    protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
 
     /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
@@ -118,7 +120,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     static  {
         MAPPER.registerModules(
-                new KotlinModule(),
+                new KotlinModule.Builder()
+                        .withReflectionCacheSize(512)
+                        .configure(KotlinFeature.NullToEmptyCollection, false)
+                        .configure(KotlinFeature.NullToEmptyMap, false)
+                        .configure(KotlinFeature.NullIsSameAsDefault, false)
+                        .configure(KotlinFeature.SingletonSupport, false)
+                        .configure(KotlinFeature.StrictNullChecks, false)
+                        .build(),
                 new RoutingStrategyModule(MAPPER),
                 new JavaTimeModule()
         );
@@ -367,7 +376,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Registers custom message router.
-     *
      * Unlike the {@link #registerCustomMessageRouter(Class, MessageConverter, Set, Set, String...)} the registered router won't have any additional pins attributes
      * except {@link QueueAttribute#SUBSCRIBE} for subscribe methods and {@link QueueAttribute#PUBLISH} for send methods
      *
@@ -414,7 +422,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Returns previously registered message router for message of {@code messageClass} type.
-     *
      * If the router for that type is not registered yet ,it throws {@link IllegalArgumentException}
      * @param messageClass custom message class
      * @param <T> custom message type
@@ -482,14 +489,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(CradleNonConfidentialConfiguration.class, true);
     }
 
-    /**
-     * @return Schema cradle configuration
-     * @throws IllegalStateException if cannot read configuration
-     * @deprecated please use {@link #getCradleManager()}
-     */
-    @Deprecated
-    public CradleConfiguration getCradleConfiguration() {
-        return new CradleConfiguration(getCradleConfidentialConfiguration(), getCradleNonConfidentialConfiguration());
+    protected CassandraStorageSettings getCassandraStorageSettings() {
+        return getConfigurationOrLoad(CassandraStorageSettings.class, true);
     }
 
     /**
@@ -514,40 +515,24 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     }
 
                     CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
-                    CassandraStorageSettings cassandraStorageSettings = new CassandraStorageSettings(
-                            null,
-                            nonConfidentialConfiguration.getTimeout() > 0
-                                    ? nonConfidentialConfiguration.getTimeout()
-                                    : DEFAULT_TIMEOUT,
-                            DEFAULT_CONSISTENCY_LEVEL,
-                            DEFAULT_CONSISTENCY_LEVEL
-                    );
+                    CassandraStorageSettings cassandraStorageSettings = getCassandraStorageSettings();
                     cassandraStorageSettings.setKeyspace(confidentialConfiguration.getKeyspace());
-                    if (nonConfidentialConfiguration.getPageSize() > 0) {
+
+                    if (cassandraStorageSettings.getResultPageSize() == DEFAULT_RESULT_PAGE_SIZE && nonConfidentialConfiguration.getPageSize() > 0) {
                         cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
                     }
-                    if (nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
+                    if (cassandraStorageSettings.getMaxMessageBatchSize() == DEFAULT_MAX_MESSAGE_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
                         cassandraStorageSettings.setMaxMessageBatchSize((int) nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
                     }
-                    if (nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
+                    if (cassandraStorageSettings.getMaxTestEventBatchSize() == DEFAULT_MAX_TEST_EVENT_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
                         cassandraStorageSettings.setMaxTestEventBatchSize((int) nonConfidentialConfiguration.getCradleMaxEventBatchSize());
                     }
-                    if (nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis() >= 0) {
+                    if (cassandraStorageSettings.getCounterPersistenceInterval() == DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS && nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis() >= 0) {
                         cassandraStorageSettings.setCounterPersistenceInterval((int) nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis());
                     }
-                    if (nonConfidentialConfiguration.getMaxUncompressedMessageBatchSize() > 0) {
-                        cassandraStorageSettings.setMaxUncompressedMessageBatchSize((int) nonConfidentialConfiguration.getMaxUncompressedMessageBatchSize());
-                    }
-                    if (nonConfidentialConfiguration.getMaxUncompressedEventBatchSize() > 0) {
+                    if (cassandraStorageSettings.getMaxUncompressedTestEventSize() == DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE && nonConfidentialConfiguration.getMaxUncompressedEventBatchSize() > 0) {
                         cassandraStorageSettings.setMaxUncompressedTestEventSize((int) nonConfidentialConfiguration.getMaxUncompressedEventBatchSize());
                     }
-                    if (nonConfidentialConfiguration.getComposingServiceThreads() > 0) {
-                        cassandraStorageSettings.setComposingServiceThreads(nonConfidentialConfiguration.getComposingServiceThreads());
-                    }
-                    if (nonConfidentialConfiguration.getCounterPersistenceInterval() >= 0) {
-                        cassandraStorageSettings.setCounterPersistenceInterval(nonConfidentialConfiguration.getCounterPersistenceInterval());
-                    }
-                    cassandraStorageSettings.setStoreIndividualMessageSessions(nonConfidentialConfiguration.getStoreIndividualMessageSessions());
 
                     manager = new CassandraCradleManager(
                             cassandraConnectionSettings,
@@ -830,7 +815,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         prometheusExporter.updateAndGet(server -> {
             if (server != null) {
                 try {
-                    server.stop();
+                    server.close();
                 } catch (Exception e) {
                     LOGGER.error("Failed to close Prometheus exporter", e);
                 }
