@@ -17,21 +17,20 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.DIRECTION_LABEL
+import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
 import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
 import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
-import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
 import com.exactpro.th2.common.metrics.incrementDroppedMetrics
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractFilterStrategy
 import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
-import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
-import com.exactpro.th2.common.schema.message.toBuilderWithMetadata
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
+import com.exactpro.th2.common.schema.message.toBuilderWithMetadata
 import com.google.protobuf.Message
 import com.google.protobuf.TextFormat
 import io.prometheus.client.Counter

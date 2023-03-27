@@ -54,6 +54,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageBatch;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -147,6 +149,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
+    private final AtomicReference<MessageRouter<DemoMessageBatch>> demoMessageBatchRouter = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<NotificationRouter<EventBatch>> notificationEventBatchRouter = new AtomicReference<>();
     private final AtomicReference<EventID> rootEventId = new AtomicReference<>();
@@ -285,6 +288,21 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
+            }
+
+            return router;
+        });
+    }
+
+    /**
+     * @return Initialized {@link MessageRouter} which works with {@link DemoMessageBatch}
+     * @throws IllegalStateException  if can not read configuration
+     */
+    public MessageRouter<DemoMessageBatch> getDemoMessageBatchRouter() {
+        return demoMessageBatchRouter.updateAndGet(router -> {
+            if (router == null) {
+                router = new DemoMessageBatchRouter();
+                router.init(getMessageRouterContext());
             }
 
             return router;

@@ -21,7 +21,6 @@ import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
@@ -75,7 +74,6 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
         return new EventBatchSubscriber(
                 getConnectionManager(),
                 queueConfiguration.getQueue(),
-                FilterFunction.DEFAULT_FILTER_FUNCTION,
                 pinName
         );
     }

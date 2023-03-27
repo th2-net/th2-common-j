@@ -22,11 +22,9 @@ import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.common.base.Suppliers;
-import com.google.protobuf.Message;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
@@ -38,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -82,7 +79,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     private final String queue;
     private final ConnectionManager connectionManager;
     private final AtomicReference<Supplier<SubscriberMonitor>> consumerMonitor = new AtomicReference<>(emptySupplier());
-    private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
     private final String th2Type;
 
     private final HealthMetrics healthMetrics = new HealthMetrics(this);
@@ -90,13 +86,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     public AbstractRabbitSubscriber(
             @NotNull ConnectionManager connectionManager,
             @NotNull String queue,
-            @NotNull FilterFunction filterFunc,
             @NotNull String th2Pin,
             @NotNull String th2Type
     ) {
         this.connectionManager = requireNonNull(connectionManager, "Connection can not be null");
         this.queue = requireNonNull(queue, "Queue can not be null");
-        this.filterFunc.set(requireNonNull(filterFunc, "Filter function can not be null"));
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
         this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
     }
@@ -169,15 +163,6 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         } finally {
             publicLock.unlock();
         }
-    }
-
-    protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
-        FilterFunction filterFunction = this.filterFunc.get();
-        if (filterFunction == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
-        return filterFunction.apply(message, filters);
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
