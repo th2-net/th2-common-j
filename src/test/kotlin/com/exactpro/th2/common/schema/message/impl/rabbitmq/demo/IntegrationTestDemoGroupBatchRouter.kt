@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertTrue
 
 @IntegrationTest
-class IntegrationTestDemoMessageBatchRouter {
+class IntegrationTestDemoGroupBatchRouter {
 
     @Test
     fun `subscribe to exclusive queue`() {
@@ -49,7 +49,7 @@ class IntegrationTestDemoMessageBatchRouter {
                                 val counter = CountDownLatch(1)
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
-                                    secondRouter.sendExclusive(monitor.queue, DemoMessageBatch())
+                                    secondRouter.sendExclusive(monitor.queue, DemoGroupBatch())
                                     assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
                                 } finally {
@@ -80,7 +80,7 @@ class IntegrationTestDemoMessageBatchRouter {
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
 
-                                    secondRouter.sendExclusive(monitor.queue, DemoMessageBatch())
+                                    secondRouter.sendExclusive(monitor.queue, DemoGroupBatch())
                                     assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
                                 } finally {

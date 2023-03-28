@@ -27,16 +27,16 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import com.google.protobuf.Message
 import org.jetbrains.annotations.NotNull
 
-class DemoMessageBatchRouter : AbstractRabbitRouter<DemoMessageBatch>() {
+class DemoMessageBatchRouter : AbstractRabbitRouter<DemoGroupBatch>() {
     override fun getDefaultFilterStrategy(): AbstractFilterStrategy<Message> {
         return AnyMessageFilterStrategy()
     }
 
     override fun splitAndFilter(
-        message: DemoMessageBatch,
+        message: DemoGroupBatch,
         pinConfiguration: @NotNull QueueConfiguration,
-        pinName: PinName
-    ): DemoMessageBatch {
+        pinName: PinName,
+    ): DemoGroupBatch {
         //TODO: Implement - whole batch or null
         return message
     }
@@ -44,8 +44,8 @@ class DemoMessageBatchRouter : AbstractRabbitRouter<DemoMessageBatch>() {
     override fun createSender(
         pinConfig: QueueConfiguration,
         pinName: PinName,
-        bookName: BookName
-    ): MessageSender<DemoMessageBatch> {
+        bookName: BookName,
+    ): MessageSender<DemoGroupBatch> {
         return DemoMessageBatchSender(
             connectionManager,
             pinConfig.exchange,
@@ -57,8 +57,8 @@ class DemoMessageBatchRouter : AbstractRabbitRouter<DemoMessageBatch>() {
 
     override fun createSubscriber(
         pinConfig: QueueConfiguration,
-        pinName: PinName
-    ): MessageSubscriber<DemoMessageBatch> {
+        pinName: PinName,
+    ): MessageSubscriber<DemoGroupBatch> {
         return DemoMessageBatchSubscriber(
             connectionManager,
             pinConfig.queue,
@@ -66,7 +66,7 @@ class DemoMessageBatchRouter : AbstractRabbitRouter<DemoMessageBatch>() {
         )
     }
 
-    override fun DemoMessageBatch.toErrorString(): String = toString()
+    override fun DemoGroupBatch.toErrorString(): String = toString()
 
     override fun getRequiredSendAttributes(): Set<String> = REQUIRED_SEND_ATTRIBUTES
     override fun getRequiredSubscribeAttributes(): Set<String> = REQUIRED_SUBSCRIBE_ATTRIBUTES

@@ -42,7 +42,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 
-class TestDemoMessageBatchRouter {
+class TestDemoGroupBatchRouter {
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val monitor: ExclusiveSubscriberMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
@@ -52,36 +52,42 @@ class TestDemoMessageBatchRouter {
 
     @Nested
     inner class Publishing {
-        private val router = createRouter(mapOf(
-            "test-pine" to QueueConfiguration(
-                routingKey = "",
-                queue = "subscribe",
-                exchange = "test-exchange",
-                attributes = listOf("subscribe", DEMO_RAW_ATTRIBUTE)
-            ),
-            "test-pin1" to QueueConfiguration(
-                routingKey = "test",
-                queue = "",
-                exchange = "test-exchange",
-                attributes = listOf("publish", DEMO_RAW_ATTRIBUTE),
-            ),
-            "test-pin2" to QueueConfiguration(
-                routingKey = "test2",
-                queue = "",
-                exchange = "test-exchange",
-                attributes = listOf("publish", "test", DEMO_RAW_ATTRIBUTE),
+        private val router = createRouter(
+            mapOf(
+                "test-pine" to QueueConfiguration(
+                    routingKey = "",
+                    queue = "subscribe",
+                    exchange = "test-exchange",
+                    attributes = listOf("subscribe", DEMO_RAW_ATTRIBUTE)
+                ),
+                "test-pin1" to QueueConfiguration(
+                    routingKey = "test",
+                    queue = "",
+                    exchange = "test-exchange",
+                    attributes = listOf("publish", DEMO_RAW_ATTRIBUTE),
+                ),
+                "test-pin2" to QueueConfiguration(
+                    routingKey = "test2",
+                    queue = "",
+                    exchange = "test-exchange",
+                    attributes = listOf("publish", "test", DEMO_RAW_ATTRIBUTE),
+                )
             )
-        ))
+        )
 
         @Test
         fun `publishes to the correct pin according to attributes`() {
-            val batch = DemoMessageBatch(
+            val batch = DemoGroupBatch(
                 BOOK_NAME,
                 SESSION_GROUP,
                 listOf(
-                    DemoRawMessage(
-                        DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
-                        body = byteArrayOf( 1, 2, 3 )
+                    DemoMessageGroup(
+                        listOf(
+                            DemoRawMessage(
+                                DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
+                                body = byteArrayOf(1, 2, 3)
+                            )
+                        )
                     )
                 )
             )
@@ -230,24 +236,30 @@ class TestDemoMessageBatchRouter {
         }
     }
 
-    private fun createRouter(pins: Map<String, QueueConfiguration>): MessageRouter<DemoMessageBatch> =
+    private fun createRouter(pins: Map<String, QueueConfiguration>): MessageRouter<DemoGroupBatch> =
         DemoMessageBatchRouter().apply {
-            init(DefaultMessageRouterContext(
-                connectionManager,
-                mock { },
-                MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
-                BOX_CONFIGURATION
-            ))
+            init(
+                DefaultMessageRouterContext(
+                    connectionManager,
+                    mock { },
+                    MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
+                    BOX_CONFIGURATION
+                )
+            )
         }
 
     companion object {
-        private val DEMO_MESSAGE_BATCH = DemoMessageBatch(
+        private val DEMO_MESSAGE_BATCH = DemoGroupBatch(
             BOOK_NAME,
             SESSION_GROUP,
             listOf(
-                DemoRawMessage(
-                    DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
-                    body = byteArrayOf(1, 2, 3)
+                DemoMessageGroup(
+                    listOf(
+                        DemoRawMessage(
+                            DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
+                            body = byteArrayOf(1, 2, 3)
+                        )
+                    )
                 )
             )
         )

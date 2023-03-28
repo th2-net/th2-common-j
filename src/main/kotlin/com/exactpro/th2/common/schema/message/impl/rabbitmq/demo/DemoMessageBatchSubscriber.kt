@@ -30,16 +30,16 @@ import io.prometheus.client.Counter
 class DemoMessageBatchSubscriber(
     connectionManager: ConnectionManager,
     queue: String,
-    th2Pin: String
-) : AbstractRabbitSubscriber<DemoMessageBatch>(connectionManager, queue, th2Pin, DEMO_RAW_MESSAGE_TYPE) {
+    th2Pin: String,
+) : AbstractRabbitSubscriber<DemoGroupBatch>(connectionManager, queue, th2Pin, DEMO_RAW_MESSAGE_TYPE) {
 
-    override fun valueFromBytes(body: ByteArray): DemoMessageBatch = Unpooled.wrappedBuffer(body).run(MessageBatchCodec::decode)
+    override fun valueFromBytes(body: ByteArray): DemoGroupBatch = Unpooled.wrappedBuffer(body).run(GroupBatchCodec::decode)
 
-    override fun toShortTraceString(value: DemoMessageBatch): String = value.toString()
+    override fun toShortTraceString(value: DemoGroupBatch): String = value.toString()
 
-    override fun toShortDebugString(value: DemoMessageBatch): String = value.toString()
+    override fun toShortDebugString(value: DemoGroupBatch): String = value.toString()
 
-    override fun filter(batch: DemoMessageBatch): DemoMessageBatch {
+    override fun filter(batch: DemoGroupBatch): DemoGroupBatch {
         //TODO: Implement - whole batch or null
         return batch
     }
@@ -47,12 +47,12 @@ class DemoMessageBatchSubscriber(
     override fun handle(
         deliveryMetadata: DeliveryMetadata,
         delivery: Delivery,
-        value: DemoMessageBatch,
-        confirmation: ManualAckDeliveryCallback.Confirmation
+        value: DemoGroupBatch,
+        confirmation: ManualAckDeliveryCallback.Confirmation,
     ) {
         DEMO_RAW_MESSAGE_SUBSCRIBE_TOTAL
             .labels(th2Pin, value.book, value.sessionGroup)
-            .inc(value.messages.size.toDouble())
+            .inc(value.groups.size.toDouble())
         super.handle(deliveryMetadata, delivery, value, confirmation)
     }
 

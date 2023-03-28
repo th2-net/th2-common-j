@@ -43,8 +43,10 @@ enum class ValueType(val codec: ValueCodec<*>) {
     PROTOCOL(ProtocolCodec),
     RAW_MESSAGE(RawMessageCodec),
     RAW_MESSAGE_BODY(RawMessageBodyCodec),
-    MESSAGE_BATCH(MessageBatchCodec),
-    MESSAGE_LIST(MessageListCodec);
+    MESSAGE_GROUP(MessageGroupCodec),
+    MESSAGE_LIST(MessageListCodec),
+    GROUP_BATCH(GroupBatchCodec),
+    GROUP_LIST(GroupListCodec);
 
     companion object {
         private val MAPPING = arrayOfNulls<ValueType>(UByte.MAX_VALUE.toInt()).apply {
@@ -226,27 +228,17 @@ object RawMessageCodec : AbstractCodec<DemoRawMessage>(20u) {
 
 object RawMessageBodyCodec : ByteArrayCodec(21u)
 
-object MessageBatchCodec : AbstractCodec<DemoMessageBatch>(40u) {
-    override fun read(buffer: ByteBuf): DemoMessageBatch = DemoMessageBatch().apply {
+object MessageGroupCodec : AbstractCodec<DemoMessageGroup>(40u) {
+    override fun read(buffer: ByteBuf): DemoMessageGroup = DemoMessageGroup().apply {
         buffer.forEachValue { codec ->
             when (codec) {
-                is BookCodec -> book = codec.decode(buffer)
-                is SessionGroupCodec -> sessionGroup = codec.decode(buffer)
                 is MessageListCodec -> messages = codec.decode(buffer)
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
-
-        messages.forEach {
-            val id = it.id
-            id.book = book
-            id.sessionGroup = sessionGroup
-        }
     }
 
-    override fun write(buffer: ByteBuf, value: DemoMessageBatch) {
-        BookCodec.encode(value.book, buffer)
-        SessionGroupCodec.encode(value.sessionGroup, buffer)
+    override fun write(buffer: ByteBuf, value: DemoMessageGroup) {
         MessageListCodec.encode(value.messages, buffer)
     }
 }
@@ -268,6 +260,35 @@ object MessageListCodec : AbstractCodec<List<DemoMessage<*>>>(41u) {
         }
     }
 }
+
+object GroupBatchCodec : AbstractCodec<DemoGroupBatch>(50u) {
+    override fun read(buffer: ByteBuf): DemoGroupBatch = DemoGroupBatch().apply {
+        buffer.forEachValue { codec ->
+            when (codec) {
+                is BookCodec -> book = codec.decode(buffer)
+                is SessionGroupCodec -> sessionGroup = codec.decode(buffer)
+                is GroupListCodec -> groups = codec.decode(buffer)
+                else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
+            }
+        }
+
+        groups.forEach {
+            it.messages.forEach {
+                val id = it.id
+                id.book = book
+                id.sessionGroup = sessionGroup
+            }
+        }
+    }
+
+    override fun write(buffer: ByteBuf, value: DemoGroupBatch) {
+        BookCodec.encode(value.book, buffer)
+        SessionGroupCodec.encode(value.sessionGroup, buffer)
+        GroupListCodec.encode(value.groups, buffer)
+    }
+}
+
+object GroupListCodec : ListCodec<DemoMessageGroup>(51u, MessageGroupCodec)
 
 fun ByteBuf.forEachValue(action: (codec: ValueCodec<*>) -> Unit) {
     while (isReadable) {
@@ -326,8 +347,7 @@ data class DemoRawMessage(
         id != other.id -> false
         metadata != other.metadata -> false
         protocol != other.protocol -> false
-        !body.contentEquals(other.body) -> false
-        else -> true
+        else -> body.contentEquals(other.body)
     }
 
     override fun hashCode(): Int = Objects.hash(id, metadata, protocol, body.contentHashCode())
@@ -337,14 +357,18 @@ data class DemoRawMessage(
     }
 }
 
-data class DemoMessageBatch(
-    var book: String = "",
-    var sessionGroup: String = "",
+data class DemoMessageGroup(
     var messages: List<DemoMessage<*>> = listOf(),
 )
 
-fun DemoMessageBatch.toByteArray() = Unpooled.buffer().run {
-    MessageBatchCodec.encode(this@toByteArray, this@run)
+data class DemoGroupBatch(
+    var book: String = "",
+    var sessionGroup: String = "",
+    var groups: List<DemoMessageGroup> = listOf(),
+)
+
+fun DemoGroupBatch.toByteArray() = Unpooled.buffer().run {
+    GroupBatchCodec.encode(this@toByteArray, this@run)
     ByteArray(readableBytes()).apply(::readBytes)
 }
 
@@ -387,15 +411,15 @@ fun main() {
         body = byteArrayOf(5, 6, 7, 8)
     )
 
-    val batch = DemoMessageBatch(
+    val batch = DemoGroupBatch(
         book = "book1",
         sessionGroup = "group1",
-        messages = listOf(message1, message2)
+        groups = listOf(DemoMessageGroup(listOf(message1, message2)))
     )
 
-    MessageBatchCodec.encode(batch, buffer)
+    GroupBatchCodec.encode(batch, buffer)
 
-    val decodedBatch = MessageBatchCodec.decode(buffer)
+    val decodedBatch = GroupBatchCodec.decode(buffer)
 
     println(batch)
     println(decodedBatch)

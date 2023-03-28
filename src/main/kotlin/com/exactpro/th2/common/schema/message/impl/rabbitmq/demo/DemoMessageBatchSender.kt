@@ -30,8 +30,8 @@ class DemoMessageBatchSender(
     exchangeName: String,
     routingKey: String,
     th2Pin: String,
-    bookName: BookName
-) : AbstractRabbitSender<DemoMessageBatch>(
+    bookName: BookName,
+) : AbstractRabbitSender<DemoGroupBatch>(
     connectionManager,
     exchangeName,
     routingKey,
@@ -39,19 +39,19 @@ class DemoMessageBatchSender(
     DEMO_RAW_MESSAGE_TYPE,
     bookName
 ) {
-    override fun send(value: DemoMessageBatch) {
+    override fun send(value: DemoGroupBatch) {
         DEMO_RAW_MESSAGE_PUBLISH_TOTAL
             .labels(th2Pin, value.book, value.sessionGroup)
-            .inc(value.messages.size.toDouble())
+            .inc(value.groups.size.toDouble())
 
         super.send(value)
     }
 
-    override fun valueToBytes(value: DemoMessageBatch): ByteArray = value.toByteArray()
+    override fun valueToBytes(value: DemoGroupBatch): ByteArray = value.toByteArray()
 
-    override fun toShortTraceString(value: DemoMessageBatch): String = value.toString()
+    override fun toShortTraceString(value: DemoGroupBatch): String = value.toString()
 
-    override fun toShortDebugString(value: DemoMessageBatch): String = value.toString()
+    override fun toShortDebugString(value: DemoGroupBatch): String = value.toString()
 
     companion object {
         private val DEMO_RAW_MESSAGE_PUBLISH_TOTAL = Counter.build()
