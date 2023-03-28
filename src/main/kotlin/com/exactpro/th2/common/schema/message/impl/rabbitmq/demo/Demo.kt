@@ -49,9 +49,11 @@ enum class ValueType(val codec: ValueCodec<*>) {
     TIMESTAMP(TimestampCodec),
     METADATA(MetadataCodec),
     PROTOCOL(ProtocolCodec),
+    MESSAGE_TYPE(MessageTypeCodec),
     RAW_MESSAGE(RawMessageCodec),
     RAW_MESSAGE_BODY(RawMessageBodyCodec),
     PARSED_MESSAGE(ParsedMessageCodec),
+    PARSED_MESSAGE_BODY(ParsedMessageBodyCodec),
     MESSAGE_GROUP(MessageGroupCodec),
     MESSAGE_LIST(MessageListCodec),
     GROUP_BATCH(GroupBatchCodec),
@@ -228,6 +230,8 @@ object MetadataCodec : MapCodec<String, String>(11u, StringTypeCodec, StringType
 
 object ProtocolCodec : StringCodec(12u)
 
+object MessageTypeCodec : StringCodec(13u)
+
 object RawMessageCodec : AbstractCodec<DemoRawMessage>(20u) {
     override fun read(buffer: ByteBuf): DemoRawMessage = DemoRawMessage().apply {
         buffer.forEachValue { codec ->
@@ -251,7 +255,30 @@ object RawMessageCodec : AbstractCodec<DemoRawMessage>(20u) {
 
 object RawMessageBodyCodec : ByteArrayCodec(21u)
 
-object ParsedMessageCodec : CborCodec<DemoParsedMessage>(30u, jacksonTypeRef())
+object ParsedMessageCodec : AbstractCodec<DemoParsedMessage>(30u) {
+    override fun read(buffer: ByteBuf): DemoParsedMessage = DemoParsedMessage().apply {
+        buffer.forEachValue { codec ->
+            when (codec) {
+                is MessageIdCodec -> id = codec.decode(buffer)
+                is MetadataCodec -> metadata = codec.decode(buffer)
+                is ProtocolCodec -> protocol = codec.decode(buffer)
+                is MessageTypeCodec -> type = codec.decode(buffer)
+                is ParsedMessageBodyCodec -> body = codec.decode(buffer)
+                else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
+            }
+        }
+    }
+
+    override fun write(buffer: ByteBuf, value: DemoParsedMessage) {
+        MessageIdCodec.encode(value.id, buffer)
+        MetadataCodec.encode(value.metadata, buffer)
+        ProtocolCodec.encode(value.protocol, buffer)
+        MessageTypeCodec.encode(value.type, buffer)
+        ParsedMessageBodyCodec.encode(value.body, buffer)
+    }
+}
+
+object ParsedMessageBodyCodec : CborCodec<Map<String, Any>>(31u, jacksonTypeRef())
 
 object MessageGroupCodec : AbstractCodec<DemoMessageGroup>(40u) {
     override fun read(buffer: ByteBuf): DemoMessageGroup = DemoMessageGroup().apply {
