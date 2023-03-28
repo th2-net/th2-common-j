@@ -25,6 +25,7 @@ import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.common.base.Suppliers;
+import com.google.common.io.BaseEncoding;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
@@ -267,7 +268,9 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             try {
                 value = valueFromBytes(delivery.getBody());
             } catch (Exception e) {
-                LOGGER.error("Couldn't parse delivery. Reject message received", e);
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error("Couldn't parse delivery: {}. Reject message received", BaseEncoding.base16().encode(delivery.getBody()), e);
+                }
                 confirmProcessed.reject();
                 throw new IOException(
                         String.format(
