@@ -18,9 +18,17 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.demo
 
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.INCOMING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.OUTGOING
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonTypeRef
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.ByteBufOutputStream
 import io.netty.buffer.ByteBufUtil
 import io.netty.buffer.Unpooled
+import java.io.InputStream
+import java.io.OutputStream
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.Objects
@@ -43,6 +51,7 @@ enum class ValueType(val codec: ValueCodec<*>) {
     PROTOCOL(ProtocolCodec),
     RAW_MESSAGE(RawMessageCodec),
     RAW_MESSAGE_BODY(RawMessageBodyCodec),
+    PARSED_MESSAGE(ParsedMessageCodec),
     MESSAGE_GROUP(MessageGroupCodec),
     MESSAGE_LIST(MessageListCodec),
     GROUP_BATCH(GroupBatchCodec),
@@ -154,6 +163,20 @@ abstract class InstantCodec(type: UByte) : AbstractCodec<Instant>(type) {
     }
 }
 
+open class CborCodec<T>(type: UByte, private val typeReference: TypeReference<T>) : AbstractCodec<T>(type) {
+    override fun read(buffer: ByteBuf): T = ByteBufInputStream(buffer).use {
+        return MAPPER.readValue(it as InputStream, typeReference)
+    }
+
+    override fun write(buffer: ByteBuf, value: T) = ByteBufOutputStream(buffer).use {
+        MAPPER.writeValue(it as OutputStream, value)
+    }
+
+    companion object {
+        private val MAPPER = CBORMapper().registerModule(JavaTimeModule())
+    }
+}
+
 object LongTypeCodec : LongCodec(1u)
 
 object StringTypeCodec : StringCodec(2u)
@@ -228,6 +251,8 @@ object RawMessageCodec : AbstractCodec<DemoRawMessage>(20u) {
 
 object RawMessageBodyCodec : ByteArrayCodec(21u)
 
+object ParsedMessageCodec : CborCodec<DemoParsedMessage>(30u, jacksonTypeRef())
+
 object MessageGroupCodec : AbstractCodec<DemoMessageGroup>(40u) {
     override fun read(buffer: ByteBuf): DemoMessageGroup = DemoMessageGroup().apply {
         buffer.forEachValue { codec ->
@@ -248,6 +273,7 @@ object MessageListCodec : AbstractCodec<List<DemoMessage<*>>>(41u) {
         buffer.forEachValue { codec ->
             when (codec) {
                 is RawMessageCodec -> this += codec.decode(buffer)
+                is ParsedMessageCodec -> this += codec.decode(buffer)
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
@@ -256,6 +282,7 @@ object MessageListCodec : AbstractCodec<List<DemoMessage<*>>>(41u) {
     override fun write(buffer: ByteBuf, value: List<DemoMessage<*>>): Unit = value.forEach { message ->
         when (message) {
             is DemoRawMessage -> RawMessageCodec.encode(message, buffer)
+            is DemoParsedMessage -> ParsedMessageCodec.encode(message, buffer)
             else -> println("Skipping unsupported message type: $message")
         }
     }
@@ -357,6 +384,14 @@ data class DemoRawMessage(
     }
 }
 
+data class DemoParsedMessage(
+    override var id: DemoMessageId = DemoMessageId.DEFAULT_INSTANCE,
+    override var metadata: Map<String, String> = mapOf(),
+    override var protocol: String = "",
+    var type: String = "",
+    override var body: Map<String, Any> = mapOf(),
+) : DemoMessage<Map<String, Any>>
+
 data class DemoMessageGroup(
     var messages: List<DemoMessage<*>> = listOf(),
 )
@@ -411,10 +446,33 @@ fun main() {
         body = byteArrayOf(5, 6, 7, 8)
     )
 
+    val message3 = DemoParsedMessage(
+        id = DemoMessageId(
+            book = "book1",
+            sessionGroup = "group1",
+            sessionAlias = "alias3",
+            direction = OUTGOING,
+            sequence = 3,
+            subsequence = listOf(5, 6),
+            timestamp = Instant.now()
+        ),
+        metadata = mapOf(
+            "prop5" to "value6",
+            "prop7" to "value8"
+        ),
+        protocol = "proto3",
+        type = "some-type",
+        body = mapOf(
+            "simple" to 1,
+            "list" to listOf(1, 2, 3),
+            "map" to mapOf("abc" to "cde")
+        )
+    )
+
     val batch = DemoGroupBatch(
         book = "book1",
         sessionGroup = "group1",
-        groups = listOf(DemoMessageGroup(listOf(message1, message2)))
+        groups = listOf(DemoMessageGroup(listOf(message1, message2, message3)))
     )
 
     GroupBatchCodec.encode(batch, buffer)
