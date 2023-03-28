@@ -73,8 +73,8 @@ class DemoMessageBatchRouter : AbstractRabbitRouter<DemoGroupBatch>() {
 
     companion object {
         internal const val DEMO_RAW_MESSAGE_TYPE = "DEMO_RAW_MESSAGE"
-        internal const val DEMO_RAW_ATTRIBUTE = "demo_raw"
-        private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(DEMO_RAW_ATTRIBUTE, QueueAttribute.SUBSCRIBE.value)
-        private val REQUIRED_SEND_ATTRIBUTES = setOf(DEMO_RAW_ATTRIBUTE, QueueAttribute.PUBLISH.value)
+//        internal const val DEMO_RAW_ATTRIBUTE = "demo_raw" // It should be added in future
+        private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(QueueAttribute.SUBSCRIBE.value)
+        private val REQUIRED_SEND_ATTRIBUTES = setOf(QueueAttribute.PUBLISH.value)
     }
 }

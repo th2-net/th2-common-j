@@ -29,7 +29,6 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageBatchRouter.Companion.DEMO_RAW_ATTRIBUTE
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Nested
@@ -58,19 +57,19 @@ class TestDemoGroupBatchRouter {
                     routingKey = "",
                     queue = "subscribe",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe", DEMO_RAW_ATTRIBUTE)
+                    attributes = listOf("subscribe")
                 ),
                 "test-pin1" to QueueConfiguration(
                     routingKey = "test",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish", DEMO_RAW_ATTRIBUTE),
+                    attributes = listOf("publish"),
                 ),
                 "test-pin2" to QueueConfiguration(
                     routingKey = "test2",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish", "test", DEMO_RAW_ATTRIBUTE),
+                    attributes = listOf("publish", "test"),
                 )
             )
         )
@@ -105,10 +104,10 @@ class TestDemoGroupBatchRouter {
         @Test
         fun `reports about extra pins matches the publication`() {
             Assertions.assertThrows(IllegalStateException::class.java) {
-                router.send(DEMO_MESSAGE_BATCH, DEMO_RAW_ATTRIBUTE)
+                router.send(DEMO_MESSAGE_BATCH)
             }.apply {
                 Assertions.assertEquals(
-                    "Found incorrect number of pins [test-pin1, test-pin2] to the send operation by attributes [demo_raw, publish] and filters, expected 1, actual 2",
+                    "Found incorrect number of pins [test-pin1, test-pin2] to the send operation by attributes [publish] and filters, expected 1, actual 2",
                     message
                 )
             }
@@ -117,10 +116,10 @@ class TestDemoGroupBatchRouter {
         @Test
         fun `reports about no pins matches the publication`() {
             Assertions.assertThrows(IllegalStateException::class.java) {
-                router.send(DEMO_MESSAGE_BATCH, DEMO_RAW_ATTRIBUTE, "unexpected")
+                router.send(DEMO_MESSAGE_BATCH, "unexpected")
             }.apply {
                 Assertions.assertEquals(
-                    "Found incorrect number of pins [] to the send operation by attributes [demo_raw, unexpected, publish] and filters, expected 1, actual 0",
+                    "Found incorrect number of pins [] to the send operation by attributes [unexpected, publish] and filters, expected 1, actual 0",
                     message
                 )
             }
@@ -159,33 +158,33 @@ class TestDemoGroupBatchRouter {
                     routingKey = "publish",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish", DEMO_RAW_ATTRIBUTE, "test")
+                    attributes = listOf("publish", "test")
                 ),
                 "test1" to QueueConfiguration(
                     routingKey = "",
                     queue = "queue1",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe", DEMO_RAW_ATTRIBUTE, "1")
+                    attributes = listOf("subscribe", "1")
                 ),
                 "test2" to QueueConfiguration(
                     routingKey = "",
                     queue = "queue2",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe", DEMO_RAW_ATTRIBUTE, "2")
+                    attributes = listOf("subscribe", "2")
                 )
             )
         )
 
         @Test
         fun `subscribes to correct queue`() {
-            val monitor = router.subscribe(mock { }, "1", DEMO_RAW_ATTRIBUTE)
+            val monitor = router.subscribe(mock { }, "1")
             Assertions.assertNotNull(monitor) { "monitor must not be null" }
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
         }
         @Test
         fun `subscribes with manual ack to correct queue`() {
-            val monitor = router.subscribeWithManualAck(mock { }, "1", DEMO_RAW_ATTRIBUTE)
+            val monitor = router.subscribeWithManualAck(mock { }, "1")
             Assertions.assertNotNull(monitor) { "monitor must not be null" }
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
@@ -193,7 +192,7 @@ class TestDemoGroupBatchRouter {
 
         @Test
         fun `subscribes to all matched queues`() {
-            val monitor = router.subscribeAll(mock { }, DEMO_RAW_ATTRIBUTE)
+            val monitor = router.subscribeAll(mock { })
             Assertions.assertNotNull(monitor) { "monitor must not be null" }
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
@@ -205,7 +204,7 @@ class TestDemoGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }) }
                 .apply {
                     Assertions.assertEquals(
-                        "Found incorrect number of pins [test1, test2] to subscribe operation by attributes [demo_raw, subscribe] and filters, expected 1, actual 2",
+                        "Found incorrect number of pins [test1, test2] to subscribe operation by attributes [subscribe] and filters, expected 1, actual 2",
                         message
                     )
                 }
@@ -215,19 +214,19 @@ class TestDemoGroupBatchRouter {
         fun `reports if no queue matches`() {
             Assertions.assertAll(
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }, DEMO_RAW_ATTRIBUTE, "unexpected") }
+                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }, "unexpected") }
                         .apply {
                             Assertions.assertEquals(
-                                "Found incorrect number of pins [] to subscribe operation by attributes [demo_raw, unexpected, subscribe] and filters, expected 1, actual 0",
+                                "Found incorrect number of pins [] to subscribe operation by attributes [unexpected, subscribe] and filters, expected 1, actual 0",
                                 message
                             )
                         }
                 },
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribeAll(mock { }, DEMO_RAW_ATTRIBUTE, "unexpected") }
+                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribeAll(mock { }, "unexpected") }
                         .apply {
                             Assertions.assertEquals(
-                                "Found incorrect number of pins [] to subscribe all operation by attributes [demo_raw, unexpected, subscribe] and filters, expected 1 or more, actual 0",
+                                "Found incorrect number of pins [] to subscribe all operation by attributes [unexpected, subscribe] and filters, expected 1 or more, actual 0",
                                 message
                             )
                         }
