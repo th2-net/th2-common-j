@@ -31,7 +31,6 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.Charset
 import java.time.Instant
-import java.util.Objects
 
 // TODO: maybe make length field a variable length int
 
@@ -149,11 +148,11 @@ abstract class MapCodec<K, V>(
     }
 }
 
-abstract class ByteArrayCodec(type: UByte) : AbstractCodec<ByteArray>(type) {
-    override fun read(buffer: ByteBuf): ByteArray = ByteArray(buffer.readableBytes()).apply(buffer::readBytes)
+abstract class ByteBufCodec(type: UByte) : AbstractCodec<ByteBuf>(type) {
+    override fun read(buffer: ByteBuf): ByteBuf = buffer.copy()
 
-    override fun write(buffer: ByteBuf, value: ByteArray) {
-        buffer.writeBytes(value)
+    override fun write(buffer: ByteBuf, value: ByteBuf) {
+        value.markReaderIndex().apply(buffer::writeBytes).resetReaderIndex()
     }
 }
 
@@ -253,7 +252,7 @@ object RawMessageCodec : AbstractCodec<DemoRawMessage>(20u) {
     }
 }
 
-object RawMessageBodyCodec : ByteArrayCodec(21u)
+object RawMessageBodyCodec : ByteBufCodec(21u)
 
 object ParsedMessageCodec : AbstractCodec<DemoParsedMessage>(30u) {
     override fun read(buffer: ByteBuf): DemoParsedMessage = DemoParsedMessage().apply {
@@ -326,9 +325,9 @@ object GroupBatchCodec : AbstractCodec<DemoGroupBatch>(50u) {
             }
         }
 
-        groups.forEach {
-            it.messages.forEach {
-                val id = it.id
+        groups.forEach { group ->
+            group.messages.forEach { message ->
+                val id = message.id
                 id.book = book
                 id.sessionGroup = sessionGroup
             }
@@ -393,23 +392,8 @@ data class DemoRawMessage(
     override var id: DemoMessageId = DemoMessageId.DEFAULT_INSTANCE,
     override var metadata: Map<String, String> = mapOf(),
     override var protocol: String = "",
-    override var body: ByteArray = EMPTY_BODY,
-) : DemoMessage<ByteArray> {
-    override fun equals(other: Any?): Boolean = when {
-        this === other -> true
-        other !is DemoRawMessage -> false
-        id != other.id -> false
-        metadata != other.metadata -> false
-        protocol != other.protocol -> false
-        else -> body.contentEquals(other.body)
-    }
-
-    override fun hashCode(): Int = Objects.hash(id, metadata, protocol, body.contentHashCode())
-
-    companion object {
-        private val EMPTY_BODY = ByteArray(0)
-    }
-}
+    override var body: ByteBuf = Unpooled.EMPTY_BUFFER,
+) : DemoMessage<ByteBuf>
 
 data class DemoParsedMessage(
     override var id: DemoMessageId = DemoMessageId.DEFAULT_INSTANCE,
@@ -452,7 +436,7 @@ fun main() {
             "prop2" to "value2"
         ),
         protocol = "proto1",
-        body = byteArrayOf(1, 2, 3, 4)
+        body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3, 4))
     )
 
     val message2 = DemoRawMessage(
@@ -470,7 +454,7 @@ fun main() {
             "prop4" to "value4"
         ),
         protocol = "proto2",
-        body = byteArrayOf(5, 6, 7, 8)
+        body = Unpooled.wrappedBuffer(byteArrayOf(5, 6, 7, 8))
     )
 
     val message3 = DemoParsedMessage(

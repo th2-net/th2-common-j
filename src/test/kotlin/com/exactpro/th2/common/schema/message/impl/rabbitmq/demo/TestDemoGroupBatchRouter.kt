@@ -29,6 +29,7 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Nested
@@ -84,7 +85,7 @@ class TestDemoGroupBatchRouter {
                         listOf(
                             DemoRawMessage(
                                 DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
-                                body = byteArrayOf(1, 2, 3)
+                                body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))
                             )
                         )
                     )
@@ -256,7 +257,7 @@ class TestDemoGroupBatchRouter {
                     listOf(
                         DemoRawMessage(
                             DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
-                            body = byteArrayOf(1, 2, 3)
+                            body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))
                         )
                     )
                 )
