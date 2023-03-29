@@ -344,7 +344,7 @@ object GroupBatchCodec : AbstractCodec<DemoGroupBatch>(50u) {
 
 object GroupListCodec : ListCodec<DemoMessageGroup>(51u, MessageGroupCodec)
 
-fun ByteBuf.forEachValue(action: (codec: ValueCodec<*>) -> Unit) {
+inline fun ByteBuf.forEachValue(action: (codec: ValueCodec<*>) -> Unit) {
     while (isReadable) {
         val type = getByte(readerIndex()).toUByte()
 
