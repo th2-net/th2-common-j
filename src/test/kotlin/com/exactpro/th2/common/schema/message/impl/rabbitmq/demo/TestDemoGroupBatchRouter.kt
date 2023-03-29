@@ -80,9 +80,9 @@ class TestDemoGroupBatchRouter {
             val batch = DemoGroupBatch(
                 BOOK_NAME,
                 SESSION_GROUP,
-                listOf(
+                mutableListOf(
                     DemoMessageGroup(
-                        listOf(
+                        mutableListOf(
                             DemoRawMessage(
                                 DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
                                 body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))
@@ -252,9 +252,9 @@ class TestDemoGroupBatchRouter {
         private val DEMO_MESSAGE_BATCH = DemoGroupBatch(
             BOOK_NAME,
             SESSION_GROUP,
-            listOf(
+            mutableListOf(
                 DemoMessageGroup(
-                    listOf(
+                    mutableListOf(
                         DemoRawMessage(
                             DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
                             body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))

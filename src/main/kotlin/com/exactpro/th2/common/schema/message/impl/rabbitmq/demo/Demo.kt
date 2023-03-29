@@ -31,6 +31,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.Charset
 import java.time.Instant
+import java.util.Collections.emptyList
 
 // TODO: maybe make length field a variable length int
 
@@ -49,6 +50,9 @@ enum class ValueType(val codec: ValueCodec<*>) {
     METADATA(MetadataCodec),
     PROTOCOL(ProtocolCodec),
     MESSAGE_TYPE(MessageTypeCodec),
+    ID_CODEC(IdCodec),
+    SCOPE_CODEC(ScopeCodec),
+    EVENT_ID_CODEC(EventIdCodec),
     RAW_MESSAGE(RawMessageCodec),
     RAW_MESSAGE_BODY(RawMessageBodyCodec),
     PARSED_MESSAGE(ParsedMessageCodec),
@@ -119,14 +123,14 @@ abstract class LongCodec(type: UByte) : AbstractCodec<Long>(type) {
     }
 }
 
-abstract class ListCodec<T>(type: UByte, private val elementCodec: ValueCodec<T>) : AbstractCodec<List<T>>(type) {
-    override fun read(buffer: ByteBuf): List<T> = mutableListOf<T>().also { list ->
+abstract class ListCodec<T>(type: UByte, private val elementCodec: ValueCodec<T>) : AbstractCodec<MutableList<T>>(type) {
+    override fun read(buffer: ByteBuf): MutableList<T> = mutableListOf<T>().also { list ->
         while (buffer.isReadable) {
             list += elementCodec.decode(buffer)
         }
     }
 
-    override fun write(buffer: ByteBuf, value: List<T>) {
+    override fun write(buffer: ByteBuf, value: MutableList<T>) {
         value.forEach { elementCodec.encode(it, buffer) }
     }
 }
@@ -231,11 +235,36 @@ object ProtocolCodec : StringCodec(12u)
 
 object MessageTypeCodec : StringCodec(13u)
 
+object IdCodec : StringCodec(14u)
+
+object ScopeCodec : StringCodec(15u)
+
+object EventIdCodec : AbstractCodec<DemoEventId>(16u) {
+    override fun read(buffer: ByteBuf): DemoEventId = DemoEventId().apply {
+        buffer.forEachValue { codec ->
+            when (codec) {
+                is IdCodec -> id = codec.decode(buffer)
+                is BookCodec -> book = codec.decode(buffer)
+                is ScopeCodec -> scope = codec.decode(buffer)
+                is TimestampCodec -> timestamp = codec.decode(buffer)
+            }
+        }
+    }
+
+    override fun write(buffer: ByteBuf, value: DemoEventId) {
+        IdCodec.encode(value.id, buffer)
+        BookCodec.encode(value.book, buffer)
+        ScopeCodec.encode(value.scope, buffer)
+        TimestampCodec.encode(value.timestamp, buffer)
+    }
+}
+
 object RawMessageCodec : AbstractCodec<DemoRawMessage>(20u) {
     override fun read(buffer: ByteBuf): DemoRawMessage = DemoRawMessage().apply {
         buffer.forEachValue { codec ->
             when (codec) {
                 is MessageIdCodec -> id = codec.decode(buffer)
+                is EventIdCodec -> eventId = codec.decode(buffer)
                 is MetadataCodec -> metadata = codec.decode(buffer)
                 is ProtocolCodec -> protocol = codec.decode(buffer)
                 is RawMessageBodyCodec -> body = codec.decode(buffer)
@@ -246,6 +275,7 @@ object RawMessageCodec : AbstractCodec<DemoRawMessage>(20u) {
 
     override fun write(buffer: ByteBuf, value: DemoRawMessage) {
         MessageIdCodec.encode(value.id, buffer)
+        value.eventId?.run { EventIdCodec.encode(this, buffer) }
         MetadataCodec.encode(value.metadata, buffer)
         ProtocolCodec.encode(value.protocol, buffer)
         RawMessageBodyCodec.encode(value.body, buffer)
@@ -259,6 +289,7 @@ object ParsedMessageCodec : AbstractCodec<DemoParsedMessage>(30u) {
         buffer.forEachValue { codec ->
             when (codec) {
                 is MessageIdCodec -> id = codec.decode(buffer)
+                is EventIdCodec -> eventId = codec.decode(buffer)
                 is MetadataCodec -> metadata = codec.decode(buffer)
                 is ProtocolCodec -> protocol = codec.decode(buffer)
                 is MessageTypeCodec -> type = codec.decode(buffer)
@@ -270,6 +301,7 @@ object ParsedMessageCodec : AbstractCodec<DemoParsedMessage>(30u) {
 
     override fun write(buffer: ByteBuf, value: DemoParsedMessage) {
         MessageIdCodec.encode(value.id, buffer)
+        value.eventId?.run { EventIdCodec.encode(this, buffer) }
         MetadataCodec.encode(value.metadata, buffer)
         ProtocolCodec.encode(value.protocol, buffer)
         MessageTypeCodec.encode(value.type, buffer)
@@ -294,8 +326,8 @@ object MessageGroupCodec : AbstractCodec<DemoMessageGroup>(40u) {
     }
 }
 
-object MessageListCodec : AbstractCodec<List<DemoMessage<*>>>(41u) {
-    override fun read(buffer: ByteBuf): List<DemoMessage<*>> = mutableListOf<DemoMessage<*>>().apply {
+object MessageListCodec : AbstractCodec<MutableList<DemoMessage<*>>>(41u) {
+    override fun read(buffer: ByteBuf): MutableList<DemoMessage<*>> = mutableListOf<DemoMessage<*>>().apply {
         buffer.forEachValue { codec ->
             when (codec) {
                 is RawMessageCodec -> this += codec.decode(buffer)
@@ -305,7 +337,7 @@ object MessageListCodec : AbstractCodec<List<DemoMessage<*>>>(41u) {
         }
     }
 
-    override fun write(buffer: ByteBuf, value: List<DemoMessage<*>>): Unit = value.forEach { message ->
+    override fun write(buffer: ByteBuf, value: MutableList<DemoMessage<*>>): Unit = value.forEach { message ->
         when (message) {
             is DemoRawMessage -> RawMessageCodec.encode(message, buffer)
             is DemoParsedMessage -> ParsedMessageCodec.encode(message, buffer)
@@ -373,7 +405,7 @@ data class DemoMessageId(
     var sessionAlias: String = "",
     var direction: DemoDirection = INCOMING,
     var sequence: Long = 0,
-    var subsequence: List<Long> = listOf(),
+    var subsequence: MutableList<Long> = emptyList(),
     var timestamp: Instant = Instant.EPOCH,
 ) {
     companion object {
@@ -381,8 +413,16 @@ data class DemoMessageId(
     }
 }
 
+data class DemoEventId(
+    var id: String = "",
+    var book: String = "",
+    var scope: String = "",
+    var timestamp: Instant = Instant.EPOCH,
+)
+
 interface DemoMessage<T> {
     var id: DemoMessageId
+    var eventId: DemoEventId?
     var metadata: Map<String, String>
     var protocol: String
     var body: T
@@ -390,6 +430,7 @@ interface DemoMessage<T> {
 
 data class DemoRawMessage(
     override var id: DemoMessageId = DemoMessageId.DEFAULT_INSTANCE,
+    override var eventId: DemoEventId? = null,
     override var metadata: Map<String, String> = mapOf(),
     override var protocol: String = "",
     override var body: ByteBuf = Unpooled.EMPTY_BUFFER,
@@ -397,6 +438,7 @@ data class DemoRawMessage(
 
 data class DemoParsedMessage(
     override var id: DemoMessageId = DemoMessageId.DEFAULT_INSTANCE,
+    override var eventId: DemoEventId? = null,
     override var metadata: Map<String, String> = mapOf(),
     override var protocol: String = "",
     var type: String = "",
@@ -404,13 +446,13 @@ data class DemoParsedMessage(
 ) : DemoMessage<Map<String, Any>>
 
 data class DemoMessageGroup(
-    var messages: List<DemoMessage<*>> = listOf(),
+    var messages: MutableList<DemoMessage<*>> = emptyList(), // FIXME: default value isn't really mutable
 )
 
 data class DemoGroupBatch(
     var book: String = "",
     var sessionGroup: String = "",
-    var groups: List<DemoMessageGroup> = listOf(),
+    var groups: MutableList<DemoMessageGroup> = emptyList(),
 )
 
 fun DemoGroupBatch.toByteArray() = Unpooled.buffer().run {
@@ -428,7 +470,7 @@ fun main() {
             sessionAlias = "alias1",
             direction = INCOMING,
             sequence = 1,
-            subsequence = listOf(1, 2),
+            subsequence = mutableListOf(1, 2),
             timestamp = Instant.now()
         ),
         metadata = mapOf(
@@ -446,7 +488,7 @@ fun main() {
             sessionAlias = "alias2",
             direction = OUTGOING,
             sequence = 2,
-            subsequence = listOf(3, 4),
+            subsequence = mutableListOf(3, 4),
             timestamp = Instant.now()
         ),
         metadata = mapOf(
@@ -464,7 +506,7 @@ fun main() {
             sessionAlias = "alias3",
             direction = OUTGOING,
             sequence = 3,
-            subsequence = listOf(5, 6),
+            subsequence = mutableListOf(5, 6),
             timestamp = Instant.now()
         ),
         metadata = mapOf(
@@ -483,7 +525,7 @@ fun main() {
     val batch = DemoGroupBatch(
         book = "book1",
         sessionGroup = "group1",
-        groups = listOf(DemoMessageGroup(listOf(message1, message2, message3)))
+        groups = mutableListOf(DemoMessageGroup(mutableListOf(message1, message2, message3)))
     )
 
     GroupBatchCodec.encode(batch, buffer)
