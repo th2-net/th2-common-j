@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.demo
 
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.INCOMING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoDirection.OUTGOING
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessage.Companion.DEFAULT_METADATA
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
@@ -31,6 +32,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.Charset
 import java.time.Instant
+import java.util.*
 import java.util.Collections.emptyList
 
 // TODO: maybe make length field a variable length int
@@ -139,14 +141,14 @@ abstract class MapCodec<K, V>(
     type: UByte,
     private val keyCodec: ValueCodec<K>,
     private val valueCodec: ValueCodec<V>,
-) : AbstractCodec<Map<K, V>>(type) {
-    override fun read(buffer: ByteBuf): Map<K, V> = mutableMapOf<K, V>().apply {
+) : AbstractCodec<MutableMap<K, V>>(type) {
+    override fun read(buffer: ByteBuf): MutableMap<K, V> = mutableMapOf<K, V>().apply {
         while (buffer.isReadable) {
             this[keyCodec.decode(buffer)] = valueCodec.decode(buffer)
         }
     }
 
-    override fun write(buffer: ByteBuf, value: Map<K, V>): Unit = value.forEach { (key, value) ->
+    override fun write(buffer: ByteBuf, value: MutableMap<K, V>): Unit = value.forEach { (key, value) ->
         keyCodec.encode(key, buffer)
         valueCodec.encode(value, buffer)
     }
@@ -309,7 +311,7 @@ object ParsedMessageCodec : AbstractCodec<DemoParsedMessage>(30u) {
     }
 }
 
-object ParsedMessageBodyCodec : CborCodec<Map<String, Any>>(31u, jacksonTypeRef())
+object ParsedMessageBodyCodec : CborCodec<MutableMap<String, Any>>(31u, jacksonTypeRef())
 
 object MessageGroupCodec : AbstractCodec<DemoMessageGroup>(40u) {
     override fun read(buffer: ByteBuf): DemoMessageGroup = DemoMessageGroup().apply {
@@ -399,17 +401,52 @@ enum class DemoDirection(val id: Int) {
     }
 }
 
+interface Cleanable {
+    /**
+     * Cleans all embedded th2 objects
+     */
+    fun clean()
+
+    /**
+     * Cleans only current layer include collections.
+     */
+    fun softClean() = clean()
+}
+
 data class DemoMessageId(
     var book: String = "",
     var sessionGroup: String = "",
     var sessionAlias: String = "",
     var direction: DemoDirection = INCOMING,
     var sequence: Long = 0,
-    var subsequence: MutableList<Long> = emptyList(),
+    /** The subsequence is not mutable by default */
+    var subsequence: MutableList<Long> = DEFAULT_SUBSEQUENCE,
     var timestamp: Instant = Instant.EPOCH,
-) {
+) : Cleanable {
+
+    override fun clean() {
+        check(this !== DEFAULT_INSTANCE) {
+            "Object can be cleaned because it is default instance"
+        }
+        check(subsequence !== DEFAULT_SUBSEQUENCE) {
+            "Object can be cleaned because 'subsequence' is immutable"
+        }
+
+        book = ""
+        sessionGroup = ""
+        sessionAlias = ""
+        direction = INCOMING
+        sequence = 0
+        subsequence.clear()
+        timestamp = Instant.EPOCH
+    }
+
     companion object {
+        val DEFAULT_SUBSEQUENCE: MutableList<Long> = emptyList()
         val DEFAULT_INSTANCE: DemoMessageId = DemoMessageId() // FIXME: do smth about its mutability
+        fun newMutable() = DemoMessageId(
+            subsequence = mutableListOf()
+        )
     }
 }
 
@@ -418,42 +455,184 @@ data class DemoEventId(
     var book: String = "",
     var scope: String = "",
     var timestamp: Instant = Instant.EPOCH,
-)
+) : Cleanable {
 
-interface DemoMessage<T> {
+    override fun clean() {
+        check(this !== DEFAULT_INSTANCE) {
+            "Object can be cleaned because it is default instance"
+        }
+        id= ""
+        book = ""
+        scope = ""
+        timestamp = Instant.EPOCH
+    }
+
+    companion object {
+        val DEFAULT_INSTANCE: DemoEventId = DemoEventId() // FIXME: do smth about its mutability
+        fun newMutable() = DemoEventId()
+    }
+}
+
+interface DemoMessage<T> : Cleanable {
+    /** The id is not mutable by default */
     var id: DemoMessageId
     var eventId: DemoEventId?
-    var metadata: Map<String, String>
+    /** The metadata is not mutable by default */
+    var metadata: MutableMap<String, String>
     var protocol: String
     var body: T
+
+    companion object {
+        val DEFAULT_METADATA: MutableMap<String, String> = Collections.emptyMap()
+    }
 }
 
 data class DemoRawMessage(
     override var id: DemoMessageId = DemoMessageId.DEFAULT_INSTANCE,
     override var eventId: DemoEventId? = null,
-    override var metadata: Map<String, String> = mapOf(),
+    override var metadata: MutableMap<String, String> = DEFAULT_METADATA,
     override var protocol: String = "",
+    /** The body is not mutable by default */
     override var body: ByteBuf = Unpooled.EMPTY_BUFFER,
-) : DemoMessage<ByteBuf>
+) : DemoMessage<ByteBuf> {
+    override fun clean() {
+        check(id !== DemoMessageId.DEFAULT_INSTANCE) {
+            "Object can be cleaned because 'id' is default instance"
+        }
+        check(metadata !== DEFAULT_METADATA) {
+            "Object can be cleaned because 'metadata' is immutable"
+        }
+        check(body !== Unpooled.EMPTY_BUFFER) {
+            "Object can be cleaned because 'body' is immutable"
+        }
+
+        id.clean()
+        eventId = null
+        metadata.clear()
+        protocol = ""
+        body.clear()
+    }
+
+    override fun softClean() {
+        check(metadata !== DEFAULT_METADATA) {
+            "Object can be cleaned because 'metadata' is immutable"
+        }
+
+        id = DemoMessageId.DEFAULT_INSTANCE
+        eventId = null
+        metadata.clear()
+        protocol = ""
+        body = Unpooled.EMPTY_BUFFER
+    }
+
+    companion object {
+        fun newMutable() = DemoRawMessage(
+            id = DemoMessageId.newMutable(),
+            metadata = mutableMapOf(),
+            body = Unpooled.buffer()
+        )
+        fun newSoftMutable() = DemoRawMessage(
+            metadata = mutableMapOf()
+        )
+    }
+}
 
 data class DemoParsedMessage(
     override var id: DemoMessageId = DemoMessageId.DEFAULT_INSTANCE,
     override var eventId: DemoEventId? = null,
-    override var metadata: Map<String, String> = mapOf(),
+    override var metadata: MutableMap<String, String> = DEFAULT_METADATA,
     override var protocol: String = "",
     var type: String = "",
-    override var body: Map<String, Any> = mapOf(),
-) : DemoMessage<Map<String, Any>>
+    /** The body is not mutable by default */
+    override var body: MutableMap<String, Any> = DEFAULT_BODY,
+) : DemoMessage<MutableMap<String, Any>> {
+    override fun clean() {
+        check(id !== DemoMessageId.DEFAULT_INSTANCE) {
+            "Object can be cleaned because 'id' is default instance"
+        }
+        check(metadata !== DEFAULT_METADATA) {
+            "Object can be cleaned because 'metadata' is immutable"
+        }
+        check(body !== DEFAULT_BODY) {
+            "Object can be cleaned because 'body' is immutable"
+        }
+
+        id.clean()
+        eventId = null
+        metadata.clear()
+        protocol = ""
+        type = ""
+        body.clear()
+    }
+
+    override fun softClean() {
+        check(metadata !== DEFAULT_METADATA) {
+            "Object can be cleaned because 'metadata' is immutable"
+        }
+        check(body !== DEFAULT_BODY) {
+            "Object can be cleaned because 'body' is immutable"
+        }
+
+        id = DemoMessageId.DEFAULT_INSTANCE
+        eventId = null
+        metadata.clear()
+        protocol = ""
+        type = ""
+        body.clear()
+    }
+
+    companion object {
+        val DEFAULT_BODY: MutableMap<String, Any> = Collections.emptyMap()
+        fun newMutable() = DemoParsedMessage(
+            id = DemoMessageId.newMutable(),
+            metadata = mutableMapOf(),
+            body = mutableMapOf()
+        )
+        fun newSoftMutable() = DemoParsedMessage(
+            metadata = mutableMapOf(),
+            body = mutableMapOf()
+        )
+    }
+}
 
 data class DemoMessageGroup(
-    var messages: MutableList<DemoMessage<*>> = emptyList(), // FIXME: default value isn't really mutable
-)
+    var messages: MutableList<DemoMessage<*>> = DEFAULT_MESSAGES,
+) : Cleanable {
+    override fun clean() {
+        check(messages !== DEFAULT_MESSAGES) {
+            "Object can be cleaned because 'messages' is immutable"
+        }
+        messages.clear()
+    }
+
+    companion object {
+        val DEFAULT_MESSAGES: MutableList<DemoMessage<*>> = emptyList()
+        fun newMutable() = DemoMessageGroup(mutableListOf())
+    }
+}
 
 data class DemoGroupBatch(
     var book: String = "",
     var sessionGroup: String = "",
-    var groups: MutableList<DemoMessageGroup> = emptyList(),
-)
+    var groups: MutableList<DemoMessageGroup> = DEFAULT_GROUPS,
+) : Cleanable {
+    override fun clean() {
+        check(groups !== DEFAULT_GROUPS) {
+            "Object can be cleaned because 'groups' is immutable"
+        }
+
+        book = ""
+        sessionGroup = ""
+        groups.clear()
+    }
+
+    companion object {
+        val DEFAULT_GROUPS: MutableList<DemoMessageGroup> = emptyList()
+        fun newMutable() = DemoGroupBatch(
+            groups = mutableListOf()
+        )
+    }
+}
 
 fun DemoGroupBatch.toByteArray() = Unpooled.buffer().run {
     GroupBatchCodec.encode(this@toByteArray, this@run)
@@ -461,6 +640,25 @@ fun DemoGroupBatch.toByteArray() = Unpooled.buffer().run {
 }
 
 fun main() {
+    DemoMessageId.newMutable().apply(DemoMessageId::clean)
+        .apply(DemoMessageId::softClean)
+    DemoEventId.newMutable().apply(DemoEventId::clean)
+        .apply(DemoEventId::softClean)
+
+    DemoRawMessage.newMutable().apply(DemoRawMessage::clean)
+        .apply(DemoRawMessage::softClean)
+    DemoRawMessage.newSoftMutable().apply(DemoRawMessage::softClean)
+
+    DemoParsedMessage.newMutable().apply(DemoParsedMessage::clean)
+        .apply(DemoParsedMessage::softClean)
+    DemoParsedMessage.newSoftMutable().apply(DemoParsedMessage::softClean)
+
+    DemoMessageGroup.newMutable().apply(DemoMessageGroup::clean)
+        .apply(DemoMessageGroup::softClean)
+
+    DemoGroupBatch.newMutable().apply(DemoGroupBatch::clean)
+        .apply(DemoGroupBatch::softClean)
+
     val buffer = Unpooled.buffer()
 
     val message1 = DemoRawMessage(
@@ -473,7 +671,7 @@ fun main() {
             subsequence = mutableListOf(1, 2),
             timestamp = Instant.now()
         ),
-        metadata = mapOf(
+        metadata = mutableMapOf(
             "prop1" to "value1",
             "prop2" to "value2"
         ),
@@ -491,7 +689,7 @@ fun main() {
             subsequence = mutableListOf(3, 4),
             timestamp = Instant.now()
         ),
-        metadata = mapOf(
+        metadata = mutableMapOf(
             "prop3" to "value3",
             "prop4" to "value4"
         ),
@@ -509,13 +707,13 @@ fun main() {
             subsequence = mutableListOf(5, 6),
             timestamp = Instant.now()
         ),
-        metadata = mapOf(
+        metadata = mutableMapOf(
             "prop5" to "value6",
             "prop7" to "value8"
         ),
         protocol = "proto3",
         type = "some-type",
-        body = mapOf(
+        body = mutableMapOf(
             "simple" to 1,
             "list" to listOf(1, 2, 3),
             "map" to mapOf("abc" to "cde")
