@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrategy<com.google.protobuf.Message> {
 
+    public static final String BOOK_KEY = "book";
+    public static final String SESSION_GROUP_KEY = "session_group";
     public static final String SESSION_ALIAS_KEY = "session_alias";
     public static final String MESSAGE_TYPE_KEY = "message_type";
     public static final String DIRECTION_KEY = "direction";
@@ -41,8 +43,12 @@ public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrateg
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().getSimpleValue()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+        String sessionGroup = messageID.getConnectionId().getSessionGroup();
+        String sessionAlias = messageID.getConnectionId().getSessionAlias();
         var metadataMsgFields = Map.of(
-                SESSION_ALIAS_KEY, messageID.getConnectionId().getSessionAlias(),
+                BOOK_KEY, messageID.getBookName(),
+                SESSION_GROUP_KEY, sessionGroup.isEmpty() ? sessionAlias : sessionGroup,
+                SESSION_ALIAS_KEY, sessionAlias,
                 MESSAGE_TYPE_KEY, metadata.getMessageType(),
                 DIRECTION_KEY, messageID.getDirection().name()
         );

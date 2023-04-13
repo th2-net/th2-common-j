@@ -72,7 +72,6 @@ data class SessionStats(
     var rawMessages: Int = 0,
 )
 
-//FIXME: com.exactpro.th2.common.metrics.MetricsUtilsKt.incrementTotalMetrics() 30,374 ms (12.5%)
 fun incrementTotalMetrics(
     batch: MessageGroupBatch,
     th2Pin: String,
@@ -83,7 +82,6 @@ fun incrementTotalMetrics(
     val incomingStatsBySession = mutableMapOf<String, SessionStats>()
     val outgoingStatsBySession = mutableMapOf<String, SessionStats>()
 
-    //FIXME: java.util.Collections$UnmodifiableCollection.iterator() 14,357 ms (5.9%)
     for (group in batch.groupsList) {
         val messages = group.messagesList
 

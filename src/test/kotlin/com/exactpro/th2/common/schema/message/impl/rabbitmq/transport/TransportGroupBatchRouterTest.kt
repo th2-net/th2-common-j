@@ -14,35 +14,26 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.demo
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
-import com.exactpro.th2.common.event.bean.BaseTest.BOX_CONFIGURATION
-import com.exactpro.th2.common.event.bean.BaseTest.SESSION_ALIAS
-import com.exactpro.th2.common.event.bean.BaseTest.SESSION_GROUP
+import com.exactpro.th2.common.event.bean.BaseTest.*
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
+import com.exactpro.th2.common.schema.message.configuration.*
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter.Companion.TRANSPORT_GROUP_ATTRIBUTE
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
-import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
+import org.mockito.kotlin.*
 
-class TestDemoGroupBatchRouter {
+class TransportGroupBatchRouterTest {
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val monitor: ExclusiveSubscriberMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
@@ -58,41 +49,70 @@ class TestDemoGroupBatchRouter {
                     routingKey = "",
                     queue = "subscribe",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe")
+                    attributes = listOf("subscribe", TRANSPORT_GROUP_ATTRIBUTE)
                 ),
                 "test-pin1" to QueueConfiguration(
                     routingKey = "test",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish"),
+                    attributes = listOf("publish", TRANSPORT_GROUP_ATTRIBUTE),
+                    filters = listOf(
+                        MqRouterFilterConfiguration(
+                            metadata = listOf(
+                                FieldFilterConfiguration(
+                                    fieldName = "message_type",
+                                    expectedValue = "test-message",
+                                    operation = FieldFilterOperation.EQUAL
+                                )
+                            )
+                        )
+                    )
                 ),
                 "test-pin2" to QueueConfiguration(
                     routingKey = "test2",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish", "test"),
-                )
-            )
-        )
-
-        @Test
-        fun `publishes to the correct pin according to attributes`() {
-            val batch = DemoGroupBatch(
-                BOOK_NAME,
-                SESSION_GROUP,
-                mutableListOf(
-                    DemoMessageGroup(
-                        mutableListOf(
-                            DemoRawMessage(
-                                DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
-                                body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))
+                    attributes = listOf("publish", TRANSPORT_GROUP_ATTRIBUTE, "test"),
+                    filters = listOf(
+                        MqRouterFilterConfiguration(
+                            metadata = listOf(
+                                FieldFilterConfiguration(
+                                    fieldName = "message_type",
+                                    expectedValue = "test-message",
+                                    operation = FieldFilterOperation.EQUAL
+                                )
                             )
                         )
                     )
                 )
             )
+        )
+
+        @Test
+        fun `publishes message group batch with metadata`() {
+            val batch = createGroupBatch("test-message")
+
             router.send(batch, "test")
 
+            val captor = argumentCaptor<ByteArray>()
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            val publishedBytes = captor.firstValue
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
+                "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
+            }
+        }
+
+        @Test
+        fun `does not publish anything if all messages are filtered`() {
+            router.send(createGroupBatch("test-message1"))
+
+            verify(connectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
+        }
+
+        @Test
+        fun `publishes to the correct pin according to attributes`() {
+            val batch = createGroupBatch("test-message")
+            router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
             verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
@@ -105,10 +125,10 @@ class TestDemoGroupBatchRouter {
         @Test
         fun `reports about extra pins matches the publication`() {
             Assertions.assertThrows(IllegalStateException::class.java) {
-                router.send(DEMO_MESSAGE_BATCH)
+                router.send(createGroupBatch("test-message"))
             }.apply {
                 Assertions.assertEquals(
-                    "Found incorrect number of pins [test-pin1, test-pin2] to the send operation by attributes [publish] and filters, expected 1, actual 2",
+                    "Found incorrect number of pins [test-pin1, test-pin2] to the send operation by attributes [publish, $TRANSPORT_GROUP_ATTRIBUTE] and filters, expected 1, actual 2",
                     message
                 )
             }
@@ -117,10 +137,10 @@ class TestDemoGroupBatchRouter {
         @Test
         fun `reports about no pins matches the publication`() {
             Assertions.assertThrows(IllegalStateException::class.java) {
-                router.send(DEMO_MESSAGE_BATCH, "unexpected")
+                router.send(TRANSPORT_BATCH, "unexpected")
             }.apply {
                 Assertions.assertEquals(
-                    "Found incorrect number of pins [] to the send operation by attributes [unexpected, publish] and filters, expected 1, actual 0",
+                    "Found incorrect number of pins [] to the send operation by attributes [unexpected, publish, $TRANSPORT_GROUP_ATTRIBUTE] and filters, expected 1, actual 0",
                     message
                 )
             }
@@ -128,12 +148,13 @@ class TestDemoGroupBatchRouter {
 
         @Test
         fun `publishes to all correct pin according to attributes`() {
-            router.sendAll(DEMO_MESSAGE_BATCH)
+            val batch = createGroupBatch("test-message")
+            router.sendAll(batch)
 
             val captor = argumentCaptor<ByteArray>()
             verify(connectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), captor.capture())
             verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
-            val originalBytes = DEMO_MESSAGE_BATCH.toByteArray()
+            val originalBytes = batch.toByteArray()
             Assertions.assertAll(
                 Executable {
                     val publishedBytes = captor.firstValue
@@ -159,22 +180,35 @@ class TestDemoGroupBatchRouter {
                     routingKey = "publish",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish", "test")
+                    attributes = listOf("publish", TRANSPORT_GROUP_ATTRIBUTE, "test")
                 ),
                 "test1" to QueueConfiguration(
                     routingKey = "",
                     queue = "queue1",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe", "1")
+                    attributes = listOf("subscribe", TRANSPORT_GROUP_ATTRIBUTE, "1")
                 ),
                 "test2" to QueueConfiguration(
                     routingKey = "",
                     queue = "queue2",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe", "2")
+                    attributes = listOf("subscribe", TRANSPORT_GROUP_ATTRIBUTE, "2")
                 )
             )
         )
+
+        @Test
+        fun `publishes message group batch with metadata`() {
+            val batch = createGroupBatch("test-message")
+            router.send(batch, "test")
+
+            val captor = argumentCaptor<ByteArray>()
+            verify(connectionManager).basicPublish(eq("test-exchange"), eq("publish"), anyOrNull(), captor.capture())
+            val publishedBytes = captor.firstValue
+            assertArrayEquals(batch.toByteArray(), publishedBytes) {
+                "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
+            }
+        }
 
         @Test
         fun `subscribes to correct queue`() {
@@ -183,6 +217,7 @@ class TestDemoGroupBatchRouter {
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
         }
+
         @Test
         fun `subscribes with manual ack to correct queue`() {
             val monitor = router.subscribeWithManualAck(mock { }, "1")
@@ -205,7 +240,7 @@ class TestDemoGroupBatchRouter {
             Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }) }
                 .apply {
                     Assertions.assertEquals(
-                        "Found incorrect number of pins [test1, test2] to subscribe operation by attributes [subscribe] and filters, expected 1, actual 2",
+                        "Found incorrect number of pins [test1, test2] to subscribe operation by attributes [subscribe, $TRANSPORT_GROUP_ATTRIBUTE] and filters, expected 1, actual 2",
                         message
                     )
                 }
@@ -215,19 +250,29 @@ class TestDemoGroupBatchRouter {
         fun `reports if no queue matches`() {
             Assertions.assertAll(
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }, "unexpected") }
+                    Assertions.assertThrows(IllegalStateException::class.java) {
+                        router.subscribe(
+                            mock { },
+                            "unexpected"
+                        )
+                    }
                         .apply {
                             Assertions.assertEquals(
-                                "Found incorrect number of pins [] to subscribe operation by attributes [unexpected, subscribe] and filters, expected 1, actual 0",
+                                "Found incorrect number of pins [] to subscribe operation by attributes [unexpected, subscribe, $TRANSPORT_GROUP_ATTRIBUTE] and filters, expected 1, actual 0",
                                 message
                             )
                         }
                 },
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribeAll(mock { }, "unexpected") }
+                    Assertions.assertThrows(IllegalStateException::class.java) {
+                        router.subscribeAll(
+                            mock { },
+                            "unexpected"
+                        )
+                    }
                         .apply {
                             Assertions.assertEquals(
-                                "Found incorrect number of pins [] to subscribe all operation by attributes [unexpected, subscribe] and filters, expected 1 or more, actual 0",
+                                "Found incorrect number of pins [] to subscribe all operation by attributes [unexpected, subscribe, $TRANSPORT_GROUP_ATTRIBUTE] and filters, expected 1 or more, actual 0",
                                 message
                             )
                         }
@@ -236,8 +281,23 @@ class TestDemoGroupBatchRouter {
         }
     }
 
-    private fun createRouter(pins: Map<String, QueueConfiguration>): MessageRouter<DemoGroupBatch> =
-        DemoMessageBatchRouter().apply {
+    private fun createGroupBatch(messageType: String) = GroupBatch(
+        BOOK_NAME,
+        SESSION_GROUP,
+        mutableListOf(
+            MessageGroup(
+                mutableListOf(
+                    ParsedMessage(
+                        MessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
+                        type = messageType
+                    )
+                )
+            )
+        )
+    )
+
+    private fun createRouter(pins: Map<String, QueueConfiguration>): MessageRouter<GroupBatch> =
+        TransportGroupBatchRouter().apply {
             init(
                 DefaultMessageRouterContext(
                     connectionManager,
@@ -249,14 +309,14 @@ class TestDemoGroupBatchRouter {
         }
 
     companion object {
-        private val DEMO_MESSAGE_BATCH = DemoGroupBatch(
+        private val TRANSPORT_BATCH = GroupBatch(
             BOOK_NAME,
             SESSION_GROUP,
             mutableListOf(
-                DemoMessageGroup(
+                MessageGroup(
                     mutableListOf(
-                        DemoRawMessage(
-                            DemoMessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
+                        RawMessage(
+                            MessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
                             body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))
                         )
                     )

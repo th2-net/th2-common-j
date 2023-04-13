@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,13 +16,8 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.metrics.DIRECTION_LABEL
-import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
-import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
-import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
-import com.exactpro.th2.common.metrics.incrementDroppedMetrics
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractFilterStrategy
-import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
+import com.exactpro.th2.common.metrics.*
+import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy.Companion.INSTANCE
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -37,9 +32,6 @@ import io.prometheus.client.Counter
 import org.jetbrains.annotations.NotNull
 
 class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() {
-    override fun getDefaultFilterStrategy(): AbstractFilterStrategy<Message> {
-        return AnyMessageFilterStrategy()
-    }
 
     override fun splitAndFilter(
         message: MessageGroupBatch,
@@ -52,7 +44,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
 
         val builder = message.toBuilderWithMetadata()
         message.groupsList.forEach { group ->
-            if (group.messagesList.all { filterMessage(it, pinConfiguration.filters) }) {
+            if (group.messagesList.all { INSTANCE.verify(it, pinConfiguration.filters) }) {
                 builder.addGroups(group)
             } else {
                 incrementDroppedMetrics(
@@ -88,7 +80,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         return RabbitMessageGroupBatchSubscriber(
             connectionManager,
             pinConfig.queue,
-            { msg: Message, filters: List<RouterFilter> -> filterMessage(msg, filters) },
+            { msg: Message, filters: List<RouterFilter> -> INSTANCE.verify(msg, filters) },
             pinName,
             pinConfig.filters,
             connectionManager.configuration.messageRecursionLimit

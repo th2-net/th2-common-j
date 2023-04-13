@@ -13,54 +13,53 @@
  *  limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.demo
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.exactpro.th2.common.metrics.BOOK_NAME_LABEL
 import com.exactpro.th2.common.metrics.SESSION_GROUP_LABEL
 import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
+import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.demo.DemoMessageBatchRouter.Companion.DEMO_RAW_MESSAGE_TYPE
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter.Companion.TRANSPORT_GROUP_TYPE
 import com.rabbitmq.client.Delivery
 import io.netty.buffer.Unpooled
 import io.prometheus.client.Counter
 
-class DemoMessageBatchSubscriber(
+class TransportGroupBatchSubscriber(
     connectionManager: ConnectionManager,
     queue: String,
     th2Pin: String,
-) : AbstractRabbitSubscriber<DemoGroupBatch>(connectionManager, queue, th2Pin, DEMO_RAW_MESSAGE_TYPE) {
+    private val filters: List<RouterFilter>,
+) : AbstractRabbitSubscriber<GroupBatch>(connectionManager, queue, th2Pin, TRANSPORT_GROUP_TYPE) {
 
-    override fun valueFromBytes(body: ByteArray): DemoGroupBatch = Unpooled.wrappedBuffer(body).run(GroupBatchCodec::decode)
+    override fun valueFromBytes(body: ByteArray): GroupBatch = Unpooled.wrappedBuffer(body).run(GroupBatchCodec::decode)
 
-    override fun toShortTraceString(value: DemoGroupBatch): String = value.toString()
+    override fun toShortTraceString(value: GroupBatch): String = value.toString()
 
-    override fun toShortDebugString(value: DemoGroupBatch): String = value.toString()
+    override fun toShortDebugString(value: GroupBatch): String = value.toString()
 
-    override fun filter(batch: DemoGroupBatch): DemoGroupBatch {
-        //TODO: Implement - whole batch or null
-        return batch
-    }
+    override fun filter(batch: GroupBatch): GroupBatch? = filters.filter(batch)
 
     override fun handle(
         deliveryMetadata: DeliveryMetadata,
         delivery: Delivery,
-        value: DemoGroupBatch,
+        value: GroupBatch,
         confirmation: ManualAckDeliveryCallback.Confirmation,
     ) {
-        DEMO_RAW_MESSAGE_SUBSCRIBE_TOTAL
+        TRANSPORT_GROUP_SUBSCRIBE_TOTAL
             .labels(th2Pin, value.book, value.sessionGroup)
             .inc(value.groups.size.toDouble())
         super.handle(deliveryMetadata, delivery, value, confirmation)
     }
 
     companion object {
-        private val DEMO_RAW_MESSAGE_SUBSCRIBE_TOTAL = Counter.build()
-            .name("th2_demo_raw_message_subscribe_total")
+        private val TRANSPORT_GROUP_SUBSCRIBE_TOTAL = Counter.build()
+            .name("th2_transport_group_subscribe_total")
             .labelNames(TH2_PIN_LABEL, BOOK_NAME_LABEL, SESSION_GROUP_LABEL)
-            .help("Quantity of received demo raw messages")
+            .help("Quantity of received transport groups")
             .register()
     }
 }

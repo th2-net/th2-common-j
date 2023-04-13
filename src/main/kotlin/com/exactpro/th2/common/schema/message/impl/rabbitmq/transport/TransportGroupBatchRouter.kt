@@ -13,10 +13,8 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.demo
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractFilterStrategy
-import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute
@@ -24,29 +22,21 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
-import com.google.protobuf.Message
 import org.jetbrains.annotations.NotNull
 
-class DemoMessageBatchRouter : AbstractRabbitRouter<DemoGroupBatch>() {
-    override fun getDefaultFilterStrategy(): AbstractFilterStrategy<Message> {
-        return AnyMessageFilterStrategy()
-    }
-
+class TransportGroupBatchRouter : AbstractRabbitRouter<GroupBatch>() {
     override fun splitAndFilter(
-        message: DemoGroupBatch,
+        message: GroupBatch,
         pinConfiguration: @NotNull QueueConfiguration,
         pinName: PinName,
-    ): DemoGroupBatch {
-        //TODO: Implement - whole batch or null
-        return message
-    }
+    ): GroupBatch? = pinConfiguration.filters.filter(message)
 
     override fun createSender(
         pinConfig: QueueConfiguration,
         pinName: PinName,
         bookName: BookName,
-    ): MessageSender<DemoGroupBatch> {
-        return DemoMessageBatchSender(
+    ): MessageSender<GroupBatch> {
+        return TransportGroupBatchSender(
             connectionManager,
             pinConfig.exchange,
             pinConfig.routingKey,
@@ -58,23 +48,24 @@ class DemoMessageBatchRouter : AbstractRabbitRouter<DemoGroupBatch>() {
     override fun createSubscriber(
         pinConfig: QueueConfiguration,
         pinName: PinName,
-    ): MessageSubscriber<DemoGroupBatch> {
-        return DemoMessageBatchSubscriber(
+    ): MessageSubscriber<GroupBatch> {
+        return TransportGroupBatchSubscriber(
             connectionManager,
             pinConfig.queue,
-            pinName
+            pinName,
+            pinConfig.filters
         )
     }
 
-    override fun DemoGroupBatch.toErrorString(): String = toString()
+    override fun GroupBatch.toErrorString(): String = toString()
 
     override fun getRequiredSendAttributes(): Set<String> = REQUIRED_SEND_ATTRIBUTES
     override fun getRequiredSubscribeAttributes(): Set<String> = REQUIRED_SUBSCRIBE_ATTRIBUTES
 
     companion object {
-        internal const val DEMO_RAW_MESSAGE_TYPE = "DEMO_RAW_MESSAGE"
-//        internal const val DEMO_RAW_ATTRIBUTE = "demo_raw" // It should be added in future
-        private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(QueueAttribute.SUBSCRIBE.value)
-        private val REQUIRED_SEND_ATTRIBUTES = setOf(QueueAttribute.PUBLISH.value)
+        const val TRANSPORT_GROUP_TYPE = "TRANSPORT_GROUP"
+        const val TRANSPORT_GROUP_ATTRIBUTE = "transport-group"
+        private val REQUIRED_SUBSCRIBE_ATTRIBUTES = setOf(QueueAttribute.SUBSCRIBE.value, TRANSPORT_GROUP_ATTRIBUTE)
+        private val REQUIRED_SEND_ATTRIBUTES = setOf(QueueAttribute.PUBLISH.value, TRANSPORT_GROUP_ATTRIBUTE)
     }
 }

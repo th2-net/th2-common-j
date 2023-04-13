@@ -38,8 +38,8 @@ data class CradleNonConfidentialConfiguration(
     var cradleMaxEventBatchSize: Long = CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE.toLong(),
     @Deprecated("Please use CassandraStorageSettings.maxMessageBatchSize")
     var cradleMaxMessageBatchSize: Long = CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE.toLong(),
-    @Deprecated("counterPersistenceInterval")
+    @Deprecated("Please use CassandraStorageSettings.counterPersistenceInterval")
     var statisticsPersistenceIntervalMillis: Long = CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS.toLong(),
-    @Deprecated("maxUncompressedTestEventSize")
+    @Deprecated("Please use CassandraStorageSettings.maxUncompressedTestEventSize")
     var maxUncompressedEventBatchSize: Long = CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE.toLong(),
 ) : Configuration()

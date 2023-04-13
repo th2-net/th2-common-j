@@ -177,9 +177,7 @@ tasks.register('integrationTest', Test) {
 dependencies {
     api platform("com.exactpro.th2:bom:4.2.0")
     api 'com.exactpro.th2:grpc-common:4.2.0-dev'
-    api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
-    }
+    api "com.exactpro.th2:cradle-core:${cradleVersion}"
     api 'io.github.microutils:kotlin-logging:2.1.21'
 
     jmh 'org.openjdk.jmh:jmh-core:0.9'
@@ -187,10 +185,7 @@ dependencies {
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'
-    api ("com.exactpro.th2:cradle-cassandra:${cradleVersion}") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
-    }
-    implementation "com.datastax.oss:java-driver-core"
+    implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"
@@ -203,16 +198,16 @@ dependencies {
     implementation "org.jetbrains:annotations"
 
     implementation "org.apache.commons:commons-lang3"
-    implementation "commons-io:commons-io"
     implementation "org.apache.commons:commons-collections4"
     implementation "org.apache.commons:commons-text"
     implementation "commons-cli:commons-cli"
+    implementation "commons-io:commons-io"
 
     implementation "com.fasterxml.jackson.core:jackson-core"
-    api("com.fasterxml.jackson.core:jackson-databind") {
+    implementation("com.fasterxml.jackson.core:jackson-databind") {
         because('provide ability to use object mapper in components')
     }
-    api("com.fasterxml.jackson.core:jackson-annotations") {
+    implementation("com.fasterxml.jackson.core:jackson-annotations") {
         because('providee ability to use jackson annotations in components')
     }
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
@@ -241,7 +236,6 @@ dependencies {
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
     testImplementation "org.testcontainers:testcontainers:1.17.1"
     testImplementation "org.testcontainers:rabbitmq:1.17.1"
-    testImplementation "com.datastax.oss:java-driver-core:4.15.0"
 
     testFixturesImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"

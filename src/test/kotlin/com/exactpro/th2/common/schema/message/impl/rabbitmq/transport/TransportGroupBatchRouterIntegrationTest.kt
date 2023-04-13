@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.demo
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertTrue
 
 @IntegrationTest
-class IntegrationTestDemoGroupBatchRouter {
+class TransportGroupBatchRouterIntegrationTest {
 
     @Test
     fun `subscribe to exclusive queue`() {
@@ -49,7 +49,7 @@ class IntegrationTestDemoGroupBatchRouter {
                                 val counter = CountDownLatch(1)
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
-                                    secondRouter.sendExclusive(monitor.queue, DemoGroupBatch())
+                                    secondRouter.sendExclusive(monitor.queue, GroupBatch())
                                     assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
                                 } finally {
@@ -80,7 +80,7 @@ class IntegrationTestDemoGroupBatchRouter {
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
 
-                                    secondRouter.sendExclusive(monitor.queue, DemoGroupBatch())
+                                    secondRouter.sendExclusive(monitor.queue, GroupBatch())
                                     assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
                                 } finally {
@@ -93,7 +93,7 @@ class IntegrationTestDemoGroupBatchRouter {
             }
     }
 
-    private fun createRouter(connectionManager: ConnectionManager) = DemoMessageBatchRouter()
+    private fun createRouter(connectionManager: ConnectionManager) = TransportGroupBatchRouter()
         .apply {
             init(
                 DefaultMessageRouterContext(
