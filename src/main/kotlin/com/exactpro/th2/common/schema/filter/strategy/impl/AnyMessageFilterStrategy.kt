@@ -20,7 +20,7 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.message.toJson
 import com.google.protobuf.Message
 
-class AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
+object AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
 
     override fun getFields(message: Message): MutableMap<String, String> {
         check(message is AnyMessage) { "Message is not an ${AnyMessage::class.qualifiedName}: ${message.toJson()}" }
@@ -53,9 +53,5 @@ class AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
         }
 
         return result
-    }
-
-    companion object {
-        val INSTANCE = AnyMessageFilterStrategy()
     }
 }

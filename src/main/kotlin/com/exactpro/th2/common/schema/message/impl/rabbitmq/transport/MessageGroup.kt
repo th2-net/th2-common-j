@@ -30,6 +30,7 @@ data class MessageGroup(
 
     companion object {
         val DEFAULT_MESSAGES: MutableList<Message<*>> = Collections.emptyList()
+        @JvmStatic
         fun newMutable() = MessageGroup(mutableListOf())
     }
 }

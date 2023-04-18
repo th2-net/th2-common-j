@@ -288,7 +288,7 @@ class TransportGroupBatchRouterTest {
             MessageGroup(
                 mutableListOf(
                     ParsedMessage(
-                        MessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
+                        MessageId(SESSION_ALIAS),
                         type = messageType
                     )
                 )
@@ -316,7 +316,7 @@ class TransportGroupBatchRouterTest {
                 MessageGroup(
                     mutableListOf(
                         RawMessage(
-                            MessageId(BOOK_NAME, SESSION_GROUP, SESSION_ALIAS),
+                            MessageId(SESSION_ALIAS),
                             body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))
                         )
                     )

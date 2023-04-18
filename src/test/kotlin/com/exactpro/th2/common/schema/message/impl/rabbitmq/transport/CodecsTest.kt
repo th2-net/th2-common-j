@@ -29,8 +29,6 @@ class CodecsTest {
 
         val message1 = RawMessage(
             id = MessageId(
-                book = "book1",
-                sessionGroup = "group1",
                 sessionAlias = "alias1",
                 direction = Direction.INCOMING,
                 sequence = 1,
@@ -47,8 +45,6 @@ class CodecsTest {
 
         val message2 = RawMessage(
             id = MessageId(
-                book = "book1",
-                sessionGroup = "group1",
                 sessionAlias = "alias2",
                 direction = Direction.OUTGOING,
                 sequence = 2,
@@ -65,8 +61,6 @@ class CodecsTest {
 
         val message3 = ParsedMessage(
             id = MessageId(
-                book = "book1",
-                sessionGroup = "group1",
                 sessionAlias = "alias3",
                 direction = Direction.OUTGOING,
                 sequence = 3,

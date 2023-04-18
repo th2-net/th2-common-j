@@ -33,12 +33,10 @@ import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.MethodSource
 
 class TestAnyMessageFilterStrategy {
-    private val strategy = AnyMessageFilterStrategy()
-
     @ParameterizedTest
     @MethodSource("parsedMessages")
     fun `matches the parsed message by message type with single filter`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = strategy.verify(
+        val match = AnyMessageFilterStrategy.verify(
             anyMessage,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -56,7 +54,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messages")
     fun `matches the parsed message by direction with single filter`(message: AnyMessage, expectMatch: Boolean) {
-        val match = strategy.verify(
+        val match = AnyMessageFilterStrategy.verify(
             message,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -74,7 +72,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messages")
     fun `matches the parsed message by alias with single filter`(message: AnyMessage, expectMatch: Boolean) {
-        val match = strategy.verify(
+        val match = AnyMessageFilterStrategy.verify(
             message,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {

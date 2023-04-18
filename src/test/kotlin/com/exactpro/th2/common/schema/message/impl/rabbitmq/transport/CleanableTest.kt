@@ -25,8 +25,6 @@ import kotlin.test.assertNotEquals
 class CleanableTest {
 
     private val filledMessageId = MessageId(
-        "book",
-        "sessionGroup",
         "sessionAlias",
         Direction.OUTGOING,
         1,
@@ -61,8 +59,6 @@ class CleanableTest {
         val empty = MessageId.DEFAULT_INSTANCE
 
         val mutable = MessageId.newMutable().apply {
-            book = "book"
-            sessionGroup = "sessionGroup"
             sessionAlias = "sessionAlias"
             direction = Direction.OUTGOING
             sequence = 1

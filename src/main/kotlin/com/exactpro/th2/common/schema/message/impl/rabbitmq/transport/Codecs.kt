@@ -60,6 +60,8 @@ enum class ValueType(val codec: ValueCodec<*>) {
     GROUP_LIST(GroupListCodec);
 
     companion object {
+        fun forId(id: UByte): ValueType = MAPPING[id.toInt()] ?: UNKNOWN
+
         private val MAPPING: Array<ValueType?> = arrayOfNulls<ValueType>(UByte.MAX_VALUE.toInt()).apply {
             ValueType.values().forEach {
                 this[it.codec.type.toInt()]?.let { previous ->
@@ -68,8 +70,6 @@ enum class ValueType(val codec: ValueCodec<*>) {
                 this[it.codec.type.toInt()] = it
             }
         }
-
-        fun forId(id: UByte): ValueType = MAPPING[id.toInt()] ?: UNKNOWN
     }
 }
 
@@ -374,14 +374,6 @@ object GroupBatchCodec : AbstractCodec<GroupBatch>(50u) {
                 is SessionGroupCodec -> sessionGroup = codec.decode(buffer)
                 is GroupListCodec -> groups = codec.decode(buffer)
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
-            }
-        }
-
-        groups.forEach { group ->
-            group.messages.forEach { message ->
-                val id = message.id
-                id.book = book
-                id.sessionGroup = sessionGroup
             }
         }
     }

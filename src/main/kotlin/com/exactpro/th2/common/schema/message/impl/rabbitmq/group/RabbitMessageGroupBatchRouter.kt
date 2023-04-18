@@ -17,7 +17,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.*
-import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy.Companion.INSTANCE
+import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -44,7 +44,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
 
         val builder = message.toBuilderWithMetadata()
         message.groupsList.forEach { group ->
-            if (group.messagesList.all { INSTANCE.verify(it, pinConfiguration.filters) }) {
+            if (group.messagesList.all { AnyMessageFilterStrategy.verify(it, pinConfiguration.filters) }) {
                 builder.addGroups(group)
             } else {
                 incrementDroppedMetrics(
@@ -80,7 +80,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         return RabbitMessageGroupBatchSubscriber(
             connectionManager,
             pinConfig.queue,
-            { msg: Message, filters: List<RouterFilter> -> INSTANCE.verify(msg, filters) },
+            { msg: Message, filters: List<RouterFilter> -> AnyMessageFilterStrategy.verify(msg, filters) },
             pinName,
             pinConfig.filters,
             connectionManager.configuration.messageRecursionLimit

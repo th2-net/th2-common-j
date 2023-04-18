@@ -33,6 +33,7 @@ data class GroupBatch(
 
     companion object {
         val DEFAULT_GROUPS: MutableList<MessageGroup> = Collections.emptyList()
+        @JvmStatic
         fun newMutable() = GroupBatch(
             groups = mutableListOf()
         )

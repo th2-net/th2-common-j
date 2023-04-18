@@ -64,11 +64,13 @@ data class ParsedMessage(
 
     companion object {
         val DEFAULT_BODY: MutableMap<String, Any> = Collections.emptyMap()
+        @JvmStatic
         fun newMutable() = ParsedMessage(
             id = MessageId.newMutable(),
             metadata = mutableMapOf(),
             body = mutableMapOf()
         )
+        @JvmStatic
         fun newSoftMutable() = ParsedMessage(
             metadata = mutableMapOf(),
             body = mutableMapOf()

@@ -21,8 +21,7 @@ import com.exactpro.th2.common.schema.filter.strategy.impl.checkFieldValue
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import io.netty.buffer.Unpooled
-
-private typealias ProtoDirection = com.exactpro.th2.common.grpc.Direction
+import com.exactpro.th2.common.grpc.Direction as ProtoDirection
 
 fun GroupBatch.toByteArray() = Unpooled.buffer().run {
     GroupBatchCodec.encode(this@toByteArray, this@run)

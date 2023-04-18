@@ -58,11 +58,13 @@ data class RawMessage(
     }
 
     companion object {
+        @JvmStatic
         fun newMutable() = RawMessage(
             id = MessageId.newMutable(),
             metadata = mutableMapOf(),
             body = Unpooled.buffer()
         )
+        @JvmStatic
         fun newSoftMutable() = RawMessage(
             metadata = mutableMapOf()
         )

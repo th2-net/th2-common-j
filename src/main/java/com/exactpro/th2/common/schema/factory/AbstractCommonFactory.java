@@ -118,7 +118,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
 
-    protected static final ObjectMapper MAPPER = new ObjectMapper();
+    public static final ObjectMapper MAPPER = new ObjectMapper();
 
     static  {
         MAPPER.registerModules(
@@ -499,15 +499,15 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(BoxConfiguration.class, true);
     }
 
-    protected CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
+    private CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
         return getConfigurationOrLoad(CradleConfidentialConfiguration.class, false);
     }
 
-    protected CradleNonConfidentialConfiguration getCradleNonConfidentialConfiguration() {
+    private CradleNonConfidentialConfiguration getCradleNonConfidentialConfiguration() {
         return getConfigurationOrLoad(CradleNonConfidentialConfiguration.class, true);
     }
 
-    protected CassandraStorageSettings getCassandraStorageSettings() {
+    private CassandraStorageSettings getCassandraStorageSettings() {
         return getConfigurationOrLoad(CassandraStorageSettings.class, true);
     }
 
@@ -534,6 +534,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
                     // Deserialize on config by two different beans for backward compatibility
                     CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
+                    // FIXME: this approach should be replaced to module structure in future
                     CassandraStorageSettings cassandraStorageSettings = getCassandraStorageSettings();
                     cassandraStorageSettings.setKeyspace(confidentialConfiguration.getKeyspace());
 

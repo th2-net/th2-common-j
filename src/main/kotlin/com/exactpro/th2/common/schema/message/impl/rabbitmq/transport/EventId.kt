@@ -37,6 +37,7 @@ data class EventId(
 
     companion object {
         val DEFAULT_INSTANCE: EventId = EventId()  // FIXME: do smth about its mutability
+        @JvmStatic
         fun newMutable() = EventId()
     }
 }

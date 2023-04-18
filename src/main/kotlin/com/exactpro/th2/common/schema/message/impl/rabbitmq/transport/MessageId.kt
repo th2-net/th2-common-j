@@ -20,8 +20,6 @@ import java.time.Instant
 import java.util.*
 
 data class MessageId(
-    var book: String = "",
-    var sessionGroup: String = "",
     var sessionAlias: String = "",
     var direction: Direction = Direction.INCOMING,
     var sequence: Long = 0,
@@ -37,8 +35,6 @@ data class MessageId(
             "Object can be cleaned because 'subsequence' is immutable"
         }
 
-        book = ""
-        sessionGroup = ""
         sessionAlias = ""
         direction = Direction.INCOMING
         sequence = 0
@@ -49,6 +45,7 @@ data class MessageId(
     companion object {
         val DEFAULT_SUBSEQUENCE: MutableList<Int> = Collections.emptyList()
         val DEFAULT_INSTANCE: MessageId = MessageId() // FIXME: do smth about its mutability
+        @JvmStatic
         fun newMutable() = MessageId(
             subsequence = mutableListOf()
         )
