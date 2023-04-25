@@ -150,7 +150,7 @@ abstract class MapCodec<K, V>(
     private val keyCodec: ValueCodec<K>,
     private val valueCodec: ValueCodec<V>,
 ) : AbstractCodec<MutableMap<K, V>>(type) {
-    override fun read(buffer: ByteBuf): MutableMap<K, V> = mutableMapOf<K, V>().apply {
+    override fun read(buffer: ByteBuf): MutableMap<K, V> = hashMapOf<K, V>().apply {
         while (buffer.isReadable) {
             this[keyCodec.decode(buffer)] = valueCodec.decode(buffer)
         }

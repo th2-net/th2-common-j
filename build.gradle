@@ -29,7 +29,7 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    cradleVersion       = '5.1.0-separate-executor-4678409529-5d1e60e-SNAPSHOT'
+    cradleVersion       = '5.1.0-separate-executor-4783246997-dda4d35-SNAPSHOT'
     junitVersion        = '5.8.2'
     sharedDir           = file("${project.rootDir}/shared")
 }

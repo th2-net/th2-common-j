@@ -67,13 +67,13 @@ data class ParsedMessage(
         @JvmStatic
         fun newMutable() = ParsedMessage(
             id = MessageId.newMutable(),
-            metadata = mutableMapOf(),
-            body = mutableMapOf()
+            metadata = hashMapOf(),
+            body = hashMapOf()
         )
         @JvmStatic
         fun newSoftMutable() = ParsedMessage(
-            metadata = mutableMapOf(),
-            body = mutableMapOf()
+            metadata = hashMapOf(),
+            body = hashMapOf()
         )
     }
 }

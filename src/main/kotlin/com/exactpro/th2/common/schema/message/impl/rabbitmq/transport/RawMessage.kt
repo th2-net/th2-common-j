@@ -61,12 +61,12 @@ data class RawMessage(
         @JvmStatic
         fun newMutable() = RawMessage(
             id = MessageId.newMutable(),
-            metadata = mutableMapOf(),
+            metadata = hashMapOf(),
             body = Unpooled.buffer()
         )
         @JvmStatic
         fun newSoftMutable() = RawMessage(
-            metadata = mutableMapOf()
+            metadata = hashMapOf()
         )
     }
 }
