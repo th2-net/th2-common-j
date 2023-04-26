@@ -16,13 +16,21 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.exactpro.th2.common.grpc.Direction.FIRST
+import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.*
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.BOOK_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.DIRECTION_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.checkFieldValue
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.INCOMING
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.OUTGOING
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import com.exactpro.th2.common.grpc.Direction as ProtoDirection
@@ -32,12 +40,13 @@ fun GroupBatch.toByteArray(): ByteArray = Unpooled.buffer().run {
     ByteArray(readableBytes()).apply(::readBytes)
 }
 
-fun ByteBuf.toByteArray(): ByteArray = ByteArray(readableBytes()).apply(::readBytes)
+fun ByteBuf.toByteArray(): ByteArray = ByteArray(readableBytes())
+    .apply(::readBytes).also { resetReaderIndex() }
 
 val Direction.proto: ProtoDirection
     get() = when (this) {
-        Direction.INCOMING -> ProtoDirection.FIRST
-        Direction.OUTGOING -> ProtoDirection.SECOND
+        INCOMING -> FIRST
+        OUTGOING -> SECOND
     }
 
 fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
@@ -46,12 +55,22 @@ fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
     }
 
     forEach { filterSet ->
-        if (!filterSet.metadata[BOOK_KEY].verify(batch.book)) { return@forEach }
-        if (!filterSet.metadata[SESSION_GROUP_KEY].verify(batch.sessionGroup)) { return@forEach }
+        if (!filterSet.metadata[BOOK_KEY].verify(batch.book)) {
+            return@forEach
+        }
+        if (!filterSet.metadata[SESSION_GROUP_KEY].verify(batch.sessionGroup)) {
+            return@forEach
+        }
 
-        if (!filterSet.metadata[SESSION_ALIAS_KEY].verify(batch.groups) { id.sessionAlias }) { return@forEach }
-        if (!filterSet.metadata[MESSAGE_TYPE_KEY].verify(batch.groups) { if (this is ParsedMessage) type else "" }) { return@forEach }
-        if (!filterSet.metadata[DIRECTION_KEY].verify(batch.groups) { id.direction.proto.name }) { return@forEach }
+        if (!filterSet.metadata[SESSION_ALIAS_KEY].verify(batch.groups) { id.sessionAlias }) {
+            return@forEach
+        }
+        if (!filterSet.metadata[MESSAGE_TYPE_KEY].verify(batch.groups) { if (this is ParsedMessage) type else "" }) {
+            return@forEach
+        }
+        if (!filterSet.metadata[DIRECTION_KEY].verify(batch.groups) { id.direction.proto.name }) {
+            return@forEach
+        }
 
         return batch
     }
@@ -68,7 +87,7 @@ fun EventId.toProto(): EventID = EventID.newBuilder().also {
 
 fun MessageId.toProto(book: String, sessionGroup: String): MessageID = MessageID.newBuilder().also {
     it.bookName = book
-    it.direction = if (direction == Direction.INCOMING) com.exactpro.th2.common.grpc.Direction.FIRST else com.exactpro.th2.common.grpc.Direction.SECOND
+    it.direction = if (direction == INCOMING) FIRST else SECOND
     it.sequence = sequence
     it.timestamp = timestamp.toTimestamp()
 
@@ -83,7 +102,9 @@ fun MessageId.toProto(book: String, sessionGroup: String): MessageID = MessageID
 fun MessageId.toProto(groupBatch: GroupBatch): MessageID = toProto(groupBatch.book, groupBatch.sessionGroup)
 
 private fun Collection<FieldFilterConfiguration>?.verify(value: String): Boolean {
-    if (isNullOrEmpty()) { return true }
+    if (isNullOrEmpty()) {
+        return true
+    }
     return all { it.checkFieldValue(value) }
 }
 
@@ -91,12 +112,18 @@ private inline fun Collection<FieldFilterConfiguration>?.verify(
     messageGroups: Collection<MessageGroup>,
     value: Message<*>.() -> String
 ): Boolean {
-    if (isNullOrEmpty()) { return true }
+    if (isNullOrEmpty()) {
+        return true
+    }
 
     // Illegal cases when groups or messages are empty
-    if (messageGroups.isEmpty()) { return false }
+    if (messageGroups.isEmpty()) {
+        return false
+    }
     val firstGroup = messageGroups.first()
-    if (firstGroup.messages.isEmpty()) { return false }
+    if (firstGroup.messages.isEmpty()) {
+        return false
+    }
 
     return all { filter -> filter.checkFieldValue(firstGroup.messages.first().value()) }
 }
