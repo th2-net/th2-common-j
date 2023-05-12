@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonTypeRef
+import com.fasterxml.jackson.module.kotlin.readValue
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.ByteBufOutputStream
@@ -53,7 +54,7 @@ enum class ValueType(val codec: ValueCodec<*>) {
     RAW_MESSAGE(RawMessageCodec),
     RAW_MESSAGE_BODY(RawMessageBodyCodec),
     PARSED_MESSAGE(ParsedMessageCodec),
-    PARSED_MESSAGE_BODY(ParsedMessageBodyCodec),
+    PARSED_MESSAGE_BODY(ParsedMessageRawBodyCodec),
     MESSAGE_GROUP(MessageGroupCodec),
     MESSAGE_LIST(MessageListCodec),
     GROUP_BATCH(GroupBatchCodec),
@@ -186,11 +187,9 @@ open class CborCodec<T>(type: UByte, private val typeReference: TypeReference<T>
     override fun write(buffer: ByteBuf, value: T) = ByteBufOutputStream(buffer).use {
         MAPPER.writeValue(it as OutputStream, value)
     }
-
-    companion object {
-        private val MAPPER = CBORMapper().registerModule(JavaTimeModule())
-    }
 }
+
+private val MAPPER = CBORMapper().registerModule(JavaTimeModule())
 
 // FIXME: think about checking that type is unique
 object LongTypeCodec : LongCodec(1u)
@@ -313,7 +312,10 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
                 is MetadataCodec -> metadata = codec.decode(buffer)
                 is ProtocolCodec -> protocol = codec.decode(buffer)
                 is MessageTypeCodec -> type = codec.decode(buffer)
-                is ParsedMessageBodyCodec -> body = codec.decode(buffer)
+                is ParsedMessageRawBodyCodec -> {
+                    rawBody = codec.decode(buffer)
+                    bodySupplier = { buf -> ByteBufInputStream(buf).use { MAPPER.readValue(it) } }
+                }
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
@@ -325,11 +327,13 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
         MetadataCodec.encode(value.metadata, buffer)
         ProtocolCodec.encode(value.protocol, buffer)
         MessageTypeCodec.encode(value.type, buffer)
-        ParsedMessageBodyCodec.encode(value.body, buffer)
+        ParsedMessageRawBodyCodec.encode(value.rawBody, buffer)
     }
 }
 
 object ParsedMessageBodyCodec : CborCodec<MutableMap<String, Any>>(31u, jacksonTypeRef())
+
+object ParsedMessageRawBodyCodec : ByteBufCodec(31u)
 
 object MessageGroupCodec : AbstractCodec<MessageGroup>(40u) {
     override fun read(buffer: ByteBuf): MessageGroup = MessageGroup().apply {

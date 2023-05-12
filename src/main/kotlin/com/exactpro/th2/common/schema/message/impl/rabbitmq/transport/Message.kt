@@ -25,7 +25,7 @@ interface Message<T> : Cleanable {
     /** The metadata is not mutable by default */
     var metadata: MutableMap<String, String>
     var protocol: String
-    var body: T
+    val body: T
 
     companion object {
         val DEFAULT_METADATA: MutableMap<String, String> = Collections.emptyMap()

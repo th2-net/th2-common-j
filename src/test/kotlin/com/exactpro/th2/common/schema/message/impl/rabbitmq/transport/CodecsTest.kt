@@ -73,11 +73,7 @@ class CodecsTest {
             ),
             protocol = "proto3",
             type = "some-type",
-            body = mutableMapOf(
-                "simple" to 1,
-                "list" to listOf(1, 2, 3),
-                "map" to mapOf("abc" to "cde")
-            )
+            rawBody = Unpooled.buffer().apply { writeCharSequence("{}", Charsets.UTF_8) }
         )
 
         val batch = GroupBatch(

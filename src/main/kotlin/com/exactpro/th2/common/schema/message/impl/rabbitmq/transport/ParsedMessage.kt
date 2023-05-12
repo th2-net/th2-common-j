@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import io.netty.buffer.ByteBuf
+import io.netty.buffer.Unpooled
 import java.util.*
 
 data class ParsedMessage(
@@ -24,9 +26,19 @@ data class ParsedMessage(
     override var metadata: MutableMap<String, String> = Message.DEFAULT_METADATA,
     override var protocol: String = "",
     var type: String = "",
-    /** The body is not mutable by default */
-    override var body: MutableMap<String, Any> = DEFAULT_BODY, // FIXME: should be lazy deserializing
+    var rawBody: ByteBuf = Unpooled.EMPTY_BUFFER,
 ) : Message<MutableMap<String, Any>> {
+    var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = { DEFAULT_BODY }
+
+    private var _body: MutableMap<String, Any>? = null
+    /** The body is not mutable by default */
+    override val body: MutableMap<String, Any>
+        get() {
+            if (_body == null) {
+                _body = bodySupplier(rawBody)
+            }
+            return requireNotNull(_body) { "body is null" }
+        }
     override fun clean() {
         check(id !== MessageId.DEFAULT_INSTANCE) {
             "Object can be cleaned because 'id' is default instance"
@@ -34,8 +46,8 @@ data class ParsedMessage(
         check(metadata !== Message.DEFAULT_METADATA) {
             "Object can be cleaned because 'metadata' is immutable"
         }
-        check(body !== DEFAULT_BODY) {
-            "Object can be cleaned because 'body' is immutable"
+        check(rawBody !== Unpooled.EMPTY_BUFFER) {
+            "Object can be cleaned because 'rawBody' is immutable"
         }
 
         id.clean()
@@ -43,15 +55,13 @@ data class ParsedMessage(
         metadata.clear()
         protocol = ""
         type = ""
-        body.clear()
+        rawBody.clear()
+        _body = null
     }
 
     override fun softClean() {
         check(metadata !== Message.DEFAULT_METADATA) {
             "Object can be cleaned because 'metadata' is immutable"
-        }
-        check(body !== DEFAULT_BODY) {
-            "Object can be cleaned because 'body' is immutable"
         }
 
         id = MessageId.DEFAULT_INSTANCE
@@ -59,7 +69,7 @@ data class ParsedMessage(
         metadata.clear()
         protocol = ""
         type = ""
-        body.clear()
+        _body = null
     }
 
     companion object {
@@ -68,12 +78,11 @@ data class ParsedMessage(
         fun newMutable() = ParsedMessage(
             id = MessageId.newMutable(),
             metadata = hashMapOf(),
-            body = hashMapOf()
+            rawBody = Unpooled.buffer(),
         )
         @JvmStatic
         fun newSoftMutable() = ParsedMessage(
             metadata = hashMapOf(),
-            body = hashMapOf()
         )
     }
 }
