@@ -19,6 +19,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonTypeRef
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.netty.buffer.ByteBuf
@@ -179,17 +180,7 @@ abstract class InstantCodec(type: UByte) : AbstractCodec<Instant>(type) {
     }
 }
 
-open class CborCodec<T>(type: UByte, private val typeReference: TypeReference<T>) : AbstractCodec<T>(type) {
-    override fun read(buffer: ByteBuf): T = ByteBufInputStream(buffer).use {
-        return MAPPER.readValue(it as InputStream, typeReference)
-    }
-
-    override fun write(buffer: ByteBuf, value: T) = ByteBufOutputStream(buffer).use {
-        MAPPER.writeValue(it as OutputStream, value)
-    }
-}
-
-private val MAPPER = CBORMapper().registerModule(JavaTimeModule())
+private val MAPPER = jacksonObjectMapper().registerModule(JavaTimeModule())
 
 // FIXME: think about checking that type is unique
 object LongTypeCodec : LongCodec(1u)
@@ -330,8 +321,6 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
         ParsedMessageRawBodyCodec.encode(value.rawBody, buffer)
     }
 }
-
-object ParsedMessageBodyCodec : CborCodec<MutableMap<String, Any>>(31u, jacksonTypeRef())
 
 object ParsedMessageRawBodyCodec : ByteBufCodec(31u)
 

@@ -28,7 +28,7 @@ data class ParsedMessage(
     var type: String = "",
     var rawBody: ByteBuf = Unpooled.EMPTY_BUFFER,
 ) : Message<MutableMap<String, Any>> {
-    var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = { DEFAULT_BODY }
+    internal var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = { DEFAULT_BODY }
 
     private var _body: MutableMap<String, Any>? = null
     /** The body is not mutable by default */
@@ -59,19 +59,6 @@ data class ParsedMessage(
         _body = null
     }
 
-    override fun softClean() {
-        check(metadata !== Message.DEFAULT_METADATA) {
-            "Object can be cleaned because 'metadata' is immutable"
-        }
-
-        id = MessageId.DEFAULT_INSTANCE
-        eventId = null
-        metadata.clear()
-        protocol = ""
-        type = ""
-        _body = null
-    }
-
     companion object {
         val DEFAULT_BODY: MutableMap<String, Any> = Collections.emptyMap()
         @JvmStatic
@@ -79,10 +66,6 @@ data class ParsedMessage(
             id = MessageId.newMutable(),
             metadata = hashMapOf(),
             rawBody = Unpooled.buffer(),
-        )
-        @JvmStatic
-        fun newSoftMutable() = ParsedMessage(
-            metadata = hashMapOf(),
         )
     }
 }

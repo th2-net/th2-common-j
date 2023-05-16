@@ -86,18 +86,6 @@ class CleanableTest {
 
         mutable.clean()
         assertEquals(empty, mutable)
-
-        val softMutable = RawMessage.newSoftMutable().apply {
-            id = filledMessageId
-            eventId = filledEventId
-            metadata["property"] = "value"
-            protocol = "protocol"
-            body = Unpooled.buffer().writeByte(64)
-        }
-        assertNotEquals(empty, softMutable)
-
-        softMutable.softClean()
-        assertEquals(empty, softMutable)
     }
 
     @Test
@@ -115,18 +103,6 @@ class CleanableTest {
 
         mutable.clean()
         assertEquals(empty, mutable)
-
-        val softMutable = ParsedMessage.newSoftMutable().apply {
-            id = filledMessageId
-            eventId = filledEventId
-            metadata["property"] = "value"
-            protocol = "protocol"
-            type = "type"
-        }
-        assertNotEquals(empty, softMutable)
-
-        softMutable.softClean()
-        assertEquals(empty, softMutable)
     }
 
     @Test
@@ -140,12 +116,6 @@ class CleanableTest {
 
         mutable.clean()
         assertEquals(empty, mutable)
-
-        mutable.messages.add(ParsedMessage())
-        assertNotEquals(empty, mutable)
-
-        mutable.softClean()
-        assertEquals(empty, mutable)
     }
 
     @Test
@@ -158,12 +128,6 @@ class CleanableTest {
         assertNotEquals(empty, mutable)
 
         mutable.clean()
-        assertEquals(empty, mutable)
-
-        mutable.groups.add(MessageGroup())
-        assertNotEquals(empty, mutable)
-
-        mutable.softClean()
         assertEquals(empty, mutable)
     }
 }

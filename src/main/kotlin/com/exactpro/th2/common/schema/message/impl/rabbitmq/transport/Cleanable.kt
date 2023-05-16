@@ -21,10 +21,4 @@ interface Cleanable {
      * Deep clean
      */
     fun clean()
-
-    /**
-     * Cleans only current layer of th2 entity include collections.
-     * This method can be useful when you need th2 entity builder, but you are going to operate th2 entity separately
-     */
-    fun softClean() = clean()
 }

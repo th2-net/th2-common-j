@@ -45,28 +45,12 @@ data class RawMessage(
         body.clear()
     }
 
-    override fun softClean() {
-        check(metadata !== Message.DEFAULT_METADATA) {
-            "Object can be cleaned because 'metadata' is immutable"
-        }
-
-        id = MessageId.DEFAULT_INSTANCE
-        eventId = null
-        metadata.clear()
-        protocol = ""
-        body = Unpooled.EMPTY_BUFFER
-    }
-
     companion object {
         @JvmStatic
         fun newMutable() = RawMessage(
             id = MessageId.newMutable(),
             metadata = hashMapOf(),
             body = Unpooled.buffer()
-        )
-        @JvmStatic
-        fun newSoftMutable() = RawMessage(
-            metadata = hashMapOf()
         )
     }
 }
