@@ -16,6 +16,9 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.fasterxml.jackson.module.kotlin.readValue
+import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.ByteBufUtil
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -86,5 +89,37 @@ class CodecsTest {
         val decodedBatch = GroupBatchCodec.decode(buffer)
 
         assertEquals(batch, decodedBatch)
+    }
+
+    @Test
+    fun `raw body is updated in parsed message when body is changed`() {
+        val parsedMessage = ParsedMessage.newMutable().apply {
+            id.apply {
+                sessionAlias = "alias1"
+                direction = Direction.INCOMING
+                sequence = 1
+                subsequence = mutableListOf(1)
+                timestamp = Instant.now()
+            }
+            rawBody = Unpooled.buffer().apply {
+                writeCharSequence("{\"field\":42}", Charsets.UTF_8)
+            }
+            bodySupplier = { buf -> ByteBufInputStream(buf).use { ParsedMessageCodec.MAPPER.readValue(it) } }
+        }
+        parsedMessage.body["another"] = "test_data"
+
+        val dest = Unpooled.buffer()
+        ParsedMessageCodec.encode(parsedMessage, dest)
+        val decoded = ParsedMessageCodec.decode(dest)
+        assertEquals(0, dest.readableBytes()) { "unexpected bytes left: ${ByteBufUtil.hexDump(dest)}" }
+
+        assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
+        assertEquals(
+            Unpooled.buffer().apply {
+                writeCharSequence("{\"field\":42,\"another\":\"test_data\"}", Charsets.UTF_8)
+            },
+            decoded.rawBody,
+            "unexpected raw body",
+        )
     }
 }

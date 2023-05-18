@@ -29,15 +29,23 @@ data class ParsedMessage(
     var rawBody: ByteBuf = Unpooled.EMPTY_BUFFER,
 ) : Message<MutableMap<String, Any>> {
     internal var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = { DEFAULT_BODY }
+    internal val bodyChanged: Boolean
+        // probably, it requires something like observable map to track changes
+        // because right now if user requests body and does not change it
+        // we still will have to serialize it again (even though the rawBody is not changed)
+        get() = _body != null
 
     private var _body: MutableMap<String, Any>? = null
     /** The body is not mutable by default */
-    override val body: MutableMap<String, Any>
+    override var body: MutableMap<String, Any>
         get() {
             if (_body == null) {
                 _body = bodySupplier(rawBody)
             }
             return requireNotNull(_body) { "body is null" }
+        }
+        set(value) {
+            _body = value
         }
     override fun clean() {
         check(id !== MessageId.DEFAULT_INSTANCE) {

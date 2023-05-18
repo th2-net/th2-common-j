@@ -17,6 +17,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -180,8 +181,6 @@ abstract class InstantCodec(type: UByte) : AbstractCodec<Instant>(type) {
     }
 }
 
-private val MAPPER = jacksonObjectMapper().registerModule(JavaTimeModule())
-
 // FIXME: think about checking that type is unique
 object LongTypeCodec : LongCodec(1u)
 
@@ -318,8 +317,18 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
         MetadataCodec.encode(value.metadata, buffer)
         ProtocolCodec.encode(value.protocol, buffer)
         MessageTypeCodec.encode(value.type, buffer)
+        if (value.bodyChanged) {
+            // Update raw body because the body was changed
+            ByteBufOutputStream(value.rawBody.clear()).use {
+                MAPPER.writeValue(it as OutputStream, value.body)
+            }
+            value.rawBody.resetReaderIndex()
+        }
         ParsedMessageRawBodyCodec.encode(value.rawBody, buffer)
     }
+
+    @JvmField
+    val MAPPER: ObjectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
 }
 
 object ParsedMessageRawBodyCodec : ByteBufCodec(31u)
