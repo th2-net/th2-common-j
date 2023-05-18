@@ -28,7 +28,7 @@ data class ParsedMessage(
     var type: String = "",
     var rawBody: ByteBuf = Unpooled.EMPTY_BUFFER,
 ) : Message<MutableMap<String, Any>> {
-    internal var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = { DEFAULT_BODY }
+    internal var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = DEFAULT_BODY_SUPPLIER
     internal val bodyChanged: Boolean
         // probably, it requires something like observable map to track changes
         // because right now if user requests body and does not change it
@@ -69,8 +69,10 @@ data class ParsedMessage(
 
     companion object {
         val DEFAULT_BODY: MutableMap<String, Any> = Collections.emptyMap()
+        val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> MutableMap<String, Any> = { hashMapOf() }
+
         @JvmStatic
-        fun newMutable() = ParsedMessage(
+        fun newMutable(): ParsedMessage = ParsedMessage(
             id = MessageId.newMutable(),
             metadata = hashMapOf(),
             rawBody = Unpooled.buffer(),
