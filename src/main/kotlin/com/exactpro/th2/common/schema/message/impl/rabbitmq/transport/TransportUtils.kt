@@ -31,6 +31,7 @@ import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfigura
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.INCOMING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.OUTGOING
+import com.exactpro.th2.common.util.toInstant
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import com.exactpro.th2.common.grpc.Direction as ProtoDirection
@@ -42,12 +43,6 @@ fun GroupBatch.toByteArray(): ByteArray = Unpooled.buffer().run {
 
 fun ByteBuf.toByteArray(): ByteArray = ByteArray(readableBytes())
     .apply(::readBytes).also { resetReaderIndex() }
-
-val Direction.proto: ProtoDirection
-    get() = when (this) {
-        INCOMING -> FIRST
-        OUTGOING -> SECOND
-    }
 
 fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
     if (isEmpty()) {
@@ -78,6 +73,12 @@ fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
     return null
 }
 
+val Direction.proto: ProtoDirection
+    get() = when (this) {
+        INCOMING -> FIRST
+        OUTGOING -> SECOND
+    }
+
 fun EventId.toProto(): EventID = EventID.newBuilder().also {
     it.id = id
     it.bookName = book
@@ -100,6 +101,16 @@ fun MessageId.toProto(book: String, sessionGroup: String): MessageID = MessageID
 }.build()
 
 fun MessageId.toProto(groupBatch: GroupBatch): MessageID = toProto(groupBatch.book, groupBatch.sessionGroup)
+val ProtoDirection.transport: Direction
+    get() = when (this) {
+        FIRST -> INCOMING
+        SECOND -> OUTGOING
+        else -> error("Unsupported $this direction in the th2 transport protocol")
+    }
+
+fun EventID.toTransport(): EventId = EventId(id, bookName, scope, startTimestamp.toInstant())
+fun MessageID.toTransport(): MessageId =
+    MessageId(connectionId.sessionAlias, direction.transport, sequence, subsequenceList, timestamp.toInstant())
 
 private fun Collection<FieldFilterConfiguration>?.verify(value: String): Boolean {
     if (isNullOrEmpty()) {
