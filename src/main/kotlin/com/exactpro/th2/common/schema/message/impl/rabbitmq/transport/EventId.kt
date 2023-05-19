@@ -16,28 +16,26 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.google.auto.value.AutoBuilder
 import java.time.Instant
 
 data class EventId(
-    var id: String = "",
-    var book: String = "",
-    var scope: String = "",
-    var timestamp: Instant = Instant.EPOCH,
-) : Cleanable {
-
-    override fun clean() {
-        check(this !== DEFAULT_INSTANCE) {
-            "Object can be cleaned because it is default instance"
-        }
-        id= ""
-        book = ""
-        scope = ""
-        timestamp = Instant.EPOCH
+    val id: String,
+    val book: String,
+    val scope: String,
+    val timestamp: Instant,
+) {
+    @AutoBuilder
+    interface Builder {
+        fun setId(id: String): Builder
+        fun setBook(book: String): Builder
+        fun setScope(scope: String): Builder
+        fun setTimestamp(timestamp: Instant): Builder
+        fun build(): EventId
     }
 
     companion object {
-        val DEFAULT_INSTANCE: EventId = EventId()  // FIXME: do smth about its mutability
         @JvmStatic
-        fun newMutable() = EventId()
+        fun builder(): Builder = AutoBuilder_EventId_Builder()
     }
 }

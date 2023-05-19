@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
+package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders
 
-interface Message<T> {
-    /** The id is not mutable by default */
-    val id: MessageId
-    val eventId: EventId?
-    /** The metadata is not mutable by default */
-    val metadata: Map<String, String>
-    val protocol: String
-    val body: T
+class CollectionBuilder<T> {
+    private val elements: MutableList<T> = mutableListOf()
 
-    interface Builder<T : Builder<T>> {
-        fun setId(id: MessageId): T
-        fun idBuilder(): MessageId.Builder
-        fun setEventId(eventId: EventId): T
-        fun setProtocol(protocol: String): T
-        fun setMetadata(metadata: Map<String, String>): T
+    fun add(el: T): CollectionBuilder<T> = apply {
+        elements += el
     }
+
+    fun addAll(vararg els: T): CollectionBuilder<T> = apply {
+        for (el in els) {
+            add(el)
+        }
+    }
+
+    fun addAll(elements: Collection<T>): CollectionBuilder<T> = apply {
+        this.elements.addAll(elements)
+    }
+
+    fun build(): List<T> = elements
 }

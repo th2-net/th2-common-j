@@ -16,21 +16,47 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import java.util.*
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.GenericCollectionBuilder
+import com.google.auto.value.AutoBuilder
+
 
 data class MessageGroup(
-    var messages: MutableList<Message<*>> = DEFAULT_MESSAGES, // FIXME: message can have incompatible book and group
-) : Cleanable {
-    override fun clean() {
-        check(messages !== DEFAULT_MESSAGES) {
-            "Object can be cleaned because 'messages' is immutable"
+    val messages: List<Message<*>> = emptyList(), // FIXME: message can have incompatible book and group
+) {
+    // We cannot use AutoBuilder here because of the different method signatures in builder when a generic type is used
+    //
+    @AutoBuilder
+    interface Builder {
+        fun messagesBuilder(): GenericCollectionBuilder<Message<*>>
+        fun addMessage(message: Message<*>): Builder = apply {
+            messagesBuilder().add(message)
         }
-        messages.clear()
+        fun setMessages(message: List<Message<*>>): Builder
+        fun build(): MessageGroup
+    }
+
+    class CollectionBuilder {
+        private val elements: MutableList<Message<*>> = mutableListOf()
+
+        fun add(el: Message<*>): CollectionBuilder = apply {
+            elements += el
+        }
+
+        fun addAll(vararg els: Message<*>): CollectionBuilder = apply {
+            for (el in els) {
+                add(el)
+            }
+        }
+
+        fun addAll(elements: Collection<Message<*>>): CollectionBuilder = apply {
+            this.elements.addAll(elements)
+        }
+
+        fun build(): List<Message<*>> = elements
     }
 
     companion object {
-        val DEFAULT_MESSAGES: MutableList<Message<*>> = Collections.emptyList()
         @JvmStatic
-        fun newMutable() = MessageGroup(mutableListOf())
+        fun builder(): Builder = AutoBuilder_MessageGroup_Builder()
     }
 }

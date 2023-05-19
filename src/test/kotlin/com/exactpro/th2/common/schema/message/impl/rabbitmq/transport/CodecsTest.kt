@@ -93,19 +93,18 @@ class CodecsTest {
 
     @Test
     fun `raw body is updated in parsed message when body is changed`() {
-        val parsedMessage = ParsedMessage.newMutable().apply {
-            id.apply {
-                sessionAlias = "alias1"
-                direction = Direction.INCOMING
-                sequence = 1
-                subsequence = mutableListOf(1)
-                timestamp = Instant.now()
-            }
-            rawBody = Unpooled.buffer().apply {
+        val parsedMessage = ParsedMessage.builder().apply {
+            idBuilder()
+                .setSessionAlias("alias1")
+                .setDirection(Direction.INCOMING)
+                .setSequence(1)
+                .addSubsequence(1)
+                .setTimestamp(Instant.now())
+            setType("test")
+            setRawBody(Unpooled.buffer().apply {
                 writeCharSequence("{\"field\":42}", Charsets.UTF_8)
-            }
-            bodySupplier = { buf -> ByteBufInputStream(buf).use { ParsedMessageCodec.MAPPER.readValue(it) } }
-        }
+            })
+        }.build { buf -> ByteBufInputStream(buf).use { ParsedMessageCodec.MAPPER.readValue(it) } }
         parsedMessage.body["another"] = "test_data"
 
         val dest = Unpooled.buffer()
