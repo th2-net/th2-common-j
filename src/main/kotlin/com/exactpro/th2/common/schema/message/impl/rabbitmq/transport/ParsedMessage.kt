@@ -28,8 +28,8 @@ class ParsedMessage(
     override val metadata: Map<String, String> = emptyMap(),
     override val protocol: String = "",
     val rawBody: ByteBuf = Unpooled.buffer(),
-    body: Map<String, Any> = DEFAULT_BODY,
-) : Message<Map<String, Any>> {
+    body: Map<String, Any?> = DEFAULT_BODY,
+) : Message<Map<String, Any?>> {
     private var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = DEFAULT_BODY_SUPPLIER
 
     /**
@@ -38,7 +38,7 @@ class ParsedMessage(
      */
     val isBodyInRaw: Boolean = body === DEFAULT_BODY
 
-    override val body: Map<String, Any> by lazy {
+    override val body: Map<String, Any?> by lazy {
         if (body == DEFAULT_BODY) {
             bodySupplier.invoke(rawBody).apply {
                 rawBody.resetReaderIndex()
@@ -53,7 +53,7 @@ class ParsedMessage(
     abstract class Builder : Message.Builder<Builder> {
         abstract fun setType(type: String): Builder
         abstract fun setRawBody(rawBody: ByteBuf): Builder
-        abstract fun setBody(body: Map<String, Any>): Builder
+        abstract fun setBody(body: Map<String, Any?>): Builder
         protected abstract fun autoBuild(): ParsedMessage
 
         @JvmOverloads
@@ -63,6 +63,7 @@ class ParsedMessage(
             }
         }
     }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -113,6 +114,7 @@ class ParsedMessage(
         private val DEFAULT_BODY: Map<String, Any> = Collections.unmodifiableMap(emptyMap())
 
         val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> MutableMap<String, Any> = { hashMapOf() }
+
         @JvmStatic
         fun builder(): ParsedMessage.Builder =
             AutoBuilder_ParsedMessage_Builder()

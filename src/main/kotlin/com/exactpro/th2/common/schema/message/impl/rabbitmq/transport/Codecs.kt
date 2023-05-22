@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -318,6 +319,7 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
 
     @JvmField
     val MAPPER: ObjectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
+        .setSerializationInclusion(JsonInclude.Include.ALWAYS)
 }
 
 object ParsedMessageRawBodyCodec : ByteBufCodec(31u)
