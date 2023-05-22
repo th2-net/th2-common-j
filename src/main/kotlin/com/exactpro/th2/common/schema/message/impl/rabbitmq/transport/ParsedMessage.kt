@@ -30,7 +30,7 @@ class ParsedMessage(
     val rawBody: ByteBuf = Unpooled.buffer(),
     body: Map<String, Any?> = DEFAULT_BODY,
 ) : Message<Map<String, Any?>> {
-    private var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = DEFAULT_BODY_SUPPLIER
+    private var bodySupplier: (ByteBuf) -> MutableMap<String, Any?> = DEFAULT_BODY_SUPPLIER
 
     /**
      * Is set to `true` if the [body] is deserialized from the [rawBody].
@@ -57,7 +57,7 @@ class ParsedMessage(
         protected abstract fun autoBuild(): ParsedMessage
 
         @JvmOverloads
-        fun build(bodySupplier: (ByteBuf) -> MutableMap<String, Any> = DEFAULT_BODY_SUPPLIER): ParsedMessage {
+        fun build(bodySupplier: (ByteBuf) -> MutableMap<String, Any?> = DEFAULT_BODY_SUPPLIER): ParsedMessage {
             return autoBuild().apply {
                 this.bodySupplier = bodySupplier
             }
@@ -111,9 +111,9 @@ class ParsedMessage(
          * So, that is why we use unmodifiableMap with emptyMap
          * Otherwise, we won't be able to identify it
          */
-        private val DEFAULT_BODY: Map<String, Any> = Collections.unmodifiableMap(emptyMap())
+        private val DEFAULT_BODY: Map<String, Any?> = Collections.unmodifiableMap(emptyMap())
 
-        val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> MutableMap<String, Any> = { hashMapOf() }
+        val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> MutableMap<String, Any?> = { hashMapOf() }
 
         @JvmStatic
         fun builder(): ParsedMessage.Builder =
