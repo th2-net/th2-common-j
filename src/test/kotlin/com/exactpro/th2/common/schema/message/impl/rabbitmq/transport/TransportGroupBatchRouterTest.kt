@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
 import org.mockito.kotlin.*
+import java.time.Instant
 
 class TransportGroupBatchRouterTest {
     private val connectionConfiguration = ConnectionManagerConfiguration()
@@ -288,7 +289,12 @@ class TransportGroupBatchRouterTest {
             MessageGroup(
                 mutableListOf(
                     ParsedMessage(
-                        MessageId(SESSION_ALIAS),
+                        MessageId.builder()
+                            .setSessionAlias(SESSION_ALIAS)
+                            .setDirection(Direction.INCOMING)
+                            .setSequence(1)
+                            .setTimestamp(Instant.now())
+                            .build(),
                         type = messageType
                     )
                 )
@@ -316,7 +322,12 @@ class TransportGroupBatchRouterTest {
                 MessageGroup(
                     mutableListOf(
                         RawMessage(
-                            MessageId(SESSION_ALIAS),
+                            MessageId.builder()
+                                .setSessionAlias(SESSION_ALIAS)
+                                .setDirection(Direction.INCOMING)
+                                .setSequence(1)
+                                .setTimestamp(Instant.now())
+                                .build(),
                             body = Unpooled.wrappedBuffer(byteArrayOf(1, 2, 3))
                         )
                     )

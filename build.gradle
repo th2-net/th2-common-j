@@ -21,6 +21,7 @@ plugins {
     id 'signing'
     id 'com.google.protobuf' version '0.8.8' apply false
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
+    id 'org.jetbrains.kotlin.kapt' version "${kotlin_version}"
     id "org.owasp.dependencycheck" version "8.1.1"
     id "me.champeau.jmh" version "0.6.8"
 }
@@ -186,6 +187,12 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'
     implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
+
+    def autoValueVersion = '1.10.1'
+    implementation "com.google.auto.value:auto-value-annotations:$autoValueVersion"
+    kapt "com.google.auto.value:auto-value:$autoValueVersion"
+    //this is required to add generated bridge classes for kotlin default constructors
+    implementation(files("$buildDir/tmp/kapt3/classes/main"))
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"

@@ -16,19 +16,19 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.google.auto.value.AutoBuilder
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
-import java.util.*
 
 data class ParsedMessage(
-    override var id: MessageId = MessageId.DEFAULT_INSTANCE,
-    override var eventId: EventId? = null,
-    override var metadata: MutableMap<String, String> = Message.DEFAULT_METADATA,
-    override var protocol: String = "",
-    var type: String = "",
-    var rawBody: ByteBuf = Unpooled.EMPTY_BUFFER,
+    override val id: MessageId,
+    override val eventId: EventId? = null,
+    val type: String,
+    override val metadata: Map<String, String> = emptyMap(),
+    override val protocol: String = "",
+    val rawBody: ByteBuf = Unpooled.buffer(),
 ) : Message<MutableMap<String, Any>> {
-    internal var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = DEFAULT_BODY_SUPPLIER
+    private var bodySupplier: (ByteBuf) -> MutableMap<String, Any> = DEFAULT_BODY_SUPPLIER
     internal val bodyChanged: Boolean
         // probably, it requires something like observable map to track changes
         // because right now if user requests body and does not change it
@@ -47,35 +47,24 @@ data class ParsedMessage(
         set(value) {
             _body = value
         }
-    override fun clean() {
-        check(id !== MessageId.DEFAULT_INSTANCE) {
-            "Object can be cleaned because 'id' is default instance"
-        }
-        check(metadata !== Message.DEFAULT_METADATA) {
-            "Object can be cleaned because 'metadata' is immutable"
-        }
-        check(rawBody !== Unpooled.EMPTY_BUFFER) {
-            "Object can be cleaned because 'rawBody' is immutable"
-        }
 
-        id.clean()
-        eventId = null
-        metadata.clear()
-        protocol = ""
-        type = ""
-        rawBody.clear()
-        _body = null
+    @AutoBuilder
+    abstract class Builder : Message.Builder<Builder> {
+        abstract fun setType(type: String): Builder
+        abstract fun setRawBody(rawBody: ByteBuf): Builder
+        protected abstract fun autoBuild(): ParsedMessage
+        @JvmOverloads
+        fun build(bodySupplier: (ByteBuf) -> MutableMap<String, Any> = DEFAULT_BODY_SUPPLIER): ParsedMessage {
+            return autoBuild().apply {
+                this.bodySupplier = bodySupplier
+            }
+        }
     }
 
     companion object {
-        val DEFAULT_BODY: MutableMap<String, Any> = Collections.emptyMap()
         val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> MutableMap<String, Any> = { hashMapOf() }
-
         @JvmStatic
-        fun newMutable(): ParsedMessage = ParsedMessage(
-            id = MessageId.newMutable(),
-            metadata = hashMapOf(),
-            rawBody = Unpooled.buffer(),
-        )
+        fun builder(): ParsedMessage.Builder =
+            AutoBuilder_ParsedMessage_Builder()
     }
 }

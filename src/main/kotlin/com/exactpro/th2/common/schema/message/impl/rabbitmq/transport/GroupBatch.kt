@@ -16,26 +16,28 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import java.util.*
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.CollectionBuilder
+import com.google.auto.value.AutoBuilder
 
 data class GroupBatch(
-    var book: String = "",
-    var sessionGroup: String = "",
-    var groups: MutableList<MessageGroup> = DEFAULT_GROUPS,
-) : Cleanable {
-    override fun clean() {
-        check(groups !== DEFAULT_GROUPS) {
-            "Object can be cleaned because 'groups' is immutable"
+    val book: String,
+    val sessionGroup: String,
+    val groups: List<MessageGroup> = emptyList(),
+) {
+    @AutoBuilder
+    interface Builder {
+        fun setBook(book: String): Builder
+        fun setSessionGroup(sessionGroup: String): Builder
+        fun groupsBuilder(): CollectionBuilder<MessageGroup>
+        fun addGroup(group: MessageGroup): Builder = apply {
+            groupsBuilder().add(group)
         }
-
-        groups.clear()
+        fun setGroups(groups: List<MessageGroup>): Builder
+        fun build(): GroupBatch
     }
 
     companion object {
-        val DEFAULT_GROUPS: MutableList<MessageGroup> = Collections.emptyList()
         @JvmStatic
-        fun newMutable() = GroupBatch(
-            groups = mutableListOf()
-        )
+        fun builder(): Builder = AutoBuilder_GroupBatch_Builder()
     }
 }

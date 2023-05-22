@@ -1,5 +1,6 @@
 /*
  * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -49,7 +50,10 @@ class TransportGroupBatchRouterIntegrationTest {
                                 val counter = CountDownLatch(1)
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
-                                    secondRouter.sendExclusive(monitor.queue, GroupBatch())
+                                    secondRouter.sendExclusive(monitor.queue, GroupBatch.builder()
+                                        .setBook("")
+                                        .setSessionGroup("")
+                                        .build())
                                     assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
                                 } finally {
@@ -80,7 +84,10 @@ class TransportGroupBatchRouterIntegrationTest {
                                 val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
                                 try {
 
-                                    secondRouter.sendExclusive(monitor.queue, GroupBatch())
+                                    secondRouter.sendExclusive(monitor.queue, GroupBatch.builder()
+                                        .setBook("")
+                                        .setSessionGroup("")
+                                        .build())
                                     assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
                                 } finally {
