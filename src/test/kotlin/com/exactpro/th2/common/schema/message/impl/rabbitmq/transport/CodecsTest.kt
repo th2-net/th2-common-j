@@ -101,11 +101,13 @@ class CodecsTest {
                 .addSubsequence(1)
                 .setTimestamp(Instant.now())
             setType("test")
-            setRawBody(Unpooled.buffer().apply {
-                writeCharSequence("{\"field\":42}", Charsets.UTF_8)
-            })
+            setBody(
+                linkedMapOf(
+                    "field" to 42,
+                    "another" to "test_data",
+                )
+            )
         }.build { buf -> ByteBufInputStream(buf).use { ParsedMessageCodec.MAPPER.readValue(it) } }
-        parsedMessage.body["another"] = "test_data"
 
         val dest = Unpooled.buffer()
         ParsedMessageCodec.encode(parsedMessage, dest)

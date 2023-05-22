@@ -306,7 +306,7 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
         MetadataCodec.encode(value.metadata, buffer)
         ProtocolCodec.encode(value.protocol, buffer)
         MessageTypeCodec.encode(value.type, buffer)
-        if (value.bodyChanged) {
+        if (!value.isBodyInRaw) {
             // Update raw body because the body was changed
             ByteBufOutputStream(value.rawBody.clear()).use {
                 MAPPER.writeValue(it as OutputStream, value.body)
