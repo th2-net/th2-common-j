@@ -21,11 +21,7 @@ import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.BOOK_KEY
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.DIRECTION_KEY
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.*
 import com.exactpro.th2.common.schema.filter.strategy.impl.checkFieldValue
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
@@ -110,7 +106,7 @@ val ProtoDirection.transport: Direction
 
 fun EventID.toTransport(): EventId = EventId(id, bookName, scope, startTimestamp.toInstant())
 fun MessageID.toTransport(): MessageId =
-    MessageId(connectionId.sessionAlias, direction.transport, sequence, subsequenceList, timestamp.toInstant())
+    MessageId(connectionId.sessionAlias, direction.transport, sequence, timestamp.toInstant(), subsequenceList)
 
 private fun Collection<FieldFilterConfiguration>?.verify(value: String): Boolean {
     if (isNullOrEmpty()) {
