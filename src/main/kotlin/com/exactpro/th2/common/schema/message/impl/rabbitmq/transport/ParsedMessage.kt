@@ -16,21 +16,58 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.google.auto.value.AutoBuilder
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
+import com.google.common.collect.ImmutableMap
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import java.util.Collections
 
-class ParsedMessage(
+class ParsedMessage private constructor(
     override val id: MessageId,
     override val eventId: EventId? = null,
     val type: String,
     override val metadata: Map<String, String> = emptyMap(),
     override val protocol: String = "",
     val rawBody: ByteBuf = Unpooled.buffer(),
+    private val bodySupplier: (ByteBuf) -> Map<String, Any?> = DEFAULT_BODY_SUPPLIER,
     body: Map<String, Any?> = DEFAULT_BODY,
 ) : Message<Map<String, Any?>> {
-    private var bodySupplier: (ByteBuf) -> MutableMap<String, Any?> = DEFAULT_BODY_SUPPLIER
+    constructor(
+        id: MessageId,
+        eventId: EventId? = null,
+        type: String,
+        metadata: Map<String, String> = emptyMap(),
+        protocol: String = "",
+        rawBody: ByteBuf = Unpooled.buffer(),
+        bodySupplier: (ByteBuf) -> Map<String, Any?> = DEFAULT_BODY_SUPPLIER,
+    ) : this(
+        id = id,
+        eventId = eventId,
+        type = type,
+        metadata = metadata,
+        protocol = protocol,
+        rawBody = rawBody,
+        bodySupplier = bodySupplier,
+        body = DEFAULT_BODY,
+    )
+
+    constructor(
+        id: MessageId,
+        eventId: EventId? = null,
+        type: String,
+        metadata: Map<String, String> = emptyMap(),
+        protocol: String = "",
+        body: Map<String, Any?>,
+    ) : this(
+        id = id,
+        eventId = eventId,
+        type = type,
+        metadata = metadata,
+        protocol = protocol,
+        rawBody = Unpooled.buffer(),
+        bodySupplier = DEFAULT_BODY_SUPPLIER,
+        body = body,
+    )
 
     /**
      * Is set to `true` if the [body] is deserialized from the [rawBody].
@@ -49,19 +86,20 @@ class ParsedMessage(
     }
 
 
-    @AutoBuilder
-    abstract class Builder : Message.Builder<Builder> {
-        abstract fun setType(type: String): Builder
-        abstract fun setRawBody(rawBody: ByteBuf): Builder
-        abstract fun setBody(body: Map<String, Any?>): Builder
-        protected abstract fun autoBuild(): ParsedMessage
+    interface Builder<out T : Builder<T>> : Message.Builder<T> {
+        fun setType(type: String): T
+        fun metadataBuilder(): ImmutableMap.Builder<String, String>
+        fun addMetadataProperty(key: String, value: String): T
+        fun build(): ParsedMessage
+    }
+    interface FromRawBuilder : Builder<FromRawBuilder> {
+        fun setRawBody(rawBody: ByteBuf): FromRawBuilder
+    }
 
-        @JvmOverloads
-        fun build(bodySupplier: (ByteBuf) -> MutableMap<String, Any?> = DEFAULT_BODY_SUPPLIER): ParsedMessage {
-            return autoBuild().apply {
-                this.bodySupplier = bodySupplier
-            }
-        }
+    interface FromMapBuilder : Builder<FromMapBuilder> {
+        fun setBody(body: Map<String, Any?>): FromMapBuilder
+        fun bodyBuilder(): MapBuilder<String, Any?>
+        fun addField(name: String, value: Any?): FromMapBuilder
     }
 
     override fun equals(other: Any?): Boolean {
@@ -113,10 +151,129 @@ class ParsedMessage(
          */
         private val DEFAULT_BODY: Map<String, Any?> = Collections.unmodifiableMap(emptyMap())
 
-        val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> MutableMap<String, Any?> = { hashMapOf() }
+        val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> Map<String, Any?> = { emptyMap() }
 
         @JvmStatic
-        fun builder(): ParsedMessage.Builder =
-            AutoBuilder_ParsedMessage_Builder()
+        fun builder(bodySupplier: (ByteBuf) -> Map<String, Any?>): FromRawBuilder = FromRawBuilderImpl(bodySupplier)
+
+        @JvmStatic
+        fun builder(): FromMapBuilder = FromMapBuilderImpl()
     }
+}
+
+private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : ParsedMessage.Builder<T> {
+    protected var idBuilder: MessageId.Builder? = null
+    protected var id: MessageId? = null
+    protected var eventId: EventId? = null
+    protected var protocol: String? = null
+    protected var type: String? = null
+    protected var metadataBuilder: ImmutableMap.Builder<String, String>? = null
+    protected var metadata: Map<String, String>? = emptyMap()
+    override fun setId(id: MessageId): T = self {
+        require(idBuilder == null) {
+            "cannot set id after calling idBuilder()"
+        }
+        this.id = id
+    }
+
+    override fun idBuilder(): MessageId.Builder {
+        if (idBuilder == null) {
+            idBuilder = id?.toBuilder()?.also {
+                id = null
+            } ?: MessageId.builder()
+        }
+        return requireNotNull(idBuilder) { "idBuilder is null" }
+    }
+
+    override fun setEventId(eventId: EventId): T = self {
+        this.eventId = eventId
+    }
+
+    override fun setProtocol(protocol: String): T = self {
+        this.protocol = protocol
+    }
+
+    override fun setMetadata(metadata: Map<String, String>): T = self {
+        require(metadataBuilder == null) {
+            "cannot set metadata after calling metadataBuilder()"
+        }
+        this.metadata = metadata
+    }
+
+    override fun setType(type: String): T = self {
+        this.type = type
+    }
+
+    override fun metadataBuilder(): ImmutableMap.Builder<String, String> {
+        if (metadataBuilder == null) {
+            metadataBuilder = metadata?.let {
+                metadata = null
+                ImmutableMap.builder<String?, String?>().putAll(it)
+            } ?: ImmutableMap.builder()
+        }
+        return requireNotNull(metadataBuilder) { "metadataBuilder is null" }
+    }
+
+    override fun addMetadataProperty(key: String, value: String): T = self {
+        metadataBuilder().put(key, value)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private inline fun self(block: BaseParsedBuilder<T>.() -> Unit): T {
+        block()
+        return this as T
+    }
+}
+
+private class FromRawBuilderImpl(
+    private val bodySupplier: (ByteBuf) -> Map<String, Any?>,
+) : BaseParsedBuilder<ParsedMessage.FromRawBuilder>(), ParsedMessage.FromRawBuilder {
+    private var rawBody: ByteBuf? = null
+    override fun setRawBody(rawBody: ByteBuf): ParsedMessage.FromRawBuilder = apply {
+        this.rawBody = rawBody
+    }
+
+    override fun build(): ParsedMessage = ParsedMessage(
+        id = id ?: idBuilder?.build() ?: error("missing id"),
+        eventId = eventId,
+        type = type ?: error("missing type"),
+        metadata = metadata ?: metadataBuilder?.build() ?: emptyMap(),
+        protocol = protocol ?: "",
+        rawBody = rawBody ?: error("missing raw body"),
+        bodySupplier = bodySupplier,
+    )
+}
+
+private class FromMapBuilderImpl : BaseParsedBuilder<ParsedMessage.FromMapBuilder>(), ParsedMessage.FromMapBuilder {
+    private var body: Map<String, Any?>? = null
+    private var bodyBuilder: MapBuilder<String, Any?>? = null
+    override fun setBody(body: Map<String, Any?>): ParsedMessage.FromMapBuilder = apply {
+        require(bodyBuilder == null) {
+            "cannot set body after calling bodyBuilder()"
+        }
+        this.body = body
+    }
+
+    override fun bodyBuilder(): MapBuilder<String, Any?> {
+        if (bodyBuilder == null) {
+            bodyBuilder = body?.let {
+                body = null
+                MapBuilder<String, Any?>().putAll(it)
+            } ?: MapBuilder()
+        }
+        return requireNotNull(bodyBuilder) { "bodyBuilder is null" }
+    }
+
+    override fun addField(name: String, value: Any?): ParsedMessage.FromMapBuilder = apply {
+        bodyBuilder().put(name, value)
+    }
+
+    override fun build(): ParsedMessage = ParsedMessage(
+        id = id ?: idBuilder?.build() ?: error("missing id"),
+        eventId = eventId,
+        type = type ?: error("missing type"),
+        metadata = metadata ?: metadataBuilder?.build() ?: emptyMap(),
+        protocol = protocol ?: "",
+        body = body ?: bodyBuilder?.build() ?: error("missing body"),
+    )
 }

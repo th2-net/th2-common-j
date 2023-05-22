@@ -16,9 +16,16 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.*
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.BOOK_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.DIRECTION_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.*
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.EQUAL
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.NOT_EMPTY
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.NOT_EQUAL
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.WILDCARD
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.util.emptyMultiMap
@@ -126,6 +133,7 @@ class TransportUtilsTest {
                                     .setTimestamp(Instant.now())
                                     .build())
                                 .setType(msgType)
+                                .setBody(emptyMap())
                                 .build())
                             .build()
                     ).build()
@@ -139,6 +147,7 @@ class TransportUtilsTest {
                         MessageGroup.builder()
                             .addMessage(ParsedMessage.builder()
                                 .setType(msgType)
+                                .setBody(emptyMap())
                                 .apply {
                                     idBuilder()
                                         .setSessionAlias("alias")
@@ -158,6 +167,7 @@ class TransportUtilsTest {
                         MessageGroup.builder()
                             .addMessage(ParsedMessage.builder()
                                 .setType(msgType)
+                                .setBody(emptyMap())
                                 .apply {
                                     idBuilder()
                                         .setSessionAlias("alias")

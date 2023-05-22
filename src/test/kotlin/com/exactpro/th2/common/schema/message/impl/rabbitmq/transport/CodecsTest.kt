@@ -16,8 +16,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.fasterxml.jackson.module.kotlin.readValue
-import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.ByteBufUtil
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -107,7 +105,7 @@ class CodecsTest {
                     "another" to "test_data",
                 )
             )
-        }.build { buf -> ByteBufInputStream(buf).use { ParsedMessageCodec.MAPPER.readValue(it) } }
+        }.build()
 
         val dest = Unpooled.buffer()
         ParsedMessageCodec.encode(parsedMessage, dest)

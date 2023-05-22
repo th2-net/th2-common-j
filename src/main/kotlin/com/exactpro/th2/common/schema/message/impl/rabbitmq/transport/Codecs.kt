@@ -287,7 +287,9 @@ object RawMessageCodec : AbstractCodec<RawMessage>(20u) {
 object RawMessageBodyCodec : ByteBufCodec(21u)
 
 object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
-    override fun read(buffer: ByteBuf): ParsedMessage = ParsedMessage.builder().apply {
+    override fun read(buffer: ByteBuf): ParsedMessage = ParsedMessage.builder { buf ->
+        ByteBufInputStream(buf).use { MAPPER.readValue(it) }
+    }.apply {
         buffer.forEachValue { codec ->
             when (codec) {
                 is MessageIdCodec -> setId(codec.decode(buffer))
@@ -299,7 +301,7 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
-    }.build { buf -> ByteBufInputStream(buf).use { MAPPER.readValue(it) } }
+    }.build()
 
     override fun write(buffer: ByteBuf, value: ParsedMessage) {
         MessageIdCodec.encode(value.id, buffer)
