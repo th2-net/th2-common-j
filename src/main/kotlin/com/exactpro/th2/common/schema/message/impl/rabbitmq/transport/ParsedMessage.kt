@@ -76,7 +76,7 @@ class ParsedMessage private constructor(
     val isBodyInRaw: Boolean = body === DEFAULT_BODY
 
     override val body: Map<String, Any?> by lazy {
-        if (body == DEFAULT_BODY) {
+        if (body === DEFAULT_BODY) {
             bodySupplier.invoke(rawBody).apply {
                 rawBody.resetReaderIndex()
             }
