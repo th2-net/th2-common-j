@@ -20,17 +20,30 @@ import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.grpc.Value
+import com.exactpro.th2.common.grpc.Value.KindCase.LIST_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.MESSAGE_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.NULL_VALUE
+import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
+import com.exactpro.th2.common.message.addField
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.*
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.BOOK_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.DIRECTION_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.checkFieldValue
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.INCOMING
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.OUTGOING
 import com.exactpro.th2.common.util.toInstant
+import com.exactpro.th2.common.value.toValue
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import com.exactpro.th2.common.grpc.Direction as ProtoDirection
+import com.exactpro.th2.common.grpc.Message as ProtoMessage
 
 fun GroupBatch.toByteArray(): ByteArray = Unpooled.buffer().run {
     GroupBatchCodec.encode(this@toByteArray, this@run)
@@ -104,9 +117,45 @@ val ProtoDirection.transport: Direction
         else -> error("Unsupported $this direction in the th2 transport protocol")
     }
 
+fun ParsedMessage.toProto(book: String, sessionGroup: String): ProtoMessage = ProtoMessage.newBuilder().apply {
+    metadataBuilder.apply {
+        id = this@toProto.id.toProto(book, sessionGroup)
+        messageType = this@toProto.type
+        protocol = this@toProto.protocol
+        putAllProperties(this@toProto.metadata)
+    }
+    body.forEach { (key, value) -> addField(key, value.toValue()) }
+    eventId?.let { parentEventId = eventId.toProto() }
+}.build()
+
 fun EventID.toTransport(): EventId = EventId(id, bookName, scope, startTimestamp.toInstant())
 fun MessageID.toTransport(): MessageId =
     MessageId(connectionId.sessionAlias, direction.transport, sequence, timestamp.toInstant(), subsequenceList)
+
+fun Value.toTransport(): Any? = when (kindCase) {
+    NULL_VALUE -> null
+    SIMPLE_VALUE -> simpleValue
+    MESSAGE_VALUE -> messageValue.fieldsMap.mapValues { entry -> entry.value.toTransport() }
+    LIST_VALUE -> listValue.valuesList.map(Value::toTransport)
+    else -> "Unsupported $kindCase kind for transformation, value: ${toJson()}"
+}
+
+fun ProtoMessage.toTransport(): ParsedMessage = ParsedMessage.builder().apply {
+    with(metadata) {
+        setId(id.toTransport())
+        setType(messageType)
+        setProtocol(protocol)
+        setMetadata(propertiesMap)
+    }
+    with(bodyBuilder()) {
+        fieldsMap.forEach { (key, value) ->
+            put(key, value.toTransport())
+        }
+    }
+    if (hasParentEventId()) {
+        setEventId(parentEventId.toTransport())
+    }
+}.build()
 
 private fun Collection<FieldFilterConfiguration>?.verify(value: String): Boolean {
     if (isNullOrEmpty()) {

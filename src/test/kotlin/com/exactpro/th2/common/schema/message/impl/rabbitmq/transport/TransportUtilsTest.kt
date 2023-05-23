@@ -31,10 +31,13 @@ import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.util.emptyMultiMap
 import org.apache.commons.collections4.MultiMapUtils
 import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
+import kotlin.random.Random
+import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 
@@ -54,12 +57,14 @@ class TransportUtilsTest {
     private val routerFilters = listOf(
         MqRouterFilterConfiguration(
             MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
-                putAll(BOOK_KEY, listOf(
-                    FieldFilterConfiguration(BOOK_KEY, bookA, EQUAL),
-                    FieldFilterConfiguration(BOOK_KEY, "*A", WILDCARD),
-                    FieldFilterConfiguration(BOOK_KEY, null, NOT_EMPTY),
-                    FieldFilterConfiguration(BOOK_KEY, bookB, NOT_EQUAL)
-                ))
+                putAll(
+                    BOOK_KEY, listOf(
+                        FieldFilterConfiguration(BOOK_KEY, bookA, EQUAL),
+                        FieldFilterConfiguration(BOOK_KEY, "*A", WILDCARD),
+                        FieldFilterConfiguration(BOOK_KEY, null, NOT_EMPTY),
+                        FieldFilterConfiguration(BOOK_KEY, bookB, NOT_EQUAL)
+                    )
+                )
                 put(SESSION_GROUP_KEY, FieldFilterConfiguration(SESSION_GROUP_KEY, "*A", WILDCARD))
                 put(SESSION_ALIAS_KEY, FieldFilterConfiguration(SESSION_ALIAS_KEY, null, NOT_EMPTY))
                 put(MESSAGE_TYPE_KEY, FieldFilterConfiguration(MESSAGE_TYPE_KEY, null, NOT_EMPTY))
@@ -69,12 +74,14 @@ class TransportUtilsTest {
         ),
         MqRouterFilterConfiguration(
             MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
-                putAll(BOOK_KEY, listOf(
-                    FieldFilterConfiguration(BOOK_KEY, bookB, EQUAL),
-                    FieldFilterConfiguration(BOOK_KEY, "*B", WILDCARD),
-                    FieldFilterConfiguration(BOOK_KEY, null, NOT_EMPTY),
-                    FieldFilterConfiguration(BOOK_KEY, bookA, NOT_EQUAL)
-                ))
+                putAll(
+                    BOOK_KEY, listOf(
+                        FieldFilterConfiguration(BOOK_KEY, bookB, EQUAL),
+                        FieldFilterConfiguration(BOOK_KEY, "*B", WILDCARD),
+                        FieldFilterConfiguration(BOOK_KEY, null, NOT_EMPTY),
+                        FieldFilterConfiguration(BOOK_KEY, bookA, NOT_EQUAL)
+                    )
+                )
                 put(SESSION_GROUP_KEY, FieldFilterConfiguration(SESSION_GROUP_KEY, "*B", WILDCARD))
                 put(SESSION_ALIAS_KEY, FieldFilterConfiguration(SESSION_ALIAS_KEY, null, NOT_EMPTY))
                 put(MESSAGE_TYPE_KEY, FieldFilterConfiguration(MESSAGE_TYPE_KEY, null, NOT_EMPTY))
@@ -125,16 +132,20 @@ class TransportUtilsTest {
                     .setSessionGroup(groupA)
                     .addGroup(
                         MessageGroup.builder()
-                            .addMessage(ParsedMessage.builder()
-                                .setId(MessageId.builder()
-                                    .setSessionAlias("")
-                                    .setDirection(Direction.OUTGOING)
-                                    .setSequence(1)
-                                    .setTimestamp(Instant.now())
-                                    .build())
-                                .setType(msgType)
-                                .setBody(emptyMap())
-                                .build())
+                            .addMessage(
+                                ParsedMessage.builder()
+                                    .setId(
+                                        MessageId.builder()
+                                            .setSessionAlias("")
+                                            .setDirection(Direction.OUTGOING)
+                                            .setSequence(1)
+                                            .setTimestamp(Instant.now())
+                                            .build()
+                                    )
+                                    .setType(msgType)
+                                    .setBody(emptyMap())
+                                    .build()
+                            )
                             .build()
                     ).build()
                 assertNull(routerFilters.filter(batch))
@@ -145,16 +156,18 @@ class TransportUtilsTest {
                     .setSessionGroup(groupA)
                     .addGroup(
                         MessageGroup.builder()
-                            .addMessage(ParsedMessage.builder()
-                                .setType(msgType)
-                                .setBody(emptyMap())
-                                .apply {
-                                    idBuilder()
-                                        .setSessionAlias("alias")
-                                        .setDirection(Direction.OUTGOING)
-                                        .setSequence(1)
-                                        .setTimestamp(Instant.now())
-                                }.build())
+                            .addMessage(
+                                ParsedMessage.builder()
+                                    .setType(msgType)
+                                    .setBody(emptyMap())
+                                    .apply {
+                                        idBuilder()
+                                            .setSessionAlias("alias")
+                                            .setDirection(Direction.OUTGOING)
+                                            .setSequence(1)
+                                            .setTimestamp(Instant.now())
+                                    }.build()
+                            )
                             .build()
                     ).build()
                 assertSame(batch, routerFilters.filter(batch))
@@ -165,20 +178,75 @@ class TransportUtilsTest {
                     .setSessionGroup(groupB)
                     .addGroup(
                         MessageGroup.builder()
-                            .addMessage(ParsedMessage.builder()
-                                .setType(msgType)
-                                .setBody(emptyMap())
-                                .apply {
-                                    idBuilder()
-                                        .setSessionAlias("alias")
-                                        .setDirection(Direction.INCOMING)
-                                        .setSequence(1)
-                                        .setTimestamp(Instant.now())
-                                }.build())
+                            .addMessage(
+                                ParsedMessage.builder()
+                                    .setType(msgType)
+                                    .setBody(emptyMap())
+                                    .apply {
+                                        idBuilder()
+                                            .setSessionAlias("alias")
+                                            .setDirection(Direction.INCOMING)
+                                            .setSequence(1)
+                                            .setTimestamp(Instant.now())
+                                    }.build()
+                            )
                             .build()
                     ).build()
                 assertSame(batch, routerFilters.filter(batch))
             },
         )
+    }
+
+    @Test
+    fun `proto to transport and back test`() {
+        val transport = ParsedMessage.builder().apply {
+            idBuilder().apply {
+                setSessionAlias("test-session-alias")
+                setDirection(Direction.OUTGOING)
+                setTimestamp(Instant.now())
+                setSequence(Random.nextLong())
+                setSubsequence((1..Random.nextInt(2, 5)).map { Random.nextInt() })
+            }
+            setEventId(EventId.builder().apply {
+                setId("test-id")
+                setBook(BOOK_NAME)
+                setScope("test-scope")
+                setTimestamp(Instant.now())
+            }.build())
+            setProtocol("test-protocol")
+            setType("test-type")
+            metadataBuilder().apply {
+                put("test-property", "test-property-value")
+            }
+            bodyBuilder().apply {
+                put("null", null)
+                put("simple", "test-simple")
+                put("list", listOf("simple", null))
+                put(
+                    "map", mapOf(
+                        "null" to null,
+                        "simple" to "test-sub-simple",
+                        "list" to listOf("simple", null),
+                        "map" to mapOf(
+                            "null" to null,
+                            "simple" to "test-sub-sub-simple",
+                        )
+                    )
+                )
+            }
+            setType("test-type")
+        }.build()
+
+        val proto = transport.toProto(BOOK_NAME, SESSION_GROUP)
+        assertEquals(BOOK_NAME, proto.metadata.id.bookName)
+        assertEquals(SESSION_GROUP, proto.metadata.id.connectionId.sessionGroup)
+        proto.toTransport().apply {
+            assertEquals(transport, this)
+        }
+    }
+
+    companion object {
+        const val BOOK_NAME = "test-book"
+        val SESSION_GROUP = "test-session-group"
     }
 }
