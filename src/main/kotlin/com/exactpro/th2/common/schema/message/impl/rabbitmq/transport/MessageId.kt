@@ -30,6 +30,11 @@ data class MessageId(
 ) {
     @AutoBuilder
     interface Builder {
+        val sessionAlias: String
+        val direction: Direction
+        val sequence: Long
+        val timestamp: Instant
+
         fun setSessionAlias(sessionAlias: String): Builder
         fun setDirection(direction: Direction): Builder
         fun setSequence(sequence: Long): Builder
@@ -38,6 +43,7 @@ data class MessageId(
         fun addSubsequence(subsequnce: Int): Builder = apply {
             subsequenceBuilder().add(subsequnce)
         }
+
         fun setSubsequence(subsequence: List<Int>): Builder
         fun build(): MessageId
     }
@@ -45,6 +51,9 @@ data class MessageId(
     fun toBuilder(): MessageId.Builder = AutoBuilder_MessageId_Builder(this)
 
     companion object {
+        @JvmStatic
+        val DEFAULT: MessageId = MessageId("", Direction.OUTGOING, 0, Instant.EPOCH)
+
         @JvmStatic
         fun builder(): Builder = AutoBuilder_MessageId_Builder()
     }

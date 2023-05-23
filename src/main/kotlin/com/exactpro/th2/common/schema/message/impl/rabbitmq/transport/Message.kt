@@ -20,12 +20,15 @@ interface Message<T> {
     /** The id is not mutable by default */
     val id: MessageId
     val eventId: EventId?
+
     /** The metadata is not mutable by default */
     val metadata: Map<String, String>
     val protocol: String
     val body: T
 
     interface Builder<out T : Builder<T>> {
+        val protocol: String
+
         fun setId(id: MessageId): T
         fun idBuilder(): MessageId.Builder
         fun setEventId(eventId: EventId): T

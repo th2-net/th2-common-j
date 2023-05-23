@@ -21,7 +21,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 
 data class RawMessage(
-    override val id: MessageId,
+    override val id: MessageId = MessageId.DEFAULT,
     override val eventId: EventId? = null,
     override val metadata: Map<String, String> = emptyMap(),
     override val protocol: String = "",
@@ -30,6 +30,8 @@ data class RawMessage(
 ) : Message<ByteBuf> {
     @AutoBuilder
     interface Builder : Message.Builder<Builder> {
+        val body: ByteBuf
+
         fun setBody(body: ByteBuf): Builder
         fun build(): RawMessage
     }

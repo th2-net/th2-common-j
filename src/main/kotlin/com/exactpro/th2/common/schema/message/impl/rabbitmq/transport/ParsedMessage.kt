@@ -20,10 +20,10 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.M
 import com.google.common.collect.ImmutableMap
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
-import java.util.Collections
+import java.util.*
 
 class ParsedMessage private constructor(
-    override val id: MessageId,
+    override val id: MessageId = MessageId.DEFAULT,
     override val eventId: EventId? = null,
     val type: String,
     override val metadata: Map<String, String> = emptyMap(),
@@ -33,7 +33,7 @@ class ParsedMessage private constructor(
     body: Map<String, Any?> = DEFAULT_BODY,
 ) : Message<Map<String, Any?>> {
     constructor(
-        id: MessageId,
+        id: MessageId = MessageId.DEFAULT,
         eventId: EventId? = null,
         type: String,
         metadata: Map<String, String> = emptyMap(),
@@ -52,7 +52,7 @@ class ParsedMessage private constructor(
     )
 
     constructor(
-        id: MessageId,
+        id: MessageId = MessageId.DEFAULT,
         eventId: EventId? = null,
         type: String,
         metadata: Map<String, String> = emptyMap(),
@@ -87,11 +87,14 @@ class ParsedMessage private constructor(
 
 
     interface Builder<out T : Builder<T>> : Message.Builder<T> {
+        val type: String
+
         fun setType(type: String): T
         fun metadataBuilder(): ImmutableMap.Builder<String, String>
         fun addMetadataProperty(key: String, value: String): T
         fun build(): ParsedMessage
     }
+
     interface FromRawBuilder : Builder<FromRawBuilder> {
         fun setRawBody(rawBody: ByteBuf): FromRawBuilder
     }
@@ -165,10 +168,17 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
     protected var idBuilder: MessageId.Builder? = null
     protected var id: MessageId? = null
     protected var eventId: EventId? = null
-    protected var protocol: String? = null
-    protected var type: String? = null
+    protected var _protocol: String? = null
+    protected var _type: String? = null
     protected var metadataBuilder: ImmutableMap.Builder<String, String>? = null
     protected var metadata: Map<String, String>? = emptyMap()
+    override val protocol: String
+        get() = this._protocol ?: ""
+    override val type: String
+        get() = requireNotNull(this._type) {
+            "Property \"type\" has not been set"
+        }
+
     override fun setId(id: MessageId): T = self {
         require(idBuilder == null) {
             "cannot set id after calling idBuilder()"
@@ -190,7 +200,7 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
     }
 
     override fun setProtocol(protocol: String): T = self {
-        this.protocol = protocol
+        this._protocol = protocol
     }
 
     override fun setMetadata(metadata: Map<String, String>): T = self {
@@ -201,7 +211,7 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
     }
 
     override fun setType(type: String): T = self {
-        this.type = type
+        this._type = type
     }
 
     override fun metadataBuilder(): ImmutableMap.Builder<String, String> {
@@ -236,9 +246,9 @@ private class FromRawBuilderImpl(
     override fun build(): ParsedMessage = ParsedMessage(
         id = id ?: idBuilder?.build() ?: error("missing id"),
         eventId = eventId,
-        type = type ?: error("missing type"),
+        type = _type ?: error("missing type"),
         metadata = metadata ?: metadataBuilder?.build() ?: emptyMap(),
-        protocol = protocol ?: "",
+        protocol = _protocol ?: "",
         rawBody = rawBody ?: error("missing raw body"),
         bodySupplier = bodySupplier,
     )
@@ -271,9 +281,9 @@ private class FromMapBuilderImpl : BaseParsedBuilder<ParsedMessage.FromMapBuilde
     override fun build(): ParsedMessage = ParsedMessage(
         id = id ?: idBuilder?.build() ?: error("missing id"),
         eventId = eventId,
-        type = type ?: error("missing type"),
+        type = _type ?: error("missing type"),
         metadata = metadata ?: metadataBuilder?.build() ?: emptyMap(),
-        protocol = protocol ?: "",
+        protocol = _protocol ?: "",
         body = body ?: bodyBuilder?.build() ?: error("missing body"),
     )
 }

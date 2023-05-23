@@ -27,6 +27,11 @@ data class EventId(
 ) {
     @AutoBuilder
     interface Builder {
+        val id: String
+        val book: String
+        val scope: String
+        val timestamp: Instant
+
         fun setId(id: String): Builder
         fun setBook(book: String): Builder
         fun setScope(scope: String): Builder

@@ -26,12 +26,16 @@ data class GroupBatch(
 ) {
     @AutoBuilder
     interface Builder {
+        val book: String
+        val sessionGroup: String
+
         fun setBook(book: String): Builder
         fun setSessionGroup(sessionGroup: String): Builder
         fun groupsBuilder(): CollectionBuilder<MessageGroup>
         fun addGroup(group: MessageGroup): Builder = apply {
             groupsBuilder().add(group)
         }
+
         fun setGroups(groups: List<MessageGroup>): Builder
         fun build(): GroupBatch
     }

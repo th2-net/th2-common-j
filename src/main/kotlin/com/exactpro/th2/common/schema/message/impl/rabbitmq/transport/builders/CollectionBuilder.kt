@@ -19,6 +19,9 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders
 class CollectionBuilder<T> {
     private val elements: MutableList<T> = mutableListOf()
 
+    val size: Int
+        get() = elements.size
+
     fun add(el: T): CollectionBuilder<T> = apply {
         elements += el
     }
