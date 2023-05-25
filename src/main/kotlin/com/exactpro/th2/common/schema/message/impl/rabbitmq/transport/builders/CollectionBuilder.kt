@@ -22,6 +22,8 @@ class CollectionBuilder<T> {
     val size: Int
         get() = elements.size
 
+    fun isEmpty(): Boolean = elements.isEmpty()
+    
     fun add(el: T): CollectionBuilder<T> = apply {
         elements += el
     }

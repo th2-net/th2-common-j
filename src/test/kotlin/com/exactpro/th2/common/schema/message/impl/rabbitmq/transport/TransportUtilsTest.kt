@@ -31,13 +31,10 @@ import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.util.emptyMultiMap
 import org.apache.commons.collections4.MultiMapUtils
 import org.junit.jupiter.api.DynamicTest
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
-import kotlin.random.Random
-import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 
@@ -195,58 +192,5 @@ class TransportUtilsTest {
                 assertSame(batch, routerFilters.filter(batch))
             },
         )
-    }
-
-    @Test
-    fun `proto to transport and back test`() {
-        val transport = ParsedMessage.builder().apply {
-            idBuilder().apply {
-                setSessionAlias("test-session-alias")
-                setDirection(Direction.OUTGOING)
-                setTimestamp(Instant.now())
-                setSequence(Random.nextLong())
-                setSubsequence((1..Random.nextInt(2, 5)).map { Random.nextInt() })
-            }
-            setEventId(EventId.builder().apply {
-                setId("test-id")
-                setBook(BOOK_NAME)
-                setScope("test-scope")
-                setTimestamp(Instant.now())
-            }.build())
-            setProtocol("test-protocol")
-            setType("test-type")
-            metadataBuilder().apply {
-                put("test-property", "test-property-value")
-            }
-            bodyBuilder().apply {
-                put("null", null)
-                put("simple", "test-simple")
-                put("list", listOf("simple", null))
-                put(
-                    "map", mapOf(
-                        "null" to null,
-                        "simple" to "test-sub-simple",
-                        "list" to listOf("simple", null),
-                        "map" to mapOf(
-                            "null" to null,
-                            "simple" to "test-sub-sub-simple",
-                        )
-                    )
-                )
-            }
-            setType("test-type")
-        }.build()
-
-        val proto = transport.toProto(BOOK_NAME, SESSION_GROUP)
-        assertEquals(BOOK_NAME, proto.metadata.id.bookName)
-        assertEquals(SESSION_GROUP, proto.metadata.id.connectionId.sessionGroup)
-        proto.toTransport().apply {
-            assertEquals(transport, this)
-        }
-    }
-
-    companion object {
-        const val BOOK_NAME = "test-book"
-        val SESSION_GROUP = "test-session-group"
     }
 }

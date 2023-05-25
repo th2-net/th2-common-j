@@ -33,7 +33,7 @@ data class RawMessage(
         val body: ByteBuf
 
         fun setBody(body: ByteBuf): Builder
-        fun build(): RawMessage
+        override fun build(): RawMessage
     }
 
     companion object {

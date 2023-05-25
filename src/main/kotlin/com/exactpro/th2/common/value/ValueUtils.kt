@@ -27,6 +27,7 @@ import com.exactpro.th2.common.grpc.NullValue.NULL_VALUE
 import com.exactpro.th2.common.grpc.Value
 import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
 import com.exactpro.th2.common.grpc.ValueOrBuilder
+import com.exactpro.th2.common.message.addField
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -123,6 +124,7 @@ fun Any?.toValue(): Value = when (this) {
     is ListValue.Builder -> toValue()
     is Iterator<*> -> toValue()
     is Iterable<*> -> toValue()
+    is Map<*, *> -> toValue()
     is Array<*> -> toValue()
     is BooleanArray -> toValue()
     is ByteArray -> toValue()
@@ -150,6 +152,12 @@ fun Value.Builder.toValue(): Value = this.build()
 
 fun Iterator<*>.toValue(): Value = toListValue().toValue()
 fun Iterable<*>.toValue(): Value = iterator().toValue()
+fun Map<*, *>.toValue(): Value = Message.newBuilder().apply {
+    forEach { (key, value) ->
+        addField(key.toString(), value.toValue())
+    }
+}.toValue()
+
 fun Array<*>.toValue(): Value = iterator().toValue()
 
 fun BooleanArray.toValue(): Value = toTypedArray().toValue()

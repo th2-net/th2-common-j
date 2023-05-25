@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
+
 interface Message<T> {
     /** The id is not mutable by default */
     val id: MessageId
@@ -34,5 +36,8 @@ interface Message<T> {
         fun setEventId(eventId: EventId): T
         fun setProtocol(protocol: String): T
         fun setMetadata(metadata: Map<String, String>): T
+        fun metadataBuilder(): MapBuilder<String, String>
+
+        fun build(): Message<*>
     }
 }

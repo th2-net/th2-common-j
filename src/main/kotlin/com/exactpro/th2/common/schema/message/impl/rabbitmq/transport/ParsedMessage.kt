@@ -17,7 +17,6 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
-import com.google.common.collect.ImmutableMap
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import java.util.*
@@ -90,9 +89,7 @@ class ParsedMessage private constructor(
         val type: String
 
         fun setType(type: String): T
-        fun metadataBuilder(): ImmutableMap.Builder<String, String>
-        fun addMetadataProperty(key: String, value: String): T
-        fun build(): ParsedMessage
+        override fun build(): ParsedMessage
     }
 
     interface FromRawBuilder : Builder<FromRawBuilder> {
@@ -102,7 +99,6 @@ class ParsedMessage private constructor(
     interface FromMapBuilder : Builder<FromMapBuilder> {
         fun setBody(body: Map<String, Any?>): FromMapBuilder
         fun bodyBuilder(): MapBuilder<String, Any?>
-        fun addField(name: String, value: Any?): FromMapBuilder
     }
 
     override fun equals(other: Any?): Boolean {
@@ -166,11 +162,11 @@ class ParsedMessage private constructor(
 
 private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : ParsedMessage.Builder<T> {
     protected var idBuilder: MessageId.Builder? = null
-    protected var id: MessageId? = null
+    protected var id: MessageId? = MessageId.DEFAULT
     protected var eventId: EventId? = null
     protected var _protocol: String? = null
     protected var _type: String? = null
-    protected var metadataBuilder: ImmutableMap.Builder<String, String>? = null
+    protected var metadataBuilder: MapBuilder<String, String>? = null
     protected var metadata: Map<String, String>? = emptyMap()
     override val protocol: String
         get() = this._protocol ?: ""
@@ -214,18 +210,14 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
         this._type = type
     }
 
-    override fun metadataBuilder(): ImmutableMap.Builder<String, String> {
+    override fun metadataBuilder(): MapBuilder<String, String> {
         if (metadataBuilder == null) {
             metadataBuilder = metadata?.let {
                 metadata = null
-                ImmutableMap.builder<String?, String?>().putAll(it)
-            } ?: ImmutableMap.builder()
+                MapBuilder<String, String>().putAll(it)
+            } ?: MapBuilder()
         }
         return requireNotNull(metadataBuilder) { "metadataBuilder is null" }
-    }
-
-    override fun addMetadataProperty(key: String, value: String): T = self {
-        metadataBuilder().put(key, value)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -272,10 +264,6 @@ private class FromMapBuilderImpl : BaseParsedBuilder<ParsedMessage.FromMapBuilde
             } ?: MapBuilder()
         }
         return requireNotNull(bodyBuilder) { "bodyBuilder is null" }
-    }
-
-    override fun addField(name: String, value: Any?): ParsedMessage.FromMapBuilder = apply {
-        bodyBuilder().put(name, value)
     }
 
     override fun build(): ParsedMessage = ParsedMessage(
