@@ -501,7 +501,10 @@ fun <T : com.google.protobuf.Message.Builder> T.fromJson(json: String): T = appl
     JsonFormat.parser().ignoringUnknownFields().merge(json, this)
 }
 
-@Deprecated("Moved to common-utils-j/com.exactpro.th2.common.utils.message.MessageUtils")
+@Deprecated(
+    "Moved to common-utils-j/com.exactpro.th2.common.utils.message.MessageUtils",
+    replaceWith = ReplaceWith("toTreeTable()", "com.exactpro.th2.common.utils.message.toTreeTable")
+)
 fun Message.toTreeTable(): TreeTable = TreeTableBuilder().apply {
     for ((key, value) in fieldsMap) {
         row(key, value.toTreeTableEntry())
@@ -514,7 +517,10 @@ val MessageIDOrBuilder.isValid: Boolean
             && hasTimestamp() && timestamp.seconds > 0 && timestamp.nanos > 0
             && sequence > 0
 
-@Deprecated("Moved to common-utils-j/com.exactpro.th2.common.utils.message.MessageUtils")
+@Deprecated(
+    "Moved to common-utils-j/com.exactpro.th2.common.utils.message.MessageUtils",
+    replaceWith = ReplaceWith("toTreeTable()", "com.exactpro.th2.common.utils.message.toTreeTableEntry")
+)
 private fun Value.toTreeTableEntry(): TreeTableEntry = when {
     hasMessageValue() -> CollectionBuilder().apply {
         for ((key, value) in messageValue.fieldsMap) {
@@ -534,5 +540,11 @@ private fun Value.toTreeTableEntry(): TreeTableEntry = when {
         .build()
 }
 
-@Deprecated("Moved to common-utils-j/com.exactpro.th2.common.utils.message.MessageUtils")
+@Deprecated(
+    "Moved to common-utils-j/com.exactpro.th2.common.utils.message.MessageUtils",
+    replaceWith = ReplaceWith(
+        "MessageTableColumn(fieldValue)",
+        "com.exactpro.th2.common.utils.message.MessageTableColumn"
+    )
+)
 data class MessageTableColumn(val fieldValue: String) : IColumn

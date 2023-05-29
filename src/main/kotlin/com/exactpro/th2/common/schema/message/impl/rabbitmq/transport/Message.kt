@@ -38,6 +38,7 @@ interface Message<T> {
         fun setMetadata(metadata: Map<String, String>): T
         fun metadataBuilder(): MapBuilder<String, String>
 
+        fun addMetadataProperty(key: String, value: String): T
         fun build(): Message<*>
     }
 }

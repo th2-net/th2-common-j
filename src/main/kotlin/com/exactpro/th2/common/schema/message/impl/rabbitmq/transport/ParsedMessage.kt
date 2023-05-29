@@ -99,6 +99,7 @@ class ParsedMessage private constructor(
     interface FromMapBuilder : Builder<FromMapBuilder> {
         fun setBody(body: Map<String, Any?>): FromMapBuilder
         fun bodyBuilder(): MapBuilder<String, Any?>
+        fun addField(name: String, value: Any?): FromMapBuilder
     }
 
     override fun equals(other: Any?): Boolean {
@@ -220,6 +221,10 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
         return requireNotNull(metadataBuilder) { "metadataBuilder is null" }
     }
 
+    override fun addMetadataProperty(key: String, value: String): T = self {
+        metadataBuilder().put(key, value)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private inline fun self(block: BaseParsedBuilder<T>.() -> Unit): T {
         block()
@@ -264,6 +269,10 @@ private class FromMapBuilderImpl : BaseParsedBuilder<ParsedMessage.FromMapBuilde
             } ?: MapBuilder()
         }
         return requireNotNull(bodyBuilder) { "bodyBuilder is null" }
+    }
+
+    override fun addField(name: String, value: Any?): ParsedMessage.FromMapBuilder = apply {
+        bodyBuilder().put(name, value)
     }
 
     override fun build(): ParsedMessage = ParsedMessage(

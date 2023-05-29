@@ -33,6 +33,10 @@ data class RawMessage(
         val body: ByteBuf
 
         fun setBody(body: ByteBuf): Builder
+        override fun addMetadataProperty(key: String, value: String): Builder = this.apply {
+            metadataBuilder().put(key, value)
+        }
+
         override fun build(): RawMessage
     }
 
