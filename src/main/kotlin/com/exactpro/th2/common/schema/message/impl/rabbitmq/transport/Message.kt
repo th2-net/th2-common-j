@@ -30,6 +30,7 @@ interface Message<T> {
 
     interface Builder<out T : Builder<T>> {
         val protocol: String
+        val eventId: EventId?
 
         fun setId(id: MessageId): T
         fun idBuilder(): MessageId.Builder
