@@ -80,7 +80,10 @@ import java.math.BigInteger
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 typealias FieldValues = Map<String, Value>
 typealias FieldValueFilters = Map<String, ValueFilter>

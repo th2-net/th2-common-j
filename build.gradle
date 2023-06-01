@@ -30,20 +30,20 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    cradleVersion       = '5.1.0-separate-executor-4783246997-dda4d35-SNAPSHOT'
-    junitVersion        = '5.8.2'
-    sharedDir           = file("${project.rootDir}/shared")
+    cradleVersion = '5.1.0-separate-executor-4783246997-dda4d35-SNAPSHOT'
+    junitVersion = '5.8.2'
+    sharedDir = file("${project.rootDir}/shared")
 }
 
 repositories {
     mavenCentral()
     maven {
-            name 'Sonatype_snapshots'
-            url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+        name 'Sonatype_snapshots'
+        url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
     maven {
-            name 'Sonatype_releases'
-            url 'https://s01.oss.sonatype.org/content/repositories/releases/'
+        name 'Sonatype_releases'
+        url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
     mavenLocal()
 
@@ -71,24 +71,25 @@ java {
 tasks.withType(PublishToMavenRepository) {
     onlyIf {
         (repository == publishing.repositories.nexusRepository &&
-            project.hasProperty('nexus_user') &&
-            project.hasProperty('nexus_password') &&
-            project.hasProperty('nexus_url')) ||
-        (repository == publishing.repositories.sonatype &&
-            project.hasProperty('sonatypeUsername') &&
-            project.hasProperty('sonatypePassword')) ||
-        (repository == publishing.repositories.localRepo)
+                project.hasProperty('nexus_user') &&
+                project.hasProperty('nexus_password') &&
+                project.hasProperty('nexus_url')) ||
+                (repository == publishing.repositories.sonatype &&
+                        project.hasProperty('sonatypeUsername') &&
+                        project.hasProperty('sonatypePassword')) ||
+                (repository == publishing.repositories.localRepo)
     }
 }
 tasks.withType(Sign) {
-    onlyIf { project.hasProperty('signingKey') &&
-        project.hasProperty('signingPassword')
+    onlyIf {
+        project.hasProperty('signingKey') &&
+                project.hasProperty('signingPassword')
     }
 }
 // disable running task 'initializeSonatypeStagingRepository' on a gitlab
-tasks.whenTaskAdded {task ->
-    if(task.name.equals('initializeSonatypeStagingRepository') &&
-        !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
+tasks.whenTaskAdded { task ->
+    if (task.name.equals('initializeSonatypeStagingRepository') &&
+            !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
     ) {
         task.enabled = false
     }
@@ -99,29 +100,29 @@ publishing {
         mavenJava(MavenPublication) {
             from(components.java)
             pom {
-              name = rootProject.name
-              packaging = 'jar'
-              description = rootProject.description
-              url = vcs_url
-              scm {
+                name = rootProject.name
+                packaging = 'jar'
+                description = rootProject.description
                 url = vcs_url
-              }
-              licenses {
-                license {
-                  name = 'The Apache License, Version 2.0'
-                  url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                scm {
+                    url = vcs_url
                 }
-              }
-              developers {
-                developer {
-                  id = 'developer'
-                  name = 'developer'
-                  email = 'developer@exactpro.com'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
                 }
-              }
-              scm {
-                url = vcs_url
-              }
+                developers {
+                    developer {
+                        id = 'developer'
+                        name = 'developer'
+                        email = 'developer@exactpro.com'
+                    }
+                }
+                scm {
+                    url = vcs_url
+                }
             }
         }
     }
@@ -180,6 +181,7 @@ dependencies {
     api 'com.exactpro.th2:grpc-common:4.2.0-dev'
     api "com.exactpro.th2:cradle-core:${cradleVersion}"
     api 'io.github.microutils:kotlin-logging:2.1.21'
+    api 'io.netty:netty-buffer'
 
     jmh 'org.openjdk.jmh:jmh-core:0.9'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
@@ -231,10 +233,10 @@ dependencies {
     implementation 'io.prometheus:simpleclient_httpserver'
     implementation 'io.prometheus:simpleclient_log4j2'
 
-    implementation ('com.squareup.okhttp3:okhttp:4.10.0') {
-        because ('fix vulnerability in transitive dependency <kubernetes-client>')
+    implementation('com.squareup.okhttp3:okhttp:4.10.0') {
+        because('fix vulnerability in transitive dependency <kubernetes-client>')
     }
-    implementation ('io.fabric8:kubernetes-client:6.1.1') {
+    implementation('io.fabric8:kubernetes-client:6.1.1') {
         exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
     }
 
@@ -251,13 +253,13 @@ dependencies {
 jar {
     manifest {
         attributes(
-                'Created-By':               "${System.getProperty('java.version')} (${System.getProperty('java.vendor')})",
-                'Specification-Title':      '',
-                'Specification-Vendor':     'Exactpro Systems LLC',
-                'Implementation-Title':     project.archivesBaseName,
-                'Implementation-Vendor':    'Exactpro Systems LLC',
+                'Created-By': "${System.getProperty('java.version')} (${System.getProperty('java.vendor')})",
+                'Specification-Title': '',
+                'Specification-Vendor': 'Exactpro Systems LLC',
+                'Implementation-Title': project.archivesBaseName,
+                'Implementation-Vendor': 'Exactpro Systems LLC',
                 'Implementation-Vendor-Id': 'com.exactpro',
-                'Implementation-Version':   project.version
+                'Implementation-Version': project.version
         )
     }
 }
@@ -276,8 +278,8 @@ clean {
 }
 
 dependencyCheck {
-    formats=['SARIF', 'JSON', 'HTML']
-    failBuildOnCVSS=5
+    formats = ['SARIF', 'JSON', 'HTML']
+    failBuildOnCVSS = 5
 
     analyzers {
         assemblyEnabled = false

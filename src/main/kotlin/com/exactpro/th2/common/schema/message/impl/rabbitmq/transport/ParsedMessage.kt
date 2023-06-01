@@ -19,7 +19,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
-import java.util.*
+import java.util.Collections
 
 class ParsedMessage private constructor(
     override val id: MessageId = MessageId.DEFAULT,
