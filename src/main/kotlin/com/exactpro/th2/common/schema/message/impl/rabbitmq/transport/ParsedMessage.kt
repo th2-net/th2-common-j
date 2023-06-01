@@ -165,14 +165,13 @@ class ParsedMessage private constructor(
 private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : ParsedMessage.Builder<T> {
     protected var idBuilder: MessageId.Builder? = null
     protected var id: MessageId? = MessageId.DEFAULT
-    protected var _eventId: EventId? = null
+    final override var eventId: EventId? = null
+        private set
     protected var _protocol: String? = null
     protected var _type: String? = null
     protected var metadataBuilder: MapBuilder<String, String>? = null
     protected var metadata: Map<String, String>? = emptyMap()
 
-    override val eventId: EventId?
-        get() = _eventId
     override val protocol: String
         get() = this._protocol ?: ""
     override val type: String
@@ -197,7 +196,7 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
     }
 
     override fun setEventId(eventId: EventId): T = self {
-        this._eventId = eventId
+        this.eventId = eventId
     }
 
     override fun setProtocol(protocol: String): T = self {
@@ -246,7 +245,7 @@ private class FromRawBuilderImpl(
 
     override fun build(): ParsedMessage = ParsedMessage(
         id = id ?: idBuilder?.build() ?: error("missing id"),
-        eventId = _eventId,
+        eventId = eventId,
         type = _type ?: error("missing type"),
         metadata = metadata ?: metadataBuilder?.build() ?: emptyMap(),
         protocol = _protocol ?: "",
@@ -281,7 +280,7 @@ private class FromMapBuilderImpl : BaseParsedBuilder<ParsedMessage.FromMapBuilde
 
     override fun build(): ParsedMessage = ParsedMessage(
         id = id ?: idBuilder?.build() ?: error("missing id"),
-        eventId = _eventId,
+        eventId = eventId,
         type = _type ?: error("missing type"),
         metadata = metadata ?: metadataBuilder?.build() ?: emptyMap(),
         protocol = _protocol ?: "",
