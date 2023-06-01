@@ -41,6 +41,8 @@ data class RawMessage(
     }
 
     companion object {
+        val EMPTY = RawMessage()
+
         @JvmStatic
         fun builder(): Builder = AutoBuilder_RawMessage_Builder()
     }

@@ -144,6 +144,8 @@ class ParsedMessage private constructor(
 
 
     companion object {
+        val EMPTY = ParsedMessage(type = "", body = emptyMap())
+
         /**
          * We want to be able to identify the default body by reference.
          * So, that is why we use unmodifiableMap with emptyMap
