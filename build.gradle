@@ -178,10 +178,15 @@ tasks.register('integrationTest', Test) {
 
 dependencies {
     api platform("com.exactpro.th2:bom:4.2.0")
-    api 'com.exactpro.th2:grpc-common:4.2.0-dev'
-    api "com.exactpro.th2:cradle-core:${cradleVersion}"
-    api 'io.github.microutils:kotlin-logging:2.1.21'
-    api 'io.netty:netty-buffer'
+    api('com.exactpro.th2:grpc-common:4.2.0-dev') {
+        because('protobuf transport is main now, this dependnecy should be moved to grpc, mq protobuf modules after splitting')
+    }
+    api("com.exactpro.th2:cradle-core:${cradleVersion}") {
+        because('cradle is included into common library now, this dependnecy should be moved to a cradle module after splitting')
+    }
+    api('io.netty:netty-buffer') {
+        because('th2 transport protocol is included into common library now, this dependnecy should be moved to a th2 transport module after splitting')
+    }
 
     jmh 'org.openjdk.jmh:jmh-core:0.9'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
