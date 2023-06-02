@@ -245,6 +245,8 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
     }
 
+    implementation 'io.github.microutils:kotlin-logging:3.0.0' // The last version bases on kotlin 1.6.0
+
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
