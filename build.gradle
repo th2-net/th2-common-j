@@ -29,7 +29,7 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    cradleVersion       = '5.0.0-dev-version-5-2567311063-SNAPSHOT'
+    cradleVersion       = '5.0.2-dev-version-5-5176643613-bf4794b-SNAPSHOT'
     junitVersion        = '5.8.2'
     sharedDir           = file("${project.rootDir}/shared")
 }
@@ -204,6 +204,9 @@ dependencies {
     implementation "org.apache.commons:commons-lang3"
     implementation "org.apache.commons:commons-collections4"
     implementation "org.apache.commons:commons-text"
+    implementation("commons-io:commons-io") {
+        because('we need FilenameUtil to use wildcard matching')
+    }
     implementation "commons-cli:commons-cli"
 
     implementation "com.fasterxml.jackson.core:jackson-core"
