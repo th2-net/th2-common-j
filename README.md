@@ -361,6 +361,12 @@ dependencies {
 
 ## Release notes
 
+### 5.2.1
+
+#### Changed:
+
++ The Cradle version is update to 5.0.2-dev-*.
+
 ### 5.2.0
 
 + Merged with 3.44.1

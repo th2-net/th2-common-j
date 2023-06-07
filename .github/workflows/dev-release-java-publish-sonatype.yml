@@ -1,12 +1,9 @@
 name: Build and publish dev-release Java distributions to sonatype.
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - dev-version-*
-    paths:
-      - gradle.properties
+    tags:
+      - \d+.\d+.\d+-dev
 
 jobs:
   build:
