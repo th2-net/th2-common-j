@@ -517,7 +517,7 @@ fun Message.toTreeTable(): TreeTable = TreeTableBuilder().apply {
 val MessageIDOrBuilder.isValid: Boolean
     get() = bookName.isNotBlank()
             && hasConnectionId() && connectionId.sessionAlias.isNotBlank()
-            && hasTimestamp() && timestamp.seconds > 0
+            && hasTimestamp() && (timestamp.seconds > 0 || timestamp.nanos > 0)
             && sequence > 0
 
 @Deprecated(
