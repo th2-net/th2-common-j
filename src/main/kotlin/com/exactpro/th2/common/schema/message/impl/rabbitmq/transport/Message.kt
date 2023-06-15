@@ -16,18 +16,30 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import java.util.*
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
 
-interface Message<T> : Cleanable {
+interface Message<T> {
     /** The id is not mutable by default */
-    var id: MessageId
-    var eventId: EventId?
-    /** The metadata is not mutable by default */
-    var metadata: MutableMap<String, String>
-    var protocol: String
-    var body: T
+    val id: MessageId
+    val eventId: EventId?
 
-    companion object {
-        val DEFAULT_METADATA: MutableMap<String, String> = Collections.emptyMap()
+    /** The metadata is not mutable by default */
+    val metadata: Map<String, String>
+    val protocol: String
+    val body: T
+
+    interface Builder<out T : Builder<T>> {
+        val protocol: String
+        val eventId: EventId?
+
+        fun setId(id: MessageId): T
+        fun idBuilder(): MessageId.Builder
+        fun setEventId(eventId: EventId): T
+        fun setProtocol(protocol: String): T
+        fun setMetadata(metadata: Map<String, String>): T
+        fun metadataBuilder(): MapBuilder<String, String>
+
+        fun addMetadataProperty(key: String, value: String): T
+        fun build(): Message<*>
     }
 }

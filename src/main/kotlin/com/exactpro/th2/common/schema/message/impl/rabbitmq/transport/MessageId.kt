@@ -16,38 +16,45 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.CollectionBuilder
+import com.google.auto.value.AutoBuilder
 import java.time.Instant
-import java.util.*
 
 data class MessageId(
-    var sessionAlias: String = "",
-    var direction: Direction = Direction.INCOMING,
-    var sequence: Long = 0,
+    val sessionAlias: String,
+    val direction: Direction,
+    val sequence: Long,
+    val timestamp: Instant,
     /** The subsequence is not mutable by default */
-    var subsequence: MutableList<Int> = DEFAULT_SUBSEQUENCE,
-    var timestamp: Instant = Instant.EPOCH,
-) : Cleanable {
-    override fun clean() {
-        check(this !== DEFAULT_INSTANCE) {
-            "Object can be cleaned because it is default instance"
-        }
-        check(subsequence !== DEFAULT_SUBSEQUENCE) {
-            "Object can be cleaned because 'subsequence' is immutable"
+    val subsequence: List<Int> = emptyList(),
+) {
+    @AutoBuilder
+    interface Builder {
+        val sessionAlias: String
+        val direction: Direction
+        val sequence: Long
+        val timestamp: Instant
+
+        fun setSessionAlias(sessionAlias: String): Builder
+        fun setDirection(direction: Direction): Builder
+        fun setSequence(sequence: Long): Builder
+        fun setTimestamp(timestamp: Instant): Builder
+        fun subsequenceBuilder(): CollectionBuilder<Int>
+        fun addSubsequence(subsequnce: Int): Builder = apply {
+            subsequenceBuilder().add(subsequnce)
         }
 
-        sessionAlias = ""
-        direction = Direction.INCOMING
-        sequence = 0
-        subsequence.clear()
-        timestamp = Instant.EPOCH
+        fun setSubsequence(subsequence: List<Int>): Builder
+        fun build(): MessageId
     }
 
+    fun toBuilder(): MessageId.Builder = AutoBuilder_MessageId_Builder(this)
+
     companion object {
-        val DEFAULT_SUBSEQUENCE: MutableList<Int> = Collections.emptyList()
-        val DEFAULT_INSTANCE: MessageId = MessageId() // FIXME: do smth about its mutability
         @JvmStatic
-        fun newMutable() = MessageId(
-            subsequence = mutableListOf()
-        )
+        val DEFAULT: MessageId = MessageId("", Direction.OUTGOING, 0, Instant.EPOCH)
+
+        @JvmStatic
+        fun builder(): Builder = AutoBuilder_MessageId_Builder()
     }
 }

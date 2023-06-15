@@ -18,9 +18,6 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.exactpro.th2.common.grpc.Direction.FIRST
 import com.exactpro.th2.common.grpc.Direction.SECOND
-import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.BOOK_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.DIRECTION_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY
@@ -34,20 +31,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import com.exactpro.th2.common.grpc.Direction as ProtoDirection
-
-fun GroupBatch.toByteArray(): ByteArray = Unpooled.buffer().run {
-    GroupBatchCodec.encode(this@toByteArray, this@run)
-    ByteArray(readableBytes()).apply(::readBytes)
-}
-
-fun ByteBuf.toByteArray(): ByteArray = ByteArray(readableBytes())
-    .apply(::readBytes).also { resetReaderIndex() }
-
-val Direction.proto: ProtoDirection
-    get() = when (this) {
-        INCOMING -> FIRST
-        OUTGOING -> SECOND
-    }
 
 fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
     if (isEmpty()) {
@@ -78,29 +61,6 @@ fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
     return null
 }
 
-fun EventId.toProto(): EventID = EventID.newBuilder().also {
-    it.id = id
-    it.bookName = book
-    it.scope = scope
-    it.startTimestamp = timestamp.toTimestamp()
-}.build()
-
-fun MessageId.toProto(book: String, sessionGroup: String): MessageID = MessageID.newBuilder().also {
-    it.bookName = book
-    it.direction = if (direction == INCOMING) FIRST else SECOND
-    it.sequence = sequence
-    it.timestamp = timestamp.toTimestamp()
-
-    it.addAllSubsequence(subsequence)
-
-    it.connectionIdBuilder.also { connectionId ->
-        connectionId.sessionGroup = sessionGroup.ifBlank { sessionAlias }
-        connectionId.sessionAlias = sessionAlias
-    }
-}.build()
-
-fun MessageId.toProto(groupBatch: GroupBatch): MessageID = toProto(groupBatch.book, groupBatch.sessionGroup)
-
 private fun Collection<FieldFilterConfiguration>?.verify(value: String): Boolean {
     if (isNullOrEmpty()) {
         return true
@@ -127,3 +87,24 @@ private inline fun Collection<FieldFilterConfiguration>?.verify(
 
     return all { filter -> filter.checkFieldValue(firstGroup.messages.first().value()) }
 }
+
+fun GroupBatch.toByteArray(): ByteArray = Unpooled.buffer().run {
+    GroupBatchCodec.encode(this@toByteArray, this@run)
+    ByteArray(readableBytes()).apply(::readBytes)
+}
+
+fun ByteBuf.toByteArray(): ByteArray = ByteArray(readableBytes())
+    .apply(::readBytes).also { resetReaderIndex() }
+
+val Direction.proto: ProtoDirection
+    get() = when (this) {
+        INCOMING -> FIRST
+        OUTGOING -> SECOND
+    }
+
+val ProtoDirection.transport: Direction
+    get() = when (this) {
+        FIRST -> INCOMING
+        SECOND -> OUTGOING
+        else -> error("Unsupported $this direction in the th2 transport protocol")
+    }

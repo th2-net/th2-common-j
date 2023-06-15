@@ -16,57 +16,36 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.google.auto.value.AutoBuilder
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 
 data class RawMessage(
-    override var id: MessageId = MessageId.DEFAULT_INSTANCE,
-    override var eventId: EventId? = null,
-    override var metadata: MutableMap<String, String> = Message.DEFAULT_METADATA,
-    override var protocol: String = "",
+    override val id: MessageId = MessageId.DEFAULT,
+    override val eventId: EventId? = null,
+    override val metadata: Map<String, String> = emptyMap(),
+    override val protocol: String = "",
     /** The body is not mutable by default */
-    override var body: ByteBuf = Unpooled.EMPTY_BUFFER,
+    override val body: ByteBuf = Unpooled.EMPTY_BUFFER,
 ) : Message<ByteBuf> {
-    override fun clean() {
-        check(id !== MessageId.DEFAULT_INSTANCE) {
-            "Object can be cleaned because 'id' is default instance"
-        }
-        check(metadata !== Message.DEFAULT_METADATA) {
-            "Object can be cleaned because 'metadata' is immutable"
-        }
-        check(body !== Unpooled.EMPTY_BUFFER) {
-            "Object can be cleaned because 'body' is immutable"
+    @AutoBuilder
+    interface Builder : Message.Builder<Builder> {
+        val body: ByteBuf
+
+        fun setBody(body: ByteBuf): Builder
+        fun setBody(data: ByteArray): Builder = setBody(Unpooled.wrappedBuffer(data))
+
+        override fun addMetadataProperty(key: String, value: String): Builder = this.apply {
+            metadataBuilder().put(key, value)
         }
 
-        id.clean()
-        eventId = null
-        metadata.clear()
-        protocol = ""
-        body.clear()
-    }
-
-    override fun softClean() {
-        check(metadata !== Message.DEFAULT_METADATA) {
-            "Object can be cleaned because 'metadata' is immutable"
-        }
-
-        id = MessageId.DEFAULT_INSTANCE
-        eventId = null
-        metadata.clear()
-        protocol = ""
-        body = Unpooled.EMPTY_BUFFER
+        override fun build(): RawMessage
     }
 
     companion object {
+        val EMPTY = RawMessage()
+
         @JvmStatic
-        fun newMutable() = RawMessage(
-            id = MessageId.newMutable(),
-            metadata = hashMapOf(),
-            body = Unpooled.buffer()
-        )
-        @JvmStatic
-        fun newSoftMutable() = RawMessage(
-            metadata = hashMapOf()
-        )
+        fun builder(): Builder = AutoBuilder_RawMessage_Builder()
     }
 }

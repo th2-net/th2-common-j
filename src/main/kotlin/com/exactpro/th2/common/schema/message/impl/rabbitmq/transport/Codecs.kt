@@ -16,15 +16,15 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.jacksonTypeRef
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.ByteBufOutputStream
 import io.netty.buffer.ByteBufUtil
-import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.Charset
 import java.time.Instant
@@ -53,7 +53,7 @@ enum class ValueType(val codec: ValueCodec<*>) {
     RAW_MESSAGE(RawMessageCodec),
     RAW_MESSAGE_BODY(RawMessageBodyCodec),
     PARSED_MESSAGE(ParsedMessageCodec),
-    PARSED_MESSAGE_BODY(ParsedMessageBodyCodec),
+    PARSED_MESSAGE_BODY(ParsedMessageRawBodyCodec),
     MESSAGE_GROUP(MessageGroupCodec),
     MESSAGE_LIST(MessageListCodec),
     GROUP_BATCH(GroupBatchCodec),
@@ -133,14 +133,14 @@ abstract class IntCodec(type: UByte) : AbstractCodec<Int>(type) {
     }
 }
 
-abstract class ListCodec<T>(type: UByte, private val elementCodec: ValueCodec<T>) : AbstractCodec<MutableList<T>>(type) {
+abstract class ListCodec<T>(type: UByte, private val elementCodec: ValueCodec<T>) : AbstractCodec<List<T>>(type) {
     override fun read(buffer: ByteBuf): MutableList<T> = mutableListOf<T>().also { list ->
         while (buffer.isReadable) {
             list += elementCodec.decode(buffer)
         }
     }
 
-    override fun write(buffer: ByteBuf, value: MutableList<T>) {
+    override fun write(buffer: ByteBuf, value: List<T>) {
         value.forEach { elementCodec.encode(it, buffer) }
     }
 }
@@ -149,14 +149,14 @@ abstract class MapCodec<K, V>(
     type: UByte,
     private val keyCodec: ValueCodec<K>,
     private val valueCodec: ValueCodec<V>,
-) : AbstractCodec<MutableMap<K, V>>(type) {
+) : AbstractCodec<Map<K, V>>(type) {
     override fun read(buffer: ByteBuf): MutableMap<K, V> = hashMapOf<K, V>().apply {
         while (buffer.isReadable) {
             this[keyCodec.decode(buffer)] = valueCodec.decode(buffer)
         }
     }
 
-    override fun write(buffer: ByteBuf, value: MutableMap<K, V>): Unit = value.forEach { (key, value) ->
+    override fun write(buffer: ByteBuf, value: Map<K, V>): Unit = value.forEach { (key, value) ->
         keyCodec.encode(key, buffer)
         valueCodec.encode(value, buffer)
     }
@@ -178,20 +178,6 @@ abstract class InstantCodec(type: UByte) : AbstractCodec<Instant>(type) {
     }
 }
 
-open class CborCodec<T>(type: UByte, private val typeReference: TypeReference<T>) : AbstractCodec<T>(type) {
-    override fun read(buffer: ByteBuf): T = ByteBufInputStream(buffer).use {
-        return MAPPER.readValue(it as InputStream, typeReference)
-    }
-
-    override fun write(buffer: ByteBuf, value: T) = ByteBufOutputStream(buffer).use {
-        MAPPER.writeValue(it as OutputStream, value)
-    }
-
-    companion object {
-        private val MAPPER = CBORMapper().registerModule(JavaTimeModule())
-    }
-}
-
 // FIXME: think about checking that type is unique
 object LongTypeCodec : LongCodec(1u)
 
@@ -200,18 +186,18 @@ object StringTypeCodec : StringCodec(2u)
 object IntTypeCodec : IntCodec(3u)
 
 object MessageIdCodec : AbstractCodec<MessageId>(10u) {
-    override fun read(buffer: ByteBuf): MessageId = MessageId().apply {
+    override fun read(buffer: ByteBuf): MessageId = MessageId.builder().apply {
         buffer.forEachValue { codec ->
             when (codec) {
-                is SessionAliasCodec -> sessionAlias = codec.decode(buffer)
-                is DirectionCodec -> direction = codec.decode(buffer)
-                is SequenceCodec -> sequence = codec.decode(buffer)
-                is SubsequenceCodec -> subsequence = codec.decode(buffer)
-                is TimestampCodec -> timestamp = codec.decode(buffer)
+                is SessionAliasCodec -> setSessionAlias(codec.decode(buffer))
+                is DirectionCodec -> setDirection(codec.decode(buffer))
+                is SequenceCodec -> setSequence(codec.decode(buffer))
+                is SubsequenceCodec -> setSubsequence(codec.decode(buffer))
+                is TimestampCodec -> setTimestamp(codec.decode(buffer))
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
-    }
+    }.build()
 
     override fun write(buffer: ByteBuf, value: MessageId) {
         SessionAliasCodec.encode(value.sessionAlias, buffer)
@@ -254,21 +240,17 @@ object ScopeCodec : StringCodec(15u)
 
 object EventIdCodec : AbstractCodec<EventId>(16u) {
     override fun read(buffer: ByteBuf): EventId {
-        var id = ""
-        var book = ""
-        var scope = ""
-        var timestamp: Instant = Instant.EPOCH
-
-        buffer.forEachValue { codec ->
-            when (codec) {
-                is IdCodec -> id = codec.decode(buffer)
-                is BookCodec -> book = codec.decode(buffer)
-                is ScopeCodec -> scope = codec.decode(buffer)
-                is TimestampCodec -> timestamp = codec.decode(buffer)
-                else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
+        return EventId.builder().apply {
+            buffer.forEachValue { codec ->
+                when (codec) {
+                    is IdCodec -> setId(codec.decode(buffer))
+                    is BookCodec -> setBook(codec.decode(buffer))
+                    is ScopeCodec -> setScope(codec.decode(buffer))
+                    is TimestampCodec -> setTimestamp(codec.decode(buffer))
+                    else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
+                }
             }
-        }
-        return EventId(id, book, scope, timestamp)
+        }.build()
     }
 
     override fun write(buffer: ByteBuf, value: EventId) {
@@ -280,18 +262,18 @@ object EventIdCodec : AbstractCodec<EventId>(16u) {
 }
 
 object RawMessageCodec : AbstractCodec<RawMessage>(20u) {
-    override fun read(buffer: ByteBuf): RawMessage = RawMessage().apply {
+    override fun read(buffer: ByteBuf): RawMessage = RawMessage.builder().apply {
         buffer.forEachValue { codec ->
             when (codec) {
-                is MessageIdCodec -> id = codec.decode(buffer)
-                is EventIdCodec -> eventId = codec.decode(buffer)
-                is MetadataCodec -> metadata = codec.decode(buffer)
-                is ProtocolCodec -> protocol = codec.decode(buffer)
-                is RawMessageBodyCodec -> body = codec.decode(buffer)
+                is MessageIdCodec -> setId(codec.decode(buffer))
+                is EventIdCodec -> setEventId(codec.decode(buffer))
+                is MetadataCodec -> setMetadata(codec.decode(buffer))
+                is ProtocolCodec -> setProtocol(codec.decode(buffer))
+                is RawMessageBodyCodec -> setBody(codec.decode(buffer))
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
-    }
+    }.build()
 
     override fun write(buffer: ByteBuf, value: RawMessage) {
         MessageIdCodec.encode(value.id, buffer)
@@ -305,19 +287,21 @@ object RawMessageCodec : AbstractCodec<RawMessage>(20u) {
 object RawMessageBodyCodec : ByteBufCodec(21u)
 
 object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
-    override fun read(buffer: ByteBuf): ParsedMessage = ParsedMessage().apply {
+    override fun read(buffer: ByteBuf): ParsedMessage = ParsedMessage.builder { buf ->
+        ByteBufInputStream(buf).use { MAPPER.readValue(it) }
+    }.apply {
         buffer.forEachValue { codec ->
             when (codec) {
-                is MessageIdCodec -> id = codec.decode(buffer)
-                is EventIdCodec -> eventId = codec.decode(buffer)
-                is MetadataCodec -> metadata = codec.decode(buffer)
-                is ProtocolCodec -> protocol = codec.decode(buffer)
-                is MessageTypeCodec -> type = codec.decode(buffer)
-                is ParsedMessageBodyCodec -> body = codec.decode(buffer)
+                is MessageIdCodec -> setId(codec.decode(buffer))
+                is EventIdCodec -> setEventId(codec.decode(buffer))
+                is MetadataCodec -> setMetadata(codec.decode(buffer))
+                is ProtocolCodec -> setProtocol(codec.decode(buffer))
+                is MessageTypeCodec -> setType(codec.decode(buffer))
+                is ParsedMessageRawBodyCodec -> setRawBody(codec.decode(buffer))
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
-    }
+    }.build()
 
     override fun write(buffer: ByteBuf, value: ParsedMessage) {
         MessageIdCodec.encode(value.id, buffer)
@@ -325,28 +309,39 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
         MetadataCodec.encode(value.metadata, buffer)
         ProtocolCodec.encode(value.protocol, buffer)
         MessageTypeCodec.encode(value.type, buffer)
-        ParsedMessageBodyCodec.encode(value.body, buffer)
+        if (!value.isBodyInRaw) {
+            // Update raw body because the body was changed
+            ByteBufOutputStream(value.rawBody.clear()).use {
+                MAPPER.writeValue(it as OutputStream, value.body)
+            }
+            value.rawBody.resetReaderIndex()
+        }
+        ParsedMessageRawBodyCodec.encode(value.rawBody, buffer)
     }
+
+    @JvmField
+    val MAPPER: ObjectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
+        .setSerializationInclusion(JsonInclude.Include.ALWAYS)
 }
 
-object ParsedMessageBodyCodec : CborCodec<MutableMap<String, Any>>(31u, jacksonTypeRef())
+object ParsedMessageRawBodyCodec : ByteBufCodec(31u)
 
 object MessageGroupCodec : AbstractCodec<MessageGroup>(40u) {
-    override fun read(buffer: ByteBuf): MessageGroup = MessageGroup().apply {
+    override fun read(buffer: ByteBuf): MessageGroup = MessageGroup.builder().apply {
         buffer.forEachValue { codec ->
             when (codec) {
-                is MessageListCodec -> messages = codec.decode(buffer)
+                is MessageListCodec -> setMessages(codec.decode(buffer))
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
-    }
+    }.build()
 
     override fun write(buffer: ByteBuf, value: MessageGroup) {
         MessageListCodec.encode(value.messages, buffer)
     }
 }
 
-object MessageListCodec : AbstractCodec<MutableList<Message<*>>>(41u) {
+object MessageListCodec : AbstractCodec<List<Message<*>>>(41u) {
     override fun read(buffer: ByteBuf): MutableList<Message<*>> = mutableListOf<Message<*>>().apply {
         buffer.forEachValue { codec ->
             when (codec) {
@@ -357,7 +352,7 @@ object MessageListCodec : AbstractCodec<MutableList<Message<*>>>(41u) {
         }
     }
 
-    override fun write(buffer: ByteBuf, value: MutableList<Message<*>>): Unit = value.forEach { message ->
+    override fun write(buffer: ByteBuf, value: List<Message<*>>): Unit = value.forEach { message ->
         when (message) {
             is RawMessage -> RawMessageCodec.encode(message, buffer)
             is ParsedMessage -> ParsedMessageCodec.encode(message, buffer)
@@ -367,16 +362,16 @@ object MessageListCodec : AbstractCodec<MutableList<Message<*>>>(41u) {
 }
 
 object GroupBatchCodec : AbstractCodec<GroupBatch>(50u) {
-    override fun read(buffer: ByteBuf): GroupBatch = GroupBatch().apply {
+    override fun read(buffer: ByteBuf): GroupBatch = GroupBatch.builder().apply {
         buffer.forEachValue { codec ->
             when (codec) {
-                is BookCodec -> book = codec.decode(buffer)
-                is SessionGroupCodec -> sessionGroup = codec.decode(buffer)
-                is GroupListCodec -> groups = codec.decode(buffer)
+                is BookCodec -> setBook(codec.decode(buffer))
+                is SessionGroupCodec -> setSessionGroup(codec.decode(buffer))
+                is GroupListCodec -> setGroups(codec.decode(buffer))
                 else -> println("Skipping unexpected type ${codec.type} value: ${codec.decode(buffer)}")
             }
         }
-    }
+    }.build()
 
     override fun write(buffer: ByteBuf, value: GroupBatch) {
         BookCodec.encode(value.book, buffer)
