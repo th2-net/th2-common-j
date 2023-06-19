@@ -22,7 +22,7 @@ plugins {
     id 'com.google.protobuf' version '0.8.8' apply false
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
     id 'org.jetbrains.kotlin.kapt' version "${kotlin_version}"
-    id "org.owasp.dependencycheck" version "8.1.1"
+    id "org.owasp.dependencycheck" version "8.2.1"
     id "me.champeau.jmh" version "0.6.8"
 }
 
@@ -32,7 +32,6 @@ version = release_version
 ext {
     cradleVersion = '5.1.0-separate-executor-5308573193-b16f7f7-SNAPSHOT'
     junitVersion = '5.8.2'
-    sharedDir = file("${project.rootDir}/shared")
 }
 
 repositories {
@@ -47,7 +46,7 @@ repositories {
     }
     mavenLocal()
 
-    configurations.all {
+    configurations.configureEach {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
@@ -68,7 +67,7 @@ java {
 }
 
 // conditionals for publications
-tasks.withType(PublishToMavenRepository) {
+tasks.withType(PublishToMavenRepository).configureEach {
     onlyIf {
         (repository == publishing.repositories.nexusRepository &&
                 project.hasProperty('nexus_user') &&
@@ -76,18 +75,17 @@ tasks.withType(PublishToMavenRepository) {
                 project.hasProperty('nexus_url')) ||
                 (repository == publishing.repositories.sonatype &&
                         project.hasProperty('sonatypeUsername') &&
-                        project.hasProperty('sonatypePassword')) ||
-                (repository == publishing.repositories.localRepo)
+                        project.hasProperty('sonatypePassword'))
     }
 }
-tasks.withType(Sign) {
+tasks.withType(Sign).configureEach {
     onlyIf {
         project.hasProperty('signingKey') &&
                 project.hasProperty('signingPassword')
     }
 }
 // disable running task 'initializeSonatypeStagingRepository' on a gitlab
-tasks.whenTaskAdded { task ->
+tasks.configureEach { task ->
     if (task.name.equals('initializeSonatypeStagingRepository') &&
             !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
     ) {
@@ -127,10 +125,6 @@ publishing {
         }
     }
     repositories {
-        maven {
-            name = 'localRepo'
-            url = sharedDir
-        }
 //Nexus repo to publish from gitlab
         maven {
             name = 'nexusRepository'
@@ -152,13 +146,9 @@ nexusPublishing {
     }
 }
 
-clean {
-    delete sharedDir
-}
-
 signing {
-    def signingKey = findProperty("signingKey")
-    def signingPassword = findProperty("signingPassword")
+    String signingKey = findProperty("signingKey")
+    String signingPassword = findProperty("signingPassword")
     useInMemoryPgpKeys(signingKey, signingPassword)
     sign publishing.publications.mavenJava
 }
@@ -217,6 +207,9 @@ dependencies {
     implementation "org.apache.commons:commons-lang3"
     implementation "org.apache.commons:commons-collections4"
     implementation "org.apache.commons:commons-text"
+    implementation("commons-io:commons-io") {
+        because('we need FilenameUtil to use wildcard matching')
+    }
     implementation "commons-cli:commons-cli"
     implementation "commons-io:commons-io"
 
@@ -278,13 +271,9 @@ sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
     kotlinOptions.jvmTarget = "11"
     kotlinOptions.freeCompilerArgs += "-Xjvm-default=all"
-}
-
-clean {
-    delete sharedDir
 }
 
 dependencyCheck {
