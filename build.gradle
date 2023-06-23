@@ -1,3 +1,5 @@
+import com.github.jk1.license.render.*
+
 buildscript {
     repositories {
         mavenCentral()
@@ -23,6 +25,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
     id "org.owasp.dependencycheck" version "8.1.1"
     id "me.champeau.jmh" version "0.6.8"
+    id 'com.github.jk1.dependency-license-report' version '2.4'
 }
 
 group = 'com.exactpro.th2'
@@ -279,4 +282,13 @@ dependencyCheck {
         nugetconfEnabled = false
         nodeEnabled = false
     }
+}
+
+licenseReport {
+    renderers = [
+        new XmlReportRenderer("${project.name}-licenses.xml"),
+        new CsvReportRenderer("${project.name}-licenses.csv"),
+        new JsonReportRenderer("${project.name}-licenses.json"),
+        new InventoryHtmlReportRenderer("${project.name}-licenses.html")
+    ]
 }
