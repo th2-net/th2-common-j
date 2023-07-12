@@ -167,7 +167,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.4.0-update-libs-5335052162-8affa4a-SNAPSHOT")
+    api platform("com.exactpro.th2:bom:4.4.0")
     api('com.exactpro.th2:grpc-common:4.3.0-TH2-4887-vulnerabilities-5346500826-f180a19-SNAPSHOT') {
         because('protobuf transport is main now, this dependnecy should be moved to grpc, mq protobuf modules after splitting')
     }
