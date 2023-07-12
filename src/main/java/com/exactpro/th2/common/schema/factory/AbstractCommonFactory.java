@@ -58,7 +58,6 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.kotlin.KotlinFeature;
@@ -103,7 +102,6 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
- *
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
  *
  * @see CommonFactory
@@ -112,7 +110,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
 
-    /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
+    /**
+     * @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH}
+     */
     @Deprecated
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
@@ -120,7 +120,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     public static final ObjectMapper MAPPER = new ObjectMapper();
 
-    static  {
+    static {
         MAPPER.registerModules(
                 new KotlinModule.Builder()
                         .withReflectionCacheSize(512)
@@ -165,6 +165,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Create factory with non-default implementations schema classes
+     *
      * @param settings {@link FactorySettings}
      */
     public AbstractCommonFactory(FactorySettings settings) {
@@ -179,6 +180,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Create factory with default implementation schema classes
+     *
      * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
@@ -188,6 +190,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Create factory with non-default implementations schema classes
+     *
      * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
      * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
      * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
@@ -195,11 +198,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
-    public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    public AbstractCommonFactory(
+            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+            @NotNull Class<? extends GrpcRouter> grpcRouterClass
+    ) {
         this(new FactorySettings()
                 .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
                 .messageRouterRawBatchClass(messageRouterRawBatchClass)
@@ -220,12 +225,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
-    protected AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    protected AbstractCommonFactory(
+            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass,
-            @NotNull Map<String, String> environmentVariables) {
+            @NotNull Map<String, String> environmentVariables
+    ) {
         this(new FactorySettings()
                 .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
                 .messageRouterRawBatchClass(messageRouterRawBatchClass)
@@ -265,7 +272,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
             }
@@ -285,7 +293,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
             }
@@ -320,7 +329,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = messageRouterMessageGroupBatchClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create group message router", e);
                 }
             }
@@ -345,7 +355,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                             getMessageRouterConfiguration(),
                             getBoxConfiguration()
                     ));
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
             }
@@ -364,7 +375,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = grpcRouterClass.getConstructor().newInstance();
                     router.init(getGrpcConfiguration(), getGrpcRouterConfiguration());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create GRPC router", e);
                 }
             }
@@ -384,7 +396,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = notificationEventBatchRouterClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create notification router", e);
                 }
             }
@@ -409,11 +422,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Registers message router for custom type that is passed via {@code messageClass} parameter.<br>
      *
-     * @param messageClass custom message class
-     * @param messageConverter converter that will be used to convert message to bytes and vice versa
-     * @param defaultSendAttributes set of attributes for sending. A pin must have all of them to be selected for sending the message
+     * @param messageClass               custom message class
+     * @param messageConverter           converter that will be used to convert message to bytes and vice versa
+     * @param defaultSendAttributes      set of attributes for sending. A pin must have all of them to be selected for sending the message
      * @param defaultSubscribeAttributes set of attributes for subscription. A pin must have all of them to be selected for receiving messages
-     * @param <T> custom message type
+     * @param <T>                        custom message type
      * @throws IllegalStateException if the router for {@code messageClass} is already registered
      */
     public <T> void registerCustomMessageRouter(
@@ -441,10 +454,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Returns previously registered message router for message of {@code messageClass} type.
      * If the router for that type is not registered yet ,it throws {@link IllegalArgumentException}
+     *
      * @param messageClass custom message class
-     * @param <T> custom message type
-     * @throws IllegalArgumentException if router for specified type is not registered
+     * @param <T>          custom message type
      * @return the previously registered router for specified type
+     * @throws IllegalArgumentException if router for specified type is not registered
      */
     @SuppressWarnings("unchecked")
     @NotNull
@@ -454,7 +468,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             throw new IllegalArgumentException(
                     "Router for class " + messageClass.getCanonicalName() + "is not registered. Call 'registerCustomMessageRouter' first");
         }
-        return (MessageRouter<T>)router;
+        return (MessageRouter<T>) router;
     }
 
     /**
@@ -467,8 +481,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Load configuration, save and return. If already loaded return saved configuration.
+     *
      * @param configClass configuration class
-     * @param optional creates an instance of a configuration class via the default constructor if this option is true and the config file doesn't exist or empty
+     * @param optional    creates an instance of a configuration class via the default constructor if this option is true and the config file doesn't exist or empty
      * @return configuration object
      */
     protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
@@ -582,7 +597,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         if (!configFile.exists()) {
             try {
                 return confClass.getConstructor().newInstance();
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                     NoSuchMethodException e) {
                 return null;
             }
         }
@@ -604,6 +620,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Read first and only one dictionary
+     *
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary or found more than one target
      */
@@ -624,6 +641,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Read dictionary of {@link DictionaryType#MAIN} type
+     *
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
@@ -631,16 +649,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     public abstract InputStream readDictionary();
 
     /**
-     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
      * @param dictionaryType desired type of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
+     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
      */
     @Deprecated(since = "3.33.0", forRemoval = true)
     public abstract InputStream readDictionary(DictionaryType dictionaryType);
 
     /**
      * If root event does not exist, it creates root event with its book name = box book name and name = box name and timestamp
+     *
      * @return root event id
      */
     @NotNull
@@ -664,7 +683,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     } catch (IOException e) {
                         throw new CommonFactoryException("Can not send root event", e);
                     }
-                } catch (JsonProcessingException e) {
+                } catch (IOException e) {
                     throw new CommonFactoryException("Can not create root event", e);
                 }
             }
@@ -698,27 +717,27 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected MessageRouterContext getMessageRouterContext() {
         return routerContext.updateAndGet(ctx -> {
-           if (ctx == null) {
-               try {
-                   MessageRouterMonitor contextMonitor = new BroadcastMessageRouterMonitor(
-                           new LogMessageRouterMonitor(),
-                           new EventMessageRouterMonitor(
-                                   getEventBatchRouter(),
-                                   getRootEventId()
-                           )
-                   );
+            if (ctx == null) {
+                try {
+                    MessageRouterMonitor contextMonitor = new BroadcastMessageRouterMonitor(
+                            new LogMessageRouterMonitor(),
+                            new EventMessageRouterMonitor(
+                                    getEventBatchRouter(),
+                                    getRootEventId()
+                            )
+                    );
 
-                   return new DefaultMessageRouterContext(
-                           getRabbitMqConnectionManager(),
-                           contextMonitor,
-                           getMessageRouterConfiguration(),
-                           getBoxConfiguration()
-                   );
-               } catch (Exception e) {
-                   throw new CommonFactoryException("Can not create message router context", e);
-               }
-           }
-           return ctx;
+                    return new DefaultMessageRouterContext(
+                            getRabbitMqConnectionManager(),
+                            contextMonitor,
+                            getMessageRouterConfiguration(),
+                            getBoxConfiguration()
+                    );
+                } catch (Exception e) {
+                    throw new CommonFactoryException("Can not create message router context", e);
+                }
+            }
+            return ctx;
         });
     }
 
