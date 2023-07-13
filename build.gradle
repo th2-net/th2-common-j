@@ -24,6 +24,7 @@ plugins {
     id 'org.jetbrains.kotlin.kapt' version "${kotlin_version}"
     id "org.owasp.dependencycheck" version "8.2.1"
     id "me.champeau.jmh" version "0.6.8"
+    id "com.gorylenko.gradle-git-properties" version "2.4.1"
 }
 
 group = 'com.exactpro.th2'
