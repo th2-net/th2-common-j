@@ -74,24 +74,16 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.Spliterators;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.stream.StreamSupport;
 
 import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE;
@@ -107,8 +99,6 @@ import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
  * @see CommonFactory
  */
 public abstract class AbstractCommonFactory implements AutoCloseable {
-
-    protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
 
     /**
      * @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH}
@@ -872,28 +862,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
         Log4jConfigUtils log4jConfigUtils = new Log4jConfigUtils();
         log4jConfigUtils.configure(listPath, LOG4J2_PROPERTIES_NAME);
-        loggingManifests();
-    }
-
-    private static void loggingManifests() {
-        try {
-            Iterator<URL> urlIterator = Thread.currentThread().getContextClassLoader().getResources(JarFile.MANIFEST_NAME).asIterator();
-            StreamSupport.stream(Spliterators.spliteratorUnknownSize(urlIterator, 0), false)
-                    .map(url -> {
-                        try (InputStream inputStream = url.openStream()) {
-                            return new Manifest(inputStream);
-                        } catch (IOException e) {
-                            LOGGER.warn("Manifest '{}' loading failere", url, e);
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .map(Manifest::getMainAttributes)
-                    .filter(attributes -> EXACTPRO_IMPLEMENTATION_VENDOR.equals(attributes.getValue(Name.IMPLEMENTATION_VENDOR)))
-                    .forEach(attributes -> LOGGER.info("Manifest title {}, version {}"
-                            , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION)));
-        } catch (IOException e) {
-            LOGGER.warn("Manifest searching failure", e);
-        }
+        ExactproMetaInf.logging();
     }
 }
