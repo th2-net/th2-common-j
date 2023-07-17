@@ -24,6 +24,29 @@ data class GroupBatch(
     val sessionGroup: String,
     val groups: List<MessageGroup> = emptyList(),
 ) {
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as GroupBatch
+
+        if (book != other.book) return false
+        if (sessionGroup != other.sessionGroup) return false
+        return groups == other.groups
+    }
+
+    override fun hashCode(): Int {
+        var result = book.hashCode()
+        result = 31 * result + sessionGroup.hashCode()
+        result = 31 * result + groups.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        return "GroupBatch(book='$book', sessionGroup='$sessionGroup', groups=$groups)"
+    }
+
     @AutoBuilder
     interface Builder {
         val book: String
@@ -39,6 +62,8 @@ data class GroupBatch(
         fun setGroups(groups: List<MessageGroup>): Builder
         fun build(): GroupBatch
     }
+
+    fun toBuilder(): Builder = AutoBuilder_GroupBatch_Builder(this)
 
     companion object {
         @JvmStatic
