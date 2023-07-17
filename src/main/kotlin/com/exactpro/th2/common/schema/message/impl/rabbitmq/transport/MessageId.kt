@@ -28,6 +28,33 @@ data class MessageId(
     /** The subsequence is not mutable by default */
     val subsequence: List<Int> = emptyList(),
 ) {
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MessageId
+
+        if (sessionAlias != other.sessionAlias) return false
+        if (direction != other.direction) return false
+        if (sequence != other.sequence) return false
+        if (timestamp != other.timestamp) return false
+        return subsequence == other.subsequence
+    }
+
+    override fun hashCode(): Int {
+        var result = sessionAlias.hashCode()
+        result = 31 * result + direction.hashCode()
+        result = 31 * result + sequence.hashCode()
+        result = 31 * result + timestamp.hashCode()
+        result = 31 * result + subsequence.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        return "MessageId(sessionAlias='$sessionAlias', direction=$direction, sequence=$sequence, timestamp=$timestamp, subsequence=$subsequence)"
+    }
+
     @AutoBuilder
     interface Builder {
         val sessionAlias: String
@@ -40,15 +67,15 @@ data class MessageId(
         fun setSequence(sequence: Long): Builder
         fun setTimestamp(timestamp: Instant): Builder
         fun subsequenceBuilder(): CollectionBuilder<Int>
-        fun addSubsequence(subsequnce: Int): Builder = apply {
-            subsequenceBuilder().add(subsequnce)
+        fun addSubsequence(subsequence: Int): Builder = apply {
+            subsequenceBuilder().add(subsequence)
         }
 
         fun setSubsequence(subsequence: List<Int>): Builder
         fun build(): MessageId
     }
 
-    fun toBuilder(): MessageId.Builder = AutoBuilder_MessageId_Builder(this)
+    fun toBuilder(): Builder = AutoBuilder_MessageId_Builder(this)
 
     companion object {
         @JvmStatic

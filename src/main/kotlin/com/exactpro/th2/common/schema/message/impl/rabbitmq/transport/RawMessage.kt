@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.google.auto.value.AutoBuilder
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.ByteBufUtil.hexDump
 import io.netty.buffer.Unpooled
 
 data class RawMessage(
@@ -28,11 +29,40 @@ data class RawMessage(
     /** The body is not mutable by default */
     override val body: ByteBuf = Unpooled.EMPTY_BUFFER,
 ) : Message<ByteBuf> {
+
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as RawMessage
+
+        if (id != other.id) return false
+        if (eventId != other.eventId) return false
+        if (metadata != other.metadata) return false
+        if (protocol != other.protocol) return false
+        return body == other.body
+    }
+
+    override fun hashCode(): Int {
+        var result = id.hashCode()
+        result = 31 * result + (eventId?.hashCode() ?: 0)
+        result = 31 * result + metadata.hashCode()
+        result = 31 * result + protocol.hashCode()
+        result = 31 * result + body.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        return "RawMessage(id=$id, eventId=$eventId, metadata=$metadata, protocol='$protocol', body=${hexDump(body)})"
+    }
+
     @AutoBuilder
     interface Builder : Message.Builder<Builder> {
-        val body: ByteBuf
 
+        val body: ByteBuf
         fun setBody(body: ByteBuf): Builder
+
         fun setBody(data: ByteArray): Builder = setBody(Unpooled.wrappedBuffer(data))
 
         override fun addMetadataProperty(key: String, value: String): Builder = this.apply {
@@ -42,7 +72,10 @@ data class RawMessage(
         override fun build(): RawMessage
     }
 
+    fun toBuilder(): Builder = AutoBuilder_RawMessage_Builder(this)
+
     companion object {
+
         val EMPTY = RawMessage()
 
         @JvmStatic

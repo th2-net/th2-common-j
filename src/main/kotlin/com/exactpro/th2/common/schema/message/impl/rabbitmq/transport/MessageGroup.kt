@@ -23,6 +23,23 @@ import com.google.auto.value.AutoBuilder
 data class MessageGroup(
     val messages: List<Message<*>> = emptyList(), // FIXME: message can have incompatible book and group
 ) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MessageGroup
+
+        return messages == other.messages
+    }
+
+    override fun hashCode(): Int {
+        return messages.hashCode()
+    }
+
+    override fun toString(): String {
+        return "MessageGroup(messages=$messages)"
+    }
+
     // We cannot use AutoBuilder here because of the different method signatures in builder when a generic type is used
     //
     @AutoBuilder
@@ -31,9 +48,13 @@ data class MessageGroup(
         fun addMessage(message: Message<*>): Builder = apply {
             messagesBuilder().add(message)
         }
+
         fun setMessages(message: List<Message<*>>): Builder
         fun build(): MessageGroup
     }
+
+    //TODO: add override annotation
+    fun toBuilder(): Builder = builder().setMessages(messages)
 
     class CollectionBuilder {
         private val elements: MutableList<Message<*>> = mutableListOf()
