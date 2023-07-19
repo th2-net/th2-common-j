@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import java.time.Instant
 import kotlin.random.Random
 import kotlin.test.assertEquals
@@ -52,13 +53,28 @@ class ParsedMessageTest {
         with(builder) {
             assertEquals(TEST_MESSAGE_TYPE, type)
             assertEquals(TEST_PROTOCOL, protocol)
-//        assertEquals(body, builder.bodyBuilder)
-//        assertEquals(metadata, builder.metadataBuilder())
+            with(bodyBuilder()) {
+                assertEquals(testBody.size, size)
+                assertAll(testBody.map { (key, value) ->
+                    { assertEquals(value, get(key), "Check '$key' field") }
+                })
+            }
+            with(metadataBuilder()) {
+                assertEquals(testMetadata.size, size)
+                assertAll(testMetadata.map { (key, value) ->
+                    { assertEquals(value, get(key), "Check '$key' field") }
+                })
+            }
             with(idBuilder()) {
                 assertEquals(TEST_SESSION_ALIAS, sessionAlias)
                 assertEquals(Direction.OUTGOING, direction)
                 assertEquals(TEST_SEQUENCE, sequence)
-//                assertEquals(TEST_SUB_SEQUENCE, subsequenceBuilder())
+                with(subsequenceBuilder()) {
+                    assertEquals(TEST_SUB_SEQUENCE.size, size)
+                    assertAll(TEST_SUB_SEQUENCE.mapIndexed { index, value ->
+                        { assertEquals(value, get(index), "Check '$index' index") }
+                    })
+                }
                 assertEquals(testTimestamp, timestamp)
             }
             with(assertNotNull(eventId)) {
@@ -69,9 +85,7 @@ class ParsedMessageTest {
             }
         }
 
-        val mesasge = builder.build()
-
-        with(mesasge) {
+        with(builder.build()) {
             assertEquals(TEST_MESSAGE_TYPE, type)
             assertEquals(TEST_PROTOCOL, protocol)
             assertEquals(testBody, body)
@@ -118,13 +132,28 @@ class ParsedMessageTest {
         with(builder) {
             assertEquals(TEST_MESSAGE_TYPE, type)
             assertEquals(TEST_PROTOCOL, protocol)
-//        assertEquals(body, builder.bodyBuilder)
-//        assertEquals(metadata, builder.metadataBuilder())
+            with(bodyBuilder()) {
+                assertEquals(testBody.size, size)
+                assertAll(testBody.map { (key, value) ->
+                    { assertEquals(value, get(key), "Check '$key' field") }
+                })
+            }
+            with(metadataBuilder()) {
+                assertEquals(testMetadata.size, size)
+                assertAll(testMetadata.map { (key, value) ->
+                    { assertEquals(value, get(key), "Check '$key' field") }
+                })
+            }
             with(idBuilder()) {
                 assertEquals(TEST_SESSION_ALIAS, sessionAlias)
                 assertEquals(Direction.OUTGOING, direction)
                 assertEquals(TEST_SEQUENCE, sequence)
-//                assertEquals(TEST_SUB_SEQUENCE, subsequenceBuilder())
+                with(subsequenceBuilder()) {
+                    assertEquals(TEST_SUB_SEQUENCE.size, size)
+                    assertAll(TEST_SUB_SEQUENCE.mapIndexed { index, value ->
+                        { assertEquals(value, get(index), "Check '$index' index") }
+                    })
+                }
                 assertEquals(testTimestamp, timestamp)
             }
             with(assertNotNull(eventId)) {
