@@ -93,12 +93,9 @@ class ParsedMessage private constructor(
     }
 
     //TODO: add override annotation
-    fun toBuilder(): Builder<Builder<*>> {
-        return when {
-            body === DEFAULT_BODY -> FromRawBuilderImpl(bodySupplier).setRawBody(rawBody)
-            bodySupplier === DEFAULT_BODY_SUPPLIER -> FromMapBuilderImpl().setBody(body)
-            else -> error("Message can't be convert to builder $this")
-        }.apply {
+    fun toBuilder(): FromMapBuilder {
+        return FromMapBuilderImpl().apply {
+            setBody(body)
             setId(id)
             setMetadata(metadata)
             setProtocol(protocol)
