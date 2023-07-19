@@ -19,12 +19,19 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders
 class MapBuilder<K, V>(
     private val innerMap: MutableMap<K, V> = hashMapOf(),
 ) {
+    val size: Int
+        get() = innerMap.size
+
+    fun contains(key: K): Boolean = innerMap.contains(key)
+    operator fun get(key: K): V? = innerMap[key]
     fun put(key: K, value: V): MapBuilder<K, V> = apply {
         innerMap[key] = value
     }
+
     fun putAll(from: Map<K, V>): MapBuilder<K, V> = apply {
         innerMap.putAll(from)
     }
+
     fun build(): Map<K, V> {
         return innerMap
     }

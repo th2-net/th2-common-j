@@ -23,7 +23,9 @@ class CollectionBuilder<T> {
         get() = elements.size
 
     fun isEmpty(): Boolean = elements.isEmpty()
-    
+
+    operator fun get(index: Int): T = elements[index]
+
     fun add(el: T): CollectionBuilder<T> = apply {
         elements += el
     }
