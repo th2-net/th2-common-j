@@ -94,14 +94,13 @@ class ParsedMessage private constructor(
 
     //TODO: add override annotation
     fun toBuilder(): FromMapBuilder {
-        return FromMapBuilderImpl().apply {
-            setBody(body)
-            setId(id)
-            setMetadata(metadata)
-            setProtocol(protocol)
-            setType(type)
-            eventId?.let(::setEventId)
-        }
+        return FromMapBuilderImpl()
+            .setBody(body)
+            .setId(id)
+            .setMetadata(metadata)
+            .setProtocol(protocol)
+            .setType(type)
+            .also { eventId?.let(it::setEventId) }
     }
 
     interface FromRawBuilder : Builder<FromRawBuilder> {
