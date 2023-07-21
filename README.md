@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.2.0)
+# th2 common library (Java) (5.2.1)
 
 ## Usage
 
@@ -366,6 +366,7 @@ dependencies {
 #### Changed:
 
 + The Cradle version is update to 5.0.2-dev-*.
++ Book, session group and protocol message filtering added.
 
 ### 5.2.0
 
