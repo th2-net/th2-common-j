@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.2.0)
+# th2 common library (Java) (5.2.2)
 
 ## Usage
 
@@ -360,6 +360,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.2.2
+
+#### Changed:
++ Book, session group and protocol message filtering added.
 
 ### 5.2.1
 
