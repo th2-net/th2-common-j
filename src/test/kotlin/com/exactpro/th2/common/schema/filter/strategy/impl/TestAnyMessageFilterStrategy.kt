@@ -547,6 +547,7 @@ class TestAnyMessageFilterStrategy {
         fun rawMessagesBothFilters() : List<Arguments> = listOf(
             arguments(simpleRawMessageBuilder("test-alias", Direction.FIRST), true),
             arguments(simpleRawMessageBuilder("test-alias", Direction.SECOND), false),
+            arguments(simpleRawMessageBuilder("test-alias-wrong-value", Direction.FIRST), false),
             arguments(simpleRawMessageBuilder("test-alias-wrong-value", Direction.SECOND), false)
         )
     }
