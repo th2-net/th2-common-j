@@ -458,6 +458,7 @@ dependencies {
 ### 5.3.0
 
 + Implemented message routers used th2 transport protocol for interaction
++ Pin filters behaviour changed: conditions inside the message and metadata now combined as "and"
 
 ### 5.2.1
 
