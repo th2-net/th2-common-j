@@ -24,18 +24,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Connec
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AMQP.BasicProperties;
-import com.rabbitmq.client.BlockedListener;
-import com.rabbitmq.client.CancelCallback;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Consumer;
-import com.rabbitmq.client.Envelope;
-import com.rabbitmq.client.ExceptionHandler;
-import com.rabbitmq.client.Recoverable;
-import com.rabbitmq.client.RecoveryListener;
-import com.rabbitmq.client.ShutdownNotifier;
-import com.rabbitmq.client.TopologyRecoveryException;
+import com.rabbitmq.client.*;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -52,13 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -120,7 +103,7 @@ public class ConnectionManager implements AutoCloseable {
             factory.setPassword(password);
         }
 
-        if (connectionManagerConfiguration.getConnectionTimeout() >  0) {
+        if (connectionManagerConfiguration.getConnectionTimeout() > 0) {
             factory.setConnectionTimeout(connectionManagerConfiguration.getConnectionTimeout());
         }
 
@@ -165,7 +148,7 @@ public class ConnectionManager implements AutoCloseable {
                 turnOffReadiness(exception);
             }
 
-            private void turnOffReadiness(Throwable exception){
+            private void turnOffReadiness(Throwable exception) {
                 metrics.getReadinessMonitor().disable();
                 LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
             }
@@ -198,10 +181,10 @@ public class ConnectionManager implements AutoCloseable {
 
                     int recoveryDelay = connectionManagerConfiguration.getMinConnectionRecoveryTimeout()
                             + (connectionManagerConfiguration.getMaxRecoveryAttempts() > 1
-                                ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
-                                    / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
-                                    * tmpCountTriesToRecovery
-                                : 0);
+                            ? (connectionManagerConfiguration.getMaxConnectionRecoveryTimeout() - connectionManagerConfiguration.getMinConnectionRecoveryTimeout())
+                            / (connectionManagerConfiguration.getMaxRecoveryAttempts() - 1)
+                            * tmpCountTriesToRecovery
+                            : 0);
 
                     LOGGER.info("Recovery delay for '{}' try = {}", tmpCountTriesToRecovery, recoveryDelay);
                     return recoveryDelay;
@@ -292,7 +275,7 @@ public class ConnectionManager implements AutoCloseable {
 
     public String queueDeclare() throws IOException {
         ChannelHolder holder = new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
-        return holder.mapWithLock( channel -> {
+        return holder.mapWithLock(channel -> {
             String queue = channel.queueDeclare(
                     "", // queue name
                     false, // durable
@@ -320,7 +303,11 @@ public class ConnectionManager implements AutoCloseable {
                             public void reject() throws IOException {
                                 holder.withLock(ch -> {
                                     try {
+                                        LOGGER.info("Basic Reject was called");
                                         basicReject(ch, deliveryTag);
+                                        throw new RuntimeException("Basic Reject was called");
+                                    } catch (RuntimeException e) {
+                                        LOGGER.info("Getting exception stacktrace", e);
                                     } finally {
                                         holder.release(() -> metrics.getReadinessMonitor().enable());
                                     }
@@ -331,7 +318,11 @@ public class ConnectionManager implements AutoCloseable {
                             public void confirm() throws IOException {
                                 holder.withLock(ch -> {
                                     try {
+                                        LOGGER.info("Basic Ack was called");
                                         basicAck(ch, deliveryTag);
+                                        throw new RuntimeException("Basic Reject was called");
+                                    } catch (RuntimeException e) {
+                                        LOGGER.info("Getting exception stacktrace", e);
                                     } finally {
                                         holder.release(() -> metrics.getReadinessMonitor().enable());
                                     }
@@ -377,7 +368,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public String queueExclusiveDeclareAndBind(String exchange) throws IOException, TimeoutException {
-        try(Channel channel = createChannel()) {
+        try (Channel channel = createChannel()) {
             String queue = channel.queueDeclare().getQueue();
             channel.queueBind(queue, exchange, EMPTY_ROUTING_KEY);
             LOGGER.info("Declared the '{}' queue to listen to the '{}'", queue, exchange);
@@ -623,8 +614,8 @@ public class ConnectionManager implements AutoCloseable {
          * If the number of unacked messages is less than {@link #maxCount}
          * the <b>onWaterMarkDecreased</b> action will be called.
          * The future created in {@link #acquireAndSubmitCheck(Supplier)} method will be canceled
-         * @param onWaterMarkDecreased
-         * the action that will be executed when the number of unacked messages is less than {@link #maxCount} and there is a future to cancel
+         *
+         * @param onWaterMarkDecreased the action that will be executed when the number of unacked messages is less than {@link #maxCount} and there is a future to cancel
          */
         public void release(Runnable onWaterMarkDecreased) {
             lock.lock();
@@ -645,8 +636,8 @@ public class ConnectionManager implements AutoCloseable {
          * If the number of unacked messages is higher than or equal to {@link #maxCount}
          * the <b>futureSupplier</b> will be invoked to create a task
          * that either will be executed or canceled when number of unacked message will be less that {@link #maxCount}
-         * @param futureSupplier
-         * creates a future to track the task that should be executed until the number of unacked message is not less than {@link #maxCount}
+         *
+         * @param futureSupplier creates a future to track the task that should be executed until the number of unacked message is not less than {@link #maxCount}
          */
         public void acquireAndSubmitCheck(Supplier<Future<?>> futureSupplier) {
             lock.lock();
