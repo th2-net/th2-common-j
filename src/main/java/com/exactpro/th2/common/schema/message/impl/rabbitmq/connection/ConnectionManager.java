@@ -320,7 +320,7 @@ public class ConnectionManager implements AutoCloseable {
                                     try {
                                         LOGGER.info("Basic Ack was called");
                                         basicAck(ch, deliveryTag);
-                                        throw new RuntimeException("Basic Reject was called");
+                                        throw new RuntimeException("Basic Ack was called");
                                     } catch (RuntimeException e) {
                                         LOGGER.info("Getting exception stacktrace", e);
                                     } finally {
