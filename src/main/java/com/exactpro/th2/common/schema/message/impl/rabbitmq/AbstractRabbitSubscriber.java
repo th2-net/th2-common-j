@@ -16,12 +16,8 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.schema.message.ConfirmationListener;
-import com.exactpro.th2.common.schema.message.DeliveryMetadata;
-import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.*;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
-import com.exactpro.th2.common.schema.message.MessageSubscriber;
-import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
@@ -46,10 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
-import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
-import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
-import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
+import static com.exactpro.th2.common.metrics.CommonMetrics.*;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
@@ -124,11 +117,15 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         publicLock.lock();
         try {
             boolean isManual = ConfirmationListener.isManual(messageListener);
+            LOGGER.info("method 'addListener' -> isManual = {}, listener: {}",
+                    ConfirmationListener.isManual(messageListener),
+                    messageListener.getClass()
+            );
             if (isManual && hasManualSubscriber) {
                 throw new IllegalStateException("cannot subscribe listener " + messageListener
                         + " because only one listener with manual confirmation is allowed per queue");
             }
-            if(listeners.add(messageListener)) {
+            if (listeners.add(messageListener)) {
                 hasManualSubscriber |= isManual;
                 subscribe();
             }
@@ -142,6 +139,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         publicLock.lock();
         try {
             boolean isManual = ConfirmationListener.isManual(messageListener);
+            LOGGER.info("method 'removeListener' -> isManual = {}, listener: {}",
+                    ConfirmationListener.isManual(messageListener),
+                    messageListener.getClass()
+            );
             if (listeners.remove(messageListener)) {
                 hasManualSubscriber &= !isManual;
                 messageListener.onClose();
@@ -213,6 +214,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 try {
                     listener.handle(deliveryMetadata, filteredValue, confirmation);
                     if (!hasManualConfirmation) {
+                        LOGGER.info("method 'handle' -> isManual = {}, listener: {}",
+                                ConfirmationListener.isManual(listener),
+                                listener.getClass()
+                        );
                         hasManualConfirmation = ConfirmationListener.isManual(listener);
                     }
                 } catch (Exception listenerExc) {
