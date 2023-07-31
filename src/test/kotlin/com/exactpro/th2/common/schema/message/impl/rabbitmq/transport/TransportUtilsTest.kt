@@ -19,6 +19,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.BOOK_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.DIRECTION_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.PROTOCOL_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
@@ -50,6 +51,8 @@ class TransportUtilsTest {
 
     private val directionA = "SECOND"
     private val directionB = "FIRST"
+    private val protocolA = "protocolA"
+    private val protocolB = "protocolB"
 
     private val routerFilters = listOf(
         MqRouterFilterConfiguration(
@@ -66,6 +69,7 @@ class TransportUtilsTest {
                 put(SESSION_ALIAS_KEY, FieldFilterConfiguration(SESSION_ALIAS_KEY, null, NOT_EMPTY))
                 put(MESSAGE_TYPE_KEY, FieldFilterConfiguration(MESSAGE_TYPE_KEY, null, NOT_EMPTY))
                 put(DIRECTION_KEY, FieldFilterConfiguration(DIRECTION_KEY, directionB, NOT_EQUAL))
+                put(PROTOCOL_KEY, FieldFilterConfiguration(PROTOCOL_KEY, protocolA, EQUAL))
             },
             emptyMultiMap()
         ),
@@ -83,6 +87,7 @@ class TransportUtilsTest {
                 put(SESSION_ALIAS_KEY, FieldFilterConfiguration(SESSION_ALIAS_KEY, null, NOT_EMPTY))
                 put(MESSAGE_TYPE_KEY, FieldFilterConfiguration(MESSAGE_TYPE_KEY, null, NOT_EMPTY))
                 put(DIRECTION_KEY, FieldFilterConfiguration(DIRECTION_KEY, directionA, NOT_EQUAL))
+                put(PROTOCOL_KEY, FieldFilterConfiguration(PROTOCOL_KEY, protocolB, EQUAL))
             },
             emptyMultiMap()
         )
@@ -106,21 +111,97 @@ class TransportUtilsTest {
                 val batch = GroupBatch.builder()
                     .setBook("")
                     .setSessionGroup("")
-                    .build()
+                    .addGroup(
+                        MessageGroup.builder()
+                            .addMessage(
+                                ParsedMessage.builder()
+                                    .setId(
+                                        MessageId.builder()
+                                            .setSessionAlias("")
+                                            .setDirection(Direction.OUTGOING)
+                                            .setSequence(1)
+                                            .setTimestamp(Instant.now())
+                                            .build()
+                                    )
+                                    .setType("")
+                                    .setBody(emptyMap())
+                                    .build()
+                            )
+                            .build()
+                    ).build()
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("only book match") {
                 val batch = GroupBatch.builder()
                     .setBook(bookA)
                     .setSessionGroup("")
-                    .build()
+                    .addGroup(
+                        MessageGroup.builder()
+                            .addMessage(
+                                ParsedMessage.builder()
+                                    .setId(
+                                        MessageId.builder()
+                                            .setSessionAlias("")
+                                            .setDirection(Direction.OUTGOING)
+                                            .setSequence(1)
+                                            .setTimestamp(Instant.now())
+                                            .build()
+                                    )
+                                    .setType("")
+                                    .setBody(emptyMap())
+                                    .build()
+                            )
+                            .build()
+                    ).build()
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("only book and group match") {
                 val batch = GroupBatch.builder()
                     .setBook(bookA)
                     .setSessionGroup(groupA)
-                    .build()
+                    .addGroup(
+                        MessageGroup.builder()
+                            .addMessage(
+                                ParsedMessage.builder()
+                                    .setId(
+                                        MessageId.builder()
+                                            .setSessionAlias("")
+                                            .setDirection(Direction.OUTGOING)
+                                            .setSequence(1)
+                                            .setTimestamp(Instant.now())
+                                            .build()
+                                    )
+                                    .setType("")
+                                    .setBody(emptyMap())
+                                    .build()
+                            )
+                            .build()
+                    ).build()
+                assertNull(routerFilters.filter(batch))
+            },
+            DynamicTest.dynamicTest("only book, group, protocol match") {
+                val batch = GroupBatch.builder()
+                    .setBook(bookA)
+                    .setSessionGroup(groupA)
+                    .addGroup(
+                        MessageGroup.builder()
+                            .addMessage(
+                                ParsedMessage.builder()
+                                    .setProtocol(protocolA)
+                                    .setId(
+                                        MessageId.builder()
+                                            .setSessionAlias("")
+                                            .setDirection(Direction.OUTGOING)
+                                            .setSequence(1)
+                                            .setTimestamp(Instant.now())
+                                            .build()
+                                    )
+                                    .setType("")
+                                    .setBody(emptyMap())
+                                    .build()
+                            )
+                            .build()
+                    ).build()
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("with partial message match") {
@@ -131,6 +212,7 @@ class TransportUtilsTest {
                         MessageGroup.builder()
                             .addMessage(
                                 ParsedMessage.builder()
+                                    .setProtocol(protocolA)
                                     .setId(
                                         MessageId.builder()
                                             .setSessionAlias("")
@@ -157,6 +239,7 @@ class TransportUtilsTest {
                                 ParsedMessage.builder()
                                     .setType(msgType)
                                     .setBody(emptyMap())
+                                    .setProtocol(protocolA)
                                     .apply {
                                         idBuilder()
                                             .setSessionAlias("alias")
@@ -179,6 +262,7 @@ class TransportUtilsTest {
                                 ParsedMessage.builder()
                                     .setType(msgType)
                                     .setBody(emptyMap())
+                                    .setProtocol(protocolB)
                                     .apply {
                                         idBuilder()
                                             .setSessionAlias("alias")

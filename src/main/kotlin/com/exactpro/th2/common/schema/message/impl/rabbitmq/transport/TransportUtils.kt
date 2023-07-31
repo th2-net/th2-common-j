@@ -21,6 +21,7 @@ import com.exactpro.th2.common.grpc.Direction.SECOND
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.BOOK_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.DIRECTION_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY
+import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.PROTOCOL_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.checkFieldValue
@@ -52,6 +53,9 @@ fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
             return@forEach
         }
         if (!filterSet.metadata[DIRECTION_KEY].verify(batch.groups) { id.direction.proto.name }) {
+            return@forEach
+        }
+        if (!filterSet.metadata[PROTOCOL_KEY].verify(batch.groups) { protocol }) {
             return@forEach
         }
 
