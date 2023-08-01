@@ -51,7 +51,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
 
         val builder = MessageGroupBatch.newBuilder()
         message.groupsList.forEach { group ->
-            if (group.messagesList.all { filterMessage(it, pinConfiguration.filters) }) {
+            if (group.messagesList.any { filterMessage(it, pinConfiguration.filters) }) {
                 builder.addGroups(group)
             } else {
                 incrementDroppedMetrics(

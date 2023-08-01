@@ -21,6 +21,7 @@ import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
 import com.google.protobuf.Message;
 import org.apache.commons.collections4.MultiMapUtils;
 import org.apache.commons.collections4.MultiValuedMap;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,18 +31,15 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
 
     @Override
     public boolean verify(T message, RouterFilter routerFilter) {
-
-        MultiValuedMap<String, FieldFilterConfiguration> msgFieldFilters = MultiMapUtils.newListValuedHashMap();
-        msgFieldFilters.putAll(routerFilter.getMessage());
-        msgFieldFilters.putAll(routerFilter.getMetadata());
-
+        MultiValuedMap<String, FieldFilterConfiguration> msgFieldFilters = extractConfigMapFromRouterFilter(routerFilter);
         return checkValues(getFields(message), msgFieldFilters);
     }
 
     @Override
     public boolean verify(T message, List<? extends RouterFilter> routerFilters) {
+        Map<String, String> fields = getFields(message);
         for (var fieldsFilter : routerFilters) {
-            if (verify(message, fieldsFilter)) {
+            if (verify(fields, fieldsFilter)) {
                 return true;
             }
         }
@@ -49,10 +47,24 @@ public abstract class AbstractFilterStrategy<T extends Message> implements Filte
         return false;
     }
 
+    private boolean verify(Map<String, String> fields, RouterFilter routerFilter) {
+        MultiValuedMap<String, FieldFilterConfiguration> msgFieldFilters = extractConfigMapFromRouterFilter(routerFilter);
+        return checkValues(fields, msgFieldFilters);
+    }
+
+    @NotNull
+    private MultiValuedMap<String, FieldFilterConfiguration> extractConfigMapFromRouterFilter(RouterFilter routerFilter) {
+        MultiValuedMap<String, FieldFilterConfiguration> msgFieldFilters = MultiMapUtils.newListValuedHashMap();
+        msgFieldFilters.putAll(routerFilter.getMessage());
+        msgFieldFilters.putAll(routerFilter.getMetadata());
+        msgFieldFilters.putAll(routerFilter.getProperties());
+        return msgFieldFilters;
+    }
+
     protected abstract Map<String, String> getFields(T message);
 
     private boolean checkValues(Map<String, String> messageFields, MultiValuedMap<String, FieldFilterConfiguration> fieldFilters) {
-        return fieldFilters.isEmpty() || fieldFilters.keys().stream().anyMatch(fieldName -> {
+        return fieldFilters.isEmpty() || fieldFilters.keys().stream().allMatch(fieldName -> {
             String messageValue = messageFields.get(fieldName);
             Collection<FieldFilterConfiguration> filters = fieldFilters.get(fieldName);
             return !filters.isEmpty() && filters.stream().allMatch(filter -> FieldValueChecker.checkFieldValue(filter, messageValue));

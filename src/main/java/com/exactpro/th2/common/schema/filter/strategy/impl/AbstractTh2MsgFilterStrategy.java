@@ -29,6 +29,7 @@ public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrateg
     public static final String SESSION_ALIAS_KEY = "session_alias";
     public static final String MESSAGE_TYPE_KEY = "message_type";
     public static final String DIRECTION_KEY = "direction";
+    public static final String PROTOCOL_KEY = "protocol";
 
     @Override
     public Map<String, String> getFields(com.google.protobuf.Message message) {
@@ -44,9 +45,11 @@ public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrateg
         var metadataMsgFields = Map.of(
                 SESSION_ALIAS_KEY, messageID.getConnectionId().getSessionAlias(),
                 MESSAGE_TYPE_KEY, metadata.getMessageType(),
-                DIRECTION_KEY, messageID.getDirection().name()
+                DIRECTION_KEY, messageID.getDirection().name(),
+                PROTOCOL_KEY, metadata.getProtocol()
         );
 
+        messageFields.putAll(th2Msg.getMetadata().getPropertiesMap());
         messageFields.putAll(metadataMsgFields);
 
         return messageFields;

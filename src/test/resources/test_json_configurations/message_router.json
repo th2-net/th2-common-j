@@ -13,6 +13,12 @@
               "operation": "EQUAL"
             }
           },
+          "properties": {
+            "method": {
+              "value": "POST",
+              "operation": "EQUAL"
+            }
+          },
           "message": {
             "test_field": {
               "value": "test_value",
@@ -26,6 +32,18 @@
               "fieldName": "session_alias",
               "value": "test_session_alias",
               "operation": "EQUAL"
+            }
+          ],
+          "properties": [
+            {
+              "field-name": "method1",
+              "expected-value": "POST",
+              "operation": "EQUAL"
+            },
+            {
+              "fieldName": "method2",
+              "value": "GET",
+              "operation": "NOT_EQUAL"
             }
           ],
           "message": [
