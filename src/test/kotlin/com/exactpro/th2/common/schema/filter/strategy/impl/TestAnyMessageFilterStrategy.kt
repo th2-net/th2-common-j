@@ -23,6 +23,7 @@ import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.addField
 import com.exactpro.th2.common.message.message
 import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy.verify
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
@@ -38,7 +39,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("multipleFiltersMatch")
     fun `matches any filter`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             anyMessage,
             listOf(
                 MqRouterFilterConfiguration(
@@ -67,7 +68,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("rawMessagesBothFilters")
     fun `matches with multiple metadata filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             anyMessage,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -90,7 +91,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("parsedMessagesBothFilters")
     fun `matches with multiple message filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             anyMessage,
             MqRouterFilterConfiguration(
                 message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -113,7 +114,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messagesWithProperties")
     fun `matches with multiple properties filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             anyMessage,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -136,7 +137,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messagesWithMessageAndMetadataFilters")
     fun `matches with multiple message and metadata filters`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             anyMessage,
             MqRouterFilterConfiguration(
                 message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -171,7 +172,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messageWithProtocol")
     fun `matches protocol metadata filter`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             anyMessage,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -189,7 +190,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("parsedMessages")
     fun `matches the parsed message by message type with single filter`(anyMessage: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             anyMessage,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -207,7 +208,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messages")
     fun `matches the parsed message by direction with single filter`(message: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             message,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -225,7 +226,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messages")
     fun `matches the parsed message by alias with single filter`(message: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             message,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -244,7 +245,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messagesWithSameFilterFields")
     fun `miss matches with the same filter fields`(message: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             message,
             MqRouterFilterConfiguration(
                 message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -272,7 +273,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messagesWithMultipleFiltersWithSameFilterField")
     fun `matches with multiple filters with the same filter fields`(message: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             message,
             listOf(
                 MqRouterFilterConfiguration(
@@ -306,7 +307,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messagesWithMultipleSameFields")
     fun `matches message with multiple fields with same name`(message: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             message,
             MqRouterFilterConfiguration(
                 message = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -334,7 +335,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messagesWithOneProperty")
     fun `matches message with properties`(message: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             message,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
@@ -355,7 +356,7 @@ class TestAnyMessageFilterStrategy {
     @ParameterizedTest
     @MethodSource("messagesWithPropertiesAndMetadata")
     fun `matches message with properties and metadata`(message: AnyMessage, expectMatch: Boolean) {
-        val match = AnyMessageFilterStrategy.verify(
+        val match = verify(
             message,
             MqRouterFilterConfiguration(
                 metadata = MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {

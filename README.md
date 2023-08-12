@@ -490,6 +490,11 @@ dependencies {
 + Added com.github.jk1.dependency-license-report `2.5`
 + Added de.undercouch.download `5.4.0`
 
+### 5.2.2
+
+#### Changed:
++ Book, session group and protocol message filtering added.
+
 ### 5.2.1
 
 #### Changed:
