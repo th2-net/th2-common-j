@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.3.1)
+# th2 common library (Java) (5.3.2)
 
 ## Usage
 
@@ -455,6 +455,16 @@ dependencies {
 
 ## Release notes
 
+### 5.3.2-dev
+
+#### Fix
++ Pin filters behaviour changed: conditions inside the message and metadata now combined as "and"
+
+#### Feature
++ Added `protocol` field name for MQ pin filter
++ Added `hashCode`, `equals`, `toString`, `toBuilder` for th2 transport classes
++ Added `get` method for th2 transport `MapBuilder`, `CollectionBuilder` classes
+
 ### 5.3.1-dev
 
 + Auto-print git metadata from `git.properties` resource file.
@@ -467,7 +477,6 @@ dependencies {
 ### 5.3.0-dev
 
 + Implemented message routers used th2 transport protocol for interaction
-+ Pin filters behaviour changed: conditions inside the message and metadata now combined as "and"
 
 #### Updated:
 + cradle: `5.1.1-dev`
