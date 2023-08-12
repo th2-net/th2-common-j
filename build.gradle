@@ -37,7 +37,7 @@ version = release_version
 
 ext {
     cradleVersion = '5.1.1-dev'
-    junitVersion = '5.9.3'
+    junitVersion = '5.10.0'
 }
 
 repositories {

@@ -459,6 +459,18 @@ dependencies {
 
 + Implemented message routers used th2 transport protocol for interaction
 
+#### Updated:
++ cradle: `5.1.1-dev`
++ bom: `4.4.0`
++ grpc-common: `4.3.0-dev`
++ grpc-service-generator: `3.4.0`
+
+#### Gradle plugins:
++ Updated org.owasp.dependencycheck: `8.3.1`
++ Added com.gorylenko.gradle-git-properties `2.4.1`
++ Added com.github.jk1.dependency-license-report `2.5`
++ Added de.undercouch.download `5.4.0`
+
 ### 5.2.1
 
 #### Changed:
