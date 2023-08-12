@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.3.0)
+# th2 common library (Java) (5.3.1)
 
 ## Usage
 
@@ -455,7 +455,16 @@ dependencies {
 
 ## Release notes
 
-### 5.3.0
+### 5.3.1-dev
+
++ Auto-print git metadata from `git.properties` resource file.
+  Child project should include `com.gorylenko.gradle-git-properties` Gradle plugin to generate required file
+
+#### Change user code required:
++ Migrated from JsonProcessingException to IOException in Event class methods.
+  This change allow remove required `jackson.core` dependency from child projects 
+
+### 5.3.0-dev
 
 + Implemented message routers used th2 transport protocol for interaction
 
