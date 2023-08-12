@@ -30,7 +30,7 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    cradleVersion = '5.1.0-separate-executor-5334417446-8a1a37d-SNAPSHOT'
+    cradleVersion = '5.1.1-dev'
     junitVersion = '5.9.3'
 }
 
@@ -167,8 +167,8 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.4.0-update-libs-5335052162-8affa4a-SNAPSHOT")
-    api('com.exactpro.th2:grpc-common:4.3.0-TH2-4887-vulnerabilities-5346500826-f180a19-SNAPSHOT') {
+    api platform("com.exactpro.th2:bom:4.4.0")
+    api('com.exactpro.th2:grpc-common:4.3.0-dev') {
         because('protobuf transport is main now, this dependnecy should be moved to grpc, mq protobuf modules after splitting')
     }
     api("com.exactpro.th2:cradle-core:${cradleVersion}") {
@@ -182,7 +182,7 @@ dependencies {
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
 
     implementation 'com.google.protobuf:protobuf-java-util'
-    implementation 'com.exactpro.th2:grpc-service-generator:3.4.0-TH2-4887-vulnerabilities-5346040251-1bed6cd-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-service-generator:3.4.0'
     implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     def autoValueVersion = '1.10.1'
