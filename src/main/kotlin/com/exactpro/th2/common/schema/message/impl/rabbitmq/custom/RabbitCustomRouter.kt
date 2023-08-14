@@ -15,7 +15,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
-import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute
@@ -75,7 +74,6 @@ class RabbitCustomRouter<T : Any>(
         return Subscriber(
             connectionManager,
             pinConfig.queue,
-            FilterFunction.DEFAULT_FILTER_FUNCTION,
             pinName,
             customTag,
             converter
@@ -105,11 +103,10 @@ class RabbitCustomRouter<T : Any>(
     private class Subscriber<T : Any>(
         connectionManager: ConnectionManager,
         queue: String,
-        filterFunction: FilterFunction,
         th2Pin: String,
         customTag: String,
         private val converter: MessageConverter<T>
-    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, filterFunction, th2Pin, customTag) {
+    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, th2Pin, customTag) {
         override fun valueFromBytes(body: ByteArray): T = converter.fromByteArray(body)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)

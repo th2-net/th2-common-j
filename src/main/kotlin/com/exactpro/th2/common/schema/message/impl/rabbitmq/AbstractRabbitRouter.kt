@@ -16,27 +16,15 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.exception.RouterException
-import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
-import com.exactpro.th2.common.schema.message.ConfirmationListener
-import com.exactpro.th2.common.schema.message.ManualConfirmationListener
-import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
-import com.exactpro.th2.common.schema.message.MessageListener
-import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.MessageRouterContext
-import com.exactpro.th2.common.schema.message.MessageSender
-import com.exactpro.th2.common.schema.message.MessageSubscriber
+import com.exactpro.th2.common.schema.message.*
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
-import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import com.exactpro.th2.common.schema.message.appendAttributes
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
-import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.google.protobuf.Message
+import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
-import mu.KotlinLogging
 
 typealias PinName = String
 typealias PinConfiguration = QueueConfiguration
@@ -63,16 +51,6 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     private val subscribers = ConcurrentHashMap<Queue, MessageSubscriber<T>>()
     private val senders = ConcurrentHashMap<RoutingKey, MessageSender<T>>()
-
-    private val filterStrategy = AtomicReference(getDefaultFilterStrategy())
-
-    protected open fun getDefaultFilterStrategy(): FilterStrategy<Message> {
-        return FilterStrategy.DEFAULT_FILTER_STRATEGY
-    }
-
-    protected open fun filterMessage(msg: Message, filters: List<RouterFilter>): Boolean {
-        return filterStrategy.get().verify(msg, filters)
-    }
 
     override fun init(context: MessageRouterContext) {
         this.context = context

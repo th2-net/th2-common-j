@@ -47,7 +47,7 @@ public abstract class AbstractTh2MsgFilterStrategy extends AbstractFilterStrateg
         var metadataMsgFields = Map.of(
                 BOOK_KEY, messageID.getBookName(),
                 SESSION_GROUP_KEY, sessionGroup.isEmpty() ? sessionAlias : sessionGroup,
-                SESSION_ALIAS_KEY, messageID.getConnectionId().getSessionAlias(),
+                SESSION_ALIAS_KEY, sessionAlias,
                 MESSAGE_TYPE_KEY, metadata.getMessageType(),
                 DIRECTION_KEY, messageID.getDirection().name(),
                 PROTOCOL_KEY, metadata.getProtocol()

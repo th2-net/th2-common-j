@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ import static com.fasterxml.jackson.module.kotlin.ExtensionsKt.jacksonObjectMapp
 public class BaseTest {
     public static final BoxConfiguration BOX_CONFIGURATION = new BoxConfiguration();
     public static final String BOOK_NAME = BOX_CONFIGURATION.getBookName();
+    public static final String SESSION_GROUP = "test-group";
+    public static final String SESSION_ALIAS = "test-alias";
     public static final EventID PARENT_EVENT_ID = toEventID(Instant.now(), BOOK_NAME, "id");
 
     private static final ObjectMapper jacksonMapper = jacksonObjectMapper();

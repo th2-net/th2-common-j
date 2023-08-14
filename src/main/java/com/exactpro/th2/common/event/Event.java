@@ -15,6 +15,29 @@
  */
 package com.exactpro.th2.common.event;
 
+import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.grpc.EventBatchOrBuilder;
+import com.exactpro.th2.common.grpc.EventID;
+import com.exactpro.th2.common.grpc.EventStatus;
+import com.exactpro.th2.common.grpc.MessageID;
+import com.exactpro.th2.common.message.MessageUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.protobuf.ByteString;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+
 import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
 import static com.exactpro.th2.common.event.EventUtils.generateUUID;
 import static com.exactpro.th2.common.event.EventUtils.requireNonBlankBookName;
@@ -30,30 +53,6 @@ import static java.util.Objects.requireNonNullElse;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
-
-import com.exactpro.th2.common.message.MessageUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.grpc.EventBatchOrBuilder;
-import com.exactpro.th2.common.grpc.EventID;
-import com.exactpro.th2.common.grpc.EventStatus;
-import com.exactpro.th2.common.grpc.MessageID;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.protobuf.ByteString;
 
 //TODO: move to common-utils-j
 @SuppressWarnings("unused")
@@ -95,6 +94,7 @@ public class Event {
 
     /**
      * Creates event with current time as start
+     *
      * @return new event
      */
     public static Event start() {
@@ -103,6 +103,7 @@ public class Event {
 
     /**
      * Creates event with passed time as start
+     *
      * @return new event
      */
     public static Event from(@NotNull Instant startTimestamp) {
@@ -120,6 +121,7 @@ public class Event {
     /**
      * Sets event name if passed {@code eventName} is not blank.
      * The {@link #UNKNOWN_EVENT_NAME} value will be used as default in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
+     *
      * @return current event
      * @throws IllegalStateException if name already set
      */
@@ -136,6 +138,7 @@ public class Event {
     /**
      * Sets event description if passed {@code description} is not blank.
      * This property value will be appended to the end of event name and added into event body in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
+     *
      * @return current event
      * @throws IllegalStateException if description already set
      */
@@ -153,6 +156,7 @@ public class Event {
     /**
      * Sets event type if passed {@code eventType} is not blank.
      * The {@link #UNKNOWN_EVENT_TYPE} value will be used as default in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
+     *
      * @return current event
      * @throws IllegalStateException if type already set
      */
@@ -169,6 +173,7 @@ public class Event {
     /**
      * Sets event status if passed {@code eventStatus} isn't null.
      * The default value is {@link Status#PASSED}
+     *
      * @return current event
      */
     public Event status(Status eventStatus) {
@@ -180,6 +185,7 @@ public class Event {
 
     /**
      * Creates and adds a new event with the same start / end time as the current event
+     *
      * @return created event
      */
     @SuppressWarnings("NonBooleanMethodNameMayNotStartWithQuestion")
@@ -189,6 +195,7 @@ public class Event {
 
     /**
      * Adds passed event as a sub event
+     *
      * @return passed event
      * @throws NullPointerException if {@code subEvent} is null
      */
@@ -200,6 +207,7 @@ public class Event {
 
     /**
      * Adds passed body data bodyData
+     *
      * @return current event
      */
     public Event bodyData(IBodyData bodyData) {
@@ -209,6 +217,7 @@ public class Event {
 
     /**
      * Adds passed collection of body data
+     *
      * @return current event
      */
     public Event bodyData(Collection<? extends IBodyData> bodyDataCollection) {
@@ -218,6 +227,7 @@ public class Event {
 
     /**
      * Adds the passed exception and optionally all the causes to the body data as a series of messages
+     *
      * @param includeCauses if `true` attache messages for the caused of <code>throwable</code>
      * @return current event
      */
@@ -232,6 +242,7 @@ public class Event {
 
     /**
      * Adds message id as linked
+     *
      * @return current event
      */
     public Event messageID(MessageID attachedMessageID) {
@@ -244,7 +255,7 @@ public class Event {
         return this;
     }
 
-    public List<com.exactpro.th2.common.grpc.Event> toListProto(@NotNull EventID parentId) throws JsonProcessingException {
+    public List<com.exactpro.th2.common.grpc.Event> toListProto(@NotNull EventID parentId) throws IOException {
         return toListProto(
                 new ArrayList<>(),
                 requireNonNullParentId(parentId),
@@ -253,7 +264,7 @@ public class Event {
         );
     }
 
-    public List<com.exactpro.th2.common.grpc.Event> toListProto(@NotNull String bookName) throws JsonProcessingException {
+    public List<com.exactpro.th2.common.grpc.Event> toListProto(@NotNull String bookName) throws IOException {
         return toListProto(
                 new ArrayList<>(),
                 null,
@@ -265,7 +276,7 @@ public class Event {
     public List<com.exactpro.th2.common.grpc.Event> toListProto(
             @NotNull String bookName,
             @NotNull String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toListProto(
                 new ArrayList<>(),
                 null,
@@ -279,7 +290,7 @@ public class Event {
             @Nullable EventID parentId,
             @NotNull String bookName,
             @Nullable String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         protoEvents.add(toProto(parentId, bookName, scope)); // collect current level
         for (Event subEvent : subEvents) {
             EventID eventId = isBlank(scope)
@@ -290,7 +301,7 @@ public class Event {
         return protoEvents;
     }
 
-    public com.exactpro.th2.common.grpc.Event toProto(@NotNull EventID parentId) throws JsonProcessingException {
+    public com.exactpro.th2.common.grpc.Event toProto(@NotNull EventID parentId) throws IOException {
         return toProto(
                 requireNonNullParentId(parentId),
                 requireNonBlankBookName(parentId.getBookName()),
@@ -298,7 +309,7 @@ public class Event {
         );
     }
 
-    public com.exactpro.th2.common.grpc.Event toProto(@NotNull String bookName) throws JsonProcessingException {
+    public com.exactpro.th2.common.grpc.Event toProto(@NotNull String bookName) throws IOException {
         return toProto(
                 null,
                 requireNonBlankBookName(bookName),
@@ -309,7 +320,7 @@ public class Event {
     public com.exactpro.th2.common.grpc.Event toProto(
             @NotNull String bookName,
             @Nullable String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toProto(
                 null,
                 requireNonBlankBookName(bookName),
@@ -321,7 +332,7 @@ public class Event {
             @Nullable EventID parentId,
             @NotNull String bookName,
             @Nullable String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         if (endTimestamp == null) {
             endTimestamp();
         }
@@ -349,7 +360,7 @@ public class Event {
         return eventBuilder.build();
     }
 
-    public EventBatch toBatchProto(@NotNull EventID parentId) throws JsonProcessingException {
+    public EventBatch toBatchProto(@NotNull EventID parentId) throws IOException {
         return toBatchProto(
                 requireNonNullParentId(parentId),
                 requireNonBlankBookName(parentId.getBookName()),
@@ -357,7 +368,7 @@ public class Event {
         );
     }
 
-    public EventBatch toBatchProto(@NotNull String bookName) throws JsonProcessingException {
+    public EventBatch toBatchProto(@NotNull String bookName) throws IOException {
         return toBatchProto(
                 null,
                 requireNonBlankBookName(bookName),
@@ -368,7 +379,7 @@ public class Event {
     public EventBatch toBatchProto(
             @NotNull String bookName,
             @NotNull String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toBatchProto(
                 null,
                 requireNonBlankBookName(bookName),
@@ -380,11 +391,11 @@ public class Event {
             @Nullable EventID parentId,
             @NotNull String bookName,
             @Nullable String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         List<com.exactpro.th2.common.grpc.Event> events = toListProto(new ArrayList<>(), parentId, bookName, scope);
 
         EventBatch.Builder builder = EventBatch.newBuilder()
-            .addAllEvents(events);
+                .addAllEvents(events);
 
         if (parentId != null && events.size() != 1) {
             builder.setParentEventId(parentId);
@@ -396,7 +407,7 @@ public class Event {
     public List<EventBatch> toBatchesProtoWithLimit(
             int maxEventBatchContentSize,
             @NotNull EventID parentId
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toBatchesProtoWithLimit(
                 maxEventBatchContentSize,
                 requireNonNullParentId(parentId),
@@ -408,7 +419,7 @@ public class Event {
     public List<EventBatch> toBatchesProtoWithLimit(
             int maxEventBatchContentSize,
             @NotNull String bookName
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toBatchesProtoWithLimit(
                 maxEventBatchContentSize,
                 null,
@@ -421,7 +432,7 @@ public class Event {
             int maxEventBatchContentSize,
             @NotNull String bookName,
             @NotNull String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toBatchesProtoWithLimit(
                 maxEventBatchContentSize,
                 null,
@@ -435,17 +446,18 @@ public class Event {
      * Splitting to batch executes by principles:
      * * Events with children are put into distinct batches because events can't be a child of an event from another batch.
      * * Events without children are collected into batches according to the max size. For example, little child events can be put into one batch; big child events can be put into separate batches.
+     *
      * @param maxEventBatchContentSize - the maximum size of useful content in one batch which is calculated as the sum of the size of all event bodies in the batch
      * @param parentId                 - reference to parent event for the current event tree. It may be null if the current event is root, in this case {@code bookName} is required.
      * @param bookName                 - book name for the current event tree. It may not be null.
      * @param scope                    - scope for the current event tree. It may be null.
      */
     private List<EventBatch> toBatchesProtoWithLimit(
-            int maxEventBatchContentSize, 
+            int maxEventBatchContentSize,
             @Nullable EventID parentId,
             @NotNull String bookName,
             @Nullable String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         if (maxEventBatchContentSize <= 0) {
             throw new IllegalArgumentException("'maxEventBatchContentSize' should be greater than zero, actual: " + maxEventBatchContentSize);
         }
@@ -458,7 +470,7 @@ public class Event {
         return result;
     }
 
-    public List<EventBatch> toListBatchProto(@NotNull EventID parentId) throws JsonProcessingException {
+    public List<EventBatch> toListBatchProto(@NotNull EventID parentId) throws IOException {
         return toListBatchProto(
                 requireNonNullParentId(parentId),
                 requireNonBlankBookName(parentId.getBookName()),
@@ -466,7 +478,7 @@ public class Event {
         );
     }
 
-    public List<EventBatch> toListBatchProto(@NotNull String bookName) throws JsonProcessingException {
+    public List<EventBatch> toListBatchProto(@NotNull String bookName) throws IOException {
         return toListBatchProto(
                 null,
                 requireNonBlankBookName(bookName),
@@ -477,7 +489,7 @@ public class Event {
     public List<EventBatch> toListBatchProto(
             @NotNull String bookName,
             @NotNull String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toListBatchProto(
                 null,
                 requireNonBlankBookName(bookName),
@@ -490,6 +502,7 @@ public class Event {
      * Splitting to batch executes by principles:
      * * Events with children are put into distinct batches because events can't be a child of an event from another batch.
      * * Events without children are collected into batches.
+     *
      * @param parentId - reference to parent event for the current event tree. It may be null if the current event is root, in this case {@code bookName} is required.
      * @param bookName - book name for the current event tree. It may not be null.
      * @param scope    - scope for the current event tree. It may be null.
@@ -498,7 +511,7 @@ public class Event {
             @Nullable EventID parentId,
             @NotNull String bookName,
             @Nullable String scope
-    ) throws JsonProcessingException {
+    ) throws IOException {
         return toBatchesProtoWithLimit(Integer.MAX_VALUE, parentId, bookName, scope);
     }
 
@@ -514,7 +527,7 @@ public class Event {
         return endTimestamp;
     }
 
-    protected byte[] buildBody() throws JsonProcessingException {
+    protected byte[] buildBody() throws IOException {
         return OBJECT_MAPPER.get().writeValueAsBytes(body);
     }
 
@@ -532,7 +545,7 @@ public class Event {
         return Status.FAILED;
     }
 
-    private void batch(int maxEventBatchContentSize, List<EventBatch> result, Map<EventID, List<com.exactpro.th2.common.grpc.Event>> eventGroups, @Nullable EventID eventID) throws JsonProcessingException {
+    private void batch(int maxEventBatchContentSize, List<EventBatch> result, Map<EventID, List<com.exactpro.th2.common.grpc.Event>> eventGroups, @Nullable EventID eventID) throws IOException {
         eventID = requireNonNullElse(eventID, DEFAULT_EVENT_ID);
         EventBatch.Builder builder = setParentId(EventBatch.newBuilder(), eventID);
 
@@ -545,13 +558,13 @@ public class Event {
             var checkedProtoEvent = checkAndRebuild(maxEventBatchContentSize, protoEvent);
 
             LOGGER.trace("Process {} {}", checkedProtoEvent.getName(), checkedProtoEvent.getType());
-            if(eventGroups.containsKey(checkedProtoEvent.getId())) {
+            if (eventGroups.containsKey(checkedProtoEvent.getId())) {
                 result.add(checkAndBuild(maxEventBatchContentSize, EventBatch.newBuilder()
                         .addEvents(checkedProtoEvent)));
 
                 batch(maxEventBatchContentSize, result, eventGroups, checkedProtoEvent.getId());
             } else {
-                if(builder.getEventsCount() > 0
+                if (builder.getEventsCount() > 0
                         && getContentSize(builder) + getContentSize(checkedProtoEvent) > maxEventBatchContentSize) {
                     result.add(checkAndBuild(maxEventBatchContentSize, builder));
                     builder = setParentId(EventBatch.newBuilder(), eventID);
@@ -560,21 +573,21 @@ public class Event {
             }
         }
 
-        if(builder.getEventsCount() > 0) {
+        if (builder.getEventsCount() > 0) {
             result.add(checkAndBuild(maxEventBatchContentSize, builder));
         }
     }
 
     private EventBatch checkAndBuild(int maxEventBatchContentSize, EventBatch.Builder builder) {
         int contentSize = getContentSize(builder);
-        if(contentSize > maxEventBatchContentSize) {
+        if (contentSize > maxEventBatchContentSize) {
             throw new IllegalStateException("The smallest batch size exceeds the max event batch content size, max " + maxEventBatchContentSize + ", actual " + contentSize);
         }
 
         return builder.build();
     }
 
-    private com.exactpro.th2.common.grpc.Event checkAndRebuild(int maxEventBatchContentSize, com.exactpro.th2.common.grpc.Event event) throws JsonProcessingException {
+    private com.exactpro.th2.common.grpc.Event checkAndRebuild(int maxEventBatchContentSize, com.exactpro.th2.common.grpc.Event event) throws IOException {
         int contentSize = getContentSize(event);
         if (contentSize > maxEventBatchContentSize) {
             return com.exactpro.th2.common.grpc.Event.newBuilder(event)

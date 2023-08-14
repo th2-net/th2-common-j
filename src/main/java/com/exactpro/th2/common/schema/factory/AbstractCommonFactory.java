@@ -33,7 +33,6 @@ import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
-import com.exactpro.th2.common.schema.cradle.CradleConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
@@ -55,11 +54,13 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter;
 import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.kotlin.KotlinFeature;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
@@ -73,52 +74,52 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.Spliterators;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-import java.util.stream.StreamSupport;
 
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_CONSISTENCY_LEVEL;
-import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_TIMEOUT;
+import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
+import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE;
+import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_RESULT_PAGE_SIZE;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
- *
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
  *
  * @see CommonFactory
  */
 public abstract class AbstractCommonFactory implements AutoCloseable {
 
-    protected static final String DEFAULT_CRADLE_INSTANCE_NAME = "infra";
-    protected static final String EXACTPRO_IMPLEMENTATION_VENDOR = "Exactpro Systems LLC";
-
-    /** @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH} */
+    /**
+     * @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH}
+     */
     @Deprecated
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
     protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
 
-    protected static final ObjectMapper MAPPER = new ObjectMapper();
+    public static final ObjectMapper MAPPER = new ObjectMapper();
 
-    static  {
+    static {
         MAPPER.registerModules(
-                new KotlinModule(),
+                new KotlinModule.Builder()
+                        .withReflectionCacheSize(512)
+                        .configure(KotlinFeature.NullToEmptyCollection, false)
+                        .configure(KotlinFeature.NullToEmptyMap, false)
+                        .configure(KotlinFeature.NullIsSameAsDefault, false)
+                        .configure(KotlinFeature.SingletonSupport, false)
+                        .configure(KotlinFeature.StrictNullChecks, false)
+                        .build(),
                 new RoutingStrategyModule(MAPPER),
                 new JavaTimeModule()
         );
@@ -138,6 +139,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
     private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
+    private final AtomicReference<MessageRouter<GroupBatch>> transportGroupBatchRouter = new AtomicReference<>();
     private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
     private final AtomicReference<NotificationRouter<EventBatch>> notificationEventBatchRouter = new AtomicReference<>();
     private final AtomicReference<EventID> rootEventId = new AtomicReference<>();
@@ -153,6 +155,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Create factory with non-default implementations schema classes
+     *
      * @param settings {@link FactorySettings}
      */
     public AbstractCommonFactory(FactorySettings settings) {
@@ -167,6 +170,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Create factory with default implementation schema classes
+     *
      * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
@@ -176,6 +180,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Create factory with non-default implementations schema classes
+     *
      * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
      * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
      * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
@@ -183,11 +188,13 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
-    public AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    public AbstractCommonFactory(
+            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            @NotNull Class<? extends GrpcRouter> grpcRouterClass) {
+            @NotNull Class<? extends GrpcRouter> grpcRouterClass
+    ) {
         this(new FactorySettings()
                 .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
                 .messageRouterRawBatchClass(messageRouterRawBatchClass)
@@ -208,12 +215,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
      */
     @Deprecated(since = "4.0.0", forRemoval = true)
-    protected AbstractCommonFactory(@NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
+    protected AbstractCommonFactory(
+            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
             @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
             @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
             @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
             @NotNull Class<? extends GrpcRouter> grpcRouterClass,
-            @NotNull Map<String, String> environmentVariables) {
+            @NotNull Map<String, String> environmentVariables
+    ) {
         this(new FactorySettings()
                 .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
                 .messageRouterRawBatchClass(messageRouterRawBatchClass)
@@ -253,7 +262,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = messageRouterParsedBatchClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create parsed message router", e);
                 }
             }
@@ -273,9 +283,25 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = messageRouterRawBatchClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create raw message router", e);
                 }
+            }
+
+            return router;
+        });
+    }
+
+    /**
+     * @return Initialized {@link MessageRouter} which works with {@link GroupBatch}
+     * @throws IllegalStateException if can not read configuration
+     */
+    public MessageRouter<GroupBatch> getTransportGroupBatchRouter() {
+        return transportGroupBatchRouter.updateAndGet(router -> {
+            if (router == null) {
+                router = new TransportGroupBatchRouter();
+                router.init(getMessageRouterContext());
             }
 
             return router;
@@ -293,7 +319,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = messageRouterMessageGroupBatchClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create group message router", e);
                 }
             }
@@ -318,7 +345,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                             getMessageRouterConfiguration(),
                             getBoxConfiguration()
                     ));
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create event batch router", e);
                 }
             }
@@ -337,7 +365,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = grpcRouterClass.getConstructor().newInstance();
                     router.init(getGrpcConfiguration(), getGrpcRouterConfiguration());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create GRPC router", e);
                 }
             }
@@ -357,7 +386,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                 try {
                     router = notificationEventBatchRouterClass.getConstructor().newInstance();
                     router.init(getMessageRouterContext());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new CommonFactoryException("Can not create notification router", e);
                 }
             }
@@ -367,7 +397,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Registers custom message router.
-     *
      * Unlike the {@link #registerCustomMessageRouter(Class, MessageConverter, Set, Set, String...)} the registered router won't have any additional pins attributes
      * except {@link QueueAttribute#SUBSCRIBE} for subscribe methods and {@link QueueAttribute#PUBLISH} for send methods
      *
@@ -383,11 +412,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     /**
      * Registers message router for custom type that is passed via {@code messageClass} parameter.<br>
      *
-     * @param messageClass custom message class
-     * @param messageConverter converter that will be used to convert message to bytes and vice versa
-     * @param defaultSendAttributes set of attributes for sending. A pin must have all of them to be selected for sending the message
+     * @param messageClass               custom message class
+     * @param messageConverter           converter that will be used to convert message to bytes and vice versa
+     * @param defaultSendAttributes      set of attributes for sending. A pin must have all of them to be selected for sending the message
      * @param defaultSubscribeAttributes set of attributes for subscription. A pin must have all of them to be selected for receiving messages
-     * @param <T> custom message type
+     * @param <T>                        custom message type
      * @throws IllegalStateException if the router for {@code messageClass} is already registered
      */
     public <T> void registerCustomMessageRouter(
@@ -414,12 +443,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Returns previously registered message router for message of {@code messageClass} type.
-     *
      * If the router for that type is not registered yet ,it throws {@link IllegalArgumentException}
+     *
      * @param messageClass custom message class
-     * @param <T> custom message type
-     * @throws IllegalArgumentException if router for specified type is not registered
+     * @param <T>          custom message type
      * @return the previously registered router for specified type
+     * @throws IllegalArgumentException if router for specified type is not registered
      */
     @SuppressWarnings("unchecked")
     @NotNull
@@ -429,7 +458,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             throw new IllegalArgumentException(
                     "Router for class " + messageClass.getCanonicalName() + "is not registered. Call 'registerCustomMessageRouter' first");
         }
-        return (MessageRouter<T>)router;
+        return (MessageRouter<T>) router;
     }
 
     /**
@@ -442,8 +471,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Load configuration, save and return. If already loaded return saved configuration.
+     *
      * @param configClass configuration class
-     * @param optional creates an instance of a configuration class via the default constructor if this option is true and the config file doesn't exist or empty
+     * @param optional    creates an instance of a configuration class via the default constructor if this option is true and the config file doesn't exist or empty
      * @return configuration object
      */
     protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
@@ -474,22 +504,16 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(BoxConfiguration.class, true);
     }
 
-    protected CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
+    private CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
         return getConfigurationOrLoad(CradleConfidentialConfiguration.class, false);
     }
 
-    protected CradleNonConfidentialConfiguration getCradleNonConfidentialConfiguration() {
+    private CradleNonConfidentialConfiguration getCradleNonConfidentialConfiguration() {
         return getConfigurationOrLoad(CradleNonConfidentialConfiguration.class, true);
     }
 
-    /**
-     * @return Schema cradle configuration
-     * @throws IllegalStateException if cannot read configuration
-     * @deprecated please use {@link #getCradleManager()}
-     */
-    @Deprecated
-    public CradleConfiguration getCradleConfiguration() {
-        return new CradleConfiguration(getCradleConfidentialConfiguration(), getCradleNonConfidentialConfiguration());
+    private CassandraStorageSettings getCassandraStorageSettings() {
+        return getConfigurationOrLoad(CassandraStorageSettings.class, true);
     }
 
     /**
@@ -513,32 +537,25 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                         cassandraConnectionSettings.setPassword(confidentialConfiguration.getPassword());
                     }
 
+                    // Deserialize on config by two different beans for backward compatibility
                     CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
-                    CassandraStorageSettings cassandraStorageSettings = new CassandraStorageSettings(
-                            null,
-                            nonConfidentialConfiguration.getTimeout() > 0
-                                    ? nonConfidentialConfiguration.getTimeout()
-                                    : DEFAULT_TIMEOUT,
-                            DEFAULT_CONSISTENCY_LEVEL,
-                            DEFAULT_CONSISTENCY_LEVEL
-                    );
+                    // FIXME: this approach should be replaced to module structure in future
+                    CassandraStorageSettings cassandraStorageSettings = getCassandraStorageSettings();
                     cassandraStorageSettings.setKeyspace(confidentialConfiguration.getKeyspace());
-                    if (nonConfidentialConfiguration.getPageSize() > 0) {
+
+                    if (cassandraStorageSettings.getResultPageSize() == DEFAULT_RESULT_PAGE_SIZE && nonConfidentialConfiguration.getPageSize() > 0) {
                         cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
                     }
-                    if (nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
+                    if (cassandraStorageSettings.getMaxMessageBatchSize() == DEFAULT_MAX_MESSAGE_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
                         cassandraStorageSettings.setMaxMessageBatchSize((int) nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
                     }
-                    if (nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
+                    if (cassandraStorageSettings.getMaxTestEventBatchSize() == DEFAULT_MAX_TEST_EVENT_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
                         cassandraStorageSettings.setMaxTestEventBatchSize((int) nonConfidentialConfiguration.getCradleMaxEventBatchSize());
                     }
-                    if (nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis() >= 0) {
+                    if (cassandraStorageSettings.getCounterPersistenceInterval() == DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS && nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis() >= 0) {
                         cassandraStorageSettings.setCounterPersistenceInterval((int) nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis());
                     }
-                    if (nonConfidentialConfiguration.getMaxUncompressedMessageBatchSize() > 0) {
-                        cassandraStorageSettings.setMaxUncompressedMessageBatchSize((int) nonConfidentialConfiguration.getMaxUncompressedMessageBatchSize());
-                    }
-                    if (nonConfidentialConfiguration.getMaxUncompressedEventBatchSize() > 0) {
+                    if (cassandraStorageSettings.getMaxUncompressedTestEventSize() == DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE && nonConfidentialConfiguration.getMaxUncompressedEventBatchSize() > 0) {
                         cassandraStorageSettings.setMaxUncompressedTestEventSize((int) nonConfidentialConfiguration.getMaxUncompressedEventBatchSize());
                     }
 
@@ -570,7 +587,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         if (!configFile.exists()) {
             try {
                 return confClass.getConstructor().newInstance();
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                     NoSuchMethodException e) {
                 return null;
             }
         }
@@ -592,6 +610,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Read first and only one dictionary
+     *
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary or found more than one target
      */
@@ -612,6 +631,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     /**
      * Read dictionary of {@link DictionaryType#MAIN} type
+     *
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
      */
@@ -619,16 +639,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     public abstract InputStream readDictionary();
 
     /**
-     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
      * @param dictionaryType desired type of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
+     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
      */
     @Deprecated(since = "3.33.0", forRemoval = true)
     public abstract InputStream readDictionary(DictionaryType dictionaryType);
 
     /**
      * If root event does not exist, it creates root event with its book name = box book name and name = box name and timestamp
+     *
      * @return root event id
      */
     @NotNull
@@ -652,7 +673,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                     } catch (IOException e) {
                         throw new CommonFactoryException("Can not send root event", e);
                     }
-                } catch (JsonProcessingException e) {
+                } catch (IOException e) {
                     throw new CommonFactoryException("Can not create root event", e);
                 }
             }
@@ -686,27 +707,27 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     protected MessageRouterContext getMessageRouterContext() {
         return routerContext.updateAndGet(ctx -> {
-           if (ctx == null) {
-               try {
-                   MessageRouterMonitor contextMonitor = new BroadcastMessageRouterMonitor(
-                           new LogMessageRouterMonitor(),
-                           new EventMessageRouterMonitor(
-                                   getEventBatchRouter(),
-                                   getRootEventId()
-                           )
-                   );
+            if (ctx == null) {
+                try {
+                    MessageRouterMonitor contextMonitor = new BroadcastMessageRouterMonitor(
+                            new LogMessageRouterMonitor(),
+                            new EventMessageRouterMonitor(
+                                    getEventBatchRouter(),
+                                    getRootEventId()
+                            )
+                    );
 
-                   return new DefaultMessageRouterContext(
-                           getRabbitMqConnectionManager(),
-                           contextMonitor,
-                           getMessageRouterConfiguration(),
-                           getBoxConfiguration()
-                   );
-               } catch (Exception e) {
-                   throw new CommonFactoryException("Can not create message router context", e);
-               }
-           }
-           return ctx;
+                    return new DefaultMessageRouterContext(
+                            getRabbitMqConnectionManager(),
+                            contextMonitor,
+                            getMessageRouterConfiguration(),
+                            getBoxConfiguration()
+                    );
+                } catch (Exception e) {
+                    throw new CommonFactoryException("Can not create message router context", e);
+                }
+            }
+            return ctx;
         });
     }
 
@@ -823,7 +844,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         prometheusExporter.updateAndGet(server -> {
             if (server != null) {
                 try {
-                    server.stop();
+                    server.close();
                 } catch (Exception e) {
                     LOGGER.error("Failed to close Prometheus exporter", e);
                 }
@@ -841,28 +862,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));
         Log4jConfigUtils log4jConfigUtils = new Log4jConfigUtils();
         log4jConfigUtils.configure(listPath, LOG4J2_PROPERTIES_NAME);
-        loggingManifests();
-    }
-
-    private static void loggingManifests() {
-        try {
-            Iterator<URL> urlIterator = Thread.currentThread().getContextClassLoader().getResources(JarFile.MANIFEST_NAME).asIterator();
-            StreamSupport.stream(Spliterators.spliteratorUnknownSize(urlIterator, 0), false)
-                    .map(url -> {
-                        try (InputStream inputStream = url.openStream()) {
-                            return new Manifest(inputStream);
-                        } catch (IOException e) {
-                            LOGGER.warn("Manifest '{}' loading failere", url, e);
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .map(Manifest::getMainAttributes)
-                    .filter(attributes -> EXACTPRO_IMPLEMENTATION_VENDOR.equals(attributes.getValue(Name.IMPLEMENTATION_VENDOR)))
-                    .forEach(attributes -> LOGGER.info("Manifest title {}, version {}"
-                            , attributes.getValue(Name.IMPLEMENTATION_TITLE), attributes.getValue(Name.IMPLEMENTATION_VERSION)));
-        } catch (IOException e) {
-            LOGGER.warn("Manifest searching failure", e);
-        }
+        ExactproMetaInf.logging();
     }
 }

@@ -15,29 +15,20 @@
 
 package com.exactpro.th2.common.schema
 
+import com.exactpro.cradle.cassandra.CassandraStorageSettings
 import com.exactpro.th2.common.metrics.PrometheusConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcEndpointConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcRawRobinStrategy
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServerConfiguration
-import com.exactpro.th2.common.schema.grpc.configuration.GrpcServiceConfiguration
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
-import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
-import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
+import com.exactpro.th2.common.schema.factory.AbstractCommonFactory.MAPPER
+import com.exactpro.th2.common.schema.grpc.configuration.*
+import com.exactpro.th2.common.schema.message.configuration.*
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.schema.strategy.route.impl.RobinRoutingStrategy
-import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.testcontainers.shaded.org.apache.commons.lang3.builder.EqualsBuilder
 import java.nio.file.Path
 
 class TestJsonConfiguration {
@@ -98,8 +89,19 @@ class TestJsonConfiguration {
     }
 
     @Test
+    fun `test cassandra storage settings json configuration deserialize`() {
+        assertTrue(EqualsBuilder.reflectionEquals(MAPPER.readValue(CASSANDRA_STORAGE_SETTINGS_JSON, CASSANDRA_STORAGE_SETTINGS::class.java), CASSANDRA_STORAGE_SETTINGS))
+    }
+
+    @Test
     fun `test cradle non confidential json configuration serialize and deserialize`() {
         testSerializeAndDeserialize(CRADLE_NON_CONFIDENTIAL_CONF)
+    }
+
+    @Test
+    fun `test json configuration deserialize combo`() {
+        assertTrue(EqualsBuilder.reflectionEquals(CASSANDRA_STORAGE_SETTINGS, MAPPER.readValue(CRADLE_NON_CONFIDENTIAL_COMBO_CONF_JSON, CASSANDRA_STORAGE_SETTINGS::class.java)))
+        assertEquals(CRADLE_NON_CONFIDENTIAL_CONF, MAPPER.readValue(CRADLE_NON_CONFIDENTIAL_COMBO_CONF_JSON, CRADLE_NON_CONFIDENTIAL_CONF::class.java))
     }
 
     @Test
@@ -113,20 +115,16 @@ class TestJsonConfiguration {
     }
 
     private fun testSerializeAndDeserialize(configuration: Any) {
-        OBJECT_MAPPER.writeValueAsString(configuration).also { jsonString ->
+        MAPPER.writeValueAsString(configuration).also { jsonString ->
             testDeserialize(jsonString, configuration)
         }
     }
 
     private fun testDeserialize(json: String, obj: Any) {
-        assertEquals(obj, OBJECT_MAPPER.readValue(json, obj::class.java))
+        assertEquals(obj, MAPPER.readValue(json, obj::class.java))
     }
 
     companion object {
-        @JvmStatic
-        private val OBJECT_MAPPER: ObjectMapper = ObjectMapper()
-            .registerModule(JavaTimeModule())
-
         @JvmStatic
         private val CONF_DIR = Path.of("test_json_configurations")
 
@@ -214,26 +212,47 @@ class TestJsonConfiguration {
             "pass"
         )
 
+        private val CRADLE_NON_CONFIDENTIAL_COMBO_CONF_JSON = loadConfJson("cradle_non_confidential_combo")
         private val CRADLE_NON_CONFIDENTIAL_CONF_JSON = loadConfJson("cradle_non_confidential")
         private val CRADLE_NON_CONFIDENTIAL_CONF = CradleNonConfidentialConfiguration(
-            888,
+            false,
             111,
             123,
             321,
-            false,
             5000,
-            1280001,
-            1280002
+            1280002,
         )
+        private val CASSANDRA_STORAGE_SETTINGS_JSON = loadConfJson("cassandra_storage_settings")
+        private val CASSANDRA_STORAGE_SETTINGS = CassandraStorageSettings().apply {
+//            networkTopologyStrategy = NetworkTopologyStrategyBuilder()
+//                .add("A", 3)
+//                .add("B", 3)
+//                .build()
+            timeout = 4999
+//            writeConsistencyLevel = ConsistencyLevel.THREE
+//            readConsistencyLevel = ConsistencyLevel.QUORUM
+            keyspace = "test-keyspace"
+            keyspaceReplicationFactor = 1
+            maxParallelQueries = 1
+            resultPageSize = 2
+            maxMessageBatchSize = 3
+            maxUncompressedMessageBatchSize = 5
+            maxTestEventBatchSize = 8
+            maxUncompressedTestEventSize = 13
+            sessionsCacheSize = 21
+            scopesCacheSize = 34
+            pageSessionsCacheSize = 55
+            pageScopesCacheSize = 89
+            sessionStatisticsCacheSize = 144
+            pageGroupsCacheSize = 233
+            groupsCacheSize = 377
+            eventBatchDurationCacheSize = 610
+            counterPersistenceInterval = 987
+            composingServiceThreads = 1597
+        }
 
         private val PROMETHEUS_CONF_JSON = loadConfJson("prometheus")
         private val PROMETHEUS_CONF = PrometheusConfiguration("123.3.3.3", 1234, false)
-
-        init {
-            OBJECT_MAPPER.registerModule(KotlinModule())
-
-            OBJECT_MAPPER.registerModule(RoutingStrategyModule(OBJECT_MAPPER))
-        }
 
         private fun loadConfJson(fileName: String): String {
             val path = CONF_DIR.resolve(fileName)

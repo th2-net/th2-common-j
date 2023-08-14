@@ -34,6 +34,7 @@ const val QUEUE_LABEL = "queue"
 const val ROUTING_KEY_LABEL = "routing_key"
 const val BOOK_NAME_LABEL = "book_name"
 const val SESSION_ALIAS_LABEL = "session_alias"
+const val SESSION_GROUP_LABEL = "session_group"
 const val DIRECTION_LABEL = "direction"
 const val MESSAGE_TYPE_LABEL = "message_type"
 

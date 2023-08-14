@@ -15,6 +15,7 @@
 
 package com.exactpro.th2.common.schema.factory;
 
+import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.grpc.MessageBatch;
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
@@ -139,8 +140,7 @@ public class CommonFactory extends AbstractCommonFactory {
                             @Nullable Path dictionaryTypesDir,
                             @Nullable Path dictionaryAliasesDir,
                             @Nullable Path oldDictionariesDir,
-                            Map<String, String> environmentVariables,
-                            ConfigurationManager configurationManager) {
+                            Map<String, String> environmentVariables) {
         this(new FactorySettings()
                 .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
                 .messageRouterRawBatchClass(messageRouterRawBatchClass)
@@ -270,7 +270,7 @@ public class CommonFactory extends AbstractCommonFactory {
      *             <p>
      *             --connectionManagerConfiguration - path to json file with for {@link ConnectionManagerConfiguration}
      *             <p>
-     *             --cradleManagerConfiguration - path to json file with for {@link CradleNonConfidentialConfiguration}
+     *             --cradleManagerConfiguration - path to json file with for {@link CradleNonConfidentialConfiguration} and {@link CassandraStorageSettings}
      *             <p>
      *             --namespace - namespace in Kubernetes to find config maps related to the target
      *             <p>
@@ -705,6 +705,7 @@ public class CommonFactory extends AbstractCommonFactory {
         paths.put(GrpcRouterConfiguration.class, defaultPathIfNull(settings.getRouterGRPC(), ROUTER_GRPC_FILE_NAME));
         paths.put(CradleConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleConfidential(), CRADLE_CONFIDENTIAL_FILE_NAME));
         paths.put(CradleNonConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
+        paths.put(CassandraStorageSettings.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
         paths.put(PrometheusConfiguration.class, defaultPathIfNull(settings.getPrometheus(), PROMETHEUS_FILE_NAME));
         paths.put(BoxConfiguration.class, defaultPathIfNull(settings.getBoxConfiguration(), BOX_FILE_NAME));
         return new ConfigurationManager(paths);

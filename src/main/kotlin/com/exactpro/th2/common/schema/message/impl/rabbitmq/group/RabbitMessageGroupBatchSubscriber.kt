@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,14 +25,15 @@ import com.exactpro.th2.common.metrics.incrementDroppedMetrics
 import com.exactpro.th2.common.metrics.incrementTotalMetrics
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.FilterFunction
+import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
-import com.exactpro.th2.common.schema.message.toBuilderWithMetadata
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
+import com.exactpro.th2.common.schema.message.toBuilderWithMetadata
 import com.exactpro.th2.common.schema.message.toShortDebugString
 import com.google.protobuf.CodedInputStream
+import com.google.protobuf.Message
 import com.rabbitmq.client.Delivery
 import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
@@ -41,11 +42,11 @@ import mu.KotlinLogging
 class RabbitMessageGroupBatchSubscriber(
     connectionManager: ConnectionManager,
     queue: String,
-    filterFunction: FilterFunction,
+    private val filterFunction: FilterFunction,
     th2Pin: String,
     private val filters: List<RouterFilter>,
     private val messageRecursionLimit: Int
-) : AbstractRabbitSubscriber<MessageGroupBatch>(connectionManager, queue, filterFunction, th2Pin, MESSAGE_GROUP_TYPE) {
+) : AbstractRabbitSubscriber<MessageGroupBatch>(connectionManager, queue, th2Pin, MESSAGE_GROUP_TYPE) {
     private val logger = KotlinLogging.logger {}
 
     override fun valueFromBytes(body: ByteArray): MessageGroupBatch = parseEncodedBatch(body)
@@ -95,6 +96,8 @@ class RabbitMessageGroupBatchSubscriber(
         )
         super.handle(deliveryMetadata, delivery, value, confirmation)
     }
+
+    private fun callFilterFunction(message: Message, filters: List<RouterFilter?>): Boolean = filterFunction.apply(message, filters)
 
     private fun parseEncodedBatch(body: ByteArray?): MessageGroupBatch {
         val ins = CodedInputStream.newInstance(body)

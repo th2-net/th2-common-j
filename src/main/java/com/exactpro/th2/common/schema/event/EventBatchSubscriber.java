@@ -43,10 +43,9 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     public EventBatchSubscriber(
             @NotNull ConnectionManager connectionManager,
             @NotNull String queue,
-            @NotNull FilterFunction filterFunc,
             @NotNull String th2Pin
     ) {
-        super(connectionManager, queue, filterFunc, th2Pin, EVENT_TYPE);
+        super(connectionManager, queue, th2Pin, EVENT_TYPE);
     }
 
     @Override

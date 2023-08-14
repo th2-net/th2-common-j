@@ -20,31 +20,35 @@ import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.message.toJson
 import com.google.protobuf.Message
 
-class AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
+object AnyMessageFilterStrategy : AbstractFilterStrategy<Message>() {
 
     override fun getFields(message: Message): MutableMap<String, String> {
         check(message is AnyMessage) { "Message is not an ${AnyMessage::class.qualifiedName}: ${message.toJson()}" }
 
-        val result = HashMap<String, String>();
+        val result = HashMap<String, String>()
 
         when {
             message.hasMessage() -> {
                 result.putAll(message.message.fieldsMap.mapValues { it.value.simpleValue })
 
                 val metadata = message.message.metadata
+                val sessionAlias = metadata.id.connectionId.sessionAlias
+                val sessionGroup = metadata.id.connectionId.sessionGroup
                 result.putAll(metadata.propertiesMap)
                 result[AbstractTh2MsgFilterStrategy.BOOK_KEY] = metadata.id.bookName
-                result[AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY] = metadata.id.connectionId.sessionGroup
-                result[AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
+                result[AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY] = sessionGroup.ifEmpty { sessionAlias }
+                result[AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY] = sessionAlias
                 result[AbstractTh2MsgFilterStrategy.MESSAGE_TYPE_KEY] = metadata.messageType
                 result[AbstractTh2MsgFilterStrategy.DIRECTION_KEY] = metadata.id.direction.name
                 result[AbstractTh2MsgFilterStrategy.PROTOCOL_KEY] = metadata.protocol
             }
             message.hasRawMessage() -> {
                 val metadata = message.rawMessage.metadata
+                val sessionAlias = metadata.id.connectionId.sessionAlias
+                val sessionGroup = metadata.id.connectionId.sessionGroup
                 result.putAll(metadata.propertiesMap)
                 result[AbstractTh2MsgFilterStrategy.BOOK_KEY] = metadata.id.bookName
-                result[AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY] = metadata.id.connectionId.sessionGroup
+                result[AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY] = sessionGroup.ifEmpty { sessionAlias }
                 result[AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY] = metadata.id.connectionId.sessionAlias
                 result[AbstractTh2MsgFilterStrategy.DIRECTION_KEY] = metadata.id.direction.name
                 result[AbstractTh2MsgFilterStrategy.PROTOCOL_KEY] = metadata.protocol
