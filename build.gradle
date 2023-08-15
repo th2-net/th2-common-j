@@ -1,5 +1,6 @@
 import com.github.jk1.license.filter.LicenseBundleNormalizer
 import com.github.jk1.license.render.JsonReportRenderer
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
     repositories {
@@ -7,7 +8,7 @@ buildscript {
     }
 
     ext {
-        kotlin_version = "1.6.21"
+        kotlin_version = "1.8.22"
     }
 
     dependencies {
@@ -173,7 +174,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.4.0")
+    api platform("com.exactpro.th2:bom:4.5.0")
     api('com.exactpro.th2:grpc-common:4.3.0-dev') {
         because('protobuf transport is main now, this dependnecy should be moved to grpc, mq protobuf modules after splitting')
     }
@@ -240,10 +241,13 @@ dependencies {
     implementation 'io.prometheus:simpleclient_httpserver'
     implementation 'io.prometheus:simpleclient_log4j2'
 
-    implementation('com.squareup.okhttp3:okhttp:4.10.0') {
+    implementation('com.squareup.okio:okio:3.5.0') {
+        because('fix vulnerability in transitive dependency <com.squareup.okhttp3:okhttp>')
+    }
+    implementation('com.squareup.okhttp3:okhttp:4.11.0') {
         because('fix vulnerability in transitive dependency <kubernetes-client>')
     }
-    implementation('io.fabric8:kubernetes-client:6.1.1') {
+    implementation('io.fabric8:kubernetes-client:6.8.0') {
         exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
     }
 
@@ -277,7 +281,7 @@ sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+tasks.withType(KotlinCompile).configureEach {
     kotlinOptions.jvmTarget = "11"
     kotlinOptions.freeCompilerArgs += "-Xjvm-default=all"
 }
