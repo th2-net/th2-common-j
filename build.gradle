@@ -241,7 +241,7 @@ dependencies {
     implementation 'io.prometheus:simpleclient_httpserver'
     implementation 'io.prometheus:simpleclient_log4j2'
 
-    implementation('com.squareup.okio:okio:3.4.0') {
+    implementation('com.squareup.okio:okio:3.5.0') {
         because('fix vulnerability in transitive dependency <com.squareup.okhttp3:okhttp>')
     }
     implementation('com.squareup.okhttp3:okhttp:4.11.0') {
