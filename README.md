@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.3.2)
+# th2 common library (Java) (5.4.0)
 
 ## Usage
 
@@ -454,6 +454,13 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.4.0-dev
+#### Updated
++ bom: `4.4.0-dev` to `4.5.0-dev`
++ kubernetes-client: `6.1.1` to `6.8.0`
+  + okhttp: `4.10.0` to `4.11.0`
+  + okio: `3.0.0` to `3.5.0`
 
 ### 5.3.2-dev
 
