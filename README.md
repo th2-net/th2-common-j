@@ -458,6 +458,7 @@ dependencies {
 ### 5.4.0-dev
 #### Updated
 + bom: `4.4.0-dev` to `4.5.0-dev`
++ kotlin: `1.8.22`
 + kubernetes-client: `6.1.1` to `6.8.0`
   + okhttp: `4.10.0` to `4.11.0`
   + okio: `3.0.0` to `3.5.0`
