@@ -28,6 +28,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportG
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
@@ -36,10 +38,10 @@ import java.time.Instant
 
 class TransportGroupBatchRouterTest {
     private val connectionConfiguration = ConnectionManagerConfiguration()
-    private val monitor: ExclusiveSubscriberMonitor = mock { }
+    private val managerMonitor: ExclusiveSubscriberMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
-        on { basicConsume(any(), any(), any()) }.thenReturn(monitor)
+        on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
     }
 
     @Nested
@@ -125,7 +127,7 @@ class TransportGroupBatchRouterTest {
 
         @Test
         fun `reports about extra pins matches the publication`() {
-            Assertions.assertThrows(IllegalStateException::class.java) {
+            assertThrows(IllegalStateException::class.java) {
                 router.send(createGroupBatch("test-message"))
             }.apply {
                 Assertions.assertEquals(
@@ -137,7 +139,7 @@ class TransportGroupBatchRouterTest {
 
         @Test
         fun `reports about no pins matches the publication`() {
-            Assertions.assertThrows(IllegalStateException::class.java) {
+            assertThrows(IllegalStateException::class.java) {
                 router.send(TRANSPORT_BATCH, "unexpected")
             }.apply {
                 Assertions.assertEquals(
@@ -214,7 +216,7 @@ class TransportGroupBatchRouterTest {
         @Test
         fun `subscribes to correct queue`() {
             val monitor = router.subscribe(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
+            assertNotNull(monitor) { "monitor must not be null" }
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
         }
@@ -222,7 +224,7 @@ class TransportGroupBatchRouterTest {
         @Test
         fun `subscribes with manual ack to correct queue`() {
             val monitor = router.subscribeWithManualAck(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
+            assertNotNull(monitor) { "monitor must not be null" }
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
         }
@@ -230,15 +232,45 @@ class TransportGroupBatchRouterTest {
         @Test
         fun `subscribes to all matched queues`() {
             val monitor = router.subscribeAll(mock { })
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
+            assertNotNull(monitor) { "monitor must not be null" }
 
             verify(connectionManager).basicConsume(eq("queue1"), any(), any())
             verify(connectionManager).basicConsume(eq("queue2"), any(), any())
         }
 
         @Test
+        fun `subscribes several times`() {
+            val monitor = router.subscribe(mock { }, "1")
+            assertNotNull(monitor) { "monitor must not be null" }
+            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+
+            assertThrows(RuntimeException::class.java) { router.subscribe(mock { }, "1") }
+            monitor.unsubscribe()
+            verify(managerMonitor).unsubscribe()
+
+            val secondMonitor = router.subscribe(mock { }, "1")
+            verify(connectionManager, times(2)).basicConsume(eq("queue1"), any(), any())
+            assertNotNull(secondMonitor) { "monitor must not be null" }
+        }
+
+        @Test
+        fun `subscribes with manual ack several times`() {
+            val monitor = router.subscribeWithManualAck(mock { }, "1")
+            assertNotNull(monitor) { "monitor must not be null" }
+            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+
+            assertThrows(RuntimeException::class.java) { router.subscribeWithManualAck(mock { }, "1") }
+            monitor.unsubscribe()
+            verify(managerMonitor).unsubscribe()
+
+            val secondMonitor = router.subscribeWithManualAck(mock { }, "1")
+            verify(connectionManager, times(2)).basicConsume(eq("queue1"), any(), any())
+            assertNotNull(secondMonitor) { "monitor must not be null" }
+        }
+
+        @Test
         fun `reports if more that one queue matches`() {
-            Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }) }
+            assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }) }
                 .apply {
                     Assertions.assertEquals(
                         "Found incorrect number of pins [test1, test2] to subscribe operation by attributes [subscribe, $TRANSPORT_GROUP_ATTRIBUTE] and filters, expected 1, actual 2",
@@ -251,7 +283,7 @@ class TransportGroupBatchRouterTest {
         fun `reports if no queue matches`() {
             Assertions.assertAll(
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) {
+                    assertThrows(IllegalStateException::class.java) {
                         router.subscribe(
                             mock { },
                             "unexpected"
@@ -265,7 +297,7 @@ class TransportGroupBatchRouterTest {
                         }
                 },
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) {
+                    assertThrows(IllegalStateException::class.java) {
                         router.subscribeAll(
                             mock { },
                             "unexpected"

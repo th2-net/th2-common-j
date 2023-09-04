@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
+import com.exactpro.th2.common.schema.message.ConfirmationListener;
 import com.exactpro.th2.common.schema.message.DeliveryMetadata;
-import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
@@ -43,9 +43,10 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     public EventBatchSubscriber(
             @NotNull ConnectionManager connectionManager,
             @NotNull String queue,
-            @NotNull String th2Pin
+            @NotNull String th2Pin,
+            @NotNull ConfirmationListener<EventBatch> listener
     ) {
-        super(connectionManager, queue, th2Pin, EVENT_TYPE);
+        super(connectionManager, queue, th2Pin, EVENT_TYPE, listener);
     }
 
     @Override

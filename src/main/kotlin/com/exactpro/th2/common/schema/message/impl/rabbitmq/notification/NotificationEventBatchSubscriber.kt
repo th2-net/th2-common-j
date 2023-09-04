@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,45 +19,23 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.notification
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
-import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.rabbitmq.client.Delivery
-import java.util.concurrent.CopyOnWriteArrayList
 import mu.KotlinLogging
+import java.util.concurrent.CopyOnWriteArrayList
 
 // DRAFT of notification router
 class NotificationEventBatchSubscriber(
     private val connectionManager: ConnectionManager,
     private val queue: String
-) : MessageSubscriber<EventBatch> {
+) : MessageSubscriber {
     private val listeners = CopyOnWriteArrayList<ConfirmationListener<EventBatch>>()
     private lateinit var monitor: SubscriberMonitor
 
-    @Deprecated(
-        "Method is deprecated, please use constructor",
-        ReplaceWith("NotificationEventBatchSubscriber()")
-    )
-    override fun init(connectionManager: ConnectionManager, exchangeName: String, subscribeTargets: SubscribeTarget) {
-        throw UnsupportedOperationException("Method is deprecated, please use constructor")
-    }
-
-    @Deprecated(
-        "Method is deprecated, please use constructor",
-        ReplaceWith("NotificationEventBatchSubscriber()")
-    )
-    override fun init(
-        connectionManager: ConnectionManager,
-        subscribeTarget: SubscribeTarget,
-        filterFunc: FilterFunction
-    ) {
-        throw UnsupportedOperationException("Method is deprecated, please use constructor")
-    }
-
-    override fun start() {
+    fun start() {
         monitor = connectionManager.basicConsume(
             queue,
             { deliveryMetadata: DeliveryMetadata, delivery: Delivery, confirmation: ManualAckDeliveryCallback.Confirmation ->
@@ -81,11 +59,11 @@ class NotificationEventBatchSubscriber(
         )
     }
 
-    override fun removeListener(messageListener: ConfirmationListener<EventBatch>) {
+    fun removeListener(messageListener: ConfirmationListener<EventBatch>) {
         listeners.remove(messageListener)
     }
 
-    override fun addListener(messageListener: ConfirmationListener<EventBatch>) {
+    fun addListener(messageListener: ConfirmationListener<EventBatch>) {
         listeners.add(messageListener)
     }
 

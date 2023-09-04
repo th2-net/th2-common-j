@@ -18,11 +18,9 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 import com.exactpro.th2.common.metrics.HealthMetrics;
 import com.exactpro.th2.common.schema.message.ConfirmationListener;
 import com.exactpro.th2.common.schema.message.DeliveryMetadata;
-import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.google.common.base.Suppliers;
 import com.google.common.io.BaseEncoding;
@@ -36,12 +34,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
@@ -50,7 +45,7 @@ import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
 import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
+public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
 
     @SuppressWarnings("rawtypes")
@@ -71,99 +66,44 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             .help("Time of message processing during subscription from RabbitMQ in seconds. " +
                     "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
             .register();
-
-    protected final ReentrantLock publicLock = new ReentrantLock();
-    private boolean hasManualSubscriber = false;
-
-    protected final String th2Pin;
-    private final Set<ConfirmationListener<T>> listeners = ConcurrentHashMap.newKeySet();
+    private final boolean manualConfirmation;
+    private final ConfirmationListener<T> listener;
     private final String queue;
     private final ConnectionManager connectionManager;
     private final AtomicReference<Supplier<SubscriberMonitor>> consumerMonitor = new AtomicReference<>(emptySupplier());
+    private final AtomicBoolean isAlive = new AtomicBoolean(true);
     private final String th2Type;
-
     private final HealthMetrics healthMetrics = new HealthMetrics(this);
+
+    protected final String th2Pin;
 
     public AbstractRabbitSubscriber(
             @NotNull ConnectionManager connectionManager,
             @NotNull String queue,
             @NotNull String th2Pin,
-            @NotNull String th2Type
+            @NotNull String th2Type,
+            @NotNull ConfirmationListener<T> listener
     ) {
         this.connectionManager = requireNonNull(connectionManager, "Connection can not be null");
         this.queue = requireNonNull(queue, "Queue can not be null");
-        this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
-        this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
-    }
-
-    @Deprecated
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets) {
-        throw new UnsupportedOperationException("Method is deprecated, please use constructor");
-    }
-
-    @Deprecated
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull SubscribeTarget subscribeTarget, @NotNull FilterFunction filterFunc) {
-        throw new UnsupportedOperationException("Method is deprecated, please use constructor");
-    }
-
-    @Override
-    @Deprecated
-    public void start() throws Exception {
-        // Do nothing
-    }
-
-    @Override
-    public void addListener(ConfirmationListener<T> messageListener) {
-        publicLock.lock();
-        try {
-            boolean isManual = ConfirmationListener.isManual(messageListener);
-            if (isManual && hasManualSubscriber) {
-                throw new IllegalStateException("cannot subscribe listener " + messageListener
-                        + " because only one listener with manual confirmation is allowed per queue");
-            }
-            if(listeners.add(messageListener)) {
-                hasManualSubscriber |= isManual;
-                subscribe();
-            }
-        } finally {
-            publicLock.unlock();
-        }
-    }
-
-    @Override
-    public void removeListener(ConfirmationListener<T> messageListener) {
-        publicLock.lock();
-        try {
-            boolean isManual = ConfirmationListener.isManual(messageListener);
-            if (listeners.remove(messageListener)) {
-                hasManualSubscriber &= !isManual;
-                messageListener.onClose();
-            }
-        } finally {
-            publicLock.unlock();
-        }
+        this.th2Pin = requireNonNull(th2Pin, "th2 pin can not be null");
+        this.th2Type = requireNonNull(th2Type, "th2 type can not be null");
+        this.listener = requireNonNull(listener, "Listener can not be null");
+        this.manualConfirmation = ConfirmationListener.isManual(listener);
+        subscribe();
     }
 
     @Override
     public void close() throws IOException {
-        publicLock.lock();
-        try {
-            SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
-            if (monitor != null) {
-                monitor.unsubscribe();
-            }
-
-            Iterator<ConfirmationListener<T>> listIterator = listeners.iterator();
-            while (listIterator.hasNext()) {
-                ConfirmationListener<T> listener = listIterator.next();
-                listIterator.remove();
-                listener.onClose();
-            }
-        } finally {
-            publicLock.unlock();
+        if (!isAlive.getAndSet(false)) {
+            LOGGER.warn("Subscriber for '{}' pin is already closed", th2Pin);
+            return;
         }
+
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
+        monitor.unsubscribe();
+
+        listener.onClose();
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
@@ -194,18 +134,12 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 return;
             }
 
-            boolean hasManualConfirmation = false;
-            for (ConfirmationListener<T> listener : listeners) {
-                try {
-                    listener.handle(deliveryMetadata, filteredValue, confirmation);
-                    if (!hasManualConfirmation) {
-                        hasManualConfirmation = ConfirmationListener.isManual(listener);
-                    }
-                } catch (Exception listenerExc) {
-                    LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
-                }
+            try {
+                listener.handle(deliveryMetadata, filteredValue, confirmation);
+            } catch (Exception listenerExc) {
+                LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
             }
-            if (!hasManualConfirmation) {
+            if (!manualConfirmation) {
                 confirmation.confirm();
             }
         } catch (Exception e) {
@@ -227,6 +161,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
 
     private void resubscribe() {
         LOGGER.info("Try to resubscribe subscriber for queue name='{}'", queue);
+        if (!isAlive.get()) {
+            LOGGER.warn("Subscriber for '{}' pin is already closed", th2Pin);
+            return;
+        }
 
         SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
         if (monitor != null) {

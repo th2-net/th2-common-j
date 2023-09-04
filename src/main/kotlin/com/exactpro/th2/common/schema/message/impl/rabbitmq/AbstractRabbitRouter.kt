@@ -49,7 +49,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     private val boxConfiguration: BoxConfiguration
         get() = context.boxConfiguration
 
-    private val subscribers = ConcurrentHashMap<Queue, MessageSubscriber<T>>()
+    private val subscribers = ConcurrentHashMap<Queue, MessageSubscriber>()
     private val senders = ConcurrentHashMap<RoutingKey, MessageSender<T>>()
 
     override fun init(context: MessageRouterContext) {
@@ -85,16 +85,14 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         val queue = connectionManager.queueDeclare()
         val pinConfig = PinConfiguration("", queue, "", isReadable = true, isWritable = false)
 
-        val messageListener = ConfirmationListener.wrap(callback)
-        val messageSubscriber = subscribers.getSubscriber(queue, pinConfig).apply {
-            addListener(messageListener)
-        }
+        val listener = ConfirmationListener.wrap(callback)
+        subscribers.registerSubscriber(queue, pinConfig, listener)
 
         return object: ExclusiveSubscriberMonitor {
             override val queue: String = queue
 
             override fun unsubscribe() {
-                messageSubscriber.removeListener(messageListener)
+                subscribers.unregisterSubscriber(queue, pinConfig)
             }
         }
     }
@@ -172,7 +170,11 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     protected abstract fun createSender(pinConfig: PinConfiguration, pinName: PinName, bookName: BookName): MessageSender<T>
 
     //TODO: implement common subscriber
-    protected abstract fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T>
+    protected abstract fun createSubscriber(
+        pinConfig: PinConfiguration,
+        pinName: PinName,
+        listener: ConfirmationListener<T>
+    ): MessageSubscriber
 
     protected abstract fun T.toErrorString(): String
 
@@ -207,7 +209,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     private fun subscribe(
         pintAttributes: Set<String>,
-        messageListener: ConfirmationListener<T>,
+        listener: ConfirmationListener<T>,
         check: List<PinInfo>.() -> Unit
     ): SubscriberMonitor {
         val packages: List<PinInfo> = configuration.queues.asSequence()
@@ -221,14 +223,12 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         val monitors: MutableList<SubscriberMonitor> = mutableListOf()
         packages.forEach { (pinName: PinName, pinConfig: PinConfiguration) ->
             runCatching {
-                subscribers.getSubscriber(pinName, pinConfig).apply {
-                    addListener(messageListener)
-                }
+                subscribers.registerSubscriber(pinName, pinConfig, listener)
             }.onFailure { e ->
                 LOGGER.error(e) { "Listener can't be subscribed via the $pinName pin" }
                 exceptions[pinName] = e
-            }.onSuccess { messageSubscriber ->
-                monitors.add(SubscriberMonitor { messageSubscriber.removeListener(messageListener) })
+            }.onSuccess {
+                monitors.add(SubscriberMonitor { subscribers.unregisterSubscriber(pinName, pinConfig) })
             }
         }
 
@@ -261,15 +261,33 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         return@computeIfAbsent createSender(pinConfig, pinName, boxConfiguration.bookName)
     }
 
-    private fun ConcurrentHashMap<Queue, MessageSubscriber<T>>.getSubscriber(
+    private fun ConcurrentHashMap<Queue, MessageSubscriber>.registerSubscriber(
         pinName: PinName,
-        pinConfig: PinConfiguration
-    ): MessageSubscriber<T> = computeIfAbsent(pinConfig.queue) {
-        check(pinConfig.isReadable) {
-            "The $pinName isn't readable, configuration: $pinConfig"
-        }
+        pinConfig: PinConfiguration,
+        listener: ConfirmationListener<T>
+    ) {
+        compute(pinConfig.queue) { _, previous ->
+            check(previous == null) {
+                "The '$pinName' pin already has subscriber, configuration: $pinConfig"
+            }
+            check(pinConfig.isReadable) {
+                "The $pinName isn't readable, configuration: $pinConfig"
+            }
 
-        return@computeIfAbsent createSubscriber(pinConfig, pinName)
+            createSubscriber(pinConfig, pinName, listener).also {
+                LOGGER.info { "Created subscriber for '$pinName' pin, configuration: $pinConfig" }
+            }
+        }
+    }
+
+    private fun ConcurrentHashMap<Queue, MessageSubscriber>.unregisterSubscriber(
+        pinName: PinName,
+        pinConfig: PinConfiguration,
+    ) {
+        remove(pinConfig.queue)?.let { subscriber ->
+            subscriber.close()
+            LOGGER.info { "Removed subscriber for '$pinName' pin, configuration: $pinConfig" }
+        }
     }
 
     private open class PinInfo(

@@ -49,8 +49,6 @@ import java.util.function.Function;
 /**
  * Abstract implementation for {@link GrpcRouter}
  * <p>
- * Implement {@link GrpcRouter#init(GrpcRouterConfiguration)}
- * <p>
  * Implement {@link GrpcRouter#init(GrpcConfiguration, GrpcRouterConfiguration)}
  * <p>
  * Implement {@link GrpcRouter#startServer(BindableService...)}
@@ -121,11 +119,6 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_RESPONSE_SIZE_MAP = new ConcurrentHashMap<>();
-
-    @Override
-    public void init(GrpcRouterConfiguration configuration) {
-        init(new GrpcConfiguration(), configuration);
-    }
 
     @Override
     public void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration) {

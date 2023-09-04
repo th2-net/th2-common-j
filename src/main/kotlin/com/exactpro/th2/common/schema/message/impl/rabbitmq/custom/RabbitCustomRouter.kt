@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,6 +15,7 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute
@@ -70,13 +71,18 @@ class RabbitCustomRouter<T : Any>(
         )
     }
 
-    override fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T> {
+    override fun createSubscriber(
+        pinConfig: PinConfiguration,
+        pinName: PinName,
+        listener: ConfirmationListener<T>
+    ): MessageSubscriber {
         return Subscriber(
             connectionManager,
             pinConfig.queue,
             pinName,
             customTag,
-            converter
+            converter,
+            listener
         )
     }
 
@@ -105,8 +111,9 @@ class RabbitCustomRouter<T : Any>(
         queue: String,
         th2Pin: String,
         customTag: String,
-        private val converter: MessageConverter<T>
-    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, th2Pin, customTag) {
+        private val converter: MessageConverter<T>,
+        messageListener: ConfirmationListener<T>
+    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, th2Pin, customTag, messageListener) {
         override fun valueFromBytes(body: ByteArray): T = converter.fromByteArray(body)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)
