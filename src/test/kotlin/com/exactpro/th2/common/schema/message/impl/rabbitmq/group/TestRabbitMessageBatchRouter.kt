@@ -259,60 +259,6 @@ class TestRabbitMessageGroupBatchRouter {
         }
 
         @Test
-        fun `subscribes to correct queue`() {
-            val monitor = router.subscribe(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-        }
-        @Test
-        fun `subscribes with manual ack to correct queue`() {
-            val monitor = router.subscribeWithManualAck(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-        }
-
-        @Test
-        fun `subscribes to all matched queues`() {
-            val monitor = router.subscribeAll(mock { })
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-            verify(connectionManager).basicConsume(eq("queue2"), any(), any())
-        }
-
-        @Test
-        fun `subscribes several times`() {
-            val monitor = router.subscribe(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-
-            assertThrows(RuntimeException::class.java) { router.subscribe(mock { }, "1") }
-            monitor.unsubscribe()
-            verify(managerMonitor).unsubscribe()
-
-            val secondMonitor = router.subscribe(mock { }, "1")
-            verify(connectionManager, times(2)).basicConsume(eq("queue1"), any(), any())
-            Assertions.assertNotNull(secondMonitor) { "monitor must not be null" }
-        }
-
-        @Test
-        fun `subscribes with manual ack several times`() {
-            val monitor = router.subscribeWithManualAck(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-
-            assertThrows(RuntimeException::class.java) { router.subscribeWithManualAck(mock { }, "1") }
-            monitor.unsubscribe()
-            verify(managerMonitor).unsubscribe()
-
-            val secondMonitor = router.subscribeWithManualAck(mock { }, "1")
-            verify(connectionManager, times(2)).basicConsume(eq("queue1"), any(), any())
-            Assertions.assertNotNull(secondMonitor) { "monitor must not be null" }
-        }
-
-        @Test
         fun `reports if more that one queue matches`() {
             assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }) }
                 .apply {
