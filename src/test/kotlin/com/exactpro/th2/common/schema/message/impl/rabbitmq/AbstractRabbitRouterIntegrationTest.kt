@@ -96,7 +96,7 @@ class AbstractRabbitRouterIntegrationTest {
     ) {
         createConnectionManager(rabbitMQContainer).use { manager ->
             createRouter(manager).use { router ->
-                val firstMonitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
+                val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
                     queue.put(Delivery(message, deliveryMetadata.deliveryTag, deliveryMetadata.isRedelivered, confirmation))
                 })
 
@@ -111,10 +111,12 @@ class AbstractRabbitRouterIntegrationTest {
 
                     assertNull(queue.poll(1, TimeUnit.SECONDS))
                 } finally {
-                    firstMonitor.unsubscribe()
+                    monitor.unsubscribe()
                 }
+            }
 
-                val secondMonitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
+            createRouter(manager).use { router ->
+                val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
                     queue.put(Delivery(message, deliveryMetadata.deliveryTag, deliveryMetadata.isRedelivered, confirmation))
                 })
 
@@ -122,7 +124,7 @@ class AbstractRabbitRouterIntegrationTest {
                     // RabbitMQ doesn't resend messages after resubscribe using the same connection and channel
                     assertNull(queue.poll(1, TimeUnit.SECONDS))
                 } finally {
-                    secondMonitor.unsubscribe()
+                    monitor.unsubscribe()
                 }
             }
         }
