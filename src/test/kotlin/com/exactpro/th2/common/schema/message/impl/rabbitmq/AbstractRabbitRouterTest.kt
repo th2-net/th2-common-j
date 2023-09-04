@@ -16,17 +16,13 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.event.bean.BaseTest
-import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
-import com.exactpro.th2.common.schema.message.MessageSender
-import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -65,19 +61,19 @@ class AbstractRabbitRouterTest {
                     routingKey = "publish",
                     queue = "",
                     exchange = "test-exchange",
-                    attributes = listOf("publish", TransportGroupBatchRouter.TRANSPORT_GROUP_ATTRIBUTE, "test")
+                    attributes = listOf("publish", "test")
                 ),
                 "test1" to QueueConfiguration(
                     routingKey = "",
                     queue = "queue1",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe", TransportGroupBatchRouter.TRANSPORT_GROUP_ATTRIBUTE, "1")
+                    attributes = listOf("subscribe", "1")
                 ),
                 "test2" to QueueConfiguration(
                     routingKey = "",
                     queue = "queue2",
                     exchange = "test-exchange",
-                    attributes = listOf("subscribe", TransportGroupBatchRouter.TRANSPORT_GROUP_ATTRIBUTE, "2")
+                    attributes = listOf("subscribe", "2")
                 )
             )
         )
@@ -239,80 +235,6 @@ class AbstractRabbitRouterTest {
                 }
             )
         }
-    }
-
-    private class TestSender(
-        connectionManager: ConnectionManager,
-        exchangeName: String,
-        routingKey: String,
-        th2Pin: String,
-        bookName: BookName,
-    ) : AbstractRabbitSender<String>(
-        connectionManager,
-        exchangeName,
-        routingKey,
-        th2Pin,
-        "test-string",
-        bookName
-    ) {
-        override fun toShortTraceString(value: String): String = value
-
-        override fun toShortDebugString(value: String): String = value
-
-        override fun valueToBytes(value: String): ByteArray = value.toByteArray()
-    }
-
-    private class TestSubscriber(
-        connectionManager: ConnectionManager,
-        queue: String,
-        th2Pin: String,
-        listener: ConfirmationListener<String>
-    ) : AbstractRabbitSubscriber<String>(
-        connectionManager,
-        queue,
-        th2Pin,
-        "test-string",
-        listener
-    ) {
-        override fun valueFromBytes(body: ByteArray): String = String(body)
-
-        override fun filter(value: String): String = value
-
-        override fun toShortDebugString(value: String): String = value
-
-        override fun toShortTraceString(value: String): String = value
-    }
-
-    private class TestRouter : AbstractRabbitRouter<String>() {
-        override fun splitAndFilter(message: String, pinConfiguration: PinConfiguration, pinName: PinName): String {
-            return message
-        }
-
-        override fun createSender(
-            pinConfig: PinConfiguration,
-            pinName: PinName,
-            bookName: BookName
-        ): MessageSender<String> = TestSender(
-            connectionManager,
-            pinConfig.exchange,
-            pinConfig.routingKey,
-            pinName,
-            bookName
-        )
-
-        override fun String.toErrorString(): String = "Error $this"
-
-        override fun createSubscriber(
-            pinConfig: PinConfiguration,
-            pinName: PinName,
-            listener: ConfirmationListener<String>
-        ): MessageSubscriber = TestSubscriber(
-            connectionManager,
-            pinConfig.queue,
-            pinName,
-            listener
-        )
-
     }
 
     private fun createRouter(pins: Map<String, QueueConfiguration>): TestRouter =
