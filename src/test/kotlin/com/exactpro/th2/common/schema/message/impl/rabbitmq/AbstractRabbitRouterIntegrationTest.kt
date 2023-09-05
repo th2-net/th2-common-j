@@ -24,6 +24,7 @@ import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterC
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter
 import com.rabbitmq.client.BuiltinExchangeType
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions.assertNull
@@ -48,7 +49,8 @@ class AbstractRabbitRouterIntegrationTest {
             .withBinding(
                 EXCHANGE,
                 QUEUE_NAME, emptyMap(),
-                ROUTING_KEY, "queue")
+                ROUTING_KEY, "queue"
+            )
             .use { rabbitMQContainer ->
                 rabbitMQContainer.start()
                 K_LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}, rest ${rabbitMQContainer.httpUrl} ${rabbitMQContainer.adminUsername} ${rabbitMQContainer.adminPassword} " }
@@ -67,21 +69,27 @@ class AbstractRabbitRouterIntegrationTest {
                         firstRouter.send(messageC)
                         firstRouter.send(messageD)
 
-                        connectAndCheck(rabbitMQContainer, queue, listOf(
-                            Expectation(messageA, 1, false, ManualAckDeliveryCallback.Confirmation::confirm),
-                            Expectation(messageB, 2, false, ManualAckDeliveryCallback.Confirmation::reject),
-                            Expectation(messageC, 3, false) { },
-                            Expectation(messageD, 4, false) { },
-                        ))
+                        connectAndCheck(
+                            rabbitMQContainer, queue, listOf(
+                                Expectation(messageA, false, ManualAckDeliveryCallback.Confirmation::confirm),
+                                Expectation(messageB, false, ManualAckDeliveryCallback.Confirmation::reject),
+                                Expectation(messageC, false) { },
+                                Expectation(messageD, false) { },
+                            )
+                        )
 
-                        connectAndCheck(rabbitMQContainer, queue, listOf(
-                            Expectation(messageC, 1, true, ManualAckDeliveryCallback.Confirmation::confirm),
-                            Expectation(messageD, 2, true) { },
-                        ))
+                        connectAndCheck(
+                            rabbitMQContainer, queue, listOf(
+                                Expectation(messageC, true, ManualAckDeliveryCallback.Confirmation::confirm),
+                                Expectation(messageD, true) { },
+                            )
+                        )
 
-                        connectAndCheck(rabbitMQContainer, queue, listOf(
-                            Expectation(messageD, 1, true, ManualAckDeliveryCallback.Confirmation::reject),
-                        ))
+                        connectAndCheck(
+                            rabbitMQContainer, queue, listOf(
+                                Expectation(messageD, true, ManualAckDeliveryCallback.Confirmation::reject),
+                            )
+                        )
 
                         connectAndCheck(rabbitMQContainer, queue, emptyList())
                     }
@@ -97,14 +105,19 @@ class AbstractRabbitRouterIntegrationTest {
         createConnectionManager(rabbitMQContainer).use { manager ->
             createRouter(manager).use { router ->
                 val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
-                    queue.put(Delivery(message, deliveryMetadata.deliveryTag, deliveryMetadata.isRedelivered, confirmation))
+                    queue.put(
+                        Delivery(
+                            message,
+                            deliveryMetadata.isRedelivered,
+                            confirmation
+                        )
+                    )
                 })
 
                 try {
                     expectations.forEach { expectation ->
                         val delivery = assertNotNull(queue.poll(1, TimeUnit.SECONDS))
                         assertEquals(expectation.message, delivery.message, "Message")
-                        assertEquals(expectation.deliveryTag, delivery.deliveryTag, "Delivery tag")
                         assertEquals(expectation.redelivery, delivery.redelivery, "Redelivery flag")
                         expectation.action.invoke(delivery.confirmation)
                     }
@@ -117,7 +130,13 @@ class AbstractRabbitRouterIntegrationTest {
 
             createRouter(manager).use { router ->
                 val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
-                    queue.put(Delivery(message, deliveryMetadata.deliveryTag, deliveryMetadata.isRedelivered, confirmation))
+                    queue.put(
+                        Delivery(
+                            message,
+                            deliveryMetadata.isRedelivered,
+                            confirmation
+                        )
+                    )
                 })
 
                 try {
@@ -151,13 +170,17 @@ class AbstractRabbitRouterIntegrationTest {
         K_LOGGER.error { "Fatal connection problem" }
     }
 
-    private fun createRouter(connectionManager: ConnectionManager) = TestRouter()
-        .apply {
-            init(
-                DefaultMessageRouterContext(
-                    connectionManager,
-                    mock { },
-                    MessageRouterConfiguration(mapOf(
+    private fun createRouter(connectionManager: ConnectionManager) = RabbitCustomRouter(
+        "test-custom-tag",
+        arrayOf("test-label"),
+        TestMessageConverter()
+    ).apply {
+        init(
+            DefaultMessageRouterContext(
+                connectionManager,
+                mock { },
+                MessageRouterConfiguration(
+                    mapOf(
                         "test" to QueueConfiguration(
                             routingKey = ROUTING_KEY,
                             queue = "",
@@ -170,12 +193,13 @@ class AbstractRabbitRouterIntegrationTest {
                             exchange = EXCHANGE,
                             attributes = listOf("subscribe")
                         ),
-                    )),
-                    BoxConfiguration()
-                )
+                    )
+                ),
+                BoxConfiguration()
             )
-        }
-    
+        )
+    }
+
     companion object {
         private val K_LOGGER = KotlinLogging.logger { }
 
@@ -187,7 +211,16 @@ class AbstractRabbitRouterIntegrationTest {
         private const val DEFAULT_PREFETCH_COUNT = 10
         private val DEFAULT_CONFIRMATION_TIMEOUT: Duration = Duration.ofSeconds(1)
 
-        private class Expectation(val message: String, val deliveryTag: Long, val redelivery: Boolean, val action: ManualAckDeliveryCallback.Confirmation.() -> Unit)
-        private class Delivery(val message: String, val deliveryTag: Long, val redelivery: Boolean, val confirmation: ManualAckDeliveryCallback.Confirmation)
+        private class Expectation(
+            val message: String,
+            val redelivery: Boolean,
+            val action: ManualAckDeliveryCallback.Confirmation.() -> Unit
+        )
+
+        private class Delivery(
+            val message: String,
+            val redelivery: Boolean,
+            val confirmation: ManualAckDeliveryCallback.Confirmation
+        )
     }
 }

@@ -23,6 +23,7 @@ import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -187,7 +188,11 @@ class AbstractRabbitRouterTest {
             val monitorB = router.subscribeExclusive(mock { })
 
             verify(connectionManager, times(2)).queueDeclare()
-            verify(connectionManager, times(2)).basicConsume(argThat { matches(Regex("$TEST_EXCLUSIVE_QUEUE-\\d+")) }, any(), any())
+            verify(connectionManager, times(2)).basicConsume(
+                argThat { matches(Regex("$TEST_EXCLUSIVE_QUEUE-\\d+")) },
+                any(),
+                any()
+            )
             assertNotEquals(monitorA.queue, monitorB.queue)
         }
 
@@ -237,8 +242,12 @@ class AbstractRabbitRouterTest {
         }
     }
 
-    private fun createRouter(pins: Map<String, QueueConfiguration>): TestRouter =
-        TestRouter().apply {
+    private fun createRouter(pins: Map<String, QueueConfiguration>): RabbitCustomRouter<String> =
+        RabbitCustomRouter(
+            "test-custom-tag",
+            arrayOf("test-label"),
+            TestMessageConverter()
+        ).apply {
             init(
                 DefaultMessageRouterContext(
                     connectionManager,

@@ -355,7 +355,7 @@ public class ConnectionManager implements AutoCloseable {
                                 }, configuration.getConfirmationTimeout().toMillis(), TimeUnit.MILLISECONDS)
                         ));
                         boolean redeliver = envelope.isRedeliver();
-                        deliverCallback.handle(new DeliveryMetadata(tagTmp, deliveryTag, redeliver), delivery, confirmation);
+                        deliverCallback.handle(new DeliveryMetadata(tagTmp, redeliver), delivery, confirmation);
                     } catch (IOException | RuntimeException e) {
                         LOGGER.error("Cannot handle delivery for tag {}: {}", tagTmp, e.getMessage(), e);
                     }

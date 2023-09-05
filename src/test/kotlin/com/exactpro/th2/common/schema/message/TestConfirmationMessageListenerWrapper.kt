@@ -29,7 +29,7 @@ class TestConfirmationMessageListenerWrapper {
         val listener = ConfirmationListener.wrap<Any> { _, _ -> }
 
         mock<ManualAckDeliveryCallback.Confirmation> {}.also {
-            listener.handle(DeliveryMetadata("", 0), 2, it)
+            listener.handle(DeliveryMetadata(""), 2, it)
             verify(it, never()).confirm()
         }
     }
@@ -39,7 +39,7 @@ class TestConfirmationMessageListenerWrapper {
         val listener = ConfirmationListener.wrap<Any> { _, _ -> error("test") }
 
         mock<ManualAckDeliveryCallback.Confirmation> {}.also {
-            assertThrows(IllegalStateException::class.java) { listener.handle(DeliveryMetadata("test", 0), 2, it) }.apply {
+            assertThrows(IllegalStateException::class.java) { listener.handle(DeliveryMetadata("test"), 2, it) }.apply {
                 assertEquals("test", message)
             }
             verify(it, never()).confirm()

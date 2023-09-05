@@ -15,25 +15,16 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter
 
-internal class TestSender(
-    connectionManager: ConnectionManager,
-    exchangeName: String,
-    routingKey: String,
-    th2Pin: String,
-    bookName: BookName,
-) : AbstractRabbitSender<String>(
-    connectionManager,
-    exchangeName,
-    routingKey,
-    th2Pin,
-    "test-string",
-    bookName
-) {
-    override fun toShortTraceString(value: String): String = value
+class TestMessageConverter: MessageConverter<String> {
+    override fun toByteArray(value: String): ByteArray = value.toByteArray()
 
-    override fun toShortDebugString(value: String): String = value
+    override fun fromByteArray(data: ByteArray): String = String(data)
 
-    override fun valueToBytes(value: String): ByteArray = value.toByteArray()
+    override fun extractCount(value: String): Int = 1
+
+    override fun toDebugString(value: String): String = value
+
+    override fun toTraceString(value: String): String = value
 }

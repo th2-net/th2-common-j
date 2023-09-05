@@ -17,6 +17,5 @@ package com.exactpro.th2.common.schema.message
 
 data class DeliveryMetadata(
     val consumerTag: String,
-    val deliveryTag: Long,
     val isRedelivered: Boolean = false
 )
