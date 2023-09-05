@@ -61,7 +61,12 @@ public interface MessageRouter<T> extends AutoCloseable {
     ExclusiveSubscriberMonitor subscribeExclusive(MessageListener<T> callback);
 
     /**
-     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes.
+     * Restrictions:
+     * You can create only one subscription to th2 pin using any subscribe* functions. This method throws RuntimeException if the th2 pin is matched by passed attributes already has active subscription.
+     * Internal state:
+     * Router uses external Connection Manage to interact with RabbitMQ, which holds one connection and one channel per th2 pin in general.
+     * This rule exception is re-connect to RabbitMQ when the manager establishes new connection and creates new channels.
      * @param callback listener
      * @param queueAttr queues attributes
      * @throws IllegalStateException when more than 1 queue is found
@@ -71,6 +76,7 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
+     * @see #subscribe(MessageListener, String...)
      * @param callback listener
      * @param queueAttr queues attributes
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
@@ -79,6 +85,7 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @see #subscribe(MessageListener, String...)
      * @param queueAttr queues attributes
      * @param callback listener with manual confirmation
      * @throws IllegalStateException when more than 1 queue is found
@@ -91,6 +98,7 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
+     * @see #subscribe(MessageListener, String...)
      * @param callback listener with manual confirmation
      * @param queueAttr queues attributes
      * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
