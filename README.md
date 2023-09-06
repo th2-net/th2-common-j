@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.4.1)
+# th2 common library (Java) (5.4.2)
 
 ## Usage
 
@@ -493,6 +493,12 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.4.2-dev
+
+#### Fix
+
++ The serialization of `LocalTime`, `LocalDate` and `LocalDateTime` instances corrected for th2 transport parsed message.
 
 ### 5.4.1-dev
 #### Fix
