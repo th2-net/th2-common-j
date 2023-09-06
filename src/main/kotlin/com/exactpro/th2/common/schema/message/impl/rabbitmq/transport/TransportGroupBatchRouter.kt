@@ -15,12 +15,14 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import org.jetbrains.annotations.NotNull
 
@@ -46,14 +48,16 @@ class TransportGroupBatchRouter : AbstractRabbitRouter<GroupBatch>() {
     }
 
     override fun createSubscriber(
-        pinConfig: QueueConfiguration,
+        pinConfig: PinConfiguration,
         pinName: PinName,
-    ): MessageSubscriber<GroupBatch> {
+        listener: ConfirmationListener<GroupBatch>
+    ): MessageSubscriber {
         return TransportGroupBatchSubscriber(
             connectionManager,
             pinConfig.queue,
             pinName,
-            pinConfig.filters
+            pinConfig.filters,
+            listener
         )
     }
 

@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.4.0)
+# th2 common library (Java) (5.4.1)
 
 ## Usage
 
@@ -367,6 +367,45 @@ It means that the users can execute calls from the console or through scripts
 via [grpcurl](https://github.com/fullstorydev/grpcurl#grpcurl) without gRPC schema (files with proto extensions
 describes gRPC service structure)
 
+## MQ router
+
+This kind of router provides the ability for component to send / receive messages via RabbitMQ.
+Router has several methods to subscribe and publish RabbitMQ messages steam (th2 use batches of messages or events as transport).
+
+#### Choice pin by attributes
+
+Pin attributes are key mechanism to choose pin for action execution. Router search all pins which have full set of passed attributes.
+For example, the pins: `first` [`publish`, `raw`, `custom_a` ], `second` [`publish`, `raw`, `custom_b` ].
+* only the `first` pin will be chosen by attribut sets: [`custom_a`], [`custom_a`, `raw`], [`custom_a`, `publish`], [`publish`, `raw`, `custom_a` ]
+* both pins will be chosen by attribut sets: [`raw`], [`publish`], [`publish`, `raw` ]
+
+Router implementation and methods have predefined attributes. Result set of attributes for searching pin is union of  <router>, <method>, <passed> attributes.
+Predefined attributes:
+* `RabbitMessageGroupBatchRouter` hasn't got any predefined attributes
+* `EventBatchRouter` has `evnet` attribute
+* `TransportGroupBatchRouter` has `transport-group` attribute
+
+* `send*` exclude `sendExclusive` methods have `publish` attribute
+* `subscribe*` excluded `subscribeExclusive` methods have `subscribe` attribute
+
+#### Choice publish pin 
+
+Router chooses pins in two stages. At first select all pins matched by attributes than check passed message (batch) by
+pin's filters and then send the whole message or its part via pins leaved after two steps.  
+
+#### Choice subscribe pin 
+
+Router chooses pins only by attributes. Pin's filters are used when message has been delivered and parsed. Registered lister doesn't receive message, or it parts failure check by pin's filter.  
+
+### Restrictions:
+
+Some methods have `All` suffix, it means that developer can publish or subscribe message via 1 or several pins otherwise via only 1 pin.
+If number of passed check pins are different then required range, method throw an exception. 
+
+Developer can register only one listener for each pin but one listener can handle messages from several pins.   
+
+`TransportGroupBatchRouter` router doesn't split incoming or outgoing batch by filter not unlike `RabbitMessageGroupBatchRouter` router
+
 ## Export common metrics to Prometheus
 
 It can be performed by the following utility methods in CommonMetrics class
@@ -454,6 +493,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.4.1-dev
+#### Fix
++ `SubscriberMonitor` is returned from `MessageRouter.subscribe` methods is proxy object to manage RabbitMQ subscribtion without internal listener  
 
 ### 5.4.0-dev
 #### Updated

@@ -61,28 +61,36 @@ public interface MessageRouter<T> extends AutoCloseable {
     ExclusiveSubscriberMonitor subscribeExclusive(MessageListener<T> callback);
 
     /**
-     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes.
+     * Restrictions:
+     * You can create only one subscription to th2 pin using any subscribe* functions.
+     * Internal state:
+     * Router uses external Connection Manage to interact with RabbitMQ, which holds one connection and one channel per th2 pin in general.
+     * This rule exception is re-connect to RabbitMQ when the manager establishes new connection and creates new channels.
      * @param callback listener
      * @param queueAttr queues attributes
      * @throws IllegalStateException when more than 1 queue is found
-     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     * @throws RuntimeException when the th2 pin is matched by passed attributes already has active subscription
+     * @return {@link SubscriberMonitor} it start listening.
      */
     SubscriberMonitor subscribe(MessageListener<T> callback, String... queueAttr);
 
     /**
      * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
+     * @see #subscribe(MessageListener, String...)
      * @param callback listener
      * @param queueAttr queues attributes
-     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     * @return {@link SubscriberMonitor} it start listening.
      */
     SubscriberMonitor subscribeAll(MessageListener<T> callback, String... queueAttr);
 
     /**
      * Listen <b>ONE</b> RabbitMQ queue by intersection schemas queues attributes
+     * @see #subscribe(MessageListener, String...)
      * @param queueAttr queues attributes
      * @param callback listener with manual confirmation
      * @throws IllegalStateException when more than 1 queue is found
-     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     * @return {@link SubscriberMonitor} it start listening.
      */
     default SubscriberMonitor subscribeWithManualAck(ManualConfirmationListener<T> callback, String... queueAttr) {
         // TODO: probably should not have default implementation
@@ -91,9 +99,10 @@ public interface MessageRouter<T> extends AutoCloseable {
 
     /**
      * Listen <b>SOME</b> RabbitMQ queues by intersection schemas queues attributes
+     * @see #subscribe(MessageListener, String...)
      * @param callback listener with manual confirmation
      * @param queueAttr queues attributes
-     * @return {@link SubscriberMonitor} it start listening. Returns null if can not listen to this queue
+     * @return {@link SubscriberMonitor} it start listening.
      */
     default SubscriberMonitor subscribeAllWithManualAck(ManualConfirmationListener<T> callback, String... queueAttr) {
         // TODO: probably should not have default implementation

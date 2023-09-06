@@ -23,6 +23,7 @@ import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
 import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
 import com.exactpro.th2.common.metrics.incrementDroppedMetrics
 import com.exactpro.th2.common.metrics.incrementTotalMetrics
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.FilterFunction
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
@@ -45,8 +46,9 @@ class RabbitMessageGroupBatchSubscriber(
     private val filterFunction: FilterFunction,
     th2Pin: String,
     private val filters: List<RouterFilter>,
-    private val messageRecursionLimit: Int
-) : AbstractRabbitSubscriber<MessageGroupBatch>(connectionManager, queue, th2Pin, MESSAGE_GROUP_TYPE) {
+    private val messageRecursionLimit: Int,
+    messageListener: ConfirmationListener<MessageGroupBatch>
+) : AbstractRabbitSubscriber<MessageGroupBatch>(connectionManager, queue, th2Pin, MESSAGE_GROUP_TYPE, messageListener) {
     private val logger = KotlinLogging.logger {}
 
     override fun valueFromBytes(body: ByteArray): MessageGroupBatch = parseEncodedBatch(body)

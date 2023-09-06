@@ -18,12 +18,14 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.metrics.*
 import com.exactpro.th2.common.schema.filter.strategy.impl.AnyMessageFilterStrategy
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import com.exactpro.th2.common.schema.message.toBuilderWithMetadata
 import com.google.protobuf.Message
@@ -74,16 +76,18 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
     }
 
     override fun createSubscriber(
-        pinConfig: QueueConfiguration,
-        pinName: PinName
-    ): MessageSubscriber<MessageGroupBatch> {
+        pinConfig: PinConfiguration,
+        pinName: PinName,
+        listener: ConfirmationListener<MessageGroupBatch>
+    ): MessageSubscriber {
         return RabbitMessageGroupBatchSubscriber(
             connectionManager,
             pinConfig.queue,
             { msg: Message, filters: List<RouterFilter> -> AnyMessageFilterStrategy.verify(msg, filters) },
             pinName,
             pinConfig.filters,
-            connectionManager.configuration.messageRecursionLimit
+            connectionManager.configuration.messageRecursionLimit,
+            listener
         )
     }
 

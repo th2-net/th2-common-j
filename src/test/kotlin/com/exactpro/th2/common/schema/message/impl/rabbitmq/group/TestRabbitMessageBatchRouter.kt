@@ -36,6 +36,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Connec
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.Executable
@@ -45,14 +46,15 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 
 class TestRabbitMessageGroupBatchRouter {
     private val connectionConfiguration = ConnectionManagerConfiguration()
-    private val monitor: ExclusiveSubscriberMonitor = mock { }
+    private val managerMonitor: ExclusiveSubscriberMonitor = mock { }
     private val connectionManager: ConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
-        on { basicConsume(any(), any(), any()) }.thenReturn(monitor)
+        on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
     }
 
     @Nested
@@ -151,7 +153,7 @@ class TestRabbitMessageGroupBatchRouter {
 
         @Test
         fun `reports about extra pins matches the publication`() {
-            Assertions.assertThrows(IllegalStateException::class.java) {
+            assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
                         .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
@@ -166,7 +168,7 @@ class TestRabbitMessageGroupBatchRouter {
 
         @Test
         fun `reports about no pins matches the publication`() {
-            Assertions.assertThrows(IllegalStateException::class.java) {
+            assertThrows(IllegalStateException::class.java) {
                 router.send(MessageGroupBatch.newBuilder()
                     .addGroups(MessageGroup.newBuilder()
                         .apply { this += message(BOOK_NAME, "test-message", Direction.FIRST, "test-alias") }
@@ -257,32 +259,8 @@ class TestRabbitMessageGroupBatchRouter {
         }
 
         @Test
-        fun `subscribes to correct queue`() {
-            val monitor = router.subscribe(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-        }
-        @Test
-        fun `subscribes with manual ack to correct queue`() {
-            val monitor = router.subscribeWithManualAck(mock { }, "1")
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-        }
-
-        @Test
-        fun `subscribes to all matched queues`() {
-            val monitor = router.subscribeAll(mock { })
-            Assertions.assertNotNull(monitor) { "monitor must not be null" }
-
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-            verify(connectionManager).basicConsume(eq("queue2"), any(), any())
-        }
-
-        @Test
         fun `reports if more that one queue matches`() {
-            Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }) }
+            assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }) }
                 .apply {
                     Assertions.assertEquals(
                         "Found incorrect number of pins [test1, test2] to subscribe operation by attributes [subscribe] and filters, expected 1, actual 2",
@@ -295,7 +273,7 @@ class TestRabbitMessageGroupBatchRouter {
         fun `reports if no queue matches`() {
             Assertions.assertAll(
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }, "unexpected") }
+                    assertThrows(IllegalStateException::class.java) { router.subscribe(mock { }, "unexpected") }
                         .apply {
                             Assertions.assertEquals(
                                 "Found incorrect number of pins [] to subscribe operation by attributes [unexpected, subscribe] and filters, expected 1, actual 0",
@@ -304,7 +282,7 @@ class TestRabbitMessageGroupBatchRouter {
                         }
                 },
                 Executable {
-                    Assertions.assertThrows(IllegalStateException::class.java) { router.subscribeAll(mock { }, "unexpected") }
+                    assertThrows(IllegalStateException::class.java) { router.subscribeAll(mock { }, "unexpected") }
                         .apply {
                             Assertions.assertEquals(
                                 "Found incorrect number of pins [] to subscribe all operation by attributes [unexpected, subscribe] and filters, expected 1 or more, actual 0",
