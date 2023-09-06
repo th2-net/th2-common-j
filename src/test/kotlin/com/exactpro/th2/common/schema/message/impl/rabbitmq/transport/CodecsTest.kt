@@ -19,8 +19,13 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 import io.netty.buffer.ByteBufUtil
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 
 class CodecsTest {
 
@@ -120,5 +125,40 @@ class CodecsTest {
             decoded.rawBody,
             "unexpected raw body",
         )
+    }
+
+    @TestFactory
+    fun dateTypesTests(): Collection<DynamicTest> {
+        val testData = listOf(
+            LocalDate.now(),
+            LocalTime.now(),
+            LocalDateTime.now(),
+            Instant.now(),
+        )
+        return testData.map {
+            DynamicTest.dynamicTest("serializes ${it::class.simpleName} as field") {
+                val parsedMessage = ParsedMessage.builder().apply {
+                    setId(MessageId.DEFAULT)
+                    setType("test")
+                    setBody(
+                        linkedMapOf(
+                            "field" to it,
+                        )
+                    )
+                }.build()
+
+                val dest = Unpooled.buffer()
+                ParsedMessageCodec.encode(parsedMessage, dest)
+                val decoded = ParsedMessageCodec.decode(dest)
+                assertEquals(0, dest.readableBytes()) { "unexpected bytes left: ${ByteBufUtil.hexDump(dest)}" }
+
+                assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
+                assertEquals(
+                    "{\"field\":\"$it\"}",
+                    decoded.rawBody.toString(Charsets.UTF_8),
+                    "unexpected raw body",
+                )
+            }
+        }
     }
 }
