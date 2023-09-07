@@ -18,6 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -321,6 +322,9 @@ object ParsedMessageCodec : AbstractCodec<ParsedMessage>(30u) {
 
     @JvmField
     val MAPPER: ObjectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
+        // otherwise, type supported by JavaTimeModule will be serialized as array of date component
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        // this is required to serialize nulls and empty collections
         .setSerializationInclusion(JsonInclude.Include.ALWAYS)
 }
 
