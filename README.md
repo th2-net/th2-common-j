@@ -499,6 +499,7 @@ dependencies {
 #### Fix
 
 + The serialization of `LocalTime`, `LocalDate` and `LocalDateTime` instances corrected for th2 transport parsed message.
+  Old result would look like `[2023,9,7]`. Corrected serialization result looks like `2023-09-07`
 
 ### 5.4.1-dev
 #### Fix
