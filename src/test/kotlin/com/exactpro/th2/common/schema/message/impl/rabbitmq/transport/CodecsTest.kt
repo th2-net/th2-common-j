@@ -154,6 +154,7 @@ class CodecsTest {
 
                 assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
                 assertEquals(
+                    //FIXME: org.opentest4j.AssertionFailedError: unexpected raw body ==> expected: <{"field":"16:36:38.035420"}> but was: <{"field":"16:36:38.03542"}>
                     "{\"field\":\"$it\"}",
                     decoded.rawBody.toString(Charsets.UTF_8),
                     "unexpected raw body",

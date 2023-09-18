@@ -24,11 +24,11 @@ import org.slf4j.LoggerFactory
 class Log4jConfigUtils {
 
     fun configure(
-        pathList: List<String>,
+        pathList: List<Path>,
         fileName: String,
     ) {
         pathList.asSequence()
-            .map { Path.of(it, fileName) }
+            .map { it.resolve(fileName) }
             .filter(Files::exists)
             .firstOrNull()
             ?.let { path ->
