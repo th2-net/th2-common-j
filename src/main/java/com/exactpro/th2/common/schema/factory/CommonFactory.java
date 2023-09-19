@@ -556,11 +556,10 @@ public class CommonFactory extends AbstractCommonFactory {
             Path path = Paths.get(pathString);
             if (Files.exists(path) && Files.isDirectory(path)) {
                 return path;
-            } else {
-                LOGGER.warn("'{}' config directory passed via '{}' environment variable doesn't exist",
-                        pathString,
-                        TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE);
             }
+            LOGGER.warn("'{}' config directory passed via '{}' environment variable doesn't exist or it is not a directory",
+                    pathString,
+                    TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE);
         } else {
             LOGGER.debug("Skipped blank environment variable path for configs directory");
         }
@@ -577,9 +576,8 @@ public class CommonFactory extends AbstractCommonFactory {
             Path path = Paths.get(pathString);
             if (Files.exists(path) && Files.isDirectory(path)) {
                 return path;
-            } else {
-                LOGGER.warn("'" + cmdPath + "' config directory passed via CMD doesn't exist");
             }
+            LOGGER.warn("'" + cmdPath + "' config directory passed via CMD doesn't exist or it is not a directory");
         } else {
             LOGGER.debug("Skipped blank CMD path for configs directory");
         }
