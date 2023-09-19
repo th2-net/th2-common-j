@@ -23,27 +23,20 @@ import com.exactpro.th2.common.schema.factory.CommonFactory.CONFIG_DEFAULT_PATH
 import com.exactpro.th2.common.schema.factory.CommonFactory.CUSTOM_FILE_NAME
 import com.exactpro.th2.common.schema.factory.CommonFactory.DICTIONARY_ALIAS_DIR_NAME
 import com.exactpro.th2.common.schema.factory.CommonFactory.DICTIONARY_TYPE_DIR_NAME
-import com.exactpro.th2.common.schema.factory.CommonFactory.TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE
+import com.exactpro.th2.common.schema.factory.CommonFactory.TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables
-import uk.org.webcompere.systemstubs.jupiter.SystemStub
-import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension
+import org.junitpioneer.jupiter.SetSystemProperty
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 
-@ExtendWith(SystemStubsExtension::class)
 class CommonFactoryTest {
-
-    @SystemStub
-    private val environmentVariables = EnvironmentVariables()
 
     @Test
     fun `test load config by default path (default constructor)`() {
@@ -61,32 +54,32 @@ class CommonFactoryTest {
 
     @Test
     fun `test load config by custom path (createFromArguments(not empty))`() {
-        CommonFactory.createFromArguments("-c", CONFIG_DIR_IN_RESOURCE.toString()).use { commonFactory ->
-            assertConfigs(commonFactory, CONFIG_DIR_IN_RESOURCE)
+        CommonFactory.createFromArguments("-c", CONFIG_DIR_IN_RESOURCE).use { commonFactory ->
+            assertConfigs(commonFactory, Path.of(CONFIG_DIR_IN_RESOURCE))
         }
     }
 
     @Test
+    @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = CONFIG_DIR_IN_RESOURCE)
     fun `test load config by environment variable path (default constructor)`() {
-        environmentVariables.set(TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE, CONFIG_DIR_IN_RESOURCE.toString())
         CommonFactory().use { commonFactory ->
-            assertConfigs(commonFactory, CONFIG_DIR_IN_RESOURCE)
+            assertConfigs(commonFactory, Path.of(CONFIG_DIR_IN_RESOURCE))
         }
     }
 
     @Test
+    @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = CONFIG_DIR_IN_RESOURCE)
     fun `test load config by environment variable path (createFromArguments(empty))`() {
-        environmentVariables.set(TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE, CONFIG_DIR_IN_RESOURCE.toString())
         CommonFactory.createFromArguments().use { commonFactory ->
-            assertConfigs(commonFactory, CONFIG_DIR_IN_RESOURCE)
+            assertConfigs(commonFactory, Path.of(CONFIG_DIR_IN_RESOURCE))
         }
     }
 
     @Test
+    @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = CONFIG_DIR_IN_RESOURCE)
     fun `test load config by custom path (createFromArguments(not empty) + environment variable)`() {
-        environmentVariables.set(TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE, CONFIG_DIR_IN_RESOURCE.toString())
-        CommonFactory.createFromArguments("-c", CONFIG_DIR_IN_RESOURCE.toString()).use { commonFactory ->
-            assertConfigs(commonFactory, CONFIG_DIR_IN_RESOURCE)
+        CommonFactory.createFromArguments("-c", CONFIG_DIR_IN_RESOURCE).use { commonFactory ->
+            assertConfigs(commonFactory, Path.of(CONFIG_DIR_IN_RESOURCE))
         }
     }
 
@@ -106,7 +99,7 @@ class CommonFactoryTest {
     }
 
     companion object {
-        private val CONFIG_DIR_IN_RESOURCE = Path.of("src/test/resources/test_common_factory_load_configs")
+        private const val CONFIG_DIR_IN_RESOURCE = "src/test/resources/test_common_factory_load_configs"
 
         private val CONFIG_NAME_TO_COMMON_FACTORY_SUPPLIER: Map<String, CommonFactory.() -> Path> = mapOf(
             CUSTOM_FILE_NAME to { pathToCustomConfiguration },

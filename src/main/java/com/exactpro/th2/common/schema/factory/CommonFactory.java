@@ -79,8 +79,8 @@ import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
  */
 public class CommonFactory extends AbstractCommonFactory {
 
-    public static final String TH2_COMMON_ENVIRONMENT_VARIABLE = "th2.common";
-    public static final String TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE = TH2_COMMON_ENVIRONMENT_VARIABLE + '.' + "configuration-directory";
+    public static final String TH2_COMMON_SYSTEM_PROPERTY = "th2.common";
+    public static final String TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY = TH2_COMMON_SYSTEM_PROPERTY + '.' + "configuration-directory";
     static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
     static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
@@ -551,15 +551,15 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     static @NotNull Path getConfigPath() {
-        String pathString = System.getenv(TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE);
+        String pathString = System.getProperty(TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY);
         if (pathString != null) {
             Path path = Paths.get(pathString);
             if (Files.exists(path) && Files.isDirectory(path)) {
                 return path;
             }
-            LOGGER.warn("'{}' config directory passed via '{}' environment variable doesn't exist or it is not a directory",
+            LOGGER.warn("'{}' config directory passed via '{}' system property doesn't exist or it is not a directory",
                     pathString,
-                    TH2_COMMON_CONFIGURATION_DIRECTORY_ENVIRONMENT_VARIABLE);
+                    TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY);
         } else {
             LOGGER.debug("Skipped blank environment variable path for configs directory");
         }
