@@ -104,8 +104,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @deprecated please use {@link #LOG4J_PROPERTIES_DEFAULT_PATH}
      */
     @Deprecated
-    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH_OLD = "/home/etc";
-    protected static final String LOG4J_PROPERTIES_DEFAULT_PATH = "/var/th2/config";
+    protected static final Path LOG4J_PROPERTIES_DEFAULT_PATH_OLD = Path.of("/home/etc");
+    protected static final Path LOG4J_PROPERTIES_DEFAULT_PATH = Path.of("/var/th2/config");
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
 
     public static final ObjectMapper MAPPER = new ObjectMapper();
@@ -166,71 +166,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         grpcRouterClass = settings.getGrpcRouterClass();
         notificationEventBatchRouterClass = settings.getNotificationEventBatchRouterClass();
         stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(settings.getVariables().get(key), System.getenv(key)));
-    }
-
-    /**
-     * Create factory with default implementation schema classes
-     *
-     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
-     */
-    @Deprecated(since = "4.0.0", forRemoval = true)
-    public AbstractCommonFactory() {
-        this(new FactorySettings());
-    }
-
-    /**
-     * Create factory with non-default implementations schema classes
-     *
-     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
-     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
-     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
-     * @param grpcRouterClass               Class for {@link GrpcRouter}
-     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
-     */
-    @Deprecated(since = "4.0.0", forRemoval = true)
-    public AbstractCommonFactory(
-            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-            @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-            @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-            @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            @NotNull Class<? extends GrpcRouter> grpcRouterClass
-    ) {
-        this(new FactorySettings()
-                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
-                .messageRouterRawBatchClass(messageRouterRawBatchClass)
-                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
-                .eventBatchRouterClass(eventBatchRouterClass)
-                .grpcRouterClass(grpcRouterClass)
-        );
-    }
-
-    /**
-     * Create factory with non-default implementations schema classes
-     *
-     * @param messageRouterParsedBatchClass Class for {@link MessageRouter} which work with {@link MessageBatch}
-     * @param messageRouterRawBatchClass    Class for {@link MessageRouter} which work with {@link RawMessageBatch}
-     * @param eventBatchRouterClass         Class for {@link MessageRouter} which work with {@link EventBatch}
-     * @param grpcRouterClass               Class for {@link GrpcRouter}
-     * @param environmentVariables          map with additional environment variables
-     * @deprecated Please use {@link AbstractCommonFactory#AbstractCommonFactory(FactorySettings)}
-     */
-    @Deprecated(since = "4.0.0", forRemoval = true)
-    protected AbstractCommonFactory(
-            @NotNull Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass,
-            @NotNull Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass,
-            @NotNull Class<? extends MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatchClass,
-            @NotNull Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass,
-            @NotNull Class<? extends GrpcRouter> grpcRouterClass,
-            @NotNull Map<String, String> environmentVariables
-    ) {
-        this(new FactorySettings()
-                .messageRouterParsedBatchClass(messageRouterParsedBatchClass)
-                .messageRouterRawBatchClass(messageRouterRawBatchClass)
-                .messageRouterMessageGroupBatchClass(messageRouterMessageGroupBatchClass)
-                .eventBatchRouterClass(eventBatchRouterClass)
-                .grpcRouterClass(grpcRouterClass)
-                .variables(environmentVariables)
-        );
     }
 
     public void start() {
@@ -855,8 +790,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         LOGGER.info("Common factory has been closed");
     }
 
-    protected static void configureLogger(String... paths) {
-        List<String> listPath = new ArrayList<>();
+    protected static void configureLogger(Path... paths) {
+        List<Path> listPath = new ArrayList<>();
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH);
         listPath.add(LOG4J_PROPERTIES_DEFAULT_PATH_OLD);
         listPath.addAll(Arrays.asList(requireNonNull(paths, "Paths can't be null")));

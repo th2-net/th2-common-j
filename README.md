@@ -10,13 +10,9 @@ import com.exactpro.th2.common.schema.factory.CommonFactory
 
 Then you will create an instance of imported class, by choosing one of the following options:
 
-1. Create factory with configs from the default path (`/var/th2/config/*`):
+1. Create factory with configs from the `th2.common.configuration-directory` environment variable or default path (`/var/th2/config/*`):
     ```
     var factory = CommonFactory();
-    ```
-1. Create factory with configs from the specified file paths:
-    ```
-    var factory = CommonFactory(rabbitMQ, routerMQ, routerGRPC, cradle, custom, prometheus, dictionariesDir);
     ```
 1. Create factory with configs from the specified arguments:
     ```
@@ -34,7 +30,8 @@ Then you will create an instance of imported class, by choosing one of the follo
     * --dictionariesDir - path to the directory which contains files with the encoded dictionaries
     * --prometheusConfiguration - path to json file with configuration for prometheus metrics server
     * --boxConfiguration - path to json file with boxes configuration and information
-    * -c/--configs - folder with json files for schemas configurations with special names:
+    * -c/--configs - folder with json files for schemas configurations with special names.
+      If you doesn't specify -c/--configs common factory uses configs from the `th2.common.configuration-directory` environment variable or default path (`/var/th2/config/*`)
 
     1. rabbitMq.json - configuration for RabbitMQ
     2. mq.json - configuration for MessageRouter
@@ -494,6 +491,11 @@ dependencies {
 
 ## Release notes
 
+### 5.5.0-dev
+
+#### Changed:
++ Provided the ability to define configs directory using the `th2.common.configuration-directory` environment variable
+
 ### 5.4.2-dev
 
 #### Fix
@@ -919,7 +921,7 @@ dependencies {
 ### 3.13.0
 
 + reads dictionaries from the /var/th2/config/dictionary folder.
-+ uses mq_router, grpc_router, cradle_manager optional JSON configs from the /var/th2/config folder
++ uses mq_router, grpc_router, cradle_manager optional JSON configs from the `/var/th2/config` folder
 
 ### 3.11.0
 

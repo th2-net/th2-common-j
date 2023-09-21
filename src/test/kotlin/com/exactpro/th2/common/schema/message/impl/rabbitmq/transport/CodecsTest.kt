@@ -26,6 +26,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAccessor
 
 class CodecsTest {
 
@@ -129,20 +131,23 @@ class CodecsTest {
 
     @TestFactory
     fun dateTypesTests(): Collection<DynamicTest> {
-        val testData = listOf(
-            LocalDate.now(),
-            LocalTime.now(),
-            LocalDateTime.now(),
-            Instant.now(),
+        LocalTime.parse("16:36:38.035420").toString()
+        val testData = listOf<Pair<TemporalAccessor, (TemporalAccessor) -> String>>(
+            LocalDate.now() to TemporalAccessor::toString,
+            LocalTime.now() to DateTimeFormatter.ISO_LOCAL_TIME::format,
+            // Check case when LocalTime.toString() around nanos to 1000
+            LocalTime.parse("16:36:38.035420") to DateTimeFormatter.ISO_LOCAL_TIME::format,
+            LocalDateTime.now() to DateTimeFormatter.ISO_LOCAL_DATE_TIME::format,
+            Instant.now() to TemporalAccessor::toString,
         )
-        return testData.map {
-            DynamicTest.dynamicTest("serializes ${it::class.simpleName} as field") {
+        return testData.map { (value, formatter) ->
+            DynamicTest.dynamicTest("serializes ${value::class.simpleName} as field") {
                 val parsedMessage = ParsedMessage.builder().apply {
                     setId(MessageId.DEFAULT)
                     setType("test")
                     setBody(
                         linkedMapOf(
-                            "field" to it,
+                            "field" to value,
                         )
                     )
                 }.build()
@@ -154,7 +159,7 @@ class CodecsTest {
 
                 assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
                 assertEquals(
-                    "{\"field\":\"$it\"}",
+                    "{\"field\":\"${formatter(value)}\"}",
                     decoded.rawBody.toString(Charsets.UTF_8),
                     "unexpected raw body",
                 )
