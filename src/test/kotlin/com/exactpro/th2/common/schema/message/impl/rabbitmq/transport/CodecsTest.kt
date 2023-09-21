@@ -140,14 +140,14 @@ class CodecsTest {
             LocalDateTime.now() to DateTimeFormatter.ISO_LOCAL_DATE_TIME::format,
             Instant.now() to TemporalAccessor::toString,
         )
-        return testData.map {
-            DynamicTest.dynamicTest("serializes ${it::class.simpleName} as field") {
+        return testData.map { (value, formatter) ->
+            DynamicTest.dynamicTest("serializes ${value::class.simpleName} as field") {
                 val parsedMessage = ParsedMessage.builder().apply {
                     setId(MessageId.DEFAULT)
                     setType("test")
                     setBody(
                         linkedMapOf(
-                            "field" to it.first,
+                            "field" to value,
                         )
                     )
                 }.build()
@@ -159,7 +159,7 @@ class CodecsTest {
 
                 assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
                 assertEquals(
-                    "{\"field\":\"${it.second.invoke(it.first)}\"}",
+                    "{\"field\":\"${formatter(value)}\"}",
                     decoded.rawBody.toString(Charsets.UTF_8),
                     "unexpected raw body",
                 )
