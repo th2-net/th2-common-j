@@ -26,6 +26,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAccessor
 
 class CodecsTest {
 
@@ -129,11 +131,14 @@ class CodecsTest {
 
     @TestFactory
     fun dateTypesTests(): Collection<DynamicTest> {
-        val testData = listOf(
-            LocalDate.now(),
-            LocalTime.now(),
-            LocalDateTime.now(),
-            Instant.now(),
+        LocalTime.parse("16:36:38.035420").toString()
+        val testData = listOf<Pair<TemporalAccessor, (TemporalAccessor) -> String>>(
+            LocalDate.now() to TemporalAccessor::toString,
+            LocalTime.now() to DateTimeFormatter.ISO_LOCAL_TIME::format,
+            // Check case when LocalTime.toString() around nanos to 1000
+            LocalTime.parse("16:36:38.035420") to DateTimeFormatter.ISO_LOCAL_TIME::format,
+            LocalDateTime.now() to DateTimeFormatter.ISO_LOCAL_DATE_TIME::format,
+            Instant.now() to TemporalAccessor::toString,
         )
         return testData.map {
             DynamicTest.dynamicTest("serializes ${it::class.simpleName} as field") {
@@ -142,7 +147,7 @@ class CodecsTest {
                     setType("test")
                     setBody(
                         linkedMapOf(
-                            "field" to it,
+                            "field" to it.first,
                         )
                     )
                 }.build()
@@ -154,8 +159,7 @@ class CodecsTest {
 
                 assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
                 assertEquals(
-                    //FIXME: org.opentest4j.AssertionFailedError: unexpected raw body ==> expected: <{"field":"16:36:38.035420"}> but was: <{"field":"16:36:38.03542"}>
-                    "{\"field\":\"$it\"}",
+                    "{\"field\":\"${it.second.invoke(it.first)}\"}",
                     decoded.rawBody.toString(Charsets.UTF_8),
                     "unexpected raw body",
                 )

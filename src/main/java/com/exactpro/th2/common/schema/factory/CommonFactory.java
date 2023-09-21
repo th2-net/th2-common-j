@@ -577,7 +577,7 @@ public class CommonFactory extends AbstractCommonFactory {
             if (Files.exists(path) && Files.isDirectory(path)) {
                 return path;
             }
-            LOGGER.warn("'" + cmdPath + "' config directory passed via CMD doesn't exist or it is not a directory");
+            LOGGER.warn("'{}' config directory passed via CMD doesn't exist or it is not a directory", cmdPath);
         } else {
             LOGGER.debug("Skipped blank CMD path for configs directory");
         }
