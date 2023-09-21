@@ -35,7 +35,7 @@ import com.google.protobuf.TextFormat
 import io.prometheus.client.Counter
 import org.jetbrains.annotations.NotNull
 
-class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() {
+open class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() {
     override fun getDefaultFilterStrategy(): AbstractFilterStrategy<Message> {
         return AnyMessageFilterStrategy()
     }
