@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.4.2)
+# th2 common library (Java) (5.6.0)
 
 ## Usage
 
@@ -490,6 +490,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.6.0-dev
+#### Feature:
++ Added common microservice entry point
++ Added configuration provider to common factory
 
 ### 5.5.0-dev
 

@@ -32,6 +32,7 @@ import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
+import com.exactpro.th2.common.schema.configuration.impl.JsonConfigurationProvider;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
@@ -56,12 +57,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConver
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter;
-import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fasterxml.jackson.module.kotlin.KotlinFeature;
-import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
@@ -108,23 +105,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final Path LOG4J_PROPERTIES_DEFAULT_PATH = Path.of("/var/th2/config");
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
 
-    public static final ObjectMapper MAPPER = new ObjectMapper();
-
-    static {
-        MAPPER.registerModules(
-                new KotlinModule.Builder()
-                        .withReflectionCacheSize(512)
-                        .configure(KotlinFeature.NullToEmptyCollection, false)
-                        .configure(KotlinFeature.NullToEmptyMap, false)
-                        .configure(KotlinFeature.NullIsSameAsDefault, false)
-                        .configure(KotlinFeature.SingletonSupport, false)
-                        .configure(KotlinFeature.StrictNullChecks, false)
-                        .build(),
-                new RoutingStrategyModule(MAPPER),
-                new JavaTimeModule()
-        );
-    }
-
+    public static final ObjectMapper MAPPER = JsonConfigurationProvider.MAPPER;
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
     private final StringSubstitutor stringSubstitutor;
 
