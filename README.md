@@ -494,6 +494,7 @@ dependencies {
 ### 5.6.0-dev
 #### Feature:
 + Added common microservice entry point
++ Added configuration provider to common factory
 
 ### 5.5.0-dev
 
