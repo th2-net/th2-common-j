@@ -382,7 +382,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
-        return getConfigurationManager().loadConfiguration(customObjectMapper, stringSubstitutor, configClass, configPath, false);
+        return getConfigurationManager().loadConfiguration(configClass, configPath, false);
     }
 
     /**
@@ -393,7 +393,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @return configuration object
      */
     protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
-        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, configClass, optional);
+        return getConfigurationManager().getConfigurationOrLoad(stringSubstitutor, configClass, optional);
     }
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
@@ -409,7 +409,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     public GrpcConfiguration getGrpcConfiguration() {
-        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, GrpcConfiguration.class, false);
+        return getConfigurationManager().getConfigurationOrLoad(stringSubstitutor, GrpcConfiguration.class, false);
     }
 
     public GrpcRouterConfiguration getGrpcRouterConfiguration() {

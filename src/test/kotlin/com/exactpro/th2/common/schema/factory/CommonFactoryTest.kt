@@ -19,10 +19,19 @@ import com.exactpro.th2.common.metrics.PrometheusConfiguration
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
+import com.exactpro.th2.common.schema.factory.CommonFactory.BOX_CFG_ALIAS
 import com.exactpro.th2.common.schema.factory.CommonFactory.CONFIG_DEFAULT_PATH
-import com.exactpro.th2.common.schema.factory.CommonFactory.CUSTOM_FILE_NAME
+import com.exactpro.th2.common.schema.factory.CommonFactory.CONNECTION_MANAGER_CFG_ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactory.CRADLE_CONFIDENTIAL_CFG_ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactory.CRADLE_NON_CONFIDENTIAL_CFG_ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactory.CUSTOM_CFG_ALIAS
 import com.exactpro.th2.common.schema.factory.CommonFactory.DICTIONARY_ALIAS_DIR_NAME
 import com.exactpro.th2.common.schema.factory.CommonFactory.DICTIONARY_TYPE_DIR_NAME
+import com.exactpro.th2.common.schema.factory.CommonFactory.GRPC_CFG_ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactory.PROMETHEUS_CFG_ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactory.RABBIT_MQ_CFG_ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactory.ROUTER_GRPC_CFG_ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactory.ROUTER_MQ_CFG_ALIAS
 import com.exactpro.th2.common.schema.factory.CommonFactory.TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
@@ -92,7 +101,7 @@ class CommonFactoryTest {
     }
 
     private fun assertConfigurationManager(commonFactory: CommonFactory, configPath: Path) {
-        CONFIG_CLASSES.forEach { clazz ->
+        CONFIG_CLASSES.forEach { (clazz, alias) ->
             assertNotNull(commonFactory.configurationManager[clazz])
             assertEquals(configPath, commonFactory.configurationManager[clazz]?.parent , "Configured config path: $configPath, config class: $clazz")
         }
@@ -102,22 +111,22 @@ class CommonFactoryTest {
         private const val CONFIG_DIR_IN_RESOURCE = "src/test/resources/test_common_factory_load_configs"
 
         private val CONFIG_NAME_TO_COMMON_FACTORY_SUPPLIER: Map<String, CommonFactory.() -> Path> = mapOf(
-            CUSTOM_FILE_NAME to { pathToCustomConfiguration },
+            CUSTOM_CFG_ALIAS to { pathToCustomConfiguration },
             DICTIONARY_ALIAS_DIR_NAME to { pathToDictionaryAliasesDir },
             DICTIONARY_TYPE_DIR_NAME to { pathToDictionaryTypesDir },
         )
 
-        private val CONFIG_CLASSES: Set<Class<*>> = setOf(
-            RabbitMQConfiguration::class.java,
-            MessageRouterConfiguration::class.java,
-            ConnectionManagerConfiguration::class.java,
-            GrpcConfiguration::class.java,
-            GrpcRouterConfiguration::class.java,
-            CradleConfidentialConfiguration::class.java,
-            CradleNonConfidentialConfiguration::class.java,
-            CassandraStorageSettings::class.java,
-            PrometheusConfiguration::class.java,
-            BoxConfiguration::class.java,
+        private val CONFIG_CLASSES: Map<Class<*>, String> = mapOf(
+            RabbitMQConfiguration::class.java to RABBIT_MQ_CFG_ALIAS,
+            MessageRouterConfiguration::class.java to ROUTER_MQ_CFG_ALIAS,
+            ConnectionManagerConfiguration::class.java to CONNECTION_MANAGER_CFG_ALIAS,
+            GrpcConfiguration::class.java to GRPC_CFG_ALIAS,
+            GrpcRouterConfiguration::class.java to ROUTER_GRPC_CFG_ALIAS,
+            CradleConfidentialConfiguration::class.java to CRADLE_CONFIDENTIAL_CFG_ALIAS,
+            CradleNonConfidentialConfiguration::class.java to CRADLE_NON_CONFIDENTIAL_CFG_ALIAS,
+            CassandraStorageSettings::class.java to CRADLE_NON_CONFIDENTIAL_CFG_ALIAS,
+            PrometheusConfiguration::class.java to PROMETHEUS_CFG_ALIAS,
+            BoxConfiguration::class.java to BOX_CFG_ALIAS,
         )
     }
 }

@@ -16,6 +16,8 @@
 package com.exactpro.th2.common.microservice
 
 import com.exactpro.th2.common.schema.factory.AbstractCommonFactory
+import java.util.function.BiConsumer
+import java.util.function.Consumer
 
 /**
  * @param registerResource: register all resources which must be closed in reverse registration order.
@@ -23,6 +25,6 @@ import com.exactpro.th2.common.schema.factory.AbstractCommonFactory
  */
 class ApplicationContext(
     val commonFactory: AbstractCommonFactory,
-    val registerResource: (AutoCloseable) -> Unit,
-    val onPanic: (Throwable?) -> Unit,
+    val registerResource: BiConsumer<String, AutoCloseable>,
+    val onPanic: Consumer<Throwable?>,
 )

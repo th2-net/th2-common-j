@@ -28,40 +28,63 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
 
 class JsonConfigurationProvider(
-    private val baseDir: Path
+    private val baseDir: Path,
+    private val customPaths: Map<String, Path> = emptyMap(),
 ) : IConfigurationProvider {
 
     init {
         require(baseDir.isDirectory()) {
             "The '$baseDir' base directory doesn't exist or isn't directory"
         }
+        customPaths.forEach { (alias, path) ->
+            require(path.isRegularFile()) {
+                "The '$path' path to the '$alias' alias doesn't exist or isn't regular file"
+            }
+        }
     }
 
     private val cache = ConcurrentHashMap<String, Any>()
 
+    operator fun get(alias: String): Path = customPaths[alias] ?: baseDir.resolve("${alias}.${EXTENSION}")
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : Any> load(configClass: Class<T>, alias: String, default: () -> T): T =
-        cache.computeIfAbsent(alias) {
-            val configPath = baseDir.resolve("${alias}.${EXTENSION}")
-            if (!configPath.exists()) {
-                K_LOGGER.debug { "'$configPath' file related to the '$alias' config alias doesn't exist" }
-                return@computeIfAbsent default()
+        requireNotNull(cache.compute(alias) { _, value ->
+            when {
+                value == null -> loadFromFile(configClass, alias, default)
+                !configClass.isInstance(value) -> loadFromFile(configClass, alias, default).also {
+                    K_LOGGER.info { "Parsed value for '$alias' alias has been updated from: ${value::class.java} to ${it::class.java}" }
+                }
+                else -> value
             }
-
-            val sourceContent = String(Files.readAllBytes(configPath))
-            K_LOGGER.info { "'$configPath' file related to the '$alias' config alias has source content $sourceContent" }
-            val content = SUBSTITUTOR.get().replace(sourceContent)
-            requireNotNull(MAPPER.readValue(content, configClass)) {
-                "Parsed format of the '$alias' config alias content can't be null"
-            }
-        }.also { value ->
+        }).also { value ->
             check(configClass.isInstance(value)) {
                 "Stored configuration instance of $alias config alias mismatches, " +
                         "expected: ${configClass.canonicalName}, actual: ${value::class.java.canonicalName}"
             }
         } as T
+
+    private fun <T : Any> loadFromFile(configClass: Class<T>, alias: String, default: () -> T): T {
+        val configPath = this[alias]
+        if (!configPath.exists()) {
+            K_LOGGER.debug { "'$configPath' file related to the '$alias' config alias doesn't exist" }
+            return default()
+        }
+        if (Files.size(configPath) == 0L) {
+            K_LOGGER.warn { "'$configPath' file related to the '$alias' config alias has 0 size" }
+            return default()
+        }
+
+        val sourceContent = String(Files.readAllBytes(configPath))
+        K_LOGGER.info { "'$configPath' file related to the '$alias' config alias has source content $sourceContent" }
+        val content = SUBSTITUTOR.get().replace(sourceContent)
+        return requireNotNull(MAPPER.readValue(content, configClass)) {
+            "Parsed format of the '$alias' config alias content can't be null"
+        }
+    }
 
     companion object {
         private const val EXTENSION = "json"

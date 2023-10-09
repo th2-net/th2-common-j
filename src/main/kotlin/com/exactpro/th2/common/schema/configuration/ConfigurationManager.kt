@@ -15,45 +15,38 @@
 
 package com.exactpro.th2.common.schema.configuration
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import org.apache.commons.text.StringSubstitutor
 import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
-class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
+class ConfigurationManager(
+    private val configurationProvider: IConfigurationProvider,
+    private val configurationPath: Map<Class<*>, String>
+) {
     private val configurations: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
 
-    operator fun get(clazz: Class<*>): Path? = configurationPath[clazz]
+    operator fun get(clazz: Class<*>): String? = configurationPath[clazz]
 
-    fun <T> loadConfiguration(
-        objectMapper: ObjectMapper,
-        stringSubstitutor: StringSubstitutor,
+    fun <T : Any> loadConfiguration(
         configClass: Class<T>,
-        configPath: Path,
+        configAlias: String,
         optional: Boolean
     ): T {
         try {
-            if (optional && !(Files.exists(configPath) && Files.size(configPath) > 0)) {
-                LOGGER.warn { "Can not read configuration for ${configClass.name}. Use default configuration" }
-                return configClass.getDeclaredConstructor().newInstance()
+            return configurationProvider.load(configClass, configAlias) {
+                if (optional) {
+                    configClass.getDeclaredConstructor().newInstance()
+                }
+                throw IllegalStateException("The '$configAlias' is required")
             }
-
-            val sourceContent = String(Files.readAllBytes(configPath))
-            LOGGER.info { "Configuration path $configClass source content $sourceContent" }
-            val content: String = stringSubstitutor.replace(sourceContent)
-            return objectMapper.readerFor(configClass).readValue(content)
         } catch (e: IOException) {
-            throw IllegalStateException("Cannot read ${configClass.name} configuration from path '${configPath}'", e)
+            throw IllegalStateException("Cannot read ${configClass.name} configuration for config alias '$configAlias'", e)
         }
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <T> getConfigurationOrLoad(
-        objectMapper: ObjectMapper,
-        stringSubstitutor: StringSubstitutor,
+    fun <T : Any> StringSubstitutor.getConfigurationOrLoad(
         configClass: Class<T>,
         optional: Boolean
     ): T {
@@ -61,7 +54,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
             checkNotNull(configurationPath[configClass]) {
                 "Unknown class $configClass"
             }.let {
-                loadConfiguration(objectMapper, stringSubstitutor, configClass, it, optional)
+                loadConfiguration(configClass, it, optional)
             }
         } as T
     }

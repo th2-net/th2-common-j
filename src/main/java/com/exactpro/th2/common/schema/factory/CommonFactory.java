@@ -19,6 +19,8 @@ import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
+import com.exactpro.th2.common.schema.configuration.IConfigurationProvider;
+import com.exactpro.th2.common.schema.configuration.impl.JsonConfigurationProvider;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
@@ -83,16 +85,16 @@ public class CommonFactory extends AbstractCommonFactory {
     public static final String TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY = TH2_COMMON_SYSTEM_PROPERTY + '.' + "configuration-directory";
     static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
-    static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
-    static final String ROUTER_MQ_FILE_NAME = "mq.json";
-    static final String GRPC_FILE_NAME = "grpc.json";
-    static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
-    static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
-    static final String PROMETHEUS_FILE_NAME = "prometheus.json";
-    static final String CUSTOM_FILE_NAME = "custom.json";
-    static final String BOX_FILE_NAME = "box.json";
-    static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
-    static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
+    static final String RABBIT_MQ_CFG_ALIAS = "rabbitMQ";
+    static final String ROUTER_MQ_CFG_ALIAS = "mq";
+    static final String GRPC_CFG_ALIAS = "grpc";
+    static final String ROUTER_GRPC_CFG_ALIAS = "grpc_router";
+    static final String CRADLE_CONFIDENTIAL_CFG_ALIAS = "cradle";
+    static final String PROMETHEUS_CFG_ALIAS = "prometheus";
+    static final String CUSTOM_CFG_ALIAS = "custom";
+    static final String BOX_CFG_ALIAS = "box";
+    static final String CONNECTION_MANAGER_CFG_ALIAS = "mq_router";
+    static final String CRADLE_NON_CONFIDENTIAL_CFG_ALIAS = "cradle_manager";
 
     /** @deprecated please use {@link #DICTIONARY_ALIAS_DIR_NAME} */
     @Deprecated
@@ -117,17 +119,19 @@ public class CommonFactory extends AbstractCommonFactory {
     private final Path dictionaryTypesDir;
     private final Path dictionaryAliasesDir;
     private final Path oldDictionariesDir;
+    final IConfigurationProvider configurationProvider;
     final ConfigurationManager configurationManager;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
     public CommonFactory(FactorySettings settings) {
         super(settings);
-        custom = defaultPathIfNull(settings.getCustom(), CUSTOM_FILE_NAME);
+        custom = defaultPathIfNull(settings.getCustom(), CUSTOM_CFG_ALIAS);
         dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), DICTIONARY_TYPE_DIR_NAME);
         dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), DICTIONARY_ALIAS_DIR_NAME);
         oldDictionariesDir = requireNonNullElseGet(settings.getOldDictionariesDir(), CommonFactory::getConfigPath);
-        configurationManager = createConfigurationManager(settings);
+        configurationProvider = createConfigurationProvider(settings);
+        configurationManager = createConfigurationManager(configurationProvider, settings);
         start();
     }
 
@@ -159,6 +163,11 @@ public class CommonFactory extends AbstractCommonFactory {
     protected ConfigurationManager getConfigurationManager() {
         return configurationManager;
     }
+
+    IConfigurationProvider getConfigurationProvider() {
+        return configurationProvider;
+    }
+
     /**
      * Create {@link CommonFactory} from command line arguments
      *
@@ -271,16 +280,16 @@ public class CommonFactory extends AbstractCommonFactory {
                 configureLogger(configs);
             }
             FactorySettings settings = new FactorySettings();
-            settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_FILE_NAME));
-            settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_FILE_NAME));
-            settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
-            settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_FILE_NAME));
-            settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_FILE_NAME));
-            settings.setCradleConfidential(calculatePath(cmd, cradleConfidentialConfigurationOption, cradleConfigurationOption, configs, CRADLE_CONFIDENTIAL_FILE_NAME));
-            settings.setCradleNonConfidential(calculatePath(cmd, cradleManagerConfigurationOption, configs, CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-            settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
-            settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
-            settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
+            settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_CFG_ALIAS));
+            settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_CFG_ALIAS));
+            settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CFG_ALIAS));
+            settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_CFG_ALIAS));
+            settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_CFG_ALIAS));
+            settings.setCradleConfidential(calculatePath(cmd, cradleConfidentialConfigurationOption, cradleConfigurationOption, configs, CRADLE_CONFIDENTIAL_CFG_ALIAS));
+            settings.setCradleNonConfidential(calculatePath(cmd, cradleManagerConfigurationOption, configs, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS));
+            settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_CFG_ALIAS));
+            settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_CFG_ALIAS));
+            settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_CFG_ALIAS));
             settings.setDictionaryTypesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_TYPE_DIR_NAME));
             settings.setDictionaryAliasesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_ALIAS_DIR_NAME));
             String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
@@ -331,7 +340,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path dictionaryTypePath = configPath.resolve(DICTIONARY_TYPE_DIR_NAME);
         Path dictionaryAliasPath = configPath.resolve(DICTIONARY_ALIAS_DIR_NAME);
 
-        Path boxConfigurationPath = configPath.resolve(BOX_FILE_NAME);
+        Path boxConfigurationPath = configPath.resolve(BOX_CFG_ALIAS);
 
         FactorySettings settings = new FactorySettings();
 
@@ -398,21 +407,21 @@ public class CommonFactory extends AbstractCommonFactory {
                     configureLogger(configPath);
                 }
 
-                settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_FILE_NAME, rabbitMqData));
-                settings.setRouterMQ(writeFile(configPath, ROUTER_MQ_FILE_NAME, boxData));
-                settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
-                settings.setGrpc(writeFile(configPath, GRPC_FILE_NAME, boxData));
-                settings.setRouterGRPC(writeFile(configPath, ROUTER_GRPC_FILE_NAME, boxData));
-                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_FILE_NAME, cradleConfidential));
-                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_FILE_NAME, cradleNonConfidential));
-                settings.setPrometheus(writeFile(configPath, PROMETHEUS_FILE_NAME, boxData));
-                settings.setCustom(writeFile(configPath, CUSTOM_FILE_NAME, boxData));
+                settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_CFG_ALIAS, rabbitMqData));
+                settings.setRouterMQ(writeFile(configPath, ROUTER_MQ_CFG_ALIAS, boxData));
+                settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CFG_ALIAS, boxData));
+                settings.setGrpc(writeFile(configPath, GRPC_CFG_ALIAS, boxData));
+                settings.setRouterGRPC(writeFile(configPath, ROUTER_GRPC_CFG_ALIAS, boxData));
+                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_CFG_ALIAS, cradleConfidential));
+                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS, cradleNonConfidential));
+                settings.setPrometheus(writeFile(configPath, PROMETHEUS_CFG_ALIAS, boxData));
+                settings.setCustom(writeFile(configPath, CUSTOM_CFG_ALIAS, boxData));
 
                 settings.setBoxConfiguration(boxConfigurationPath);
                 settings.setDictionaryTypesDir(dictionaryTypePath);
                 settings.setDictionaryAliasesDir(dictionaryAliasPath);
 
-                String boxConfig = boxData.get(BOX_FILE_NAME);
+                String boxConfig = boxData.get(BOX_CFG_ALIAS);
 
                 if (boxConfig == null) {
                     writeToJson(boxConfigurationPath, box);
@@ -649,23 +658,44 @@ public class CommonFactory extends AbstractCommonFactory {
         }
     }
 
-    private static ConfigurationManager createConfigurationManager(FactorySettings settings) {
-        Map<Class<?>, Path> paths = new HashMap<>();
-        paths.put(RabbitMQConfiguration.class, defaultPathIfNull(settings.getRabbitMQ(), RABBIT_MQ_FILE_NAME));
-        paths.put(MessageRouterConfiguration.class, defaultPathIfNull(settings.getRouterMQ(), ROUTER_MQ_FILE_NAME));
-        paths.put(ConnectionManagerConfiguration.class, defaultPathIfNull(settings.getConnectionManagerSettings(), CONNECTION_MANAGER_CONF_FILE_NAME));
-        paths.put(GrpcConfiguration.class, defaultPathIfNull(settings.getGrpc(), GRPC_FILE_NAME));
-        paths.put(GrpcRouterConfiguration.class, defaultPathIfNull(settings.getRouterGRPC(), ROUTER_GRPC_FILE_NAME));
-        paths.put(CradleConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleConfidential(), CRADLE_CONFIDENTIAL_FILE_NAME));
-        paths.put(CradleNonConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-        paths.put(CassandraStorageSettings.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-        paths.put(PrometheusConfiguration.class, defaultPathIfNull(settings.getPrometheus(), PROMETHEUS_FILE_NAME));
-        paths.put(BoxConfiguration.class, defaultPathIfNull(settings.getBoxConfiguration(), BOX_FILE_NAME));
-        return new ConfigurationManager(paths);
+    private static IConfigurationProvider createConfigurationProvider(FactorySettings settings) {
+        Map<String, Path> paths = new HashMap<>();
+        putIfNotNull(paths, RABBIT_MQ_CFG_ALIAS, settings.getRabbitMQ());
+        putIfNotNull(paths, ROUTER_MQ_CFG_ALIAS, settings.getRouterMQ());
+        putIfNotNull(paths, CONNECTION_MANAGER_CFG_ALIAS, settings.getConnectionManagerSettings());
+        putIfNotNull(paths, GRPC_CFG_ALIAS, settings.getGrpc());
+        putIfNotNull(paths, ROUTER_GRPC_CFG_ALIAS, settings.getRouterGRPC());
+        putIfNotNull(paths, CRADLE_CONFIDENTIAL_CFG_ALIAS, settings.getCradleConfidential());
+        putIfNotNull(paths, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS, settings.getCradleNonConfidential());
+        putIfNotNull(paths, PROMETHEUS_CFG_ALIAS, settings.getPrometheus());
+        putIfNotNull(paths, BOX_CFG_ALIAS, settings.getBoxConfiguration());
+        return new JsonConfigurationProvider(getConfigPath(), paths);
+    }
+    private static ConfigurationManager createConfigurationManager(IConfigurationProvider configurationProvider, FactorySettings settings) {
+        Map<Class<?>, String> paths = new HashMap<>();
+        paths.put(RabbitMQConfiguration.class, RABBIT_MQ_CFG_ALIAS);
+        paths.put(MessageRouterConfiguration.class, ROUTER_MQ_CFG_ALIAS);
+        paths.put(ConnectionManagerConfiguration.class, CONNECTION_MANAGER_CFG_ALIAS);
+        paths.put(GrpcConfiguration.class, GRPC_CFG_ALIAS);
+        paths.put(GrpcRouterConfiguration.class, ROUTER_GRPC_CFG_ALIAS);
+        paths.put(CradleConfidentialConfiguration.class, CRADLE_CONFIDENTIAL_CFG_ALIAS);
+        paths.put(CradleNonConfidentialConfiguration.class, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS);
+        paths.put(CassandraStorageSettings.class, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS);
+        paths.put(PrometheusConfiguration.class, PROMETHEUS_CFG_ALIAS);
+        paths.put(BoxConfiguration.class, BOX_CFG_ALIAS);
+        return new ConfigurationManager(configurationProvider, paths);
     }
 
     private static Path defaultPathIfNull(Path path, String name) {
         return path == null ? getConfigPath().resolve(name) : path;
+    }
+
+    private static void putIfNotNull(@NotNull Map<String, Path> paths, @NotNull String alias, @Nullable Path path) {
+        requireNonNull(paths, "'Paths' can't be null");
+        requireNonNull(paths, "'Alias' can't be null");
+        if (path != null) {
+            paths.put(alias, path);
+        }
     }
 
     private static void writeFile(Path path, String data) throws IOException {
