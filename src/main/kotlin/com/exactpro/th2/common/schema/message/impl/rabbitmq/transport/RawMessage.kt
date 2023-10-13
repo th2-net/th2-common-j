@@ -78,7 +78,15 @@ data class RawMessage(
     companion object {
 
         @JvmField
-        val EMPTY = RawMessage()
+        val EMPTY: RawMessage = RawMessage()
+
+        @Deprecated(
+            "Please use EMPTY instead. Added for binary compatibility",
+            level = DeprecationLevel.HIDDEN,
+            replaceWith = ReplaceWith(expression = "EMPTY")
+        )
+        @JvmStatic
+        fun getEMPTY(): RawMessage = EMPTY
 
         @JvmStatic
         fun builder(): Builder = RawMessageBuilderImpl()

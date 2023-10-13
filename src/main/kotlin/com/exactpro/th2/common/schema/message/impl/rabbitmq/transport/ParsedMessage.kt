@@ -157,7 +157,15 @@ class ParsedMessage private constructor(
 
     companion object {
         @JvmField
-        val EMPTY = ParsedMessage(type = "", body = emptyMap())
+        val EMPTY: ParsedMessage = ParsedMessage(type = "", body = emptyMap())
+
+        @Deprecated(
+            "Please use EMPTY instead. Added for binary compatibility",
+            level = DeprecationLevel.HIDDEN,
+            replaceWith = ReplaceWith(expression = "EMPTY")
+        )
+        @JvmStatic
+        fun getEMPTY(): ParsedMessage = EMPTY
 
         /**
          * We want to be able to identify the default body by reference.
