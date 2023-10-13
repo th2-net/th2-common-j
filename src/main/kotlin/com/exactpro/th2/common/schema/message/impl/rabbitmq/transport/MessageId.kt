@@ -90,7 +90,7 @@ data class MessageId(
 }
 
 
-private const val SEQUENCE_NOT_SET = -1L
+private const val SEQUENCE_NOT_SET = Long.MIN_VALUE
 
 private class MessageIdBuilderImpl : MessageId.Builder {
     private var _sessionAlias: String? = null
@@ -128,7 +128,7 @@ private class MessageIdBuilderImpl : MessageId.Builder {
     override fun isDirectionSet(): Boolean = _direction != null
 
     override fun setSequence(sequence: Long): MessageId.Builder = apply {
-        require(sequence > SEQUENCE_NOT_SET) { "Property \"sequence\" should not be negative" }
+        require(sequence != SEQUENCE_NOT_SET) { "Value $sequence for property \"sequence\" is reserved" }
         this._sequence = sequence
     }
 
