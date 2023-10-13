@@ -16,8 +16,8 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.google.auto.value.AutoBuilder
 import java.time.Instant
+import java.util.StringJoiner
 
 data class EventId(
     val id: String,
@@ -50,12 +50,15 @@ data class EventId(
         return "EventId(id='$id', book='$book', scope='$scope', timestamp=$timestamp)"
     }
 
-    @AutoBuilder
     interface Builder {
         val id: String
+        fun isIdSet(): Boolean
         val book: String
+        fun isBookSet(): Boolean
         val scope: String
+        fun isScopeSet(): Boolean
         val timestamp: Instant
+        fun isTimestampSet(): Boolean
 
         fun setId(id: String): Builder
         fun setBook(book: String): Builder
@@ -64,10 +67,89 @@ data class EventId(
         fun build(): EventId
     }
 
-    fun toBuilder(): Builder = AutoBuilder_EventId_Builder(this)
+    fun toBuilder(): Builder = BuilderImpl(this)
 
     companion object {
         @JvmStatic
-        fun builder(): Builder = AutoBuilder_EventId_Builder()
+        fun builder(): Builder = BuilderImpl()
+    }
+
+}
+
+private class BuilderImpl : EventId.Builder {
+    private var _id: String? = null
+    private var _book: String? = null
+    private var _scope: String? = null
+    private var _timestamp: Instant? = null
+
+    constructor()
+    constructor(source: EventId) {
+        _id = source.id
+        _book = source.book
+        _scope = source.scope
+        _timestamp = source.timestamp
+    }
+
+    override fun setId(id: String): EventId.Builder = apply {
+        this._id = id
+    }
+
+    override val id: String
+        get() = checkNotNull(_id) { "Property \"id\" has not been set" }
+
+    override fun isIdSet(): Boolean = _id != null
+
+    override fun setBook(book: String): EventId.Builder = apply {
+        this._book = book
+    }
+
+    override val book: String
+        get() = checkNotNull(_book) { "Property \"book\" has not been set" }
+
+    override fun isBookSet(): Boolean = _book != null
+
+    override fun setScope(scope: String): EventId.Builder = apply {
+        this._scope = scope
+    }
+
+    override val scope: String
+        get() = checkNotNull(_scope) { "Property \"scope\" has not been set" }
+
+    override fun isScopeSet(): Boolean = _scope != null
+
+    override fun setTimestamp(timestamp: Instant): EventId.Builder = apply {
+        this._timestamp = timestamp
+    }
+
+    override val timestamp: Instant
+        get() {
+            return checkNotNull(_timestamp) { "Property \"timestamp\" has not been set" }
+        }
+
+    override fun isTimestampSet(): Boolean = _timestamp != null
+
+    override fun build(): EventId {
+        if (_id == null || _book == null || _scope == null || _timestamp == null) {
+            val missing = StringJoiner(",", "[", "]")
+            if (_id == null) {
+                missing.add(" id")
+            }
+            if (_book == null) {
+                missing.add(" book")
+            }
+            if (_scope == null) {
+                missing.add(" scope")
+            }
+            if (_timestamp == null) {
+                missing.add(" timestamp")
+            }
+            error("Missing required properties:$missing")
+        }
+        return EventId(
+            _id!!,
+            _book!!,
+            _scope!!,
+            _timestamp!!,
+        )
     }
 }

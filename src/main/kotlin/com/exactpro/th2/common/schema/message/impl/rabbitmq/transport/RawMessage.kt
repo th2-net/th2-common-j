@@ -16,7 +16,8 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import com.google.auto.value.AutoBuilder
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId.Companion.builder
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.MapBuilder
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufUtil.hexDump
 import io.netty.buffer.Unpooled
@@ -57,10 +58,10 @@ data class RawMessage(
         return "RawMessage(id=$id, eventId=$eventId, metadata=$metadata, protocol='$protocol', body=${hexDump(body)})"
     }
 
-    @AutoBuilder
     interface Builder : Message.Builder<Builder> {
 
         val body: ByteBuf
+        fun isBodySet(): Boolean
         fun setBody(body: ByteBuf): Builder
 
         fun setBody(data: ByteArray): Builder = setBody(Unpooled.wrappedBuffer(data))
@@ -72,13 +73,110 @@ data class RawMessage(
         override fun build(): RawMessage
     }
 
-    fun toBuilder(): Builder = AutoBuilder_RawMessage_Builder(this)
+    fun toBuilder(): Builder = RawMessageBuilderImpl(this)
 
     companion object {
 
+        @JvmField
         val EMPTY = RawMessage()
 
         @JvmStatic
-        fun builder(): Builder = AutoBuilder_RawMessage_Builder()
+        fun builder(): Builder = RawMessageBuilderImpl()
     }
 }
+
+
+internal class RawMessageBuilderImpl : RawMessage.Builder {
+    private var _idBuilder: MessageId.Builder? = null
+    private var _id: MessageId? = null
+    private var _eventId: EventId? = null
+    private var _metadataBuilder: MapBuilder<String, String>? = null
+    private var metadata: Map<String, String>? = null
+    private var _protocol: String? = null
+    private var _body: ByteBuf? = null
+
+    constructor()
+    constructor(source: RawMessage) {
+        _id = source.id
+        _eventId = source.eventId
+        metadata = source.metadata
+        _protocol = source.protocol
+        _body = source.body
+    }
+
+    override fun setId(id: MessageId): RawMessage.Builder = apply {
+        check(_idBuilder == null) { "Cannot set id after calling idBuilder()" }
+        this._id = id
+    }
+
+    override fun idBuilder(): MessageId.Builder {
+        if (_idBuilder == null) {
+            _idBuilder = _id?.toBuilder()?.also {
+                _id = null
+            } ?: builder()
+        }
+        return _idBuilder!!
+    }
+
+    override fun setEventId(eventId: EventId): RawMessage.Builder = apply {
+        this._eventId = eventId
+        return this
+    }
+
+    override val eventId: EventId?
+        get() = _eventId
+
+    override fun setMetadata(metadata: Map<String, String>): RawMessage.Builder = apply {
+        check(_metadataBuilder == null) { "Cannot set metadata after calling metadataBuilder()" }
+        this.metadata = metadata
+    }
+
+    override fun metadataBuilder(): MapBuilder<String, String> {
+        if (_metadataBuilder == null) {
+            if (metadata == null) {
+                _metadataBuilder = MapBuilder()
+            } else {
+                _metadataBuilder = MapBuilder<String, String>().apply {
+                    metadata?.let(this::putAll)
+                }
+                metadata = null
+            }
+        }
+        return _metadataBuilder!!
+    }
+
+    override fun setProtocol(protocol: String): RawMessage.Builder = apply {
+        this._protocol = protocol
+    }
+
+    override val protocol: String
+        get() {
+            return checkNotNull(_protocol) { "Property \"protocol\" has not been set" }
+        }
+
+    override fun isProtocolSet(): Boolean = _protocol != null
+
+    override fun setBody(body: ByteBuf): RawMessage.Builder = apply {
+        this._body = body
+    }
+
+    override val body: ByteBuf
+        get() = checkNotNull(_body) { "Property \"body\" has not been set" }
+
+    override fun isBodySet(): Boolean = _body != null
+
+    override fun build(): RawMessage {
+        _id = _idBuilder?.build()
+            ?: _id
+        metadata = _metadataBuilder?.build()
+            ?: metadata
+        return RawMessage(
+            _id ?: MessageId.DEFAULT,
+            _eventId,
+            metadata ?: emptyMap(),
+            _protocol ?: "",
+            _body ?: Unpooled.EMPTY_BUFFER,
+        )
+    }
+}
+
