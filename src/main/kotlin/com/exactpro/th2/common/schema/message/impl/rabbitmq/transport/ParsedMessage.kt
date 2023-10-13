@@ -87,6 +87,7 @@ class ParsedMessage private constructor(
 
     interface Builder<out T : Builder<T>> : Message.Builder<T> {
         val type: String
+        fun isTypeSet(): Boolean
 
         fun setType(type: String): T
         override fun build(): ParsedMessage
@@ -155,7 +156,16 @@ class ParsedMessage private constructor(
 
 
     companion object {
-        val EMPTY = ParsedMessage(type = "", body = emptyMap())
+        @JvmField
+        val EMPTY: ParsedMessage = ParsedMessage(type = "", body = emptyMap())
+
+        @Deprecated(
+            "Please use EMPTY instead. Added for binary compatibility",
+            level = DeprecationLevel.HIDDEN,
+            replaceWith = ReplaceWith(expression = "EMPTY")
+        )
+        @JvmStatic
+        fun getEMPTY(): ParsedMessage = EMPTY
 
         /**
          * We want to be able to identify the default body by reference.
@@ -164,6 +174,7 @@ class ParsedMessage private constructor(
          */
         private val DEFAULT_BODY: Map<String, Any?> = Collections.unmodifiableMap(emptyMap())
 
+        @JvmField
         val DEFAULT_BODY_SUPPLIER: (ByteBuf) -> Map<String, Any?> = { emptyMap() }
 
         @JvmStatic
@@ -187,10 +198,14 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
 
     override val protocol: String
         get() = this._protocol ?: ""
+
+    override fun isProtocolSet(): Boolean = _protocol != null
     override val type: String
         get() = requireNotNull(this._type) {
             "Property \"type\" has not been set"
         }
+
+    override fun isTypeSet(): Boolean = _type != null
 
     override fun setId(id: MessageId): T = self {
         require(idBuilder == null) {

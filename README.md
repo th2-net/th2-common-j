@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.4.2)
+# th2 common library (Java) (5.6.0)
 
 ## Usage
 
@@ -490,6 +490,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.6.0-dev
+
+#### Added:
++ New methods for transport message builders which allows checking whether the field is set or not
 
 ### 5.5.0-dev
 
