@@ -32,6 +32,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneOffset
 
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
@@ -271,6 +275,34 @@ class TestEvent {
         val batch = Event.start().toBatchProto(parentEventId)
         assertFalse(batch.hasParentEventId())
         checkEventStatus(listOf(batch), 1, 0)
+    }
+
+    @Test
+    fun `serializes date time fields`() {
+        class TestBody(
+            val instant: Instant,
+            val dateTime: LocalDateTime,
+            val date: LocalDate,
+            val time: LocalTime,
+        ) : IBodyData
+
+        // Friday, 13 October 2023 y., 12:35:05
+        val instant = Instant.ofEpochSecond(1697200505)
+        val protoEvent = Event.start().endTimestamp()
+            .bodyData(
+                TestBody(
+                    instant = instant,
+                    dateTime = LocalDateTime.ofInstant(instant, ZoneOffset.UTC),
+                    date = LocalDate.ofInstant(instant, ZoneOffset.UTC),
+                    time = LocalTime.ofInstant(instant, ZoneOffset.UTC),
+                )
+            ).toProto(parentEventId)
+        val jsonBody = protoEvent.body.toStringUtf8()
+        assertEquals(
+            """[{"instant":"2023-10-13T12:35:05Z","dateTime":"2023-10-13T12:35:05","date":"2023-10-13","time":"12:35:05"}]""",
+            jsonBody,
+            "unexpected JSON body",
+        )
     }
 
     private fun com.exactpro.th2.common.grpc.Event.checkDefaultEventFields() {
