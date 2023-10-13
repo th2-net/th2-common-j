@@ -495,6 +495,7 @@ dependencies {
 
 #### Added:
 + New methods for transport message builders which allows checking whether the field is set or not
++ Serialization support for date time types (e.g. Instant, LocalDateTime/Date/Time) to event body serialization
 
 ### 5.5.0-dev
 

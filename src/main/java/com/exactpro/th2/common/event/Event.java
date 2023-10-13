@@ -22,6 +22,10 @@ import com.exactpro.th2.common.grpc.EventStatus;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.kotlin.KotlinFeature;
+import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.google.protobuf.ByteString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -61,7 +65,15 @@ public class Event {
     public static final String UNKNOWN_EVENT_NAME = "Unknown event name";
     public static final String UNKNOWN_EVENT_TYPE = "Unknown event type";
     public static final EventID DEFAULT_EVENT_ID = EventID.getDefaultInstance();
-    protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER = ThreadLocal.withInitial(() -> new ObjectMapper().setSerializationInclusion(NON_NULL));
+    protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER = ThreadLocal.withInitial(() ->
+            new ObjectMapper()
+                    .registerModule(new KotlinModule.Builder()
+                            .enable(KotlinFeature.SingletonSupport)
+                            .build())
+                    .registerModule(new JavaTimeModule())
+                    // otherwise, type supported by JavaTimeModule will be serialized as array of date component
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                    .setSerializationInclusion(NON_NULL));
     protected final String UUID = generateUUID();
     protected final AtomicLong ID_COUNTER = new AtomicLong();
 
