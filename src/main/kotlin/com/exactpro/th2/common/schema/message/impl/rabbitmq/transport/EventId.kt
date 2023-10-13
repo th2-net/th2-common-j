@@ -132,18 +132,18 @@ private class BuilderImpl : EventId.Builder {
         if (_id == null || _book == null || _scope == null || _timestamp == null) {
             val missing = StringJoiner(",", "[", "]")
             if (_id == null) {
-                missing.add(" id")
+                missing.add("id")
             }
             if (_book == null) {
-                missing.add(" book")
+                missing.add("book")
             }
             if (_scope == null) {
-                missing.add(" scope")
+                missing.add("scope")
             }
             if (_timestamp == null) {
-                missing.add(" timestamp")
+                missing.add("timestamp")
             }
-            error("Missing required properties:$missing")
+            error("Missing required properties: $missing")
         }
         return EventId(
             _id!!,

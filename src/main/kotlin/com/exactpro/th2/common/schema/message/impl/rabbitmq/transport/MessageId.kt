@@ -128,6 +128,7 @@ private class MessageIdBuilderImpl : MessageId.Builder {
     override fun isDirectionSet(): Boolean = _direction != null
 
     override fun setSequence(sequence: Long): MessageId.Builder = apply {
+        require(sequence > SEQUENCE_NOT_SET) { "Property \"sequence\" should not be negative" }
         this._sequence = sequence
     }
 
@@ -172,18 +173,18 @@ private class MessageIdBuilderImpl : MessageId.Builder {
         if (_sessionAlias == null || _direction == null || _sequence == SEQUENCE_NOT_SET || _timestamp == null) {
             val missing = StringJoiner(",", "[", "]")
             if (_sessionAlias == null) {
-                missing.add(" sessionAlias")
+                missing.add("sessionAlias")
             }
             if (_direction == null) {
-                missing.add(" direction")
+                missing.add("direction")
             }
             if (_sequence == SEQUENCE_NOT_SET) {
-                missing.add(" sequence")
+                missing.add("sequence")
             }
             if (_timestamp == null) {
-                missing.add(" timestamp")
+                missing.add("timestamp")
             }
-            error("Missing required properties:$missing")
+            error("Missing required properties: $missing")
         }
         return MessageId(
             _sessionAlias!!,
