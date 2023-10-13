@@ -87,7 +87,7 @@ class ParsedMessage private constructor(
 
     interface Builder<out T : Builder<T>> : Message.Builder<T> {
         val type: String
-        val isTypeSet: Boolean
+        fun isTypeSet(): Boolean
 
         fun setType(type: String): T
         override fun build(): ParsedMessage
@@ -196,8 +196,8 @@ private sealed class BaseParsedBuilder<out T : ParsedMessage.Builder<T>> : Parse
         get() = requireNotNull(this._type) {
             "Property \"type\" has not been set"
         }
-    override val isTypeSet: Boolean
-        get() = _type != null
+
+    override fun isTypeSet(): Boolean = _type != null
 
     override fun setId(id: MessageId): T = self {
         require(idBuilder == null) {
