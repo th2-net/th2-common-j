@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
+import com.rabbitmq.client.CancelCallback
 import mu.KotlinLogging
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions
@@ -46,6 +47,8 @@ import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.utility.DockerImageName
 import org.testcontainers.utility.MountableFile
+import java.io.IOException
+import kotlin.test.assertFailsWith
 
 private val LOGGER = KotlinLogging.logger { }
 
@@ -839,4 +842,94 @@ class TestConnectionManager {
         }
     }
 
+}
+
+    @Test
+    fun `connection manager exclusive queue test`() {
+        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
+            .use { rabbitMQContainer ->
+                rabbitMQContainer.start()
+                LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
+
+                createConnectionManager(rabbitMQContainer).use { firstManager ->
+                    createConnectionManager(rabbitMQContainer).use { secondManager ->
+                        val queue = firstManager.queueDeclare()
+
+                        assertFailsWith<IOException>("Another connection can subscribe to the $queue queue") {
+                            secondManager.basicConsume(queue, { _, _, _ -> }, {})
+                        }
+
+                        extracted(firstManager, secondManager, queue, 3)
+                        extracted(firstManager, secondManager, queue, 6)
+                    }
+                }
+
+            }
+    }
+
+    private fun extracted(
+        firstManager: ConnectionManager,
+        secondManager: ConnectionManager,
+        queue: String,
+        cycle: Int
+    ) {
+        val countDown = CountDownLatch(cycle)
+        val deliverCallback = ManualAckDeliveryCallback { _, delivery, conformation ->
+            countDown.countDown()
+            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from ${delivery.envelope.exchange}:${delivery.envelope.routingKey}, received ${countDown.count}" }
+            conformation.confirm()
+        }
+        val cancelCallback = CancelCallback { LOGGER.warn { "Canceled $it" } }
+
+        val firstMonitor = firstManager.basicConsume(queue, deliverCallback, cancelCallback)
+        val secondMonitor = firstManager.basicConsume(queue, deliverCallback, cancelCallback)
+
+        repeat(cycle) { index ->
+            secondManager.basicPublish(
+                "",
+                queue,
+                null,
+                "Hello $index".toByteArray(Charsets.UTF_8)
+            )
+        }
+
+        assertTrue(
+            countDown.await(
+                1L,
+                TimeUnit.SECONDS
+            )
+        ) { "Not all messages were received: ${countDown.count}" }
+
+        assertTrue(firstManager.isAlive) { "Manager should still be alive" }
+        assertTrue(firstManager.isReady) { "Manager should be ready until the confirmation timeout expires" }
+
+        firstMonitor.unsubscribe()
+        secondMonitor.unsubscribe()
+    }
+
+    private fun createConnectionManager(
+        rabbitMQContainer: RabbitMQContainer,
+        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
+        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
+    ) = ConnectionManager(
+        RabbitMQConfiguration(
+            host = rabbitMQContainer.host,
+            vHost = "",
+            port = rabbitMQContainer.amqpPort,
+            username = rabbitMQContainer.adminUsername,
+            password = rabbitMQContainer.adminPassword,
+        ),
+        ConnectionManagerConfiguration(
+            subscriberName = "test",
+            prefetchCount = prefetchCount,
+            confirmationTimeout = confirmationTimeout,
+        ),
+    ) {
+        LOGGER.error { "Fatal connection problem" }
+    }
+
+    companion object {
+        private const val DEFAULT_PREFETCH_COUNT = 10
+        private val DEFAULT_CONFIRMATION_TIMEOUT: Duration = Duration.ofSeconds(1)
+    }
 }

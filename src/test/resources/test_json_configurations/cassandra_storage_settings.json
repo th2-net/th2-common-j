@@ -1,0 +1,21 @@
+{
+  "timeout": 4999,
+  "keyspace": "test-keyspace",
+  "keyspaceReplicationFactor": 1,
+  "maxParallelQueries": 1,
+  "resultPageSize": 2,
+  "maxMessageBatchSize": 3,
+  "maxUncompressedMessageBatchSize": 5,
+  "maxTestEventBatchSize": 8,
+  "maxUncompressedTestEventSize": 13,
+  "sessionsCacheSize": 21,
+  "scopesCacheSize": 34,
+  "pageSessionsCacheSize": 55,
+  "pageScopesCacheSize": 89,
+  "sessionStatisticsCacheSize": 144,
+  "pageGroupsCacheSize": 233,
+  "groupsCacheSize": 377,
+  "eventBatchDurationCacheSize": 610,
+  "counterPersistenceInterval": 987,
+  "composingServiceThreads": 1597
+}

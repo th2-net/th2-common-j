@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,13 +15,14 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.custom
 
-import com.exactpro.th2.common.schema.message.FilterFunction
+import com.exactpro.th2.common.schema.message.ConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.QueueAttribute
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitRouter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
@@ -58,25 +59,30 @@ class RabbitCustomRouter<T : Any>(
         return message
     }
 
-    override fun createSender(pinConfig: PinConfiguration, pinName: PinName): MessageSender<T> {
+    override fun createSender(pinConfig: PinConfiguration, pinName: PinName, bookName: BookName): MessageSender<T> {
         return Sender(
             connectionManager,
             pinConfig.exchange,
             pinConfig.routingKey,
             pinName,
+            bookName,
             customTag,
             converter
         )
     }
 
-    override fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T> {
+    override fun createSubscriber(
+        pinConfig: PinConfiguration,
+        pinName: PinName,
+        listener: ConfirmationListener<T>
+    ): MessageSubscriber {
         return Subscriber(
             connectionManager,
             pinConfig.queue,
-            FilterFunction.DEFAULT_FILTER_FUNCTION,
             pinName,
             customTag,
-            converter
+            converter,
+            listener
         )
     }
 
@@ -89,9 +95,10 @@ class RabbitCustomRouter<T : Any>(
         exchangeName: String,
         routingKey: String,
         th2Pin: String,
+        bookName: BookName,
         customTag: String,
         private val converter: MessageConverter<T>
-    ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag) {
+    ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag, bookName) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)
@@ -102,11 +109,11 @@ class RabbitCustomRouter<T : Any>(
     private class Subscriber<T : Any>(
         connectionManager: ConnectionManager,
         queue: String,
-        filterFunction: FilterFunction,
         th2Pin: String,
         customTag: String,
-        private val converter: MessageConverter<T>
-    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, filterFunction, th2Pin, customTag) {
+        private val converter: MessageConverter<T>,
+        messageListener: ConfirmationListener<T>
+    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, th2Pin, customTag, messageListener) {
         override fun valueFromBytes(body: ByteArray): T = converter.fromByteArray(body)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)

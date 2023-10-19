@@ -1,7 +1,8 @@
 {
-  "timeout": 888,
   "pageSize": 111,
   "cradleMaxEventBatchSize": 123,
   "cradleMaxMessageBatchSize": 321,
-  "prepareStorage": false
+  "prepareStorage": false,
+  "statisticsPersistenceIntervalMillis": 5000,
+  "maxUncompressedEventBatchSize": 1280002
 }

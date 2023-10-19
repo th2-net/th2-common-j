@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,15 +16,14 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
-import com.exactpro.th2.common.schema.message.ConfirmationMessageListener;
-import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.ConfirmationListener;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.configuration.RouterFilter;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.google.protobuf.Message;
+import com.google.common.base.Suppliers;
+import com.google.common.io.BaseEncoding;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
 import io.prometheus.client.Histogram;
@@ -35,11 +34,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
@@ -47,8 +45,11 @@ import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
 import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T> {
+public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRabbitSubscriber.class);
+
+    @SuppressWarnings("rawtypes")
+    private static final Supplier EMPTY_INITIALIZER = Suppliers.memoize(() -> null);
 
     private static final Counter MESSAGE_SIZE_SUBSCRIBE_BYTES = Counter.build()
             .name("th2_rabbitmq_message_size_subscribe_bytes")
@@ -65,137 +66,44 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
             .help("Time of message processing during subscription from RabbitMQ in seconds. " +
                     "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
             .register();
+    private final boolean manualConfirmation;
+    private final ConfirmationListener<T> listener;
+    private final String queue;
+    private final ConnectionManager connectionManager;
+    private final AtomicReference<Supplier<SubscriberMonitor>> consumerMonitor = new AtomicReference<>(emptySupplier());
+    private final AtomicBoolean isAlive = new AtomicBoolean(true);
+    private final String th2Type;
+    private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
     protected final String th2Pin;
-    private final List<ConfirmationMessageListener<T>> listeners = new CopyOnWriteArrayList<>();
-    private final String queue;
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
-    private final AtomicReference<SubscriberMonitor> consumerMonitor = new AtomicReference<>();
-    private final AtomicReference<FilterFunction> filterFunc = new AtomicReference<>();
-    private final String th2Type;
-    private final AtomicBoolean hasManualSubscriber = new AtomicBoolean();
-
-    private final HealthMetrics healthMetrics = new HealthMetrics(this);
 
     public AbstractRabbitSubscriber(
             @NotNull ConnectionManager connectionManager,
             @NotNull String queue,
-            @NotNull FilterFunction filterFunc,
             @NotNull String th2Pin,
-            @NotNull String th2Type
+            @NotNull String th2Type,
+            @NotNull ConfirmationListener<T> listener
     ) {
-        this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
+        this.connectionManager = requireNonNull(connectionManager, "Connection can not be null");
         this.queue = requireNonNull(queue, "Queue can not be null");
-        this.filterFunc.set(requireNonNull(filterFunc, "Filter function can not be null"));
-        this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
-        this.th2Type = requireNonNull(th2Type, "TH2 type can not be null");
-    }
-
-    @Deprecated
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets) {
-        throw new UnsupportedOperationException("Method is deprecated, please use constructor");
-    }
-
-    @Deprecated
-    @Override
-    public void init(@NotNull ConnectionManager connectionManager, @NotNull SubscribeTarget subscribeTarget, @NotNull FilterFunction filterFunc) {
-        throw new UnsupportedOperationException("Method is deprecated, please use constructor");
+        this.th2Pin = requireNonNull(th2Pin, "th2 pin can not be null");
+        this.th2Type = requireNonNull(th2Type, "th2 type can not be null");
+        this.listener = requireNonNull(listener, "Listener can not be null");
+        this.manualConfirmation = ConfirmationListener.isManual(listener);
+        subscribe();
     }
 
     @Override
-    public void start() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
+    public void close() throws IOException {
+        if (!isAlive.getAndSet(false)) {
+            LOGGER.warn("Subscriber for '{}' pin is already closed", th2Pin);
+            return;
         }
 
-        try {
-            consumerMonitor.updateAndGet(monitor -> {
-                if (monitor == null) {
-                    try {
-                        monitor = connectionManager.basicConsume(
-                                queue,
-                                (consumeTag, delivery, confirmation) -> {
-                                    Timer processTimer = MESSAGE_PROCESS_DURATION_SECONDS
-                                            .labels(th2Pin, th2Type, queue)
-                                            .startTimer();
-                                    MESSAGE_SIZE_SUBSCRIBE_BYTES
-                                            .labels(th2Pin, th2Type, queue)
-                                            .inc(delivery.getBody().length);
-                                    try {
-                                        T value;
-                                        try {
-                                            value = valueFromBytes(delivery.getBody());
-                                        } catch (Exception e) {
-                                            LOGGER.error("Couldn't parse delivery. Confirm message received", e);
-                                            confirmation.confirm();
-                                            throw new IOException(
-                                                    String.format(
-                                                            "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
-                                                            delivery.getEnvelope(), queue, th2Pin
-                                                    ),
-                                                    e
-                                            );
-                                        }
-                                        handle(consumeTag, delivery, value, confirmation);
-                                    } finally {
-                                        processTimer.observeDuration();
-                                    }
-                                },
-                                this::canceled
-                        );
-                        LOGGER.info("Start listening queue name='{}'", queue);
-                    } catch (IOException e) {
-                        throw new IllegalStateException("Can not start subscribe to queue = " + queue, e);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        LOGGER.error("Interrupted exception while consuming from queue '{}'", queue);
-                        throw new IllegalStateException("Thread was interrupted while consuming", e);
-                    }
-                }
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
+        monitor.unsubscribe();
 
-                return monitor;
-            });
-        } catch (Exception e) {
-            throw new IllegalStateException("Can not start listening", e);
-        }
-    }
-
-    @Override
-    public void addListener(ConfirmationMessageListener<T> messageListener) {
-        if (ConfirmationMessageListener.isManual(messageListener)) {
-            if (!hasManualSubscriber.compareAndSet(false, true)) {
-                throw new IllegalStateException("cannot subscribe listener " + messageListener
-                        + " because only one listener with manual confirmation is allowed per queue");
-            }
-        }
-        listeners.add(messageListener);
-    }
-
-    @Override
-    public void close() throws Exception {
-        ConnectionManager connectionManager = this.connectionManager.get();
-        if (connectionManager == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
-        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
-        if (monitor != null) {
-            monitor.unsubscribe();
-        }
-
-        listeners.forEach(ConfirmationMessageListener::onClose);
-        listeners.clear();
-    }
-
-    protected boolean callFilterFunction(Message message, List<? extends RouterFilter> filters) {
-        FilterFunction filterFunction = this.filterFunc.get();
-        if (filterFunction == null) {
-            throw new IllegalStateException("Subscriber is not initialized");
-        }
-
-        return filterFunction.apply(message, filters);
+        listener.onClose();
     }
 
     protected abstract T valueFromBytes(byte[] body) throws Exception;
@@ -207,7 +115,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
     @Nullable
     protected abstract T filter(T value) throws Exception;
 
-    protected void handle(String consumeTag, Delivery delivery, T value, Confirmation confirmation) {
+    protected void handle(DeliveryMetadata deliveryMetadata, Delivery delivery, T value, Confirmation confirmation) throws IOException {
         try {
             String routingKey = delivery.getEnvelope().getRoutingKey();
             requireNonNull(value, () -> "Received value from " + routingKey + " is null");
@@ -226,34 +134,39 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
                 return;
             }
 
-            boolean hasManualConfirmation = false;
-            for (ConfirmationMessageListener<T> listener : listeners) {
-                try {
-                    listener.handle(consumeTag, filteredValue, confirmation);
-                    if (!hasManualConfirmation) {
-                        hasManualConfirmation = ConfirmationMessageListener.isManual(listener);
-                    }
-                } catch (Exception listenerExc) {
-                    LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
-                }
+            try {
+                listener.handle(deliveryMetadata, filteredValue, confirmation);
+            } catch (Exception listenerExc) {
+                LOGGER.warn("Message listener from class '{}' threw exception", listener.getClass(), listenerExc);
             }
-            if (!hasManualConfirmation) {
+            if (!manualConfirmation) {
                 confirmation.confirm();
             }
         } catch (Exception e) {
-            LOGGER.error("Can not parse value from delivery for: {}", consumeTag, e);
-            try {
-                confirmation.confirm();
-            } catch (IOException ex) {
-                LOGGER.error("Cannot confirm delivery for {}", consumeTag, ex);
-            }
+            LOGGER.error("Can not parse value from delivery for: {}. Reject message received", deliveryMetadata, e);
+            confirmation.reject();
+        }
+    }
+
+    private void subscribe() {
+        try {
+            consumerMonitor.updateAndGet(previous -> previous == EMPTY_INITIALIZER
+                            ? Suppliers.memoize(this::basicConsume)
+                            : previous)
+                    .get(); // initialize subscribtion
+        } catch (Exception e) {
+            throw new IllegalStateException("Can not start listening", e);
         }
     }
 
     private void resubscribe() {
         LOGGER.info("Try to resubscribe subscriber for queue name='{}'", queue);
+        if (!isAlive.get()) {
+            LOGGER.warn("Subscriber for '{}' pin is already closed", th2Pin);
+            return;
+        }
 
-        SubscriberMonitor monitor = consumerMonitor.getAndSet(null);
+        SubscriberMonitor monitor = consumerMonitor.getAndSet(emptySupplier()).get();
         if (monitor != null) {
             try {
                 monitor.unsubscribe();
@@ -263,10 +176,53 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         }
 
         try {
-            start();
+            subscribe();
         } catch (Exception e) {
             LOGGER.error("Can not resubscribe subscriber for queue name='{}'", queue);
             healthMetrics.disable();
+        }
+    }
+
+    private SubscriberMonitor basicConsume() {
+        try {
+            LOGGER.info("Start listening queue name='{}', th2 pin='{}'", queue, th2Pin);
+            return connectionManager.basicConsume(queue, this::handle, this::canceled);
+        } catch (IOException e) {
+            throw new IllegalStateException("Can not subscribe to queue = " + queue, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.error("Interrupted exception while consuming from queue '{}'", queue);
+            throw new IllegalStateException("Thread was interrupted while consuming", e);
+        }
+    }
+
+    private void handle(DeliveryMetadata deliveryMetadata,
+                        Delivery delivery,
+                        Confirmation confirmProcessed) throws IOException {
+        try (Timer ignored = MESSAGE_PROCESS_DURATION_SECONDS
+                .labels(th2Pin, th2Type, queue)
+                .startTimer()) {
+            MESSAGE_SIZE_SUBSCRIBE_BYTES
+                    .labels(th2Pin, th2Type, queue)
+                    .inc(delivery.getBody().length);
+
+            T value;
+            try {
+                value = valueFromBytes(delivery.getBody());
+            } catch (Exception e) {
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error("Couldn't parse delivery: {}. Reject message received", BaseEncoding.base16().encode(delivery.getBody()), e);
+                }
+                confirmProcessed.reject();
+                throw new IOException(
+                        String.format(
+                                "Can not extract value from bytes for envelope '%s', queue '%s', pin '%s'",
+                                delivery.getEnvelope(), queue, th2Pin
+                        ),
+                        e
+                );
+            }
+            handle(deliveryMetadata, delivery, value, confirmProcessed);
         }
     }
 
@@ -274,5 +230,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber<T
         LOGGER.warn("Consuming cancelled for: '{}'", consumerTag);
         healthMetrics.getReadinessMonitor().disable();
         resubscribe();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Supplier<T> emptySupplier() {
+        return (Supplier<T>) EMPTY_INITIALIZER;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,12 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection;
 
 import com.exactpro.th2.common.metrics.HealthMetrics;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
-import com.exactpro.th2.common.schema.message.SubscriberMonitor;
 import com.exactpro.th2.common.schema.message.impl.OnlyOnceConfirmation;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
@@ -71,7 +73,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public class ConnectionManager implements AutoCloseable {
-
+    public static final String EMPTY_ROUTING_KEY = "";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
     public final Connection connection;
@@ -137,7 +139,7 @@ public class ConnectionManager implements AutoCloseable {
             factory.setPassword(password);
         }
 
-        if (connectionManagerConfiguration.getConnectionTimeout() >  0) {
+        if (connectionManagerConfiguration.getConnectionTimeout() > 0) {
             factory.setConnectionTimeout(connectionManagerConfiguration.getConnectionTimeout());
         }
 
@@ -182,7 +184,7 @@ public class ConnectionManager implements AutoCloseable {
                 turnOffReadiness(exception);
             }
 
-            private void turnOffReadiness(Throwable exception){
+            private void turnOffReadiness(Throwable exception) {
                 metrics.getReadinessMonitor().disable();
                 LOGGER.debug("Set RabbitMQ readiness to false. RabbitMQ error", exception);
             }
@@ -214,7 +216,8 @@ public class ConnectionManager implements AutoCloseable {
         factory.setSharedExecutor(sharedExecutor);
 
         try {
-            this.connection = factory.newConnection();
+            connection = factory.newConnection();
+            LOGGER.info("Created RabbitMQ connection {} [{}]", connection, connection.hashCode());
             addShutdownListenerToConnection(this.connection);
             addBlockedListenersToConnection(this.connection);
             addRecoveryListenerToConnection(this.connection);
@@ -250,8 +253,6 @@ public class ConnectionManager implements AutoCloseable {
             }
         });
     }
-
-
 
     private void recoverSubscriptionsOfChannel(Channel channel) {
         channelChecker.execute(() -> {
@@ -354,11 +355,26 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws InterruptedException {
-        ChannelHolder holder = getOrCreateChannelFor(PinId.forRoutingKey(routingKey));
+        ChannelHolder holder = getOrCreateChannelFor(PinId.forRoutingKey(exchange, routingKey));
         holder.retryingPublishWithLock(channel -> channel.basicPublish(exchange, routingKey, props, body), configuration);
     }
 
-    public SubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException, InterruptedException {
+    public String queueDeclare() throws IOException {
+        ChannelHolder holder = new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
+        return holder.mapWithLock(channel -> {
+            String queue = channel.queueDeclare(
+                    "", // queue name
+                    false, // durable
+                    true, // exclusive
+                    false, // autoDelete
+                    Collections.emptyMap()).getQueue();
+            LOGGER.info("Declared exclusive '{}' queue", queue);
+            putChannelFor(PinId.forQueue(queue), holder);
+            return queue;
+        });
+    }
+
+    public ExclusiveSubscriberMonitor basicConsume(String queue, ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) throws IOException, InterruptedException {
         PinId pinId = PinId.forQueue(queue);
         ChannelHolder holder = getOrCreateChannelFor(pinId, new SubscriptionCallbacks(deliverCallback, cancelCallback));
         String tag = holder.retryingConsumeWithLock(channel ->
@@ -369,16 +385,38 @@ public class ConnectionManager implements AutoCloseable {
                         String routingKey = envelope.getRoutingKey();
                         LOGGER.trace("Received delivery {} from queue={} routing_key={}", deliveryTag, queue, routingKey);
 
-                        Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, () -> holder.withLock(ch -> {
-                            try {
-                                basicAck(ch, deliveryTag);
-                            } catch (IOException | ShutdownSignalException e) {
-                                LOGGER.warn("Error during basicAck of message with deliveryTag = {} inside channel #{}: {}", deliveryTag, ch.getChannelNumber(), e);
-                                throw e;
-                            } finally {
-                                holder.release(() -> metrics.getReadinessMonitor().enable());
+                        Confirmation wrappedConfirmation = new Confirmation() {
+                            @Override
+                            public void reject() throws IOException {
+                                holder.withLock(ch -> {
+                                    try {
+                                        basicReject(ch, deliveryTag);
+                                    } catch (IOException | ShutdownSignalException e) {
+                                        LOGGER.warn("Error during basicReject of message with deliveryTag = {} inside channel #{}: {}", deliveryTag, ch.getChannelNumber(), e);
+                                        throw e;
+                                    } finally {
+                                        holder.release(() -> metrics.getReadinessMonitor().enable());
+                                    }
+                                });
                             }
-                        }));
+
+                            @Override
+                            public void confirm() throws IOException {
+                                holder.withLock(ch -> {
+                                    try {
+                                        basicAck(ch, deliveryTag);
+                                    } catch (IOException | ShutdownSignalException e) {
+                                        LOGGER.warn("Error during basicAck of message with deliveryTag = {} inside channel #{}: {}", deliveryTag, ch.getChannelNumber(), e);
+                                        throw e;
+                                    } finally {
+                                        holder.release(() -> metrics.getReadinessMonitor().enable());
+                                    }
+                                });
+                            }
+                        };
+
+                        Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, wrappedConfirmation);
+
 
                         holder.withLock(() -> holder.acquireAndSubmitCheck(() ->
                                 channelChecker.schedule(() -> {
@@ -392,13 +430,14 @@ public class ConnectionManager implements AutoCloseable {
                                     return false; // to cast to Callable
                                 }, configuration.getConfirmationTimeout().toMillis(), TimeUnit.MILLISECONDS)
                         ));
-                        deliverCallback.handle(tagTmp, delivery, confirmation);
+                        boolean redeliver = envelope.isRedeliver();
+                        deliverCallback.handle(new DeliveryMetadata(tagTmp, redeliver), delivery, confirmation);
                     } catch (IOException | RuntimeException e) {
                         LOGGER.error("Cannot handle delivery for tag {}: {}", tagTmp, e.getMessage(), e);
                     }
                 }, cancelCallback), configuration);
 
-        return new RabbitMqSubscriberMonitor(holder, tag, this::basicCancel);
+        return new RabbitMqSubscriberMonitor(holder, queue, tag, this::basicCancel);
     }
 
     boolean isReady() {
@@ -411,6 +450,15 @@ public class ConnectionManager implements AutoCloseable {
 
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
+    }
+
+    public String queueExclusiveDeclareAndBind(String exchange) throws IOException, TimeoutException {
+        try (Channel channel = createChannel()) {
+            String queue = channel.queueDeclare().getQueue();
+            channel.queueBind(queue, exchange, EMPTY_ROUTING_KEY);
+            LOGGER.info("Declared the '{}' queue to listen to the '{}'", queue, exchange);
+            return queue;
+        }
     }
 
     private void shutdownExecutor(ExecutorService executor, int closeTimeout, String name) {
@@ -450,6 +498,13 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
+    private void putChannelFor(PinId pinId, ChannelHolder holder) {
+        ChannelHolder previous = channelsByPin.putIfAbsent(pinId, holder);
+        if (previous != null) {
+            throw new IllegalStateException("Channel holder for the '" + pinId + "' pinId has been already registered");
+        }
+    }
+
     private Channel createChannel() {
         return createChannelWithOptionalRecovery(false);
     }
@@ -464,6 +519,7 @@ public class ConnectionManager implements AutoCloseable {
             addShutdownListenerToChannel(channel, withRecovery);
             channel.addReturnListener(ret ->
                     LOGGER.warn("Can not router message to exchange '{}', routing key '{}'. Reply code '{}' and text = {}", ret.getExchange(), ret.getRoutingKey(), ret.getReplyCode(), ret.getReplyText()));
+            LOGGER.info("Created new RabbitMQ channel {} via connection {}", channel.getChannelNumber(), connection.hashCode());
             return channel;
         } catch (IOException e) {
             throw new IllegalStateException("Can not create channel", e);
@@ -508,27 +564,39 @@ public class ConnectionManager implements AutoCloseable {
     /**
      * @param channel pass channel witch used for basicConsume, because delivery tags are scoped per channel,
      *                deliveries must be acknowledged on the same channel they were received on.
-     * @throws IOException
      */
     private static void basicAck(Channel channel, long deliveryTag) throws IOException {
         channel.basicAck(deliveryTag, false);
     }
 
-    private class RabbitMqSubscriberMonitor implements SubscriberMonitor {
+    private static void basicReject(Channel channel, long deliveryTag) throws IOException {
+        channel.basicReject(deliveryTag, false);
+    }
+
+    private class RabbitMqSubscriberMonitor implements ExclusiveSubscriberMonitor {
 
         private final ChannelHolder holder;
+        private final String queue;
         private final String tag;
         private final CancelAction action;
 
-        public RabbitMqSubscriberMonitor(ChannelHolder holder, String tag,
+        public RabbitMqSubscriberMonitor(ChannelHolder holder,
+                                         String queue,
+                                         String tag,
                                          CancelAction action) {
             this.holder = holder;
+            this.queue = queue;
             this.tag = tag;
             this.action = action;
         }
 
         @Override
-        public void unsubscribe() throws Exception {
+        public @NotNull String getQueue() {
+            return queue;
+        }
+
+        @Override
+        public void unsubscribe() throws IOException {
             holder.withLock(false, channel -> {
                 channelsByPin.values().remove(holder);
                 action.execute(channel, tag);
@@ -542,21 +610,23 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private static class PinId {
+        private final String exchange;
         private final String routingKey;
         private final String queue;
 
-        public static PinId forRoutingKey(String routingKey) {
-            return new PinId(routingKey, null);
+        public static PinId forRoutingKey(String exchange, String routingKey) {
+            return new PinId(exchange, routingKey, null);
         }
 
         public static PinId forQueue(String queue) {
-            return new PinId(null, queue);
+            return new PinId(null, null, queue);
         }
 
-        private PinId(String routingKey, String queue) {
-            if (routingKey == null && queue == null) {
-                throw new NullPointerException("Either routingKey or queue must be set");
+        private PinId(String exchange, String routingKey, String queue) {
+            if ((exchange == null || routingKey == null) && queue == null) {
+                throw new NullPointerException("Either exchange and routingKey or queue must be set");
             }
+            this.exchange = exchange;
             this.routingKey = routingKey;
             this.queue = queue;
         }
@@ -569,17 +639,24 @@ public class ConnectionManager implements AutoCloseable {
 
             PinId pinId = (PinId) o;
 
-            return new EqualsBuilder().append(routingKey, pinId.routingKey).append(queue, pinId.queue).isEquals();
+            return new EqualsBuilder()
+                    .append(exchange, pinId.exchange)
+                    .append(routingKey, pinId.routingKey)
+                    .append(queue, pinId.queue).isEquals();
         }
 
         @Override
         public int hashCode() {
-            return new HashCodeBuilder(17, 37).append(routingKey).append(queue).toHashCode();
+            return new HashCodeBuilder(17, 37)
+                    .append(exchange)
+                    .append(routingKey)
+                    .append(queue).toHashCode();
         }
 
         @Override
         public String toString() {
             return new ToStringBuilder(this, ToStringStyle.JSON_STYLE)
+                    .append("exchange", exchange)
                     .append("routingKey", routingKey)
                     .append("queue", queue)
                     .toString();

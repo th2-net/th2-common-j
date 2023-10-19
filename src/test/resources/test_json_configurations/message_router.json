@@ -23,8 +23,8 @@
         {
           "metadata": [
             {
-              "fieldName": "session_alias",
-              "value": "test_session_alias",
+              "field-name": "session_alias",
+              "expected-value": "test_session_alias",
               "operation": "EQUAL"
             }
           ],

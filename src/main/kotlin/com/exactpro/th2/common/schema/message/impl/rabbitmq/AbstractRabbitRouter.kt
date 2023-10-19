@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,16 +14,14 @@
  */
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.exception.RouterException
-import com.exactpro.th2.common.schema.filter.strategy.FilterStrategy
 import com.exactpro.th2.common.schema.message.*
 import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
-import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
-import com.google.protobuf.Message
 import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
@@ -32,6 +30,7 @@ typealias PinName = String
 typealias PinConfiguration = QueueConfiguration
 typealias Queue = String
 typealias RoutingKey = String
+typealias BookName = String
 
 abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     private val _context = AtomicReference<MessageRouterContext?>()
@@ -47,21 +46,21 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     protected val connectionManager: ConnectionManager
         get() = context.connectionManager
 
-    private val subscribers = ConcurrentHashMap<Queue, MessageSubscriber<T>>()
+    private val boxConfiguration: BoxConfiguration
+        get() = context.boxConfiguration
+
+    private val subscribers = ConcurrentHashMap<Queue, MessageSubscriber>()
     private val senders = ConcurrentHashMap<RoutingKey, MessageSender<T>>()
-
-    private val filterStrategy = AtomicReference(getDefaultFilterStrategy())
-
-    protected open fun getDefaultFilterStrategy(): FilterStrategy<Message> {
-        return FilterStrategy.DEFAULT_FILTER_STRATEGY
-    }
-
-    protected open fun filterMessage(msg: Message, filters: List<RouterFilter>): Boolean {
-        return filterStrategy.get().verify(msg, filters)
-    }
 
     override fun init(context: MessageRouterContext) {
         this.context = context
+    }
+
+    override fun sendExclusive(queue: String, message: T) {
+        val pinConfig = PinConfiguration(queue, "", "", isReadable = false, isWritable = true)
+
+        senders.getSender(queue, pinConfig)
+            .send(message)
     }
 
     override fun send(message: T, vararg attributes: String) {
@@ -82,15 +81,42 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
+    override fun subscribeExclusive(callback: MessageListener<T>): ExclusiveSubscriberMonitor {
+        val queue = connectionManager.queueDeclare()
+        val pinConfig = PinConfiguration("", queue, "", isReadable = true, isWritable = false)
+
+        val listener = ConfirmationListener.wrap(callback)
+        subscribers.registerSubscriber(queue, pinConfig, listener)
+
+        return object: ExclusiveSubscriberMonitor {
+            override val queue: String = queue
+
+            override fun unsubscribe() {
+                subscribers.unregisterSubscriber(queue, pinConfig)
+            }
+        }
+    }
+
     override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
+        return subscribe(pintAttributes = pintAttributes, ConfirmationListener.wrap(callback)) {
+            check(size == 1) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe operation by attributes $pintAttributes and filters, expected 1, actual $size"
+            }
+        }
     }
 
     override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
-        return subscribeAllWithManualAck(ConfirmationMessageListener.wrap(callback), *attributes)
+        val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
+        val listener = ConfirmationListener.wrap(callback)
+        return subscribe(pintAttributes = pintAttributes, listener) {
+            check(isNotEmpty()) {
+                "Found incorrect number of pins ${map(PinInfo::pinName)} to subscribe all operation by attributes $pintAttributes and filters, expected 1 or more, actual $size"
+            }
+        }
     }
 
-    override fun subscribeWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
+    override fun subscribeWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(size == 1) {
@@ -99,7 +125,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         }
     }
 
-    override fun subscribeAllWithManualAck(callback: ConfirmationMessageListener<T>, vararg attributes: String): SubscriberMonitor {
+    override fun subscribeAllWithManualAck(callback: ManualConfirmationListener<T>, vararg attributes: String): SubscriberMonitor {
         val pintAttributes: Set<String> = appendAttributes(*attributes) { getRequiredSubscribeAttributes() }
         return subscribe(pintAttributes, callback) {
             check(isNotEmpty()) {
@@ -141,10 +167,14 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     protected open fun getRequiredSubscribeAttributes() = REQUIRED_SUBSCRIBE_ATTRIBUTES
 
     //TODO: implement common sender
-    protected abstract fun createSender(pinConfig: PinConfiguration, pinName: PinName): MessageSender<T>
+    protected abstract fun createSender(pinConfig: PinConfiguration, pinName: PinName, bookName: BookName): MessageSender<T>
 
     //TODO: implement common subscriber
-    protected abstract fun createSubscriber(pinConfig: PinConfiguration, pinName: PinName): MessageSubscriber<T>
+    protected abstract fun createSubscriber(
+        pinConfig: PinConfiguration,
+        pinName: PinName,
+        listener: ConfirmationListener<T>
+    ): MessageSubscriber
 
     protected abstract fun T.toErrorString(): String
 
@@ -179,7 +209,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
 
     private fun subscribe(
         pintAttributes: Set<String>,
-        messageListener: ConfirmationMessageListener<T>,
+        listener: ConfirmationListener<T>,
         check: List<PinInfo>.() -> Unit
     ): SubscriberMonitor {
         val packages: List<PinInfo> = configuration.queues.asSequence()
@@ -193,15 +223,12 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         val monitors: MutableList<SubscriberMonitor> = mutableListOf()
         packages.forEach { (pinName: PinName, pinConfig: PinConfiguration) ->
             runCatching {
-                subscribers.getSubscriber(pinName, pinConfig).apply {
-                    addListener(messageListener)
-                    start() //TODO: replace to lazy start on add listener(s)
-                }
+                subscribers.registerSubscriber(pinName, pinConfig, listener)
             }.onFailure { e ->
                 LOGGER.error(e) { "Listener can't be subscribed via the $pinName pin" }
                 exceptions[pinName] = e
             }.onSuccess {
-                monitors.add(SubscriberMonitor { close() })
+                monitors.add(SubscriberMonitor { subscribers.unregisterSubscriber(pinName, pinConfig) })
             }
         }
 
@@ -231,18 +258,36 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
             "The $pinName isn't writable, configuration: $pinConfig"
         }
 
-        return@computeIfAbsent createSender(pinConfig, pinName)
+        return@computeIfAbsent createSender(pinConfig, pinName, boxConfiguration.bookName)
     }
 
-    private fun ConcurrentHashMap<Queue, MessageSubscriber<T>>.getSubscriber(
+    private fun ConcurrentHashMap<Queue, MessageSubscriber>.registerSubscriber(
         pinName: PinName,
-        pinConfig: PinConfiguration
-    ): MessageSubscriber<T> = computeIfAbsent(pinConfig.queue) {
-        check(pinConfig.isReadable) {
-            "The $pinName isn't readable, configuration: $pinConfig"
-        }
+        pinConfig: PinConfiguration,
+        listener: ConfirmationListener<T>
+    ) {
+        compute(pinConfig.queue) { _, previous ->
+            check(previous == null) {
+                "The '$pinName' pin already has subscriber, configuration: $pinConfig"
+            }
+            check(pinConfig.isReadable) {
+                "The $pinName isn't readable, configuration: $pinConfig"
+            }
 
-        return@computeIfAbsent createSubscriber(pinConfig, pinName)
+            createSubscriber(pinConfig, pinName, listener).also {
+                LOGGER.info { "Created subscriber for '$pinName' pin, configuration: $pinConfig" }
+            }
+        }
+    }
+
+    private fun ConcurrentHashMap<Queue, MessageSubscriber>.unregisterSubscriber(
+        pinName: PinName,
+        pinConfig: PinConfiguration,
+    ) {
+        remove(pinConfig.queue)?.let { subscriber ->
+            subscriber.close()
+            LOGGER.info { "Removed subscriber for '$pinName' pin, configuration: $pinConfig" }
+        }
     }
 
     private open class PinInfo(

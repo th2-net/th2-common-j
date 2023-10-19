@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,11 +17,11 @@ package com.exactpro.th2.common.schema.event;
 
 import java.util.Set;
 
+import com.exactpro.th2.common.schema.message.ConfirmationListener;
 import org.apache.commons.collections4.SetUtils;
 import org.jetbrains.annotations.NotNull;
 
 import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.schema.message.FilterFunction;
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.QueueAttribute;
@@ -59,23 +59,28 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
 
     @NotNull
     @Override
-    protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration, @NotNull String pinName) {
+    protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration, @NotNull String pinName, @NotNull String bookName) {
         return new EventBatchSender(
                 getConnectionManager(),
                 queueConfiguration.getExchange(),
                 queueConfiguration.getRoutingKey(),
-                pinName
+                pinName,
+                bookName
         );
     }
 
     @NotNull
     @Override
-    protected MessageSubscriber<EventBatch> createSubscriber(QueueConfiguration queueConfiguration, @NotNull String pinName) {
+    protected MessageSubscriber createSubscriber(
+            QueueConfiguration queueConfiguration,
+            @NotNull String pinName,
+            @NotNull ConfirmationListener<EventBatch> listener
+    ) {
         return new EventBatchSubscriber(
                 getConnectionManager(),
                 queueConfiguration.getQueue(),
-                FilterFunction.DEFAULT_FILTER_FUNCTION,
-                pinName
+                pinName,
+                listener
         );
     }
 

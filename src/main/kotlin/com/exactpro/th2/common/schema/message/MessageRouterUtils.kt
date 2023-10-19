@@ -24,7 +24,9 @@ import com.exactpro.th2.common.event.Event.Status.PASSED
 import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatchOrBuilder
 import com.exactpro.th2.common.message.logId
 import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.common.schema.message.QueueAttribute.EVENT
@@ -34,14 +36,29 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 
 fun MessageRouter<EventBatch>.storeEvent(
     event: Event,
-    parentId: String? = null
+    parentId: EventID
+) = storeEvent(event, event.toProto(parentId))
+
+@JvmOverloads
+fun MessageRouter<EventBatch>.storeEvent(
+    event: Event,
+    bookName: String,
+    scope: String? = null
+) = storeEvent(event, event.toProto(bookName, scope))
+
+private fun MessageRouter<EventBatch>.storeEvent(
+    event: Event,
+    protoEvent: com.exactpro.th2.common.grpc.Event
 ): Event = event.apply {
-    val batch = EventBatch.newBuilder().addEvents(toProtoEvent(parentId)).build()
-    sendAll(batch, PUBLISH.toString(), EVENT.toString())
+    sendAll(
+        EventBatch.newBuilder().addEvents(protoEvent).build(),
+        PUBLISH.toString(),
+        EVENT.toString()
+    )
 }
 
 fun MessageRouter<EventBatch>.storeEvent(
-    parentId: String,
+    parentId: EventID,
     name: String,
     type: String,
     cause: Throwable? = null
@@ -77,8 +94,13 @@ fun appendAttributes(
 }
 
 fun MessageGroupBatch.toShortDebugString(): String = buildString {
-    append("MessageGroupBatch(ids = ")
+    append("MessageGroupBatch ")
 
+    if (hasMetadata()) {
+        append("external user queue = ${metadata.externalQueue} ")
+    }
+
+    append("(ids = ")
     groupsList.asSequence()
         .flatMap { it.messagesList.asSequence() }
         .map(AnyMessage::logId)
@@ -86,4 +108,10 @@ fun MessageGroupBatch.toShortDebugString(): String = buildString {
         .apply { append(this) }
 
     append(')')
+}
+
+fun MessageGroupBatchOrBuilder.toBuilderWithMetadata(): MessageGroupBatch.Builder = MessageGroupBatch.newBuilder().apply {
+    if (this@toBuilderWithMetadata.hasMetadata()) {
+        metadata = this@toBuilderWithMetadata.metadata
+    }
 }

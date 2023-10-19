@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.event.bean.builder.MessageBuilder;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -29,8 +30,10 @@ public class MessageTest extends BaseTest {
         Message message = new MessageBuilder().text("My message for report")
                 .build();
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(message).toProtoEvent("id");
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(message)
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -48,5 +51,4 @@ public class MessageTest extends BaseTest {
             new MessageBuilder().text(null).build();
         });
     }
-
 }

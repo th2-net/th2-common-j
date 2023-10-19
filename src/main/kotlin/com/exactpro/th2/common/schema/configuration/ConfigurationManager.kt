@@ -26,6 +26,8 @@ import java.util.concurrent.ConcurrentHashMap
 class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
     private val configurations: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
 
+    operator fun get(clazz: Class<*>): Path? = configurationPath[clazz]
+
     fun <T> loadConfiguration(
         objectMapper: ObjectMapper,
         stringSubstitutor: StringSubstitutor,
@@ -48,6 +50,7 @@ class ConfigurationManager(private val configurationPath: Map<Class<*>, Path>) {
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun <T> getConfigurationOrLoad(
         objectMapper: ObjectMapper,
         stringSubstitutor: StringSubstitutor,

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,9 +16,12 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
+import com.exactpro.th2.common.schema.message.ManualConfirmationListener
 import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterContext
+import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.appendAttributes
 
@@ -39,21 +42,61 @@ abstract class AbstractGroupBatchAdapterRouter<T> : MessageRouter<T> {
         this.groupBatchRouter = groupBatchRouter
     }
 
-    override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribe(
-            MessageListener { consumerTag: String, message: MessageGroupBatch ->
-                callback.handler(consumerTag, buildFromGroupBatch(message))
+    override fun subscribeExclusive(callback: MessageListener<T>): ExclusiveSubscriberMonitor {
+        return groupBatchRouter.subscribeExclusive { deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
+            callback.handle(deliveryMetadata, buildFromGroupBatch(message))
+        }
+    }
+
+    override fun subscribe(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
+        return groupBatchRouter.subscribe({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
         )
     }
 
-    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor? {
-        return groupBatchRouter.subscribeAll(
-            MessageListener { consumerTag: String, message: MessageGroupBatch ->
-                callback.handler(consumerTag, buildFromGroupBatch(message))
+    override fun subscribeAll(callback: MessageListener<T>, vararg attributes: String): SubscriberMonitor {
+        return groupBatchRouter.subscribeAll({ deliveryMetadata: DeliveryMetadata, message: MessageGroupBatch ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message))
             },
             *appendAttributes(*attributes) { getRequiredSubscribeAttributes() }.toTypedArray()
+        )
+    }
+
+    override fun subscribeWithManualAck(
+        callback: ManualConfirmationListener<T>,
+        vararg queueAttr: String
+    ): SubscriberMonitor {
+        val listener =
+            ManualConfirmationListener<MessageGroupBatch> { deliveryMetadata, message, confirmation ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message), confirmation)
+            }
+
+        return groupBatchRouter.subscribeWithManualAck(
+            listener,
+            *appendAttributes(*queueAttr) { getRequiredSubscribeAttributes() }.toTypedArray()
+        )
+    }
+
+    override fun subscribeAllWithManualAck(
+        callback: ManualConfirmationListener<T>,
+        vararg queueAttr: String
+    ): SubscriberMonitor {
+        val listener =
+            ManualConfirmationListener<MessageGroupBatch> { deliveryMetadata, message, confirmation ->
+                callback.handle(deliveryMetadata, buildFromGroupBatch(message), confirmation)
+            }
+
+        return groupBatchRouter.subscribeAllWithManualAck(listener,
+            *appendAttributes(*queueAttr) { getRequiredSubscribeAttributes() }.toTypedArray()
+        )
+    }
+
+    override fun sendExclusive(queue: String, messageBatch: T) {
+        groupBatchRouter.sendExclusive(
+            queue,
+            buildGroupBatch(messageBatch)
         )
     }
 

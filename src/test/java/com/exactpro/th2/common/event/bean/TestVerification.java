@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event.bean;
 
 import com.exactpro.th2.common.event.Event;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -40,8 +41,10 @@ public class TestVerification extends BaseTest {
             put("Field A", verificationEntry);
         }});
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).toProtoEvent("id");
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(verification)
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[\n" +
                 "  {\n" +
@@ -92,8 +95,10 @@ public class TestVerification extends BaseTest {
             put("Sub message A", verificationEntry);
         }});
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(verification).toProtoEvent("id");
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(verification)
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[\n" +
                 "  {\n" +

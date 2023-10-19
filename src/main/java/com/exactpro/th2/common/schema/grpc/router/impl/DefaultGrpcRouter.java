@@ -180,7 +180,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
                 })
                 .collect(Collectors.toList());
         if (result.isEmpty()) {
-            throw new IllegalStateException("No services matching the provided class were found in the configuration: "
+            throw  new IllegalStateException("No services matching the provided class were found in the configuration: "
                     + proxyService.getName());
         }
 
@@ -215,9 +215,9 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
     @SuppressWarnings("rawtypes")
     protected <T extends AbstractStub> AbstractStub createStubInstance(Class<T> stubClass, Channel channel) {
         try {
-            var constr = stubClass.getDeclaredConstructor(Channel.class, CallOptions.class);
-            constr.setAccessible(true);
-            return constr.newInstance(channel, CallOptions.DEFAULT);
+            var constructor = stubClass.getDeclaredConstructor(Channel.class, CallOptions.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(channel, CallOptions.DEFAULT);
         } catch (NoSuchMethodException e) {
             throw new InitGrpcRouterException("Could not find constructor " +
                     "'(Channel,CallOptions)' in the provided stub class: " + stubClass, e);
