@@ -153,7 +153,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
             consumerMonitor.updateAndGet(previous -> previous == EMPTY_INITIALIZER
                             ? Suppliers.memoize(this::basicConsume)
                             : previous)
-                    .get(); // initialize subscribtion
+                    .get(); // initialize subscription
         } catch (Exception e) {
             throw new IllegalStateException("Can not start listening", e);
         }

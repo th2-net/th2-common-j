@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.exactpro.th2.common.annotations.IntegrationTest
@@ -129,9 +130,7 @@ class TransportGroupBatchRouterIntegrationTest {
             prefetchCount = prefetchCount,
             confirmationTimeout = confirmationTimeout,
         ),
-    ) {
-        LOGGER.error { "Fatal connection problem" }
-    }
+    )
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }

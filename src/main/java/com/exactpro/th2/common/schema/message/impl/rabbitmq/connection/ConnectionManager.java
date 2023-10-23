@@ -58,6 +58,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -331,7 +332,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close()  throws IOException {
         if (connectionIsClosed.getAndSet(true)) {
             LOGGER.info("Connection manager already closed");
             return;
@@ -348,6 +349,10 @@ public class ConnectionManager implements AutoCloseable {
             } catch (IOException e) {
                 LOGGER.error("Cannot close connection", e);
             }
+        }
+
+        for (ChannelHolder channelHolder: channelsByPin.values()) {
+            channelHolder.channel.abort();
         }
 
         shutdownExecutor(sharedExecutor, closeTimeout, "rabbit-shared");
@@ -598,9 +603,9 @@ public class ConnectionManager implements AutoCloseable {
         @Override
         public void unsubscribe() throws IOException {
             holder.withLock(false, channel -> {
-                channelsByPin.values().remove(holder);
+//                channelsByPin.values().remove(holder);
                 action.execute(channel, tag);
-                channel.abort();
+//                channel.abort();
             });
         }
     }
@@ -776,6 +781,19 @@ public class ConnectionManager implements AutoCloseable {
             LOGGER.warn("{} #{}, waiting for {} ms, then recreating channel. Reason: {}", comment, currentValue.getTryNumber(), recoveryDelay, e);
             TimeUnit.MILLISECONDS.sleep(recoveryDelay);
             return iterator;
+        }
+
+        public <T> T mapWithLock(ChannelMapper<T> mapper) throws IOException {
+            lock.lock();
+            try {
+                Channel channel = getChannel();
+                return mapper.map(channel);
+            } catch (IOException e) {
+                LOGGER.error("Operation failure on the {} channel", channel.getChannelNumber(), e);
+                throw e;
+            } finally {
+                lock.unlock();
+            }
         }
 
         /**

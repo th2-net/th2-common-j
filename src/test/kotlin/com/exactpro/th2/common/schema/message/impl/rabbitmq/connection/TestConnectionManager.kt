@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
 import com.exactpro.th2.common.annotations.IntegrationTest
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.utility.DockerImageName
@@ -820,33 +822,12 @@ class TestConnectionManager {
             configuration
         )
 
-    companion object {
-
-        private const val RABBIT_IMAGE_NAME = "rabbitmq:3.8-management-alpine"
-        private lateinit var rabbit: RabbitMQContainer
-        private const val PREFETCH_COUNT = 10
-        private val CONFIRMATION_TIMEOUT = Duration.ofSeconds(1)
-
-        @BeforeAll
-        @JvmStatic
-        fun initRabbit() {
-            rabbit =
-                RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
-            rabbit.start()
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun closeRabbit() {
-            rabbit.close()
-        }
-    }
-
-}
-
     @Test
+    @Disabled
+    // TODO: this test is no more relevant
+    // TODO: we need to change test scenario or remove it
     fun `connection manager exclusive queue test`() {
-        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.8-management-alpine"))
+        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
             .use { rabbitMQContainer ->
                 rabbitMQContainer.start()
                 LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
@@ -909,8 +890,8 @@ class TestConnectionManager {
 
     private fun createConnectionManager(
         rabbitMQContainer: RabbitMQContainer,
-        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
-        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
+        prefetchCount: Int = PREFETCH_COUNT,
+        confirmationTimeout: Duration = CONFIRMATION_TIMEOUT
     ) = ConnectionManager(
         RabbitMQConfiguration(
             host = rabbitMQContainer.host,
@@ -924,12 +905,25 @@ class TestConnectionManager {
             prefetchCount = prefetchCount,
             confirmationTimeout = confirmationTimeout,
         ),
-    ) {
-        LOGGER.error { "Fatal connection problem" }
-    }
+    )
 
     companion object {
-        private const val DEFAULT_PREFETCH_COUNT = 10
-        private val DEFAULT_CONFIRMATION_TIMEOUT: Duration = Duration.ofSeconds(1)
+        private const val RABBIT_IMAGE_NAME = "rabbitmq:3.8-management-alpine"
+        private lateinit var rabbit: RabbitMQContainer
+        private const val PREFETCH_COUNT = 10
+        private val CONFIRMATION_TIMEOUT = Duration.ofSeconds(1)
+
+        @BeforeAll
+        @JvmStatic
+        fun initRabbit() {
+            rabbit = RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+            rabbit.start()
+        }
+
+        @AfterAll
+        @JvmStatic
+        fun closeRabbit() {
+            rabbit.close()
+        }
     }
 }

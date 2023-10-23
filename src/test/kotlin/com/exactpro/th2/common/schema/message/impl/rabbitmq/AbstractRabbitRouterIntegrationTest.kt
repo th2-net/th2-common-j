@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.annotations.IntegrationTest
@@ -166,9 +167,7 @@ class AbstractRabbitRouterIntegrationTest {
             prefetchCount = prefetchCount,
             confirmationTimeout = confirmationTimeout,
         ),
-    ) {
-        K_LOGGER.error { "Fatal connection problem" }
-    }
+    )
 
     private fun createRouter(connectionManager: ConnectionManager) = RabbitCustomRouter(
         "test-custom-tag",
@@ -203,7 +202,7 @@ class AbstractRabbitRouterIntegrationTest {
     companion object {
         private val K_LOGGER = KotlinLogging.logger { }
 
-        private const val RABBITMQ_MANAGEMENT_ALPINE = "rabbitmq:3.11.2-management-alpine"
+        private const val RABBITMQ_MANAGEMENT_ALPINE = "rabbitmq:3.8-management-alpine"
         private const val ROUTING_KEY = "routingKey"
         private const val QUEUE_NAME = "queue"
         private const val EXCHANGE = "test-exchange"
