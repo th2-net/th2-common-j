@@ -67,6 +67,7 @@ import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +91,8 @@ import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZ
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_RESULT_PAGE_SIZE;
+import static com.exactpro.th2.common.schema.factory.LazyProvider.lazy;
+import static com.exactpro.th2.common.schema.factory.LazyProvider.lazyAutocloseable;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
@@ -134,21 +137,33 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
     private final Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass;
-    private final AtomicReference<ConnectionManager> rabbitMqConnectionManager = new AtomicReference<>();
-    private final AtomicReference<MessageRouterContext> routerContext = new AtomicReference<>();
-    private final AtomicReference<MessageRouter<MessageBatch>> messageRouterParsedBatch = new AtomicReference<>();
-    private final AtomicReference<MessageRouter<RawMessageBatch>> messageRouterRawBatch = new AtomicReference<>();
-    private final AtomicReference<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch = new AtomicReference<>();
-    private final AtomicReference<MessageRouter<GroupBatch>> transportGroupBatchRouter = new AtomicReference<>();
-    private final AtomicReference<MessageRouter<EventBatch>> eventBatchRouter = new AtomicReference<>();
-    private final AtomicReference<NotificationRouter<EventBatch>> notificationEventBatchRouter = new AtomicReference<>();
-    private final AtomicReference<EventID> rootEventId = new AtomicReference<>();
-    private final AtomicReference<GrpcRouter> grpcRouter = new AtomicReference<>();
-    private final AtomicReference<HTTPServer> prometheusExporter = new AtomicReference<>();
-    private final AtomicReference<CradleManager> cradleManager = new AtomicReference<>();
+    private final LazyProvider<ConnectionManager> rabbitMqConnectionManager =
+            lazyAutocloseable("connection-manager", this::createRabbitMQConnectionManager);
+    private final LazyProvider<MessageRouterContext> routerContext =
+            lazy("router-context", this::createMessageRouterContext);
+    private final LazyProvider<MessageRouter<MessageBatch>> messageRouterParsedBatch =
+            lazyAutocloseable("parsed-message-router", this::createMessageRouterParsedBatch);
+    private final LazyProvider<MessageRouter<RawMessageBatch>> messageRouterRawBatch =
+            lazyAutocloseable("raw-message-router", this::createMessageRouterRawBatch);
+    private final LazyProvider<MessageRouter<MessageGroupBatch>> messageRouterMessageGroupBatch =
+            lazyAutocloseable("group-message-router", this::createMessageRouterGroupBatch);
+    private final LazyProvider<MessageRouter<GroupBatch>> transportGroupBatchRouter =
+            lazyAutocloseable("transport-router", this::createTransportGroupBatchMessageRouter);
+    private final LazyProvider<MessageRouter<EventBatch>> eventBatchRouter =
+            lazyAutocloseable("event-router", this::createEventBatchRouter);
+    private final LazyProvider<NotificationRouter<EventBatch>> notificationEventBatchRouter =
+            lazyAutocloseable("notification-router", this::createNotificationEventBatchRouter);
+    private final LazyProvider<EventID> rootEventId = lazy("root-event-id", this::createRootEventID);
+    private final LazyProvider<GrpcRouter> grpcRouter =
+            lazyAutocloseable("grpc-router", this::createGrpcRouter);
+    private final LazyProvider<HTTPServer> prometheusExporter =
+            lazyAutocloseable("prometheus-exporter", this::createPrometheusHTTPServer);
+
+    private final LazyProvider<CradleManager> cradleManager =
+            lazyAutocloseable("cradle-manager", this::createCradleManager);
+
     private final Map<Class<?>, MessageRouter<?>> customMessageRouters = new ConcurrentHashMap<>();
     private final MetricMonitor livenessMonitor = CommonMetrics.registerLiveness("common_factory_liveness");
-
     static {
         configureLogger();
     }
@@ -170,20 +185,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     public void start() {
         DefaultExports.initialize();
-        PrometheusConfiguration prometheusConfiguration = loadPrometheusConfiguration();
 
         livenessMonitor.enable();
-
-        this.prometheusExporter.updateAndGet(server -> {
-            if (server == null && prometheusConfiguration.getEnabled()) {
-                try {
-                    return new HTTPServer(prometheusConfiguration.getHost(), prometheusConfiguration.getPort());
-                } catch (IOException e) {
-                    throw new CommonFactoryException("Failed to create Prometheus exporter", e);
-                }
-            }
-            return server;
-        });
     }
 
     /**
@@ -192,19 +195,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<MessageBatch> getMessageRouterParsedBatch() {
-        return messageRouterParsedBatch.updateAndGet(router -> {
-            if (router == null) {
-                try {
-                    router = messageRouterParsedBatchClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new CommonFactoryException("Can not create parsed message router", e);
-                }
-            }
-
-            return router;
-        });
+        return messageRouterParsedBatch.get();
     }
 
     /**
@@ -213,19 +204,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<RawMessageBatch> getMessageRouterRawBatch() {
-        return messageRouterRawBatch.updateAndGet(router -> {
-            if (router == null) {
-                try {
-                    router = messageRouterRawBatchClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new CommonFactoryException("Can not create raw message router", e);
-                }
-            }
-
-            return router;
-        });
+        return messageRouterRawBatch.get();
     }
 
     /**
@@ -233,14 +212,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read configuration
      */
     public MessageRouter<GroupBatch> getTransportGroupBatchRouter() {
-        return transportGroupBatchRouter.updateAndGet(router -> {
-            if (router == null) {
-                router = new TransportGroupBatchRouter();
-                router.init(getMessageRouterContext());
-            }
-
-            return router;
-        });
+        return transportGroupBatchRouter.get();
     }
 
     /**
@@ -249,19 +221,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<MessageGroupBatch> getMessageRouterMessageGroupBatch() {
-        return messageRouterMessageGroupBatch.updateAndGet(router -> {
-            if (router == null) {
-                try {
-                    router = messageRouterMessageGroupBatchClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new CommonFactoryException("Can not create group message router", e);
-                }
-            }
-
-            return router;
-        });
+        return messageRouterMessageGroupBatch.get();
     }
 
     /**
@@ -270,23 +230,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException  if can not read configuration
      */
     public MessageRouter<EventBatch> getEventBatchRouter() {
-        return eventBatchRouter.updateAndGet(router -> {
-            if (router == null) {
-                try {
-                    router = eventBatchRouterClass.getConstructor().newInstance();
-                    router.init(new DefaultMessageRouterContext(
-                            getRabbitMqConnectionManager(),
-                            MessageRouterMonitor.DEFAULT_MONITOR,
-                            getMessageRouterConfiguration(),
-                            getBoxConfiguration()
-                    ));
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new CommonFactoryException("Can not create event batch router", e);
-                }
-            }
-            return router;
-        });
+        return eventBatchRouter.get();
     }
 
     /**
@@ -295,19 +239,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException  if can not read configuration
      */
     public GrpcRouter getGrpcRouter() {
-        return grpcRouter.updateAndGet(router -> {
-            if (router == null) {
-                try {
-                    router = grpcRouterClass.getConstructor().newInstance();
-                    router.init(getGrpcConfiguration(), getGrpcRouterConfiguration());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new CommonFactoryException("Can not create GRPC router", e);
-                }
-            }
-
-            return router;
-        });
+        return grpcRouter.get();
     }
 
     /**
@@ -316,18 +248,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException  if cannot read configuration
      */
     public NotificationRouter<EventBatch> getNotificationEventBatchRouter() {
-        return notificationEventBatchRouter.updateAndGet(router -> {
-            if (router == null) {
-                try {
-                    router = notificationEventBatchRouterClass.getConstructor().newInstance();
-                    router.init(getMessageRouterContext());
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new CommonFactoryException("Can not create notification router", e);
-                }
-            }
-            return router;
-        });
+        return notificationEventBatchRouter.get();
     }
 
     /**
@@ -368,9 +289,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
                         throw new IllegalStateException("Message router for type " + msgClass.getCanonicalName() + " is already registered");
                     }
                     requireNonNull(labels, "Labels can't be null for custom message router");
-                    var router = new RabbitCustomRouter<>(msgClass.getSimpleName(), labels, messageConverter, defaultSendAttributes,
+                    MessageRouter<T> router = new RabbitCustomRouter<>(msgClass.getSimpleName(), labels, messageConverter, defaultSendAttributes,
                             defaultSubscribeAttributes);
-                    router.init(getRabbitMqConnectionManager(), getMessageRouterConfiguration());
+                    router.init(getMessageRouterContext());
                     return router;
                 }
         );
@@ -439,6 +360,85 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(BoxConfiguration.class, true);
     }
 
+    /**
+     * @return Cradle manager
+     * @throws CommonFactoryException if cradle manager was not initialized
+     */
+    public CradleManager getCradleManager() {
+        return cradleManager.get();
+
+    }
+
+    @Nullable
+    private HTTPServer createPrometheusHTTPServer() {
+        PrometheusConfiguration configuration = loadPrometheusConfiguration();
+        if (configuration.getEnabled()) {
+            try {
+                return new HTTPServer(configuration.getHost(), configuration.getPort());
+            } catch (IOException e) {
+                throw new CommonFactoryException("Failed to create Prometheus exporter", e);
+            }
+        }
+        return null;
+    }
+
+    private MessageRouter<MessageBatch> createMessageRouterParsedBatch() {
+        try {
+            MessageRouter<MessageBatch> router = messageRouterParsedBatchClass.getConstructor().newInstance();
+            router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
+            return router;
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                 NoSuchMethodException e) {
+            throw new CommonFactoryException("Can not create parsed message router", e);
+        }
+    }
+
+    private MessageRouter<RawMessageBatch> createMessageRouterRawBatch() throws NoSuchMethodException,
+            InvocationTargetException, InstantiationException, IllegalAccessException {
+        MessageRouter<RawMessageBatch> router = messageRouterRawBatchClass.getConstructor().newInstance();
+        router.init(getMessageRouterContext(), getMessageRouterMessageGroupBatch());
+        return router;
+    }
+
+    private MessageRouter<GroupBatch> createTransportGroupBatchMessageRouter() {
+        var router = new TransportGroupBatchRouter();
+        router.init(getMessageRouterContext());
+        return router;
+    }
+
+    private MessageRouter<MessageGroupBatch> createMessageRouterGroupBatch() throws NoSuchMethodException,
+            InvocationTargetException, InstantiationException, IllegalAccessException {
+        var router = messageRouterMessageGroupBatchClass.getConstructor().newInstance();
+        router.init(getMessageRouterContext());
+        return router;
+    }
+
+    private MessageRouter<EventBatch> createEventBatchRouter() throws NoSuchMethodException, InvocationTargetException,
+            InstantiationException, IllegalAccessException {
+        var router = eventBatchRouterClass.getConstructor().newInstance();
+        router.init(createEventRouterContext());
+        return router;
+    }
+
+    @NotNull
+    private MessageRouterContext createEventRouterContext() {
+        return createRouterContext(MessageRouterMonitor.DEFAULT_MONITOR);
+    }
+
+    private GrpcRouter createGrpcRouter() throws NoSuchMethodException, InvocationTargetException,
+            InstantiationException, IllegalAccessException {
+        GrpcRouter router = grpcRouterClass.getConstructor().newInstance();
+        router.init(getGrpcConfiguration(), getGrpcRouterConfiguration());
+        return router;
+    }
+
+    private NotificationRouter<EventBatch> createNotificationEventBatchRouter() throws NoSuchMethodException,
+            InvocationTargetException, InstantiationException, IllegalAccessException {
+        var router = notificationEventBatchRouterClass.getConstructor().newInstance();
+        router.init(getMessageRouterContext());
+        return router;
+    }
+
     private CradleConfidentialConfiguration getCradleConfidentialConfiguration() {
         return getConfigurationOrLoad(CradleConfidentialConfiguration.class, false);
     }
@@ -451,62 +451,51 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(CassandraStorageSettings.class, true);
     }
 
-    /**
-     * @return Cradle manager
-     * @throws IllegalStateException if cannot read configuration or initialization failure
-     */
-    public CradleManager getCradleManager() {
-        return cradleManager.updateAndGet(manager -> {
-            if (manager == null) {
-                try {
-                    CradleConfidentialConfiguration confidentialConfiguration = getCradleConfidentialConfiguration();
-                    CassandraConnectionSettings cassandraConnectionSettings = new CassandraConnectionSettings(
-                            confidentialConfiguration.getHost(),
-                            confidentialConfiguration.getPort(),
-                            confidentialConfiguration.getDataCenter()
-                    );
-                    if (StringUtils.isNotEmpty(confidentialConfiguration.getUsername())) {
-                        cassandraConnectionSettings.setUsername(confidentialConfiguration.getUsername());
-                    }
-                    if (StringUtils.isNotEmpty(confidentialConfiguration.getPassword())) {
-                        cassandraConnectionSettings.setPassword(confidentialConfiguration.getPassword());
-                    }
-
-                    // Deserialize on config by two different beans for backward compatibility
-                    CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
-                    // FIXME: this approach should be replaced to module structure in future
-                    CassandraStorageSettings cassandraStorageSettings = getCassandraStorageSettings();
-                    cassandraStorageSettings.setKeyspace(confidentialConfiguration.getKeyspace());
-
-                    if (cassandraStorageSettings.getResultPageSize() == DEFAULT_RESULT_PAGE_SIZE && nonConfidentialConfiguration.getPageSize() > 0) {
-                        cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
-                    }
-                    if (cassandraStorageSettings.getMaxMessageBatchSize() == DEFAULT_MAX_MESSAGE_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
-                        cassandraStorageSettings.setMaxMessageBatchSize((int) nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
-                    }
-                    if (cassandraStorageSettings.getMaxTestEventBatchSize() == DEFAULT_MAX_TEST_EVENT_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
-                        cassandraStorageSettings.setMaxTestEventBatchSize((int) nonConfidentialConfiguration.getCradleMaxEventBatchSize());
-                    }
-                    if (cassandraStorageSettings.getCounterPersistenceInterval() == DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS && nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis() >= 0) {
-                        cassandraStorageSettings.setCounterPersistenceInterval((int) nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis());
-                    }
-                    if (cassandraStorageSettings.getMaxUncompressedTestEventSize() == DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE && nonConfidentialConfiguration.getMaxUncompressedEventBatchSize() > 0) {
-                        cassandraStorageSettings.setMaxUncompressedTestEventSize((int) nonConfidentialConfiguration.getMaxUncompressedEventBatchSize());
-                    }
-
-                    manager = new CassandraCradleManager(
-                            cassandraConnectionSettings,
-                            cassandraStorageSettings,
-                            nonConfidentialConfiguration.getPrepareStorage()
-                    );
-                } catch (CradleStorageException | RuntimeException | IOException e) {
-                    throw new CommonFactoryException("Cannot create Cradle manager", e);
-                }
+    private CradleManager createCradleManager() {
+        try {
+            CradleConfidentialConfiguration confidentialConfiguration = getCradleConfidentialConfiguration();
+            CassandraConnectionSettings cassandraConnectionSettings = new CassandraConnectionSettings(
+                    confidentialConfiguration.getHost(),
+                    confidentialConfiguration.getPort(),
+                    confidentialConfiguration.getDataCenter()
+            );
+            if (StringUtils.isNotEmpty(confidentialConfiguration.getUsername())) {
+                cassandraConnectionSettings.setUsername(confidentialConfiguration.getUsername());
+            }
+            if (StringUtils.isNotEmpty(confidentialConfiguration.getPassword())) {
+                cassandraConnectionSettings.setPassword(confidentialConfiguration.getPassword());
             }
 
-            return manager;
-        });
+            // Deserialize on config by two different beans for backward compatibility
+            CradleNonConfidentialConfiguration nonConfidentialConfiguration = getCradleNonConfidentialConfiguration();
+            // FIXME: this approach should be replaced to module structure in future
+            CassandraStorageSettings cassandraStorageSettings = getCassandraStorageSettings();
+            cassandraStorageSettings.setKeyspace(confidentialConfiguration.getKeyspace());
 
+            if (cassandraStorageSettings.getResultPageSize() == DEFAULT_RESULT_PAGE_SIZE && nonConfidentialConfiguration.getPageSize() > 0) {
+                cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
+            }
+            if (cassandraStorageSettings.getMaxMessageBatchSize() == DEFAULT_MAX_MESSAGE_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
+                cassandraStorageSettings.setMaxMessageBatchSize((int) nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
+            }
+            if (cassandraStorageSettings.getMaxTestEventBatchSize() == DEFAULT_MAX_TEST_EVENT_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
+                cassandraStorageSettings.setMaxTestEventBatchSize((int) nonConfidentialConfiguration.getCradleMaxEventBatchSize());
+            }
+            if (cassandraStorageSettings.getCounterPersistenceInterval() == DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS && nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis() >= 0) {
+                cassandraStorageSettings.setCounterPersistenceInterval((int) nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis());
+            }
+            if (cassandraStorageSettings.getMaxUncompressedTestEventSize() == DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE && nonConfidentialConfiguration.getMaxUncompressedEventBatchSize() > 0) {
+                cassandraStorageSettings.setMaxUncompressedTestEventSize((int) nonConfidentialConfiguration.getMaxUncompressedEventBatchSize());
+            }
+
+            return new CassandraCradleManager(
+                    cassandraConnectionSettings,
+                    cassandraStorageSettings,
+                    nonConfidentialConfiguration.getPrepareStorage()
+            );
+        } catch (CradleStorageException | RuntimeException | IOException e) {
+            throw new CommonFactoryException("Cannot create Cradle manager", e);
+        }
     }
 
     /**
@@ -589,31 +578,27 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      */
     @NotNull
     public EventID getRootEventId() {
-        return rootEventId.updateAndGet(id -> {
-            if (id == null) {
-                try {
-                    BoxConfiguration boxConfiguration = getBoxConfiguration();
-                    com.exactpro.th2.common.grpc.Event rootEvent = Event
-                            .start()
-                            .endTimestamp()
-                            .name(boxConfiguration.getBoxName() + " " + Instant.now())
-                            .description("Root event")
-                            .status(Event.Status.PASSED)
-                            .type("Microservice")
-                            .toProto(boxConfiguration.getBookName(), boxConfiguration.getBoxName());
+        return rootEventId.get();
+    }
 
-                    try {
-                        getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
-                        return rootEvent.getId();
-                    } catch (IOException e) {
-                        throw new CommonFactoryException("Can not send root event", e);
-                    }
-                } catch (IOException e) {
-                    throw new CommonFactoryException("Can not create root event", e);
-                }
-            }
-            return id;
-        });
+    @NotNull
+    private EventID createRootEventID() throws IOException {
+        BoxConfiguration boxConfiguration = getBoxConfiguration();
+        com.exactpro.th2.common.grpc.Event rootEvent = Event
+                .start()
+                .endTimestamp()
+                .name(boxConfiguration.getBoxName() + " " + Instant.now())
+                .description("Root event")
+                .status(Event.Status.PASSED)
+                .type("Microservice")
+                .toProto(boxConfiguration.getBookName(), boxConfiguration.getBoxName());
+
+        try {
+            getEventBatchRouter().sendAll(EventBatch.newBuilder().addEvents(rootEvent).build());
+            return rootEvent.getId();
+        } catch (IOException e) {
+            throw new CommonFactoryException("Can not send root event", e);
+        }
     }
 
     protected abstract ConfigurationManager getConfigurationManager();
@@ -641,29 +626,30 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @return Context for all routers except event router
      */
     protected MessageRouterContext getMessageRouterContext() {
-        return routerContext.updateAndGet(ctx -> {
-            if (ctx == null) {
-                try {
-                    MessageRouterMonitor contextMonitor = new BroadcastMessageRouterMonitor(
-                            new LogMessageRouterMonitor(),
-                            new EventMessageRouterMonitor(
-                                    getEventBatchRouter(),
-                                    getRootEventId()
-                            )
-                    );
+        return routerContext.get();
+    }
 
-                    return new DefaultMessageRouterContext(
-                            getRabbitMqConnectionManager(),
-                            contextMonitor,
-                            getMessageRouterConfiguration(),
-                            getBoxConfiguration()
-                    );
-                } catch (Exception e) {
-                    throw new CommonFactoryException("Can not create message router context", e);
-                }
-            }
-            return ctx;
-        });
+    @NotNull
+    private MessageRouterContext createMessageRouterContext() {
+        MessageRouterMonitor contextMonitor = new BroadcastMessageRouterMonitor(
+                new LogMessageRouterMonitor(),
+                new EventMessageRouterMonitor(
+                        getEventBatchRouter(),
+                        getRootEventId()
+                )
+        );
+
+        return createRouterContext(contextMonitor);
+    }
+
+    @NotNull
+    private MessageRouterContext createRouterContext(MessageRouterMonitor contextMonitor) {
+        return new DefaultMessageRouterContext(
+                getRabbitMqConnectionManager(),
+                contextMonitor,
+                getMessageRouterConfiguration(),
+                getBoxConfiguration()
+        );
     }
 
     protected PrometheusConfiguration loadPrometheusConfiguration() {
@@ -675,12 +661,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected ConnectionManager getRabbitMqConnectionManager() {
-        return rabbitMqConnectionManager.updateAndGet(connectionManager -> {
-            if (connectionManager == null) {
-                return createRabbitMQConnectionManager();
-            }
-            return connectionManager;
-        });
+        return rabbitMqConnectionManager.get();
     }
 
     public MessageID.Builder newMessageIDBuilder() {
@@ -697,64 +678,35 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     public void close() {
         LOGGER.info("Closing common factory");
 
-        messageRouterParsedBatch.getAndUpdate(router -> {
-            if (router != null) {
-                try {
-                    router.close();
-                } catch (Exception e) {
-                    LOGGER.error("Failed to close message router for parsed message batches", e);
-                }
-            }
+        try {
+            messageRouterParsedBatch.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close message router for parsed message batches", e);
+        }
 
-            return router;
-        });
+        try {
+            messageRouterRawBatch.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close message router for raw message batches", e);
+        }
 
-        messageRouterRawBatch.getAndUpdate(router -> {
-            if (router != null) {
-                try {
-                    router.close();
-                } catch (Exception e) {
-                    LOGGER.error("Failed to close message router for raw message batches", e);
-                }
-            }
+        try {
+            messageRouterMessageGroupBatch.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close message router for message group batches", e);
+        }
 
-            return router;
-        });
+        try {
+            rabbitMqConnectionManager.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close RabbitMQ connection", e);
+        }
 
-        messageRouterMessageGroupBatch.getAndUpdate(router -> {
-            if (router != null) {
-                try {
-                    router.close();
-                } catch (Exception e) {
-                    LOGGER.error("Failed to close message router for message group batches", e);
-                }
-            }
-
-            return router;
-        });
-
-        rabbitMqConnectionManager.updateAndGet(connection -> {
-            if (connection != null) {
-                try {
-                    connection.close();
-                } catch (Exception e) {
-                    LOGGER.error("Failed to close RabbitMQ connection", e);
-                }
-            }
-            return connection;
-        });
-
-        grpcRouter.getAndUpdate(router -> {
-            if (router != null) {
-                try {
-                    router.close();
-                } catch (Exception e) {
-                    LOGGER.error("Failed to close gRPC router", e);
-                }
-            }
-
-            return router;
-        });
+        try {
+            grpcRouter.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close gRPC router", e);
+        }
 
         customMessageRouters.forEach((messageType, router) -> {
             try {
@@ -764,28 +716,17 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             }
         });
 
-        cradleManager.getAndUpdate(manager -> {
-            if (manager != null) {
-                try {
-                    manager.close();
-                } catch (Exception e) {
-                    LOGGER.error("Failed to close Cradle manager", e);
-                }
-            }
+        try {
+            cradleManager.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close Cradle manager", e);
+        }
 
-            return manager;
-        });
-
-        prometheusExporter.updateAndGet(server -> {
-            if (server != null) {
-                try {
-                    server.close();
-                } catch (Exception e) {
-                    LOGGER.error("Failed to close Prometheus exporter", e);
-                }
-            }
-            return null;
-        });
+        try {
+            prometheusExporter.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close Prometheus exporter", e);
+        }
 
         LOGGER.info("Common factory has been closed");
     }
