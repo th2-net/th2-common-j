@@ -84,7 +84,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE;
@@ -186,6 +185,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     public void start() {
         DefaultExports.initialize();
 
+        // init exporter
+        prometheusExporter.getOrNull();
         livenessMonitor.enable();
     }
 

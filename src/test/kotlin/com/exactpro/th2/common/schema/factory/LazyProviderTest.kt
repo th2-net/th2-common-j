@@ -16,8 +16,13 @@
 
 package com.exactpro.th2.common.schema.factory
 
+import com.exactpro.th2.common.schema.exception.CommonFactoryException
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.RepeatedTest
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
@@ -29,6 +34,8 @@ import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.ThreadLocalRandom
+import kotlin.test.assertContains
+import kotlin.test.assertNotNull
 
 internal class LazyProviderTest {
     @RepeatedTest(50)
@@ -130,6 +137,24 @@ internal class LazyProviderTest {
             possibleErrors.any { errorMessage.endsWith(it) }
         }) {
             "unexpected errors thrown: $errors"
+        }
+    }
+
+    @Test
+    fun `null resources`() {
+        val provider = LazyProvider.lazy<Int?>("test") { null }
+        Assertions.assertEquals(null, provider.get(), "unexpected value")
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `exception in supplier`(safeCall: Boolean) {
+        val provider = LazyProvider.lazy<Unit>("test") { error("supplier error") }
+        val ex = assertThrows<CommonFactoryException> {
+            if (safeCall) provider.getOrNull() else provider.get()
+        }
+        assertNotNull(ex.cause?.message, "no cause") {
+            assertContains(it, "supplier error")
         }
     }
 }

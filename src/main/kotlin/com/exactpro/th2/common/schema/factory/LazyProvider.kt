@@ -32,19 +32,32 @@ internal class LazyProvider<T : Any?> private constructor(
     }
 
     fun get(): T {
+        return getState().value
+    }
+
+    /**
+     * The difference from [get] method is that this one does not throw an exception
+     * if provider already closed.
+     * However, it will still throw an exception if value initialization is failed
+     */
+    fun getOrNull(): T? {
+        return getState().takeIf { it is State.Hold }?.value
+    }
+
+    private fun getState(): State<T> {
         return if (reference.compareAndSet(null, State.Init)) {
             val holder = State.Hold(initialize())
             if (!reference.compareAndSet(State.Init, holder)) {
                 onClose.consume(holder.value)
                 error("provider '$name' already closed")
             }
-            holder.value
+            holder
         } else {
             var currentState: State<T>?
             do {
                 currentState = reference.get()
             } while (currentState == State.Init || currentState == null)
-            currentState.value
+            currentState
         }
     }
 
