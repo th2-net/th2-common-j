@@ -501,11 +501,14 @@ dependencies {
 
 ## Release notes
 
-### 5.6.1-dev
+### 5.7.0-dev
 
 #### Fix:
 + gRPC `retryConfiguration` has been moved from grpc.json to grpc_router.json
 + the whole default gRPC retry interval is about 1 hour
+
+#### Updated:
++ grpc-service-generator: `3.5.0`
 
 ### 5.6.0-dev
 

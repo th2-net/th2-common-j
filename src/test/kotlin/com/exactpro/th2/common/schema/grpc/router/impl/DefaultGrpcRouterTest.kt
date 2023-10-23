@@ -27,6 +27,9 @@ import com.exactpro.th2.common.test.grpc.Request
 import com.exactpro.th2.common.test.grpc.Response
 import com.exactpro.th2.common.test.grpc.TestGrpc.TestImplBase
 import com.exactpro.th2.common.test.grpc.TestService
+import com.exactpro.th2.service.AbstractGrpcService.STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST
+import io.grpc.Context
+import io.grpc.Deadline
 import io.grpc.Server
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
@@ -39,11 +42,16 @@ import org.testcontainers.shaded.com.google.common.util.concurrent.ThreadFactory
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 @IntegrationTest
 internal class DefaultGrpcRouterTest {
@@ -53,16 +61,16 @@ internal class DefaultGrpcRouterTest {
     private val executor = Executors.newSingleThreadExecutor(
         ThreadFactoryBuilder().setNameFormat("test-%d").build()
     )
+    private val deadlineExecutor = Executors.newSingleThreadScheduledExecutor(
+        ThreadFactoryBuilder().setNameFormat("test-deadline-%d").build()
+    )
 
     @AfterEach
     fun afterEach() {
         grpcRouterServer.close()
         grpcRouterClient.close()
-        executor.shutdown()
-        if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
-            executor.shutdownNow()
-            error("'Executor' can't be stopped")
-        }
+        executor.shutdownGracefully()
+        deadlineExecutor.shutdownGracefully()
     }
 
     @Test
@@ -86,7 +94,7 @@ internal class DefaultGrpcRouterTest {
         }
 
         clientServerBaton.get("wait client thread start")
-        Thread.sleep(1_000)
+        Thread.sleep(RETRY_TIMEOUT * 2)
 
         createServer().use {
             val response = future.get(1, TimeUnit.MINUTES)
@@ -96,28 +104,62 @@ internal class DefaultGrpcRouterTest {
     }
 
     @Test
-    fun `single request single response - server terminated intermediate session`() {
+    fun `single request single response - server is terminated in intermediate session (retry false)`() {
         val clientServerBaton = Baton("client-server")
         val future = executor.submit<Response> {
             clientServerBaton.giveAndGet("client thread started", "wait server start")
-//        FIXME: client should differ Interrupted request and Connection refused
-//            return@submit assertThrows<Exception> {
-                return@submit createClient().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
-//            }
+            createClient().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
         }
-
-        clientServerBaton.get("wait client thread start")
 
         val handlerBaton = Baton("handler")
 
         createServer(completeResponse = false, handlerBaton = handlerBaton).use(true) {
+            clientServerBaton.get("wait client thread start")
             clientServerBaton.give("server started")
             handlerBaton.get("wait response sent")
+            Thread.sleep(RETRY_TIMEOUT / 2)
         }
 
-//        FIXME: client should differ Interrupted request and Connection refused
-//        val exception = future.get(1, TimeUnit.MINUTES)
-//        assertEquals("", exception.message)
+        val exception = assertThrows<ExecutionException> {
+            future.get(1, TimeUnit.MINUTES)
+        }
+        K_LOGGER.error(exception) { "Handle exception" }
+
+        assertException(
+            exception, ExceptionMetadata(
+                "java.lang.RuntimeException: Can not execute GRPC blocking request",
+                ExceptionMetadata(
+                    "Can not execute GRPC blocking request",
+                    suspended = listOf(
+                        ExceptionMetadata(
+                            "CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                        ),
+                    )
+                ),
+            )
+        )
+    }
+
+    @Test
+    fun `single request single response - server is terminated in intermediate session (retry true)`() {
+        val clientServerBaton = Baton("client-server")
+        val future = executor.submit<Response> {
+            clientServerBaton.giveAndGet("client thread started", "wait server start")
+            createClient(retryInterruptedTransaction = true).singleRequestSingleResponse(
+                Request.newBuilder().setSeq(1).build()
+            )
+        }
+
+        val handlerBaton = Baton("handler")
+
+        createServer(completeResponse = false, handlerBaton = handlerBaton).use(true) {
+            clientServerBaton.get("wait client thread start")
+            clientServerBaton.give("server started")
+            handlerBaton.get("wait response sent")
+            Thread.sleep(RETRY_TIMEOUT / 2)
+        }
+
+        assertFalse(future.isDone)
 
         DefaultGrpcRouter().use { grpcRouter ->
             createServer(grpcRouter = grpcRouter).use {
@@ -129,11 +171,155 @@ internal class DefaultGrpcRouterTest {
     }
 
     @Test
+    fun `single request single response - cancel request`() {
+        val clientServerBaton = Baton("client-server")
+        val grpcContext = AtomicReference<Context.CancellableContext>()
+
+        val future = executor.submit<Response> {
+            grpcContext.set(
+                Context.current()
+                    .withCancellation()
+            )
+
+            clientServerBaton.give("client thread started")
+            grpcContext.get().call {
+                createClient().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+            }
+        }
+
+        clientServerBaton.get("wait client thread start")
+        Thread.sleep(RETRY_TIMEOUT / 2)
+        val cancelExceptionMessage = "test request is canceled"
+        assertTrue(grpcContext.get().cancel(RuntimeException(cancelExceptionMessage)))
+
+        val exception = assertThrows<ExecutionException> {
+            future.get(1, TimeUnit.MINUTES)
+        }
+        K_LOGGER.error(exception) { "Handle exception" }
+
+        assertException(
+            exception, ExceptionMetadata(
+                "java.lang.RuntimeException: Can not execute GRPC blocking request",
+                ExceptionMetadata(
+                    "Can not execute GRPC blocking request",
+                    suspended = listOf(
+                        ExceptionMetadata(
+                            "UNAVAILABLE: io exception",
+                            ExceptionMetadata(
+                                "Connection refused: localhost/127.0.0.1:8080",
+                                ExceptionMetadata(
+                                    "Connection refused"
+                                )
+                            ),
+                        ),
+                        ExceptionMetadata(
+                            "CANCELLED: Context cancelled",
+                            ExceptionMetadata(
+                                cancelExceptionMessage,
+                            )
+                        ),
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `single request single response - deadline request`() {
+        val clientServerBaton = Baton("client-server")
+
+        val future = executor.submit<Response> {
+            clientServerBaton.give("client thread started")
+            Context.current()
+                .withDeadline(Deadline.after(RETRY_TIMEOUT / 2, TimeUnit.MILLISECONDS), deadlineExecutor)
+                .call {
+                    createClient().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+                }
+        }
+
+        clientServerBaton.get("wait client thread start")
+
+        val exception = assertThrows<ExecutionException> {
+            future.get(1, TimeUnit.MINUTES)
+        }
+        K_LOGGER.error(exception) { "Handle exception" }
+
+        assertException(
+            exception, ExceptionMetadata(
+                "java.lang.RuntimeException: Can not execute GRPC blocking request",
+                ExceptionMetadata(
+                    "Can not execute GRPC blocking request",
+                    suspended = listOf(
+                        ExceptionMetadata(
+                            "UNAVAILABLE: io exception",
+                            ExceptionMetadata(
+                                "Connection refused: localhost/127.0.0.1:8080",
+                                ExceptionMetadata(
+                                    "Connection refused"
+                                )
+                            ),
+                        ),
+                        ExceptionMetadata(
+                            "DEADLINE_EXCEEDED: context timed out",
+                            ExceptionMetadata(
+                                "context timed out",
+                            )
+                        ),
+                    )
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `single request single response - interrupt thread`() {
+        val clientServerBaton = Baton("client-server")
+
+        val future = executor.submit<Response> {
+            clientServerBaton.give("client thread started")
+            createClient().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+        }
+
+        clientServerBaton.get("wait client thread start")
+        Thread.sleep(RETRY_TIMEOUT / 2)
+
+        assertEquals(0, executor.shutdownNow().size)
+
+        val exception = assertThrows<ExecutionException> {
+            future.get(1, TimeUnit.MINUTES)
+        }
+        K_LOGGER.error(exception) { "Handle exception" }
+
+        assertException(
+            exception, ExceptionMetadata(
+                "java.lang.RuntimeException: Can not execute GRPC blocking request",
+                ExceptionMetadata(
+                    "Can not execute GRPC blocking request",
+                    suspended = listOf(
+                        ExceptionMetadata(
+                            "UNAVAILABLE: io exception",
+                            ExceptionMetadata(
+                                "Connection refused: localhost/127.0.0.1:8080",
+                                ExceptionMetadata(
+                                    "Connection refused"
+                                )
+                            ),
+                        ),
+                        ExceptionMetadata(
+                            "sleep interrupted"
+                        ),
+                    )
+                )
+            )
+        )
+    }
+
+
+    @Test
     fun `single request multiple response`() {
         createServer().use {
-            val responses = executor.submit<List<Response>> {
-                createClient().singleRequestMultipleResponse(Request.newBuilder().setSeq(1).build()).asSequence().toList()
-            }.get(1, TimeUnit.SECONDS)
+            val responses = createClient().singleRequestMultipleResponse(Request.newBuilder().setSeq(1).build())
+                .asSequence().toList()
 
             assertEquals(2, responses.size)
             responses.forEachIndexed { index, response ->
@@ -149,48 +335,89 @@ internal class DefaultGrpcRouterTest {
         val exception = assertThrows<StatusRuntimeException> {
             // FIXME: gRPC router should retry to resend request when server isn't available.
             //  iterator can throw exception when server disappears in the intermediate of response retransmission
+            //  and retryInterruptedTransaction false
             iterator.hasNext()
         }
-        exception.printStackTrace()
-        assertEquals("UNAVAILABLE: io exception", exception.message)
-        var cause = exception.cause
-        assertNotNull(cause)
-        assertEquals("Connection refused: localhost/127.0.0.1:8080", cause.message)
-        cause = cause.cause
-        assertNotNull(cause)
-        assertEquals("Connection refused", cause.message)
-        assertNull(cause.cause)
+        K_LOGGER.error(exception) { "Handle exception" }
+        assertException(
+            exception, ExceptionMetadata(
+                "UNAVAILABLE: io exception",
+                cause = ExceptionMetadata(
+                    "Connection refused: localhost/127.0.0.1:8080",
+                    cause = ExceptionMetadata(
+                        "Connection refused"
+                    )
+                )
+            )
+        )
     }
 
     @Test
-    fun `single request multiple response - server terminated intermediate session`() {
+    fun `single request multiple response - server terminated intermediate session (retry false)`() {
         val clientServerBaton = Baton("client-server")
-        val future = executor.submit<StatusRuntimeException> {
+        val future = executor.submit<List<Response>> {
             clientServerBaton.giveAndGet("client thread started", "wait server start")
-            return@submit assertThrows<StatusRuntimeException> {
-                createClient().singleRequestMultipleResponse(Request.newBuilder().setSeq(1).build()).asSequence().toList()
-            }
+            createClient().singleRequestMultipleResponse(Request.newBuilder().setSeq(1).build())
+                .asSequence().toList()
         }
-
-        clientServerBaton.get("wait client thread start")
 
         val handlerBaton = Baton("handler")
 
         createServer(completeResponse = true, handlerBaton = handlerBaton).use(true) {
+            clientServerBaton.get("wait client thread start")
             clientServerBaton.give("server started")
             handlerBaton.get("wait response sent")
+            Thread.sleep(RETRY_TIMEOUT / 2)
         }
 
-        val exception = future.get(1, TimeUnit.MINUTES)
-        exception.printStackTrace()
-        assertEquals("UNAVAILABLE: io exception", exception.message)
-        var cause = exception.cause
-        assertNotNull(cause)
-        assertEquals("Connection refused: localhost/127.0.0.1:8080", cause.message)
-        cause = cause.cause
-        assertNotNull(cause)
-        assertEquals("Connection refused", cause.message)
-        assertNull(cause.cause)
+        val exception = assertThrows<ExecutionException> {
+            future.get(1, TimeUnit.MINUTES)
+        }
+        K_LOGGER.error(exception) { "Handle exception" }
+        assertException(
+            exception, ExceptionMetadata(
+                "io.grpc.StatusRuntimeException: CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                ExceptionMetadata(
+                    "CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `single request multiple response - server terminated intermediate session (retry true)`() {
+        val clientServerBaton = Baton("client-server")
+        val future = executor.submit<List<Response>> {
+            clientServerBaton.giveAndGet("client thread started", "wait server start")
+            // FIXME: gRPC router should retry to resend request when server is terminated intermediate handling.
+            //  iterator can throw exception when server disappears in the intermediate of response retransmission
+            //  and retryInterruptedTransaction false
+            createClient(retryInterruptedTransaction = true).singleRequestMultipleResponse(
+                Request.newBuilder().setSeq(1).build()
+            ).asSequence().toList()
+        }
+
+        val handlerBaton = Baton("handler")
+
+        createServer(completeResponse = true, handlerBaton = handlerBaton).use(true) {
+            clientServerBaton.get("wait client thread start")
+            clientServerBaton.give("server started")
+            handlerBaton.get("wait response sent")
+            Thread.sleep(RETRY_TIMEOUT / 2)
+        }
+
+        val exception = assertThrows<ExecutionException> {
+            future.get(1, TimeUnit.MINUTES)
+        }
+        K_LOGGER.error(exception) { "Handle exception" }
+        assertException(
+            exception, ExceptionMetadata(
+                "io.grpc.StatusRuntimeException: CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                ExceptionMetadata(
+                    "CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                )
+            )
+        )
     }
 
     private fun createClient(
@@ -198,20 +425,23 @@ internal class DefaultGrpcRouterTest {
             RobinRoutingStrategy().apply { init(GrpcRawRobinStrategy(listOf("endpoint"))) },
             TestService::class.java,
             mapOf("endpoint" to GrpcEndpointConfiguration("localhost", SERVER_PORT))
-        )
+        ),
+        retryInterruptedTransaction: Boolean = false
     ): TestService {
         grpcRouterClient.init(
             GrpcConfiguration(services = mapOf("test" to configuration)),
             GrpcRouterConfiguration(
                 retryConfiguration = GrpcRetryConfiguration(
                     Int.MAX_VALUE,
-                    500,
-                    500
+                    RETRY_TIMEOUT,
+                    RETRY_TIMEOUT,
+                    retryInterruptedTransaction
                 )
             )
         )
         return grpcRouterClient.getService(TestService::class.java)
     }
+
     private fun createServer(
         configuration: GrpcServerConfiguration = GrpcServerConfiguration(
             null,
@@ -224,10 +454,12 @@ internal class DefaultGrpcRouterTest {
         grpcRouter.init(GrpcConfiguration(serverConfiguration = configuration), GrpcRouterConfiguration())
         return grpcRouter.startServer(TestServiceHandler(completeResponse, handlerBaton)).apply(Server::start)
     }
+
     companion object {
         private val K_LOGGER = KotlinLogging.logger { }
 
         private const val SERVER_PORT = 8080
+        private const val RETRY_TIMEOUT = 1_000L
         private inline fun Server.use(force: Boolean = false, func: Server.() -> Unit) {
             try {
                 val startTime = Instant.now()
@@ -246,6 +478,57 @@ internal class DefaultGrpcRouterTest {
             }
         }
 
+        private fun assertException(
+            exception: Throwable,
+            exceptionMetadata: ExceptionMetadata,
+            path: List<String?> = emptyList()
+        ) {
+            assertEquals(
+                exceptionMetadata.message,
+                exception.message,
+                "Message for exception: $exception, path: ${path.printAsStackTrace()}"
+            )
+            exceptionMetadata.suspended?.let { suspendMetadataList ->
+                assertEquals(
+                    suspendMetadataList.size,
+                    exception.suppressed.size,
+                    "Suspended for exception: $exception, path: ${path.printAsStackTrace()}"
+                )
+                suspendMetadataList.forEachIndexed { index, suspendMetadata ->
+                    assertException(
+                        exception.suppressed[index],
+                        suspendMetadata,
+                        path.plus(listOf(exception.message, "[$index]"))
+                    )
+                }
+            } ?: assertEquals(
+                0,
+                exception.suppressed.size,
+                "Suspended for exception: $exception, path: ${path.printAsStackTrace()}"
+            )
+            exceptionMetadata.cause?.let { causeMetadata ->
+                assertNotNull(exception.cause, "Cause for exception: $exception, path: ${path.printAsStackTrace()}")
+                    .also { assertException(it, causeMetadata, path.plus(exception.message)) }
+            } ?: assertNull(exception.cause, "Cause for exception: $exception, path: ${path.printAsStackTrace()}")
+        }
+
+        private fun List<String?>.printAsStackTrace() = asSequence()
+            .joinToString(separator = "\n -> ", prefix = "\n -> ")
+
+        private fun ExecutorService.shutdownGracefully() {
+            shutdown()
+            if (!awaitTermination(1, TimeUnit.SECONDS)) {
+                shutdownNow()
+                error("'Executor' can't be stopped")
+            }
+        }
+
+        private class ExceptionMetadata(
+            val message: String? = null,
+            val cause: ExceptionMetadata? = null,
+            val suspended: List<ExceptionMetadata>? = null
+        )
+
         private class Baton(
             private val name: String
         ) {
@@ -255,17 +538,20 @@ internal class DefaultGrpcRouterTest {
                 give(giveComment)
                 get(getComment)
             }
+
             fun give(comment: String = "") {
                 K_LOGGER.info { "'$name' baton is giving by [${Thread.currentThread().name}] - $comment" }
                 queue.put(Any())
                 K_LOGGER.info { "'$name' baton is given by [${Thread.currentThread().name}] - $comment" }
             }
+
             fun get(comment: String = "") {
                 K_LOGGER.info { "'$name' baton is getting by [${Thread.currentThread().name}] - $comment" }
                 queue.poll()
                 K_LOGGER.info { "'$name' baton is got by [${Thread.currentThread().name}] - $comment" }
             }
         }
+
         private class TestServiceHandler(
             private val complete: Boolean = true,
             private val responseBaton: Baton? = null,
