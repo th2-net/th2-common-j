@@ -77,7 +77,7 @@ public class ConnectionManager implements AutoCloseable {
     public static final String EMPTY_ROUTING_KEY = "";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
-    public final Connection connection;
+    private final Connection connection;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
     private final ConnectionManagerConfiguration configuration;
@@ -264,8 +264,9 @@ public class ConnectionManager implements AutoCloseable {
                                 .stream()
                                 .filter(entry -> Objects.nonNull(entry.getValue().channel) && channel.getChannelNumber() == entry.getValue().channel.getChannelNumber())
                                 .findAny();
-                if (pinToChannelHolderOptional.isPresent()) {
-                    var pinIdToChannelHolder = pinToChannelHolderOptional.get();
+
+                var pinIdToChannelHolder = pinToChannelHolderOptional.orElse(null);
+                if (pinIdToChannelHolder != null) {
                     PinId pinId = pinIdToChannelHolder.getKey();
                     ChannelHolder channelHolder = pinIdToChannelHolder.getValue();
 

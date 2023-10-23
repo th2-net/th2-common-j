@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.6.1)
+# th2 common library (Java) (5.7.0)
 
 ## Usage
 
@@ -491,6 +491,14 @@ dependencies {
 
 ## Release notes
 
+### 5.7.0-dev
+
++ Added retry in case of a RabbitMQ channel or connection error (when possible).
++ Added InterruptedException to basicConsume method signature.
++ Added additional logging for RabbitMQ errors.
++ Fixed connection recovery delay time.
++ Integration tests for these scenarios.
+
 ### 5.6.0-dev
 
 #### Added:
@@ -590,8 +598,6 @@ dependencies {
 + Added `prepareStorage` property to `cradle.json`
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
 + Added `isRedelivered` flag to message
-
----
 
 ### 3.44.1
 
