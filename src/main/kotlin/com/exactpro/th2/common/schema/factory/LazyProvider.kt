@@ -56,6 +56,7 @@ internal class LazyProvider<T : Any?> private constructor(
             var currentState: State<T>?
             do {
                 currentState = reference.get()
+                Thread.yield()
             } while (currentState == State.Init || currentState == null)
             currentState
         }
