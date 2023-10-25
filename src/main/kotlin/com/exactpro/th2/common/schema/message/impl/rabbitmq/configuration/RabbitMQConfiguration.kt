@@ -41,7 +41,8 @@ data class ConnectionManagerConfiguration(
     var retryTimeDeviationPercent: Int = 10,
     val messageRecursionLimit: Int = 100,
     val workingThreads: Int = 1,
-    val confirmationTimeout: Duration = Duration.ofMinutes(5)
+    val confirmationTimeout: Duration = Duration.ofMinutes(5),
+    val isAutomaticRecoveryEnabled: Boolean = true
 ) : Configuration() {
     init {
         check(workingThreads > 0) { "expected 'workingThreads' greater than 0 but was $workingThreads" }

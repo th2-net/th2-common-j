@@ -17,6 +17,9 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
 import com.exactpro.th2.common.annotations.IntegrationTest
+import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.DEFAULT_CONFIRMATION_TIMEOUT
+import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.DEFAULT_PREFETCH_COUNT
+import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.RABBITMQ_IMAGE_NAME
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
@@ -47,7 +50,6 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
-import org.testcontainers.utility.DockerImageName
 import org.testcontainers.utility.MountableFile
 import java.io.IOException
 import kotlin.test.assertFailsWith
@@ -68,13 +70,13 @@ class TestConnectionManager {
                 declareQueue(rabbit, queueName)
                 declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val queue = ArrayBlockingQueue<ManualAckDeliveryCallback.Confirmation>(PREFETCH_COUNT)
-                val countDown = CountDownLatch(PREFETCH_COUNT)
+                val queue = ArrayBlockingQueue<ManualAckDeliveryCallback.Confirmation>(DEFAULT_PREFETCH_COUNT)
+                val countDown = CountDownLatch(DEFAULT_PREFETCH_COUNT)
                 createConnectionManager(
                     it, ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                     )
                 ).use { manager ->
                     manager.basicConsume(queueName, { _, delivery, ack ->
@@ -85,7 +87,7 @@ class TestConnectionManager {
                         LOGGER.info { "Canceled $it" }
                     }
 
-                    repeat(PREFETCH_COUNT + 1) { index ->
+                    repeat(DEFAULT_PREFETCH_COUNT + 1) { index ->
                         manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
                     }
 
@@ -94,7 +96,7 @@ class TestConnectionManager {
                     assertTrue(manager.isAlive) { "Manager should still be alive" }
                     assertTrue(manager.isReady) { "Manager should be ready until the confirmation timeout expires" }
 
-                    Thread.sleep(CONFIRMATION_TIMEOUT.toMillis() + 100/*just in case*/) // wait for confirmation timeout
+                    Thread.sleep(DEFAULT_CONFIRMATION_TIMEOUT.toMillis() + 100/*just in case*/) // wait for confirmation timeout
 
                     assertTrue(manager.isAlive) { "Manager should still be alive" }
                     assertFalse(manager.isReady) { "Manager should not be ready" }
@@ -107,7 +109,7 @@ class TestConnectionManager {
                     val receivedData = generateSequence { queue.poll(10L, TimeUnit.MILLISECONDS) }
                         .onEach(ManualAckDeliveryCallback.Confirmation::confirm)
                         .count()
-                    assertEquals(PREFETCH_COUNT, receivedData) { "Unexpected number of messages received" }
+                    assertEquals(DEFAULT_PREFETCH_COUNT, receivedData) { "Unexpected number of messages received" }
                 }
             }
     }
@@ -122,8 +124,8 @@ class TestConnectionManager {
                     rabbitMQContainer,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -196,8 +198,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -251,7 +253,7 @@ class TestConnectionManager {
         val configFilename = "rabbitmq_it.conf"
         val queueName = "queue4"
 
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
             .withQueue(queueName)
             .use {
@@ -262,8 +264,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -316,7 +318,7 @@ class TestConnectionManager {
         val configFilename = "rabbitmq_it.conf"
         val queueNames = arrayOf("separate_queues1", "separate_queues2", "separate_queues3")
 
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
             .withQueue(queueNames[0])
             .withQueue(queueNames[1])
@@ -333,8 +335,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -410,7 +412,7 @@ class TestConnectionManager {
     fun `connection manager receives a messages after container restart`() {
         val queueName = "queue5"
         val amqpPort = 5672
-        val container = object : RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME)) {
+        val container = object : RabbitMQContainer(RABBITMQ_IMAGE_NAME) {
             fun addFixedPort(hostPort: Int, containerPort: Int) {
                 super.addFixedExposedPort(hostPort, containerPort)
             }
@@ -433,8 +435,8 @@ class TestConnectionManager {
                     ),
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 1000,
                         maxConnectionRecoveryTimeout = 2000,
                         connectionTimeout = 1000,
@@ -489,8 +491,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 10000,
                         maxConnectionRecoveryTimeout = 20000,
                         connectionTimeout = 10000,
@@ -538,7 +540,7 @@ class TestConnectionManager {
         val routingKey = "routingKey7"
 
 
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
             .withExchange(exchange, BuiltinExchangeType.FANOUT.type, false, false, true, emptyMap())
             .withQueue(queueName)
@@ -551,8 +553,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -612,8 +614,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 2000,
                         connectionTimeout = 1000,
@@ -663,8 +665,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 2000,
                         connectionTimeout = 1000,
@@ -718,7 +720,7 @@ class TestConnectionManager {
         val configFilename = "rabbitmq_it.conf"
         val queueName = "queue"
 
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
             .withQueue(queueName)
             .use {
@@ -729,8 +731,8 @@ class TestConnectionManager {
                     it,
                     ConnectionManagerConfiguration(
                         subscriberName = "test",
-                        prefetchCount = PREFETCH_COUNT,
-                        confirmationTimeout = CONFIRMATION_TIMEOUT,
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
@@ -809,7 +811,6 @@ class TestConnectionManager {
         assertEquals(target, func(), message)
     }
 
-
     private fun createConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
         ConnectionManager(
             RabbitMQConfiguration(
@@ -827,7 +828,7 @@ class TestConnectionManager {
     // TODO: this test is no more relevant
     // TODO: we need to change test scenario or remove it
     fun `connection manager exclusive queue test`() {
-        RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .use { rabbitMQContainer ->
                 rabbitMQContainer.start()
                 LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
@@ -890,8 +891,9 @@ class TestConnectionManager {
 
     private fun createConnectionManager(
         rabbitMQContainer: RabbitMQContainer,
-        prefetchCount: Int = PREFETCH_COUNT,
-        confirmationTimeout: Duration = CONFIRMATION_TIMEOUT
+        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
+        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT,
+        isAutomaticRecoveryEnabled: Boolean = true
     ) = ConnectionManager(
         RabbitMQConfiguration(
             host = rabbitMQContainer.host,
@@ -904,19 +906,17 @@ class TestConnectionManager {
             subscriberName = "test",
             prefetchCount = prefetchCount,
             confirmationTimeout = confirmationTimeout,
+            isAutomaticRecoveryEnabled = isAutomaticRecoveryEnabled
         ),
     )
 
     companion object {
-        private const val RABBIT_IMAGE_NAME = "rabbitmq:3.8-management-alpine"
         private lateinit var rabbit: RabbitMQContainer
-        private const val PREFETCH_COUNT = 10
-        private val CONFIRMATION_TIMEOUT = Duration.ofSeconds(1)
 
         @BeforeAll
         @JvmStatic
         fun initRabbit() {
-            rabbit = RabbitMQContainer(DockerImageName.parse(RABBIT_IMAGE_NAME))
+            rabbit = RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             rabbit.start()
         }
 

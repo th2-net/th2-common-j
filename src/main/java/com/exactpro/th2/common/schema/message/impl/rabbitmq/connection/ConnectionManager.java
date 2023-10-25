@@ -191,7 +191,7 @@ public class ConnectionManager implements AutoCloseable {
             }
         });
 
-        factory.setAutomaticRecoveryEnabled(true);
+        factory.setAutomaticRecoveryEnabled(configuration.isAutomaticRecoveryEnabled());
         factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get());
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
