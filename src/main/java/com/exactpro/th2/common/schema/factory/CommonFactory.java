@@ -73,7 +73,6 @@ import java.util.stream.Stream;
 import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElseGet;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
@@ -91,7 +90,6 @@ public class CommonFactory extends AbstractCommonFactory {
     static final String ROUTER_GRPC_CFG_ALIAS = "grpc_router";
     static final String CRADLE_CONFIDENTIAL_CFG_ALIAS = "cradle";
     static final String PROMETHEUS_CFG_ALIAS = "prometheus";
-    static final String CUSTOM_CFG_ALIAS = "custom";
     static final String BOX_CFG_ALIAS = "box";
     static final String CONNECTION_MANAGER_CFG_ALIAS = "mq_router";
     static final String CRADLE_NON_CONFIDENTIAL_CFG_ALIAS = "cradle_manager";
@@ -115,7 +113,6 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_MANAGER_CONFIG_MAP = "cradle-manager";
     private static final String LOGGING_CONFIG_MAP = "logging-config";
 
-    private final Path custom;
     private final Path dictionaryTypesDir;
     private final Path dictionaryAliasesDir;
     private final Path oldDictionariesDir;
@@ -126,22 +123,17 @@ public class CommonFactory extends AbstractCommonFactory {
 
     public CommonFactory(FactorySettings settings) {
         super(settings);
-        custom = defaultPathIfNull(settings.getCustom(), CUSTOM_CFG_ALIAS);
-        dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), DICTIONARY_TYPE_DIR_NAME);
-        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), DICTIONARY_ALIAS_DIR_NAME);
-        oldDictionariesDir = requireNonNullElseGet(settings.getOldDictionariesDir(), CommonFactory::getConfigPath);
+        dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), settings.getBaseConfigDir(), DICTIONARY_TYPE_DIR_NAME);
+        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), settings.getBaseConfigDir(), DICTIONARY_ALIAS_DIR_NAME);
+        oldDictionariesDir = defaultPathIfNull(settings.getOldDictionariesDir(), settings.getBaseConfigDir(), "");
+
         configurationProvider = createConfigurationProvider(settings);
-        configurationManager = createConfigurationManager(configurationProvider, settings);
+        configurationManager = createConfigurationManager(configurationProvider);
         start();
     }
 
     public CommonFactory() {
         this(new FactorySettings());
-    }
-
-    @Override
-    protected Path getPathToCustomConfiguration() {
-        return custom;
     }
 
     @Override
@@ -245,7 +237,7 @@ public class CommonFactory extends AbstractCommonFactory {
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
 
-            Path configs = getConfigPath(cmd.getOptionValue(configOption.getLongOpt()));
+            Path configs = calculateCmdPath(cmd.getOptionValue(configOption.getLongOpt()));
 
             if (cmd.hasOption(namespaceOption.getLongOpt()) && cmd.hasOption(boxNameOption.getLongOpt())) {
                 String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
@@ -276,24 +268,26 @@ public class CommonFactory extends AbstractCommonFactory {
                 return createFromKubernetes(namespace, boxName, contextName, dictionaries);
             }
 
-            if (!CONFIG_DEFAULT_PATH.equals(configs)) {
-                configureLogger(configs);
-            }
             FactorySettings settings = new FactorySettings();
-            settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_CFG_ALIAS));
-            settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_CFG_ALIAS));
-            settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CFG_ALIAS));
-            settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_CFG_ALIAS));
-            settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_CFG_ALIAS));
-            settings.setCradleConfidential(calculatePath(cmd, cradleConfidentialConfigurationOption, cradleConfigurationOption, configs, CRADLE_CONFIDENTIAL_CFG_ALIAS));
-            settings.setCradleNonConfidential(calculatePath(cmd, cradleManagerConfigurationOption, configs, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS));
-            settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_CFG_ALIAS));
-            settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_CFG_ALIAS));
-            settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_CFG_ALIAS));
-            settings.setDictionaryTypesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_TYPE_DIR_NAME));
-            settings.setDictionaryAliasesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_ALIAS_DIR_NAME));
-            String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
-            settings.setOldDictionariesDir(oldDictionariesDir == null ? configs : Path.of(oldDictionariesDir));
+            if (configs != null) {
+                settings.setBaseConfigDir(configs);
+                if (!CONFIG_DEFAULT_PATH.equals(configs)) {
+                    configureLogger(configs);
+                }
+            }
+            settings.setRabbitMQ(calculateCmdPath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt())));
+            settings.setRouterMQ(calculateCmdPath(cmd.getOptionValue(messageRouterConfigurationOption.getLongOpt())));
+            settings.setConnectionManagerSettings(calculateCmdPath(cmd.getOptionValue(connectionManagerConfigurationOption.getLongOpt())));
+            settings.setGrpc(calculateCmdPath(defaultIfNull(cmd.getOptionValue(grpcConfigurationOption.getLongOpt()), cmd.getOptionValue(grpcRouterConfigurationOption.getLongOpt()))));
+            settings.setRouterGRPC(calculateCmdPath(cmd.getOptionValue(grpcRouterConfigOption.getLongOpt())));
+            settings.setCradleConfidential(calculateCmdPath(cmd.getOptionValue(cradleConfidentialConfigurationOption.getLongOpt())));
+            settings.setCradleNonConfidential(calculateCmdPath(defaultIfNull(cmd.getOptionValue(cradleManagerConfigurationOption.getLongOpt()), cmd.getOptionValue(cradleConfigurationOption.getLongOpt()))));
+            settings.setPrometheus(calculateCmdPath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt())));
+            settings.setBoxConfiguration(calculateCmdPath(cmd.getOptionValue(boxConfigurationOption.getLongOpt())));
+            settings.setCustom(calculateCmdPath(cmd.getOptionValue(customConfigurationOption.getLongOpt())));
+            settings.setDictionaryTypesDir(calculateCmdPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
+            settings.setDictionaryAliasesDir(calculateCmdPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
+            settings.setOldDictionariesDir(calculateCmdPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
 
             return new CommonFactory(settings);
         } catch (ParseException e) {
@@ -560,6 +554,25 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     static @NotNull Path getConfigPath() {
+        return getConfigPath(null);
+    }
+
+    /**
+     * Priority:
+     *   1. passed via commandline arguments
+     *   2. {@value #TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY} system property
+     *   3. {@link #CONFIG_DEFAULT_PATH} default value
+     */
+    static @NotNull Path getConfigPath(@Nullable Path basePath) {
+        if (basePath != null) {
+            if (Files.exists(basePath) && Files.isDirectory(basePath)) {
+                return basePath;
+            }
+            LOGGER.warn("'{}' config directory passed via CMD doesn't exist or it is not a directory", basePath);
+        } else {
+            LOGGER.debug("Skipped blank CMD path for configs directory");
+        }
+
         String pathString = System.getProperty(TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY);
         if (pathString != null) {
             Path path = Paths.get(pathString);
@@ -577,21 +590,6 @@ public class CommonFactory extends AbstractCommonFactory {
             LOGGER.error("'{}' default config directory doesn't exist", CONFIG_DEFAULT_PATH);
         }
         return CONFIG_DEFAULT_PATH;
-    }
-
-    static @NotNull Path getConfigPath(@Nullable String cmdPath) {
-        String pathString = StringUtils.trim(cmdPath);
-        if (pathString != null) {
-            Path path = Paths.get(pathString);
-            if (Files.exists(path) && Files.isDirectory(path)) {
-                return path;
-            }
-            LOGGER.warn("'{}' config directory passed via CMD doesn't exist or it is not a directory", cmdPath);
-        } else {
-            LOGGER.debug("Skipped blank CMD path for configs directory");
-        }
-
-        return getConfigPath();
     }
 
     private static Path writeFile(Path configPath, String fileName, Map<String, String> configMap) throws IOException {
@@ -660,6 +658,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static IConfigurationProvider createConfigurationProvider(FactorySettings settings) {
         Map<String, Path> paths = new HashMap<>();
+        putIfNotNull(paths, CUSTOM_CFG_ALIAS, settings.getCustom());
         putIfNotNull(paths, RABBIT_MQ_CFG_ALIAS, settings.getRabbitMQ());
         putIfNotNull(paths, ROUTER_MQ_CFG_ALIAS, settings.getRouterMQ());
         putIfNotNull(paths, CONNECTION_MANAGER_CFG_ALIAS, settings.getConnectionManagerSettings());
@@ -669,9 +668,9 @@ public class CommonFactory extends AbstractCommonFactory {
         putIfNotNull(paths, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS, settings.getCradleNonConfidential());
         putIfNotNull(paths, PROMETHEUS_CFG_ALIAS, settings.getPrometheus());
         putIfNotNull(paths, BOX_CFG_ALIAS, settings.getBoxConfiguration());
-        return new JsonConfigurationProvider(getConfigPath(), paths);
+        return new JsonConfigurationProvider(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
     }
-    private static ConfigurationManager createConfigurationManager(IConfigurationProvider configurationProvider, FactorySettings settings) {
+    private static ConfigurationManager createConfigurationManager(IConfigurationProvider configurationProvider) {
         Map<Class<?>, String> paths = new HashMap<>();
         paths.put(RabbitMQConfiguration.class, RABBIT_MQ_CFG_ALIAS);
         paths.put(MessageRouterConfiguration.class, ROUTER_MQ_CFG_ALIAS);
@@ -686,8 +685,8 @@ public class CommonFactory extends AbstractCommonFactory {
         return new ConfigurationManager(configurationProvider, paths);
     }
 
-    private static Path defaultPathIfNull(Path path, String name) {
-        return path == null ? getConfigPath().resolve(name) : path;
+    private static Path defaultPathIfNull(Path customPath, Path basePath, String name) {
+        return customPath == null ? getConfigPath(basePath).resolve(name) : customPath;
     }
 
     private static void putIfNotNull(@NotNull Map<String, Path> paths, @NotNull String alias, @Nullable Path path) {
@@ -717,15 +716,8 @@ public class CommonFactory extends AbstractCommonFactory {
         return option;
     }
 
-    private static Path calculatePath(String path, @NotNull Path configsPath, String fileName) {
-        return path != null ? Path.of(path) : configsPath.resolve(fileName);
+    private static @Nullable Path calculateCmdPath(@Nullable String path) {
+        return path == null ? null : Path.of(path);
     }
 
-    private static Path calculatePath(CommandLine cmd, Option option, @NotNull Path configs, String fileName) {
-        return calculatePath(cmd.getOptionValue(option.getLongOpt()), configs, fileName);
-    }
-
-    private static Path calculatePath(CommandLine cmd, Option current, Option deprecated, @NotNull Path configs, String fileName) {
-        return calculatePath(defaultIfNull(cmd.getOptionValue(current.getLongOpt()), cmd.getOptionValue(deprecated.getLongOpt())), configs, fileName);
-    }
 }

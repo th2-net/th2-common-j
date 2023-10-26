@@ -62,12 +62,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -88,7 +86,6 @@ import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_COU
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX_UNCOMPRESSED_TEST_EVENT_SIZE;
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_RESULT_PAGE_SIZE;
 import static java.util.Objects.requireNonNull;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -105,9 +102,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final Path LOG4J_PROPERTIES_DEFAULT_PATH = Path.of("/var/th2/config");
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
 
+    static final String CUSTOM_CFG_ALIAS = "custom";
     public static final ObjectMapper MAPPER = JsonConfigurationProvider.MAPPER;
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
-    private final StringSubstitutor stringSubstitutor;
 
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
@@ -146,7 +143,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         eventBatchRouterClass = settings.getEventBatchRouterClass();
         grpcRouterClass = settings.getGrpcRouterClass();
         notificationEventBatchRouterClass = settings.getNotificationEventBatchRouterClass();
-        stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(settings.getVariables().get(key), System.getenv(key)));
     }
 
     public void start() {
@@ -378,11 +374,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * @return Configuration by specified path
+     * @return Configuration by specified alias
      * @throws IllegalStateException if can not read configuration
      */
-    public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
-        return getConfigurationManager().loadConfiguration(configClass, configPath, false);
+    public <T> T getConfiguration(String configAlias, Class<T> configClass, ObjectMapper customObjectMapper) {
+        return getConfigurationManager().loadConfiguration(configClass, configAlias, false);
     }
 
     /**
@@ -393,7 +389,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @return configuration object
      */
     protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
-        return getConfigurationManager().getConfigurationOrLoad(stringSubstitutor, configClass, optional);
+        return getConfigurationManager().getConfigurationOrLoad(configClass, optional);
     }
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
@@ -409,7 +405,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     public GrpcConfiguration getGrpcConfiguration() {
-        return getConfigurationManager().getConfigurationOrLoad(stringSubstitutor, GrpcConfiguration.class, false);
+        return getConfigurationManager().getConfigurationOrLoad(GrpcConfiguration.class, false);
     }
 
     public GrpcRouterConfiguration getGrpcRouterConfiguration() {
@@ -499,17 +495,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getCustomConfiguration(Class<T> confClass, ObjectMapper customObjectMapper) {
-        File configFile = getPathToCustomConfiguration().toFile();
-        if (!configFile.exists()) {
-            try {
-                return confClass.getConstructor().newInstance();
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                     NoSuchMethodException e) {
-                return null;
-            }
-        }
-
-        return getConfiguration(getPathToCustomConfiguration(), confClass, customObjectMapper);
+        return getConfiguration(CUSTOM_CFG_ALIAS, confClass, customObjectMapper);
     }
 
     /**
@@ -598,11 +584,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected abstract ConfigurationManager getConfigurationManager();
-
-    /**
-     * @return Path to custom configuration
-     */
-    protected abstract Path getPathToCustomConfiguration();
 
     /**
      * @return Path to dictionaries with type dir

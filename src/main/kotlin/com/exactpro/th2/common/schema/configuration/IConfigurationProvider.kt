@@ -15,6 +15,41 @@
 
 package com.exactpro.th2.common.schema.configuration
 
+import java.io.InputStream
+import java.util.function.Function
+import java.util.function.Supplier
+
 interface IConfigurationProvider {
-    fun <T : Any> load(configClass: Class<T>, alias: String, default: () -> T): T
+    /**
+     * Loads instance of [configClass] from a resource related to [alias].
+     * Configuration provider parses resource using internal parser.
+     * You can load the same resources using different classes.
+     * @param configClass - target class of loading config
+     * @param alias - alias of related resources
+     * @param default - supplier of default instance of configuration class. Pass `null` if configuration must be loaded
+     */
+    fun <T : Any> load(alias: String, configClass: Class<T>, default: Supplier<T>?): T
+    /**
+     * Loads instance of [configClass] from a resource related to [alias].
+     * Configuration provider parses resource using internal parser.
+     * You can load the same resources using different classes.
+     * @param configClass - target class of loading config
+     * @param alias - alias of related resources
+     */
+    fun <T : Any> load(alias: String, configClass: Class<T>): T = load(alias, configClass, null)
+    /**
+     * Loads instance using [parser] from a resource related to [alias].
+     * You can load the same resources by different classes.
+     * @param alias - alias of related resources
+     * @param parser - function to parse [InputStream] to config instance
+     * @param default - supplier of default instance of configuration class. Pass `null` if configuration must be loaded
+     */
+    fun <T : Any> load(alias: String, parser: Function<InputStream, T>, default: Supplier<T>?): T
+    /**
+     * Loads instance using [parser] from a resource related to [alias].
+     * You can load the same resources by different classes.
+     * @param alias - alias of related resources
+     * @param parser - function to parse [InputStream] to config instance
+     */
+    fun <T : Any> load(alias: String, parser: Function<InputStream, T>): T = load(alias, parser, null as Supplier<T>?)
 }

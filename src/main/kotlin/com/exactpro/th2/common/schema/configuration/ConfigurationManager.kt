@@ -16,7 +16,6 @@
 package com.exactpro.th2.common.schema.configuration
 
 import mu.KotlinLogging
-import org.apache.commons.text.StringSubstitutor
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
@@ -34,19 +33,18 @@ class ConfigurationManager(
         optional: Boolean
     ): T {
         try {
-            return configurationProvider.load(configClass, configAlias) {
-                if (optional) {
-                    configClass.getDeclaredConstructor().newInstance()
+            return configurationProvider.load(configAlias, configClass) {
+                if (!optional) {
+                    throw IllegalStateException("The '$configAlias' is required")
                 }
-                throw IllegalStateException("The '$configAlias' is required")
+                configClass.getDeclaredConstructor().newInstance()
             }
         } catch (e: IOException) {
             throw IllegalStateException("Cannot read ${configClass.name} configuration for config alias '$configAlias'", e)
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
-    fun <T : Any> StringSubstitutor.getConfigurationOrLoad(
+    fun <T : Any> getConfigurationOrLoad(
         configClass: Class<T>,
         optional: Boolean
     ): T {
@@ -56,7 +54,7 @@ class ConfigurationManager(
             }.let {
                 loadConfiguration(configClass, it, optional)
             }
-        } as T
+        }.let(configClass::cast)
     }
 
     companion object {
