@@ -42,7 +42,6 @@ data class ConnectionManagerConfiguration(
     val messageRecursionLimit: Int = 100,
     val workingThreads: Int = 1,
     val confirmationTimeout: Duration = Duration.ofMinutes(5),
-    val isAutomaticRecoveryEnabled: Boolean = true
 ) : Configuration() {
     init {
         check(workingThreads > 0) { "expected 'workingThreads' greater than 0 but was $workingThreads" }
@@ -60,7 +59,6 @@ data class ConnectionManagerConfiguration(
             ))
         }
     }
-
 }
 
 data class RetryingDelay(val tryNumber: Int, val delay: Int) {
@@ -75,7 +73,9 @@ data class RetryingDelay(val tryNumber: Int, val delay: Int) {
         ): Int {
             return if (numberOfTries <= maxRecoveryAttempts) {
                 getRecoveryDelayWithIncrement(numberOfTries, minTime, maxTime, maxRecoveryAttempts)
-            } else getRecoveryDelayWithDeviation(maxTime, deviationPercent)
+            } else {
+                getRecoveryDelayWithDeviation(maxTime, deviationPercent)
+            }
         }
 
         private fun getRecoveryDelayWithDeviation(maxTime: Int, deviationPercent: Int): Int {

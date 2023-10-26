@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,20 @@
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
 import com.exactpro.th2.common.annotations.IntegrationTest
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.DEFAULT_CONFIRMATION_TIMEOUT
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.DEFAULT_PREFETCH_COUNT
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.RABBITMQ_IMAGE_NAME
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_CONFIRMATION_TIMEOUT
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_PREFETCH_COUNT
+import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareFanoutExchangeWithBinding
-import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.declareQueue
-import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getChannelsInfo
-import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getQueuesInfo
-import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.getSubscribedChannelsCount
-import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.putMessageInQueue
-import com.exactpro.th2.common.util.RabbitTestContainerUtil.Companion.restartContainer
+import com.exactpro.th2.common.util.declareFanoutExchangeWithBinding
+import com.exactpro.th2.common.util.declareQueue
+import com.exactpro.th2.common.util.getChannelsInfo
+import com.exactpro.th2.common.util.getQueuesInfo
+import com.exactpro.th2.common.util.getSubscribedChannelsCount
+import com.exactpro.th2.common.util.putMessageInQueue
+import com.exactpro.th2.common.util.restartContainer
 import com.rabbitmq.client.BuiltinExchangeType
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
@@ -47,19 +47,12 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.utility.MountableFile
-import java.io.IOException
-import kotlin.test.assertFailsWith
-
-private val LOGGER = KotlinLogging.logger { }
-
 
 @IntegrationTest
 class TestConnectionManager {
-
     @Test
     fun `connection manager reports unacked messages when confirmation timeout elapsed`() {
         val routingKey = "routingKey1"
@@ -467,12 +460,10 @@ class TestConnectionManager {
                     LOGGER.info { "Publication finished!" }
                     LOGGER.info { getQueuesInfo(it) }
 
-
                     consume.assertComplete("Wrong number of received messages")
-                    assertTrue(
-                        getQueuesInfo(it).toString().contains("$queueName\t0")
-                    ) { "There should be no messages left in the queue" }
-
+                    assertTrue(getQueuesInfo(it).toString().contains("$queueName\t0")) {
+                        "There should be no messages left in the queue"
+                    }
                 }
             }
     }
@@ -694,6 +685,7 @@ class TestConnectionManager {
                         }
                         for (i in 1..5) {
                             putMessageInQueue(it, queueName)
+
                             Thread.sleep(1000)
                         }
 
@@ -777,9 +769,9 @@ class TestConnectionManager {
 
                         assertEquals(0, getSubscribedChannelsCount(it, queueName))
                         assertEquals(2, counter.get()) { "Wrong number of received messages" }
-                        assertTrue(
-                            queuesListExecResult.toString().contains("$queueName\t1")
-                        ) { "There should a message left in the queue" }
+                        assertTrue(queuesListExecResult.toString().contains("$queueName\t1")) {
+                            "There should a message left in the queue"
+                        }
                     } finally {
                         Assertions.assertNotNull(thread)
                         Assertions.assertDoesNotThrow {
@@ -824,29 +816,25 @@ class TestConnectionManager {
         )
 
     @Test
-    @Disabled
-    // TODO: this test is no more relevant
-    // TODO: we need to change test scenario or remove it
     fun `connection manager exclusive queue test`() {
-        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
-            .use { rabbitMQContainer ->
-                rabbitMQContainer.start()
-                LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME).use { rabbitMQContainer ->
+            rabbitMQContainer.start()
+            LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
 
-                createConnectionManager(rabbitMQContainer).use { firstManager ->
-                    createConnectionManager(rabbitMQContainer).use { secondManager ->
-                        val queue = firstManager.queueDeclare()
+            createConnectionManager(rabbitMQContainer).use { firstManager ->
+                createConnectionManager(rabbitMQContainer).use { secondManager ->
+                    val queue = firstManager.queueDeclare()
+                    val consumerThread = thread { secondManager.basicConsume(queue, { _, _, _ -> }, {}) }
+                    consumerThread.join(5_000)
+                    val isAlive = consumerThread.isAlive
+                    consumerThread.stop()
+                    assertTrue(isAlive) { "Another connection can subscribe to the $queue queue" }
 
-                        assertFailsWith<IOException>("Another connection can subscribe to the $queue queue") {
-                            secondManager.basicConsume(queue, { _, _, _ -> }, {})
-                        }
-
-                        extracted(firstManager, secondManager, queue, 3)
-                        extracted(firstManager, secondManager, queue, 6)
-                    }
+                    extracted(firstManager, secondManager, queue, 3)
+                    extracted(firstManager, secondManager, queue, 6)
                 }
-
             }
+        }
     }
 
     private fun extracted(
@@ -893,7 +881,6 @@ class TestConnectionManager {
         rabbitMQContainer: RabbitMQContainer,
         prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
         confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT,
-        isAutomaticRecoveryEnabled: Boolean = true
     ) = ConnectionManager(
         RabbitMQConfiguration(
             host = rabbitMQContainer.host,
@@ -905,12 +892,13 @@ class TestConnectionManager {
         ConnectionManagerConfiguration(
             subscriberName = "test",
             prefetchCount = prefetchCount,
-            confirmationTimeout = confirmationTimeout,
-            isAutomaticRecoveryEnabled = isAutomaticRecoveryEnabled
-        ),
+            confirmationTimeout = confirmationTimeout
+        )
     )
 
     companion object {
+        private val LOGGER = KotlinLogging.logger { }
+
         private lateinit var rabbit: RabbitMQContainer
 
         @BeforeAll

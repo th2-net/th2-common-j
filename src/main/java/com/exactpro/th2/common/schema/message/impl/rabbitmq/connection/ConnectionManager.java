@@ -1,5 +1,6 @@
 /*
  * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -84,9 +85,9 @@ public class ConnectionManager implements AutoCloseable {
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
     private final ExecutorService sharedExecutor;
-    private final ScheduledExecutorService channelChecker = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
-            .setNameFormat("channel-checker-%d")
-            .build());
+    private final ScheduledExecutorService channelChecker = Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build()
+    );
 
     private final HealthMetrics metrics = new HealthMetrics(this);
 
@@ -191,7 +192,6 @@ public class ConnectionManager implements AutoCloseable {
             }
         });
 
-        factory.setAutomaticRecoveryEnabled(configuration.isAutomaticRecoveryEnabled());
         factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get());
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
@@ -201,7 +201,7 @@ public class ConnectionManager implements AutoCloseable {
                     int deviationPercent = connectionManagerConfiguration.getRetryTimeDeviationPercent();
 
                     LOGGER.debug("Try to recovery connection to RabbitMQ. Count tries = {}", recoveryAttempts);
-                    int recoveryDelay = RetryingDelay.Companion.getRecoveryDelay(recoveryAttempts, minTime, maxTime, maxRecoveryAttempts, deviationPercent);
+                    int recoveryDelay = RetryingDelay.getRecoveryDelay(recoveryAttempts, minTime, maxTime, maxRecoveryAttempts, deviationPercent);
                     if (recoveryAttempts >= maxRecoveryAttempts && metrics.getLivenessMonitor().isEnabled()) {
                         LOGGER.info("Set RabbitMQ liveness to false. Can't recover connection");
                         metrics.getLivenessMonitor().disable();
@@ -247,7 +247,7 @@ public class ConnectionManager implements AutoCloseable {
                         String errorString = errorBuilder.toString();
                         LOGGER.warn(errorString);
                         if (withRecovery && errorString.contains("PRECONDITION_FAILED")) {
-                            recoverSubscriptionsOfChannel(channel);
+                            recoverSubscriptionsOfChannel(channel.getChannelNumber());
                         }
                     }
                 }
@@ -255,15 +255,14 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
-    private void recoverSubscriptionsOfChannel(Channel channel) {
+    private void recoverSubscriptionsOfChannel(int channelNumber) {
         channelChecker.execute(() -> {
             try {
-                var pinToChannelHolderOptional =
-                        channelsByPin
-                                .entrySet()
-                                .stream()
-                                .filter(entry -> Objects.nonNull(entry.getValue().channel) && channel.getChannelNumber() == entry.getValue().channel.getChannelNumber())
-                                .findAny();
+                var pinToChannelHolderOptional = channelsByPin
+                        .entrySet()
+                        .stream()
+                        .filter(entry -> Objects.nonNull(entry.getValue().channel) && channelNumber == entry.getValue().channel.getChannelNumber())
+                        .findAny();
 
                 var pinIdToChannelHolder = pinToChannelHolderOptional.orElse(null);
                 if (pinIdToChannelHolder != null) {
@@ -341,6 +340,10 @@ public class ConnectionManager implements AutoCloseable {
 
         LOGGER.info("Closing connection manager");
 
+        for (ChannelHolder channelHolder: channelsByPin.values()) {
+            channelHolder.channel.abort();
+        }
+
         int closeTimeout = configuration.getConnectionCloseTimeout();
         if (connection.isOpen()) {
             try {
@@ -350,10 +353,6 @@ public class ConnectionManager implements AutoCloseable {
             } catch (IOException e) {
                 LOGGER.error("Cannot close connection", e);
             }
-        }
-
-        for (ChannelHolder channelHolder: channelsByPin.values()) {
-            channelHolder.channel.abort();
         }
 
         shutdownExecutor(sharedExecutor, closeTimeout, "rabbit-shared");
@@ -422,7 +421,6 @@ public class ConnectionManager implements AutoCloseable {
                         };
 
                         Confirmation confirmation = OnlyOnceConfirmation.wrap("from " + routingKey + " to " + queue, wrappedConfirmation);
-
 
                         holder.withLock(() -> holder.acquireAndSubmitCheck(() ->
                                 channelChecker.schedule(() -> {
@@ -728,16 +726,16 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         public void retryingPublishWithLock(ChannelConsumer consumer, ConnectionManagerConfiguration configuration) throws InterruptedException {
-            Iterator<RetryingDelay> iterator = configuration.createRetryingDelaySequence().iterator();
             lock.lock();
+            Iterator<RetryingDelay> iterator = configuration.createRetryingDelaySequence().iterator();
             try {
-                var currentValue = iterator.next();
                 Channel tempChannel = getChannel(true);
                 while (true) {
                     try {
                         consumer.consume(tempChannel);
                         break;
                     } catch (IOException | ShutdownSignalException e) {
+                        var currentValue = iterator.next();
                         int recoveryDelay = currentValue.getDelay();
                         LOGGER.warn("Retrying publishing #{}, waiting for {}ms, then recreating channel. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);

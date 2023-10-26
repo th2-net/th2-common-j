@@ -18,12 +18,12 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.DEFAULT_CONFIRMATION_TIMEOUT
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.DEFAULT_PREFETCH_COUNT
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.EXCHANGE
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.QUEUE_NAME
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.RABBITMQ_IMAGE_NAME
-import com.exactpro.th2.common.schema.message.ContainerConstants.Companion.ROUTING_KEY
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_CONFIRMATION_TIMEOUT
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_PREFETCH_COUNT
+import com.exactpro.th2.common.schema.message.ContainerConstants.EXCHANGE
+import com.exactpro.th2.common.schema.message.ContainerConstants.QUEUE_NAME
+import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
+import com.exactpro.th2.common.schema.message.ContainerConstants.ROUTING_KEY
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
