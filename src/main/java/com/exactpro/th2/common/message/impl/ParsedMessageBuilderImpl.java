@@ -1,0 +1,124 @@
+/*
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.exactpro.th2.common.message.impl;
+
+import com.exactpro.th2.common.grpc.Message;
+import com.exactpro.th2.common.grpc.Value;
+import com.exactpro.th2.common.message.MessageBodyBuilder;
+import com.exactpro.th2.common.message.ParsedMessageBuilder;
+import com.exactpro.th2.common.message.ParsedMetadataBuilder;
+
+import java.util.Collection;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+import static com.exactpro.th2.common.value.ValueUtils.listValue;
+import static com.exactpro.th2.common.value.ValueUtils.toValue;
+
+public class ParsedMessageBuilderImpl
+        extends MessageBuilderImpl<ParsedMessageBuilderImpl, ParsedMetadataBuilder, Message>
+        implements ParsedMessageBuilder<Message> {
+    private final Message.Builder messageBuilder;
+
+    public ParsedMessageBuilderImpl() {
+        this(Message.newBuilder());
+    }
+
+    private ParsedMessageBuilderImpl(Message.Builder messageBuilder) {
+        super(
+                messageBuilder::setParentEventId,
+                new ParsedMetadataBuilderImpl(messageBuilder.getMetadataBuilder()),
+                messageBuilder::build
+        );
+        this.messageBuilder = Objects.requireNonNull(messageBuilder, "`messageBuilder` cannot be null");
+    }
+
+    @Override
+    public ParsedMessageBuilderImpl putSimpleField(String name, Object value) {
+        messageBuilder.putFields(name, toValue(value));
+        return this;
+    }
+
+    @Override
+    public ParsedMessageBuilderImpl putSimpleField(String name, Collection<Object> value) {
+        messageBuilder.putFields(name, toValue(value));
+        return this;
+    }
+
+    @Override
+    public ParsedMessageBuilderImpl putMessage(String name, Consumer<MessageBodyBuilder> setup) {
+        Message message = createSubMessage(setup);
+        messageBuilder.putFields(name, toValue(message));
+        return this;
+    }
+
+    @Override
+    public ParsedMessageBuilderImpl addMessage(String name, Consumer<MessageBodyBuilder> setup) {
+        var oldValue = messageBuilder.getFieldsMap().get(name);
+        if (oldValue != null && !oldValue.hasListValue()) {
+            throw new IllegalStateException("field " + name + " is not a collection: " + oldValue.getKindCase());
+        }
+        if (oldValue == null) {
+            messageBuilder.putFields(name, toValue(listValue().addValues(toValue(createSubMessage(setup)))));
+        } else {
+            //FIXME: check type of existed values
+            var builder = oldValue.toBuilder();
+            builder.getListValueBuilder().addValues(toValue(createSubMessage(setup)));
+            messageBuilder.putFields(name, builder.build());
+        }
+        return this;
+    }
+
+    @Override
+    public MessageBodyBuilder addMessages(String name, Collection<Consumer<MessageBodyBuilder>> setup) {
+        var oldValue = messageBuilder.getFieldsMap().get(name);
+        if (oldValue != null && !oldValue.hasListValue()) {
+            throw new IllegalStateException("field " + name + " is not a collection: " + oldValue.getKindCase());
+        }
+        if (oldValue == null) {
+            messageBuilder.putFields(name, toValue(listValue().addAllValues(setup.stream().map(ParsedMessageBuilderImpl::createSubMessageValue).collect(Collectors.toList()))));
+        } else {
+            //FIXME: check type of existed values
+            var builder = oldValue.toBuilder();
+            setup.stream().map(ParsedMessageBuilderImpl::createSubMessageValue).forEach(builder.getListValueBuilder()::addValues);
+            messageBuilder.putFields(name, builder.build());
+        }
+        return this;
+    }
+
+    @Override
+    public ParsedMessageBuilderImpl putMessages(String name, Collection<Consumer<MessageBodyBuilder>> setup) {
+        messageBuilder.putFields(name, toValue(listValue().addAllValues(setup.stream().map(ParsedMessageBuilderImpl::createSubMessageValue).collect(Collectors.toList()))));
+        return this;
+    }
+
+    private static Message createSubMessage(Consumer<MessageBodyBuilder> setup) {
+        var builder = new ParsedMessageBuilderImpl();
+        setup.accept(builder);
+        return builder.build();
+    }
+
+    private static Value createSubMessageValue(Consumer<MessageBodyBuilder> setup) {
+        return toValue(createSubMessage(setup));
+    }
+
+    @Override
+    protected ParsedMessageBuilderImpl builder() {
+        return this;
+    }
+}

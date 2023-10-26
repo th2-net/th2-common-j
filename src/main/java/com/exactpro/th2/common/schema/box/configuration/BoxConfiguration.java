@@ -21,8 +21,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jetbrains.annotations.Nullable;
 
 public class BoxConfiguration extends Configuration {
+    private static final String DEFAULT_BOOK_NAME = "test_book";
+
     @JsonProperty
     private String boxName = null;
+
+    @JsonProperty
+    private String bookName = DEFAULT_BOOK_NAME;
 
     @Nullable
     public String getBoxName() {
@@ -31,5 +36,14 @@ public class BoxConfiguration extends Configuration {
 
     public void setBoxName(@Nullable String boxName) {
         this.boxName = boxName;
+    }
+
+    @Nullable
+    public String getBookName() {
+        return bookName;
+    }
+
+    public void setBookName(@Nullable String bookName) {
+        this.bookName = bookName;
     }
 }
