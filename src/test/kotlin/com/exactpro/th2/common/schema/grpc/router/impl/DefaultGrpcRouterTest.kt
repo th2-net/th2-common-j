@@ -62,7 +62,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @IntegrationTest
-internal open class DefaultGrpcRouterTest {
+internal class DefaultGrpcRouterTest {
     @IntegrationTest
     abstract inner class AbstractGrpcRouterTest {
         private val grpcRouterClient = DefaultGrpcRouter()
@@ -169,7 +169,7 @@ internal open class DefaultGrpcRouterTest {
             }
 
             clientServerBaton.get("wait client thread start")
-            Thread.sleep(RETRY_TIMEOUT * 2)
+            Thread.sleep(RETRY_TIMEOUT / 2)
 
             createServer().execAndClose {
                 val response = future.get(1, TimeUnit.MINUTES)
@@ -408,7 +408,7 @@ internal open class DefaultGrpcRouterTest {
             val streamObserver = mock<StreamObserver<Response>> { }
             createClientAsync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
 
-            Thread.sleep(RETRY_TIMEOUT * 2)
+            Thread.sleep(RETRY_TIMEOUT / 2)
 
             createServer().execAndClose {
                 val captor = argumentCaptor<Response> { }
@@ -511,16 +511,6 @@ internal open class DefaultGrpcRouterTest {
             val streamObserver = mock<StreamObserver<Response>> { }
             val handlerBaton = Baton("handler")
 
-//            val clientServerBaton = Baton("client-server")
-//            val future = executor.submit<Response> {
-//                clientServerBaton.giveAndGet("client thread started", "wait server start")
-//                createClientSync(retryInterruptedTransaction = true).singleRequestSingleResponse(
-//                    Request.newBuilder().setSeq(1).build()
-//                )
-//            }
-//
-//            val handlerBaton = Baton("handler")
-
             createServer(completeResponse = false, handlerBaton = handlerBaton).execAndClose(true) {
                 createClientAsync(retryInterruptedTransaction = true).singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
                 handlerBaton.get("wait response sent")
@@ -528,7 +518,6 @@ internal open class DefaultGrpcRouterTest {
             }
 
             verifyNoMoreInteractions(streamObserver)
-//            assertFalse(future.isDone)
 
             DefaultGrpcRouter().use { grpcRouter ->
                 createServer(grpcRouter = grpcRouter).execAndClose {
@@ -663,11 +652,11 @@ internal open class DefaultGrpcRouterTest {
     }
 
     companion object {
-        protected val K_LOGGER = KotlinLogging.logger { }
+        private val K_LOGGER = KotlinLogging.logger { }
 
-        protected const val SERVER_PORT = 8080
-        protected const val RETRY_TIMEOUT = 1_000L
-        protected inline fun Server.execAndClose(force: Boolean = false, func: Server.() -> Unit = { }) {
+        private const val SERVER_PORT = 8080
+        private const val RETRY_TIMEOUT = 1_000L
+        private inline fun Server.execAndClose(force: Boolean = false, func: Server.() -> Unit = { }) {
             try {
                 val startTime = Instant.now()
                 func()
@@ -685,7 +674,7 @@ internal open class DefaultGrpcRouterTest {
             }
         }
 
-        protected fun assertException(
+        private fun assertException(
             exception: Throwable,
             exceptionMetadata: ExceptionMetadata,
             path: List<String?> = emptyList()
@@ -719,10 +708,10 @@ internal open class DefaultGrpcRouterTest {
             } ?: assertNull(exception.cause, "Cause for exception: $exception, path: ${path.printAsStackTrace()}")
         }
 
-        protected fun List<String?>.printAsStackTrace() = asSequence()
+        private fun List<String?>.printAsStackTrace() = asSequence()
             .joinToString(separator = "\n -> ", prefix = "\n -> ")
 
-        protected fun ExecutorService.shutdownGracefully() {
+        private fun ExecutorService.shutdownGracefully() {
             shutdown()
             if (!awaitTermination(1, TimeUnit.SECONDS)) {
                 shutdownNow()
@@ -759,7 +748,7 @@ internal open class DefaultGrpcRouterTest {
             }
         }
 
-        protected class TestServiceHandler(
+        private class TestServiceHandler(
             private val complete: Boolean = true,
             private val responseBaton: Baton? = null,
         ) : TestImplBase() {

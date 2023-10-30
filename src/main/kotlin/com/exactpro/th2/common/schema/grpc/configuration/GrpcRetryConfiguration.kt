@@ -18,9 +18,9 @@ import com.exactpro.th2.common.schema.configuration.Configuration
 import com.exactpro.th2.service.RetryPolicy
 
 data class GrpcRetryConfiguration(
-    private var maxAttempts: Int = 60,
+    private var maxAttempts: Int = 15,
     var minMethodRetriesTimeout: Long = 100,
-    var maxMethodRetriesTimeout: Long = 120_000,
+    var maxMethodRetriesTimeout: Long = 7000,
     var retryInterruptedTransaction: Boolean = false,
 ) : Configuration(), RetryPolicy {
 
@@ -53,7 +53,5 @@ data class GrpcRetryConfiguration(
 
     override fun getMaxAttempts(): Int = maxAttempts
 
-    override fun retryInterruptedTransaction(): Boolean {
-        return retryInterruptedTransaction
-    }
+    override fun retryInterruptedTransaction(): Boolean = retryInterruptedTransaction
 }

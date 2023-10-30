@@ -505,7 +505,7 @@ dependencies {
 
 #### Fix:
 + gRPC `retryConfiguration` has been moved from grpc.json to grpc_router.json
-+ the whole default gRPC retry interval is about 1 hour
++ the whole default gRPC retry interval is about 1 minute
 
 #### Updated:
 + grpc-service-generator: `3.5.0`
