@@ -50,6 +50,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -240,7 +241,7 @@ public class ConnectionManager implements AutoCloseable {
                 if (reason instanceof AMQImpl.Channel.Close) {
                     var castedReason = (AMQImpl.Channel.Close) reason;
                     if (castedReason.getReplyCode() != 200) {
-                        StringBuilder errorBuilder = new StringBuilder("RabbitMQ soft error occupied: ");
+                        StringBuilder errorBuilder = new StringBuilder("RabbitMQ soft error occurred: ");
                         castedReason.appendArgumentDebugStringTo(errorBuilder);
                         errorBuilder.append(" on channel ");
                         errorBuilder.append(channelCause);
@@ -255,30 +256,37 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
+    private @Nullable Map.Entry<PinId, ChannelHolder> getChannelHolderByChannelNumber(int channelNumber) {
+        return channelsByPin
+                .entrySet()
+                .stream()
+                .filter(entry -> Objects.nonNull(entry.getValue().channel) && channelNumber == entry.getValue().channel.getChannelNumber())
+                .findAny()
+                .orElse(null);
+    }
+
     private void recoverSubscriptionsOfChannel(int channelNumber) {
         channelChecker.execute(() -> {
             try {
-                var pinToChannelHolderOptional = channelsByPin
-                        .entrySet()
-                        .stream()
-                        .filter(entry -> Objects.nonNull(entry.getValue().channel) && channelNumber == entry.getValue().channel.getChannelNumber())
-                        .findAny();
-
-                var pinIdToChannelHolder = pinToChannelHolderOptional.orElse(null);
+                var pinIdToChannelHolder = getChannelHolderByChannelNumber(channelNumber);
                 if (pinIdToChannelHolder != null) {
                     PinId pinId = pinIdToChannelHolder.getKey();
                     ChannelHolder channelHolder = pinIdToChannelHolder.getValue();
 
                     SubscriptionCallbacks subscriptionCallbacks = channelHolder.subscriptionCallbacks;
                     if (subscriptionCallbacks != null) {
-                        LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
                         channelsByPin.remove(pinId);
-                        basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
+                        if (channelHolder.isSubscribed) {
+                            LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
+                            basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
+                        }
                     }
                 }
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 LOGGER.warn("Exception during channel's subscriptions recovery", e);
                 throw new RuntimeException(e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         });
     }
@@ -441,6 +449,7 @@ public class ConnectionManager implements AutoCloseable {
                     }
                 }, cancelCallback), configuration);
 
+        holder.isSubscribed = true;
         return new RabbitMqSubscriberMonitor(holder, queue, tag, this::basicCancel);
     }
 
@@ -577,17 +586,13 @@ public class ConnectionManager implements AutoCloseable {
         channel.basicReject(deliveryTag, false);
     }
 
-    private class RabbitMqSubscriberMonitor implements ExclusiveSubscriberMonitor {
-
+    private static class RabbitMqSubscriberMonitor implements ExclusiveSubscriberMonitor {
         private final ChannelHolder holder;
         private final String queue;
         private final String tag;
         private final CancelAction action;
 
-        public RabbitMqSubscriberMonitor(ChannelHolder holder,
-                                         String queue,
-                                         String tag,
-                                         CancelAction action) {
+        public RabbitMqSubscriberMonitor(ChannelHolder holder, String queue, String tag, CancelAction action) {
             this.holder = holder;
             this.queue = queue;
             this.tag = tag;
@@ -602,9 +607,8 @@ public class ConnectionManager implements AutoCloseable {
         @Override
         public void unsubscribe() throws IOException {
             holder.withLock(false, channel -> {
-//                channelsByPin.values().remove(holder);
                 action.execute(channel, tag);
-//                channel.abort();
+                holder.isSubscribed = false;
             });
         }
     }
@@ -679,6 +683,8 @@ public class ConnectionManager implements AutoCloseable {
         private Future<?> check;
         @GuardedBy("lock")
         private Channel channel;
+        @GuardedBy("lock")
+        public boolean isSubscribed = false;
 
         public ChannelHolder(
                 Supplier<Channel> supplier,

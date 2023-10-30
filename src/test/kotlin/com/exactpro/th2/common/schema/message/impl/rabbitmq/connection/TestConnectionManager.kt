@@ -761,9 +761,6 @@ class TestConnectionManager {
                         LOGGER.info { "Sleeping..." }
                         Thread.sleep(63000)
 
-                        LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
-
-
                         val queuesListExecResult = getQueuesInfo(it)
                         LOGGER.info { "queues list: \n $queuesListExecResult" }
 
