@@ -31,14 +31,15 @@ import java.util.function.Function
 import java.util.function.Supplier
 import kotlin.io.path.exists
 
-class JsonConfigurationProvider(
+
+class JsonConfigurationProvider @JvmOverloads constructor(
     internal val baseDir: Path,
     internal val customPaths: Map<String, Path> = emptyMap(),
 ) : IConfigurationProvider {
 
     private val cache = ConcurrentHashMap<String, Any>()
 
-    operator fun get(alias: String): Path = customPaths[alias] ?: baseDir.resolve("${alias}.${EXTENSION}")
+    private fun getPathFor(alias: String): Path = customPaths[alias] ?: baseDir.resolve("${alias}.${EXTENSION}")
 
     override fun <T : Any> load(alias: String, configClass: Class<T>, default: Supplier<T>?): T =
         requireNotNull(cache.compute(alias) { _, value ->
@@ -66,7 +67,7 @@ class JsonConfigurationProvider(
         }
 
     private fun <T : Any> loadFromFile(alias: String, default: Supplier<T>?, parser: Function<InputStream, T>): T {
-        val configPath = this[alias]
+        val configPath = this.getPathFor(alias)
         if (!configPath.exists()) {
             K_LOGGER.warn { "'$configPath' file related to the '$alias' config alias doesn't exist" }
             return default?.get()

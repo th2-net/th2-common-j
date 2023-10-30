@@ -48,7 +48,8 @@ interface IApplicationFactory : AutoCloseable {
         private const val APPLICATION_FACTORY_SYSTEM_PROPERTY = "th2.microservice.application-factory"
         private const val MONITOR_NAME = "microservice_main"
         @JvmStatic
-        fun run(factory: IApplicationFactory?, vararg args: String) {
+        @JvmOverloads
+        fun run(factory: IApplicationFactory? = null, vararg args: String) {
             val liveness: MetricMonitor = registerLiveness(MONITOR_NAME)
             val readiness: MetricMonitor = registerReadiness(MONITOR_NAME)
 

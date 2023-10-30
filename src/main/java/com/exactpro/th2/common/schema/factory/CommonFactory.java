@@ -237,7 +237,7 @@ public class CommonFactory extends AbstractCommonFactory {
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
 
-            Path configs = calculateCmdPath(cmd.getOptionValue(configOption.getLongOpt()));
+            Path configs = toPath(cmd.getOptionValue(configOption.getLongOpt()));
 
             if (cmd.hasOption(namespaceOption.getLongOpt()) && cmd.hasOption(boxNameOption.getLongOpt())) {
                 String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
@@ -275,19 +275,19 @@ public class CommonFactory extends AbstractCommonFactory {
                     configureLogger(configs);
                 }
             }
-            settings.setRabbitMQ(calculateCmdPath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt())));
-            settings.setRouterMQ(calculateCmdPath(cmd.getOptionValue(messageRouterConfigurationOption.getLongOpt())));
-            settings.setConnectionManagerSettings(calculateCmdPath(cmd.getOptionValue(connectionManagerConfigurationOption.getLongOpt())));
-            settings.setGrpc(calculateCmdPath(defaultIfNull(cmd.getOptionValue(grpcConfigurationOption.getLongOpt()), cmd.getOptionValue(grpcRouterConfigurationOption.getLongOpt()))));
-            settings.setRouterGRPC(calculateCmdPath(cmd.getOptionValue(grpcRouterConfigOption.getLongOpt())));
-            settings.setCradleConfidential(calculateCmdPath(cmd.getOptionValue(cradleConfidentialConfigurationOption.getLongOpt())));
-            settings.setCradleNonConfidential(calculateCmdPath(defaultIfNull(cmd.getOptionValue(cradleManagerConfigurationOption.getLongOpt()), cmd.getOptionValue(cradleConfigurationOption.getLongOpt()))));
-            settings.setPrometheus(calculateCmdPath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt())));
-            settings.setBoxConfiguration(calculateCmdPath(cmd.getOptionValue(boxConfigurationOption.getLongOpt())));
-            settings.setCustom(calculateCmdPath(cmd.getOptionValue(customConfigurationOption.getLongOpt())));
-            settings.setDictionaryTypesDir(calculateCmdPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
-            settings.setDictionaryAliasesDir(calculateCmdPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
-            settings.setOldDictionariesDir(calculateCmdPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
+            settings.setRabbitMQ(toPath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt())));
+            settings.setRouterMQ(toPath(cmd.getOptionValue(messageRouterConfigurationOption.getLongOpt())));
+            settings.setConnectionManagerSettings(toPath(cmd.getOptionValue(connectionManagerConfigurationOption.getLongOpt())));
+            settings.setGrpc(toPath(defaultIfNull(cmd.getOptionValue(grpcConfigurationOption.getLongOpt()), cmd.getOptionValue(grpcRouterConfigurationOption.getLongOpt()))));
+            settings.setRouterGRPC(toPath(cmd.getOptionValue(grpcRouterConfigOption.getLongOpt())));
+            settings.setCradleConfidential(toPath(cmd.getOptionValue(cradleConfidentialConfigurationOption.getLongOpt())));
+            settings.setCradleNonConfidential(toPath(defaultIfNull(cmd.getOptionValue(cradleManagerConfigurationOption.getLongOpt()), cmd.getOptionValue(cradleConfigurationOption.getLongOpt()))));
+            settings.setPrometheus(toPath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt())));
+            settings.setBoxConfiguration(toPath(cmd.getOptionValue(boxConfigurationOption.getLongOpt())));
+            settings.setCustom(toPath(cmd.getOptionValue(customConfigurationOption.getLongOpt())));
+            settings.setDictionaryTypesDir(toPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
+            settings.setDictionaryAliasesDir(toPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
+            settings.setOldDictionariesDir(toPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
 
             return new CommonFactory(settings);
         } catch (ParseException e) {
@@ -691,7 +691,7 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static void putIfNotNull(@NotNull Map<String, Path> paths, @NotNull String alias, @Nullable Path path) {
         requireNonNull(paths, "'Paths' can't be null");
-        requireNonNull(paths, "'Alias' can't be null");
+        requireNonNull(alias, "'Alias' can't be null");
         if (path != null) {
             paths.put(alias, path);
         }
@@ -716,7 +716,7 @@ public class CommonFactory extends AbstractCommonFactory {
         return option;
     }
 
-    private static @Nullable Path calculateCmdPath(@Nullable String path) {
+    private static @Nullable Path toPath(@Nullable String path) {
         return path == null ? null : Path.of(path);
     }
 
