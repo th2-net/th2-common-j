@@ -121,6 +121,14 @@ public class CommonFactory extends AbstractCommonFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
+    private CommonFactory(IConfigurationProvider configurationProvider) {
+        super();
+        dictionaryTypesDir = defaultPathIfNull(configurationProvider, DICTIONARY_TYPE_DIR_NAME);
+        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), settings.getBaseConfigDir(), DICTIONARY_ALIAS_DIR_NAME);
+        oldDictionariesDir = defaultPathIfNull(settings.getOldDictionariesDir(), settings.getBaseConfigDir(), "");
+    }
+
+    @Deprecated(since = "6", forRemoval = true)
     public CommonFactory(FactorySettings settings) {
         super(settings);
         dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), settings.getBaseConfigDir(), DICTIONARY_TYPE_DIR_NAME);
@@ -156,8 +164,16 @@ public class CommonFactory extends AbstractCommonFactory {
         return configurationManager;
     }
 
-    IConfigurationProvider getConfigurationProvider() {
+    public IConfigurationProvider getConfigurationProvider() {
         return configurationProvider;
+    }
+
+    public static CommonFactory createFromProvider(IConfigurationProvider provider) {
+        FactorySettings settings = new FactorySettings();
+
+
+
+        return new CommonFactory(settings);
     }
 
     /**
@@ -302,6 +318,7 @@ public class CommonFactory extends AbstractCommonFactory {
      * @param boxName   - the name of the target th2 box placed in the specified namespace in Kubernetes
      * @return CommonFactory with set path
      */
+    @Deprecated(since = "6", forRemoval = true)
     public static CommonFactory createFromKubernetes(String namespace, String boxName) {
         return createFromKubernetes(namespace, boxName, null);
     }
@@ -314,6 +331,7 @@ public class CommonFactory extends AbstractCommonFactory {
      * @param contextName - context name to choose the context from Kube config
      * @return CommonFactory with set path
      */
+    @Deprecated(since = "6", forRemoval = true)
     public static CommonFactory createFromKubernetes(String namespace, String boxName, @Nullable String contextName) {
         return createFromKubernetes(namespace, boxName, contextName, emptyMap());
     }

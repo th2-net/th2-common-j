@@ -36,10 +36,12 @@ import com.exactpro.th2.common.schema.configuration.impl.JsonConfigurationProvid
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
+import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
 import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
@@ -55,6 +57,10 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Rabbit
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter;
 import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
@@ -129,6 +135,15 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     static {
         configureLogger();
+    }
+
+    protected AbstractCommonFactory() {
+        messageRouterParsedBatchClass = RabbitParsedBatchRouter.class ;
+        messageRouterRawBatchClass = RabbitRawBatchRouter.class;
+        messageRouterMessageGroupBatchClass = RabbitMessageGroupBatchRouter.class;
+        eventBatchRouterClass = EventBatchRouter.class;
+        grpcRouterClass = DefaultGrpcRouter.class;
+        notificationEventBatchRouterClass = NotificationEventBatchRouter.class;
     }
 
     /**
