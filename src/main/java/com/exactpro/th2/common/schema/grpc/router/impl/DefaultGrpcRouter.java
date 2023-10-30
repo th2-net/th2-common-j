@@ -83,7 +83,7 @@ public class DefaultGrpcRouter extends AbstractGrpcRouter {
         try {
             return th2ImplClass.getConstructor(RetryPolicy.class, StubStorage.class)
                     .newInstance(
-                            configuration.getRetryConfiguration(),
+                            routerConfiguration.getRetryConfiguration(),
                             stubsStorages.computeIfAbsent(cls, key ->
                                     new DefaultStubStorage<>(getServiceConfig(key),
                                             createGetMetric(GRPC_INVOKE_CALL_TOTAL, GRPC_INVOKE_CALL_MAP),

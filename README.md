@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.6.0)
+# th2 common library (Java) (5.7.0)
 
 ## Usage
 
@@ -192,12 +192,22 @@ The `CommonFactory` reads a gRPC router configuration from the `grpc_router.json
 * maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than
   option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of
   bytes.
+* retryConfiguration - this settings aria is responsible for how a component executes gRPC retries before gives up with exception.
+    Component executes request attempts with growing timeout between them until success or attempts over
+  * maxAttempts - number of attempts before give up
+  * minMethodRetriesTimeout - minimal timeout between retry in milliseconds
+  * maxMethodRetriesTimeout - maximum timeout between retry in milliseconds
 
 ```json
 {
   "enableSizeMeasuring": false,
   "keepAliveInterval": 60,
-  "maxMessageSize": 4194304
+  "maxMessageSize": 4194304,
+  "retryConfiguration": {
+    "maxAttempts": 60,
+    "minMethodRetriesTimeout": 100,
+    "maxMethodRetriesTimeout": 120000
+  }
 }
 ```
 
@@ -490,6 +500,15 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.7.0-dev
+
+#### Fix:
++ gRPC `retryConfiguration` has been moved from grpc.json to grpc_router.json
++ the whole default gRPC retry interval is about 1 minute
+
+#### Updated:
++ grpc-service-generator: `3.5.0`
 
 ### 5.6.0-dev
 
