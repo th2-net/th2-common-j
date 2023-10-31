@@ -276,15 +276,14 @@ public class ConnectionManager implements AutoCloseable {
                     SubscriptionCallbacks subscriptionCallbacks = channelHolder.subscriptionCallbacks;
                     if (subscriptionCallbacks != null) {
                         channelsByPin.remove(pinId);
-                        if (channelHolder.isSubscribed) {
+                        if (channelHolder.subscribed()) {
                             LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
                             basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
                         }
                     }
                 }
             } catch (IOException e) {
-                LOGGER.warn("Exception during channel's subscriptions recovery", e);
-                throw new RuntimeException(e);
+                LOGGER.warn("Failed to recovery channel's subscriptions", e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -449,7 +448,6 @@ public class ConnectionManager implements AutoCloseable {
                     }
                 }, cancelCallback), configuration);
 
-        holder.isSubscribed = true;
         return new RabbitMqSubscriberMonitor(holder, queue, tag, this::basicCancel);
     }
 
@@ -606,10 +604,7 @@ public class ConnectionManager implements AutoCloseable {
 
         @Override
         public void unsubscribe() throws IOException {
-            holder.withLock(false, channel -> {
-                action.execute(channel, tag);
-                holder.isSubscribed = false;
-            });
+            holder.unsubscribeWithLock(tag, action);
         }
     }
 
@@ -684,7 +679,7 @@ public class ConnectionManager implements AutoCloseable {
         @GuardedBy("lock")
         private Channel channel;
         @GuardedBy("lock")
-        public boolean isSubscribed = false;
+        private boolean isSubscribed = false;
 
         public ChannelHolder(
                 Supplier<Channel> supplier,
@@ -696,6 +691,7 @@ public class ConnectionManager implements AutoCloseable {
             this.maxCount = maxCount;
             this.subscriptionCallbacks = null;
         }
+
         public ChannelHolder(
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker,
@@ -753,21 +749,37 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) throws InterruptedException {
+        public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) throws InterruptedException, IOException {
             lock.lock();
             try {
                 Iterator<RetryingDelay> iterator = null;
                 Channel tempChannel = getChannel();
                 while (true) {
                     try {
-                        return mapper.map(tempChannel);
+                        var tag = mapper.map(tempChannel);
+                        isSubscribed = true;
+                        return tag;
                     } catch (IOException e) {
                         iterator = handleAndSleep(configuration, iterator, "Retrying consume", e);
-                    } catch (ShutdownSignalException e) {
-                        iterator = handleAndSleep(configuration, iterator, "Retrying consume", e);
-                        tempChannel = recreateChannel();
+                        var reason = tempChannel.getCloseReason();
+                        if (reason != null) {
+                            if (reason.getMessage().contains("reply-text=RESOURCE_LOCKED")) {
+                                throw e;
+                            }
+                            tempChannel = recreateChannel();
+                        }
                     }
                 }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        public void unsubscribeWithLock(String tag, CancelAction action) throws IOException {
+            lock.lock();
+            try {
+                action.execute(channel, tag);
+                isSubscribed = false;
             } finally {
                 lock.unlock();
             }
@@ -868,6 +880,10 @@ public class ConnectionManager implements AutoCloseable {
             }
             reconnectionChecker.accept(channel, waitForRecovery);
             return channel;
+        }
+
+        public boolean subscribed() {
+            return isSubscribed;
         }
     }
 

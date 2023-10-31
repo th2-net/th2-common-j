@@ -50,6 +50,8 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.utility.MountableFile
+import java.io.IOException
+import kotlin.test.assertFailsWith
 
 @IntegrationTest
 class TestConnectionManager {
@@ -406,13 +408,9 @@ class TestConnectionManager {
         val queueName = "queue5"
         val amqpPort = 5672
         val container = object : RabbitMQContainer(RABBITMQ_IMAGE_NAME) {
-            fun addFixedPort(hostPort: Int, containerPort: Int) {
-                super.addFixedExposedPort(hostPort, containerPort)
-            }
+            init { super.addFixedExposedPort(amqpPort, amqpPort) }
         }
 
-        container
-            .addFixedPort(amqpPort, amqpPort)
         container
             .withQueue(queueName)
             .use {
@@ -821,11 +819,10 @@ class TestConnectionManager {
             createConnectionManager(rabbitMQContainer).use { firstManager ->
                 createConnectionManager(rabbitMQContainer).use { secondManager ->
                     val queue = firstManager.queueDeclare()
-                    val consumerThread = thread { secondManager.basicConsume(queue, { _, _, _ -> }, {}) }
-                    consumerThread.join(5_000)
-                    val isAlive = consumerThread.isAlive
-                    consumerThread.stop()
-                    assertTrue(isAlive) { "Another connection can subscribe to the $queue queue" }
+
+                    assertFailsWith<IOException>("Another connection can subscribe to the $queue queue") {
+                        secondManager.basicConsume(queue, { _, _, _ -> }, {})
+                    }
 
                     extracted(firstManager, secondManager, queue, 3)
                     extracted(firstManager, secondManager, queue, 6)
