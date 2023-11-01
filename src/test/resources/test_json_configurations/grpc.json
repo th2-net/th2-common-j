@@ -24,5 +24,10 @@
     "port": 1234,
     "workers": 58
   },
-  "keepAliveInterval": 400
+  "keepAliveInterval": 400,
+  "retryConfiguration": {
+    "maxAttempts": 5,
+    "minMethodRetriesTimeout": 100,
+    "maxMethodRetriesTimeout": 2000
+  }
 }

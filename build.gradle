@@ -23,7 +23,6 @@ plugins {
     id 'maven-publish'
     id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
     id 'signing'
-    id 'com.google.protobuf' version '0.8.8' apply false
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
     id 'org.jetbrains.kotlin.kapt' version "${kotlin_version}"
     id "org.owasp.dependencycheck" version "8.3.1"
@@ -31,14 +30,21 @@ plugins {
     id "com.gorylenko.gradle-git-properties" version "2.4.1"
     id 'com.github.jk1.dependency-license-report' version '2.5'
     id "de.undercouch.download" version "5.4.0"
+    id "com.google.protobuf" version "0.9.4"
 }
 
 group = 'com.exactpro.th2'
 version = release_version
 
 ext {
+    grpcVersion = '1.56.0'
+    protobufVersion = '3.23.2' // The protoc:3.23.3 https://github.com/protocolbuffers/protobuf/issues/13070
+    serviceGeneratorVersion = '3.5.0'
+
     cradleVersion = '5.1.1-dev'
     junitVersion = '5.10.0'
+
+    genBaseDir = file("${buildDir}/generated/source/proto")
 }
 
 repositories {
@@ -93,7 +99,7 @@ tasks.withType(Sign).configureEach {
 }
 // disable running task 'initializeSonatypeStagingRepository' on a gitlab
 tasks.configureEach { task ->
-    if (task.name.equals('initializeSonatypeStagingRepository') &&
+    if (task.name == 'initializeSonatypeStagingRepository' &&
             !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
     ) {
         task.enabled = false
@@ -189,7 +195,7 @@ dependencies {
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
 
     implementation 'com.google.protobuf:protobuf-java-util'
-    implementation 'com.exactpro.th2:grpc-service-generator:3.4.0'
+    implementation "com.exactpro.th2:grpc-service-generator:${serviceGeneratorVersion}"
     implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
 
     def autoValueVersion = '1.10.1'
@@ -253,6 +259,7 @@ dependencies {
 
     implementation 'io.github.microutils:kotlin-logging:3.0.0' // The last version bases on kotlin 1.6.0
 
+    testImplementation 'javax.annotation:javax.annotation-api:1.3.2'
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
@@ -281,7 +288,36 @@ jar {
 
 sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
+    test.resources.srcDirs += "$genBaseDir/test/services/java/resources"
 }
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+        services {
+            artifact = "com.exactpro.th2:grpc-service-generator:${serviceGeneratorVersion}:all@jar"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+            services {
+                option 'javaInterfacesPath=./java/src'
+                option 'javaInterfacesImplPath=./java/src'
+                option 'javaMetaInfPath=./java/resources'
+            }
+        }
+        ofSourceSet('test')
+    }
+}
+
+compileTestJava.dependsOn.add('generateTestProto')
+processTestResources.dependsOn.add('generateTestProto')
 
 tasks.withType(KotlinCompile).configureEach {
     kotlinOptions.jvmTarget = "11"

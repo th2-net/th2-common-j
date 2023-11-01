@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.7.0)
+# th2 common library (Java) (5.8.0)
 
 ## Usage
 
@@ -96,6 +96,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if
   unlimited, the default value is set to 10.
 * messageRecursionLimit - an integer number denotes how deep the nested protobuf message might be, set by default 100
+
 ```json
 {
   "host": "<host>",
@@ -192,12 +193,22 @@ The `CommonFactory` reads a gRPC router configuration from the `grpc_router.json
 * maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than
   option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of
   bytes.
+* retryConfiguration - this settings aria is responsible for how a component executes gRPC retries before gives up with exception.
+    Component executes request attempts with growing timeout between them until success or attempts over
+  * maxAttempts - number of attempts before give up
+  * minMethodRetriesTimeout - minimal timeout between retry in milliseconds
+  * maxMethodRetriesTimeout - maximum timeout between retry in milliseconds
 
 ```json
 {
   "enableSizeMeasuring": false,
   "keepAliveInterval": 60,
-  "maxMessageSize": 4194304
+  "maxMessageSize": 4194304,
+  "retryConfiguration": {
+    "maxAttempts": 60,
+    "minMethodRetriesTimeout": 100,
+    "maxMethodRetriesTimeout": 120000
+  }
 }
 ```
 
@@ -491,13 +502,22 @@ dependencies {
 
 ## Release notes
 
-### 5.7.0-dev
+### 5.8.0-dev
 
 + Added retry in case of a RabbitMQ channel or connection error (when possible).
 + Added InterruptedException to basicConsume method signature.
 + Added additional logging for RabbitMQ errors.
 + Fixed connection recovery delay time.
 + Integration tests for these scenarios.
+
+### 5.7.0-dev
+
+#### Fix:
++ gRPC `retryConfiguration` has been moved from grpc.json to grpc_router.json
++ the whole default gRPC retry interval is about 1 minute
+
+#### Updated:
++ grpc-service-generator: `3.5.0`
 
 ### 5.6.0-dev
 
@@ -599,6 +619,8 @@ dependencies {
 + `com.exactpro.th2.common.event.Event.toProto...()` by `parentEventId`/`bookName`/`(bookName + scope)`
 + Added `isRedelivered` flag to message
 
+---
+
 ### 3.44.1
 
 + Remove unused dependency
@@ -609,13 +631,6 @@ dependencies {
 + There is no support for log4j version 1.
 + Work was done to eliminate vulnerabilities in _common_ and _bom_ dependencies.
     + **th2-bom must be updated to _4.0.3_ or higher.**
-
-### 3.42.1
-+ Added retry in case of a RabbitMQ channel or connection error (when possible).
-+ Added InterruptedException to basicConsume method signature.
-+ Added additional logging for RabbitMQ errors.
-+ Fixed connection recovery delay time.
-+ Integration tests for these scenarios.
 
 ### 3.42.0
 

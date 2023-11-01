@@ -39,6 +39,11 @@ class TestJsonConfiguration {
     }
 
     @Test
+    fun `test grpc router json configuration deserialize`() {
+        testDeserialize(GRPC_ROUTER_CONF_JSON, GRPC_ROUTER_CONF)
+    }
+
+    @Test
     fun `test grpc json configuration serialize and deserialize`() {
         testSerializeAndDeserialize(GRPC_CONF)
     }
@@ -141,6 +146,18 @@ class TestJsonConfiguration {
                 )
             ),
             GrpcServerConfiguration("host123", 1234, 58),
+        )
+
+        private val GRPC_ROUTER_CONF_JSON = loadConfJson("grpc_router")
+        private val GRPC_ROUTER_CONF = GrpcRouterConfiguration(
+            true,
+            61,
+            4194305,
+            GrpcRetryConfiguration(
+                61,
+                101,
+                120001
+            )
         )
 
         private val RABBITMQ_CONF_JSON = loadConfJson("rabbitMq")
