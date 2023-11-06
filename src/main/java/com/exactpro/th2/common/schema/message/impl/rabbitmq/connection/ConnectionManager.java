@@ -284,6 +284,7 @@ public class ConnectionManager implements AutoCloseable {
                 }
             } catch (IOException e) {
                 LOGGER.warn("Failed to recovery channel's subscriptions", e);
+                // this code executed in executor service and exception thrown here will not be handled anywhere
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -739,9 +740,15 @@ public class ConnectionManager implements AutoCloseable {
                     } catch (IOException | ShutdownSignalException e) {
                         var currentValue = iterator.next();
                         int recoveryDelay = currentValue.getDelay();
-                        LOGGER.warn("Retrying publishing #{}, waiting for {}ms, then recreating channel. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
+                        LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);
-                        tempChannel = recreateChannel();
+
+                        // we should not recover channel if it's connection is closed, because if we'll do it channel
+                        // will be also auto recovered by RabbitMQ client during recovering of connection, and we'll
+                        // get two new channels instead of one closed.
+                        if (!tempChannel.isOpen() && tempChannel.getConnection().isOpen()) {
+                            tempChannel = recreateChannel();
+                        }
                     }
                 }
             } finally {
