@@ -30,7 +30,6 @@ import com.exactpro.th2.common.util.getChannelsInfo
 import com.exactpro.th2.common.util.getQueuesInfo
 import com.exactpro.th2.common.util.getSubscribedChannelsCount
 import com.exactpro.th2.common.util.putMessageInQueue
-import com.exactpro.th2.common.util.restartContainer
 import com.rabbitmq.client.BuiltinExchangeType
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
@@ -412,9 +411,9 @@ class TestConnectionManager {
         }
 
         container
-            .withQueue(queueName)
             .use {
                 it.start()
+                declareQueue(it, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 ConnectionManager(
                     RabbitMQConfiguration(
@@ -445,8 +444,12 @@ class TestConnectionManager {
                     LOGGER.info { "Rabbit address- ${it.host}:${it.amqpPort}" }
 
                     LOGGER.info { "Restarting the container" }
-                    restartContainer(it)
-                    Thread.sleep(5000)
+                    it.stop()
+                    Thread.sleep(5_000)
+                    it.start()
+                    Thread.sleep(5_000)
+                    declareQueue(it, queueName)
+                    Thread.sleep(5_000)
 
                     LOGGER.info { "Rabbit address after restart - ${it.host}:${it.amqpPort}" }
                     LOGGER.info { getQueuesInfo(it) }

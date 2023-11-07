@@ -247,8 +247,14 @@ public class ConnectionManager implements AutoCloseable {
                         errorBuilder.append(channelCause);
                         String errorString = errorBuilder.toString();
                         LOGGER.warn(errorString);
-                        if (withRecovery && errorString.contains("PRECONDITION_FAILED")) {
-                            recoverSubscriptionsOfChannel(channel.getChannelNumber());
+                        if (withRecovery &&
+                                (errorString.contains("reply-text=PRECONDITION_FAILED")
+                                || errorString.contains("reply-text=NOT_FOUND"))
+                        ) {
+                            int channelNumber =  channel.getChannelNumber();
+                            var pinIdToChannelHolder = getChannelHolderByChannelNumber(channelNumber);
+                            if (pinIdToChannelHolder != null && !pinIdToChannelHolder.getValue().subscribing())
+                                recoverSubscriptionsOfChannel(channelNumber);
                         }
                     }
                 }
@@ -681,6 +687,8 @@ public class ConnectionManager implements AutoCloseable {
         private Channel channel;
         @GuardedBy("lock")
         private boolean isSubscribed = false;
+        @GuardedBy("lock")
+        private boolean isSubscribing = false;
 
         public ChannelHolder(
                 Supplier<Channel> supplier,
@@ -758,6 +766,7 @@ public class ConnectionManager implements AutoCloseable {
 
         public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) throws InterruptedException, IOException {
             lock.lock();
+            isSubscribing = true;
             try {
                 Iterator<RetryingDelay> iterator = null;
                 Channel tempChannel = getChannel();
@@ -778,6 +787,7 @@ public class ConnectionManager implements AutoCloseable {
                     }
                 }
             } finally {
+                isSubscribing = false;
                 lock.unlock();
             }
         }
@@ -891,6 +901,10 @@ public class ConnectionManager implements AutoCloseable {
 
         public boolean subscribed() {
             return isSubscribed;
+        }
+
+        public boolean subscribing() {
+            return isSubscribing;
         }
     }
 
