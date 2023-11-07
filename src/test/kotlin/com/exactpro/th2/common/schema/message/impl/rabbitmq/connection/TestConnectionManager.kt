@@ -445,7 +445,6 @@ class TestConnectionManager {
 
                     LOGGER.info { "Restarting the container" }
                     it.stop()
-                    Thread.sleep(5_000)
                     it.start()
                     Thread.sleep(5_000)
                     declareQueue(it, queueName)

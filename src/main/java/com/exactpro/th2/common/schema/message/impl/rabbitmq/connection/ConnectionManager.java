@@ -232,6 +232,11 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
+    private final static List<String> recoverableErrors = List.of(
+            "reply-text=NOT_FOUND",
+            "reply-text=PRECONDITION_FAILED"
+    );
+
     private void addShutdownListenerToChannel(Channel channel, Boolean withRecovery) {
         channel.addShutdownListener(cause -> {
             LOGGER.debug("Closing the channel: ", cause);
@@ -247,14 +252,12 @@ public class ConnectionManager implements AutoCloseable {
                         errorBuilder.append(channelCause);
                         String errorString = errorBuilder.toString();
                         LOGGER.warn(errorString);
-                        if (withRecovery &&
-                                (errorString.contains("reply-text=PRECONDITION_FAILED")
-                                || errorString.contains("reply-text=NOT_FOUND"))
-                        ) {
+                        if (withRecovery && recoverableErrors.stream().anyMatch(errorString::contains)) {
                             int channelNumber =  channel.getChannelNumber();
                             var pinIdToChannelHolder = getChannelHolderByChannelNumber(channelNumber);
-                            if (pinIdToChannelHolder != null && !pinIdToChannelHolder.getValue().subscribing())
+                            if ((pinIdToChannelHolder != null) && (pinIdToChannelHolder.getValue().state() != ChannelState.SUBSCRIBING)) {
                                 recoverSubscriptionsOfChannel(channelNumber);
+                            }
                         }
                     }
                 }
@@ -282,7 +285,7 @@ public class ConnectionManager implements AutoCloseable {
                     SubscriptionCallbacks subscriptionCallbacks = channelHolder.subscriptionCallbacks;
                     if (subscriptionCallbacks != null) {
                         channelsByPin.remove(pinId);
-                        if (channelHolder.subscribed()) {
+                        if (channelHolder.state == ChannelState.SUBSCRIBED) {
                             LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
                             basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
                         }
@@ -673,6 +676,12 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
+    private enum ChannelState {
+        UNSUBSCRIBED,
+        SUBSCRIBING,
+        SUBSCRIBED
+    }
+
     private static class ChannelHolder {
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
@@ -686,9 +695,7 @@ public class ConnectionManager implements AutoCloseable {
         @GuardedBy("lock")
         private Channel channel;
         @GuardedBy("lock")
-        private boolean isSubscribed = false;
-        @GuardedBy("lock")
-        private boolean isSubscribing = false;
+        private ChannelState state = ChannelState.UNSUBSCRIBED;
 
         public ChannelHolder(
                 Supplier<Channel> supplier,
@@ -766,20 +773,21 @@ public class ConnectionManager implements AutoCloseable {
 
         public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) throws InterruptedException, IOException {
             lock.lock();
-            isSubscribing = true;
+            state = ChannelState.SUBSCRIBING;
             try {
                 Iterator<RetryingDelay> iterator = null;
                 Channel tempChannel = getChannel();
                 while (true) {
                     try {
                         var tag = mapper.map(tempChannel);
-                        isSubscribed = true;
+                        state = ChannelState.SUBSCRIBED;
                         return tag;
                     } catch (IOException e) {
                         iterator = handleAndSleep(configuration, iterator, "Retrying consume", e);
                         var reason = tempChannel.getCloseReason();
                         if (reason != null) {
                             if (reason.getMessage().contains("reply-text=RESOURCE_LOCKED")) {
+                                state = ChannelState.UNSUBSCRIBED;
                                 throw e;
                             }
                             tempChannel = recreateChannel();
@@ -787,7 +795,6 @@ public class ConnectionManager implements AutoCloseable {
                     }
                 }
             } finally {
-                isSubscribing = false;
                 lock.unlock();
             }
         }
@@ -796,7 +803,7 @@ public class ConnectionManager implements AutoCloseable {
             lock.lock();
             try {
                 action.execute(channel, tag);
-                isSubscribed = false;
+                state = ChannelState.UNSUBSCRIBED;
             } finally {
                 lock.unlock();
             }
@@ -899,12 +906,8 @@ public class ConnectionManager implements AutoCloseable {
             return channel;
         }
 
-        public boolean subscribed() {
-            return isSubscribed;
-        }
-
-        public boolean subscribing() {
-            return isSubscribing;
+        public ChannelState state() {
+            return state;
         }
     }
 
