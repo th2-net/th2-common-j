@@ -751,9 +751,9 @@ public class ConnectionManager implements AutoCloseable {
                         LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);
 
-                        // we should not recover channel if it's connection is closed, because if we'll do it channel
-                        // will be also auto recovered by RabbitMQ client during recovering of connection, and we'll
-                        // get two new channels instead of one closed.
+                        // We should not recover the channel if its connection is closed
+                        // If we do that the channel will be also auto recovered by RabbitMQ client
+                        // during connection recovery, and we will get two new channels instead of one closed.
                         if (!tempChannel.isOpen() && tempChannel.getConnection().isOpen()) {
                             tempChannel = recreateChannel();
                         }
