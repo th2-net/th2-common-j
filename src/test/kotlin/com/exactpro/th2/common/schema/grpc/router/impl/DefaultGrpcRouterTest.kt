@@ -32,7 +32,6 @@ import com.exactpro.th2.service.AbstractGrpcService.STATUS_DESCRIPTION_OF_INTERR
 import io.grpc.Context
 import io.grpc.Deadline
 import io.grpc.Server
-import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 import org.junit.jupiter.api.AfterEach
@@ -61,6 +60,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
+private const val CANCEL_REASON = "test request is canceled"
+
 @IntegrationTest
 internal class DefaultGrpcRouterTest {
     @IntegrationTest
@@ -81,6 +82,7 @@ internal class DefaultGrpcRouterTest {
             executor.shutdownGracefully()
             deadlineExecutor.shutdownGracefully()
         }
+
         abstract fun general()
         abstract fun `delayed server start`()
         abstract fun `cancel retry request`()
@@ -153,19 +155,20 @@ internal class DefaultGrpcRouterTest {
         override fun general() {
             createServer().execAndClose(true) {
                 val response = executor.submit<Response> {
-                    return@submit createClientSync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+                    return@submit createClientSync().singleRequestSingleResponse(createRequest())
                 }.get(1, TimeUnit.MINUTES)
 
                 assertEquals(1, response.seq)
                 assertEquals(1, response.origSeq)
             }
         }
+
         @Test
         override fun `delayed server start`() {
             val clientServerBaton = Baton("client-server")
             val future = executor.submit<Response> {
                 clientServerBaton.give("client thread started")
-                return@submit createClientSync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+                return@submit createClientSync().singleRequestSingleResponse(createRequest())
             }
 
             clientServerBaton.get("wait client thread start")
@@ -177,6 +180,7 @@ internal class DefaultGrpcRouterTest {
                 assertEquals(1, response.origSeq)
             }
         }
+
         @Test
         override fun `cancel retry request`() {
             val clientServerBaton = Baton("client-server")
@@ -190,46 +194,20 @@ internal class DefaultGrpcRouterTest {
 
                 clientServerBaton.give("client thread started")
                 grpcContext.get().call {
-                    createClientSync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+                    createClientSync().singleRequestSingleResponse(createRequest())
                 }
             }
 
             clientServerBaton.get("wait client thread start")
             Thread.sleep(RETRY_TIMEOUT / 2)
-            val cancelExceptionMessage = "test request is canceled"
-            assertTrue(grpcContext.get().cancel(RuntimeException(cancelExceptionMessage)))
+            assertTrue(grpcContext.get().cancel(RuntimeException(CANCEL_REASON)))
 
             val exception = assertThrows<ExecutionException> {
                 future.get(1, TimeUnit.MINUTES)
             }
-            K_LOGGER.error(exception) { "Handle exception" }
-
-            assertException(
-                exception, ExceptionMetadata(
-                    "java.lang.RuntimeException: Can not execute GRPC blocking request",
-                    ExceptionMetadata(
-                        "Can not execute GRPC blocking request",
-                        suspended = listOf(
-                            ExceptionMetadata(
-                                "UNAVAILABLE: io exception",
-                                ExceptionMetadata(
-                                    "Connection refused: localhost/127.0.0.1:8080",
-                                    ExceptionMetadata(
-                                        "Connection refused"
-                                    )
-                                ),
-                            ),
-                            ExceptionMetadata(
-                                "CANCELLED: Context cancelled",
-                                ExceptionMetadata(
-                                    cancelExceptionMessage,
-                                )
-                            ),
-                        )
-                    )
-                )
-            )
+            assertCanceledSync(exception)
         }
+
         @Test
         override fun `deadline retry request`() {
             val clientServerBaton = Baton("client-server")
@@ -239,7 +217,7 @@ internal class DefaultGrpcRouterTest {
                 Context.current()
                     .withDeadline(Deadline.after(RETRY_TIMEOUT / 2, TimeUnit.MILLISECONDS), deadlineExecutor)
                     .call {
-                        createClientSync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+                        createClientSync().singleRequestSingleResponse(createRequest())
                     }
             }
 
@@ -248,41 +226,16 @@ internal class DefaultGrpcRouterTest {
             val exception = assertThrows<ExecutionException> {
                 future.get(1, TimeUnit.MINUTES)
             }
-            K_LOGGER.error(exception) { "Handle exception" }
-
-            assertException(
-                exception, ExceptionMetadata(
-                    "java.lang.RuntimeException: Can not execute GRPC blocking request",
-                    ExceptionMetadata(
-                        "Can not execute GRPC blocking request",
-                        suspended = listOf(
-                            ExceptionMetadata(
-                                "UNAVAILABLE: io exception",
-                                ExceptionMetadata(
-                                    "Connection refused: localhost/127.0.0.1:8080",
-                                    ExceptionMetadata(
-                                        "Connection refused"
-                                    )
-                                ),
-                            ),
-                            ExceptionMetadata(
-                                "DEADLINE_EXCEEDED: context timed out",
-                                ExceptionMetadata(
-                                    "context timed out",
-                                )
-                            ),
-                        )
-                    )
-                )
-            )
+            assertDeadlineExceededSync(exception)
         }
+
         @Test
         override fun `interrupt thread during retry request`() {
             val clientServerBaton = Baton("client-server")
 
             val future = executor.submit<Response> {
                 clientServerBaton.give("client thread started")
-                createClientSync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+                createClientSync().singleRequestSingleResponse(createRequest())
             }
 
             clientServerBaton.get("wait client thread start")
@@ -293,37 +246,15 @@ internal class DefaultGrpcRouterTest {
             val exception = assertThrows<ExecutionException> {
                 future.get(1, TimeUnit.MINUTES)
             }
-            K_LOGGER.error(exception) { "Handle exception" }
-
-            assertException(
-                exception, ExceptionMetadata(
-                    "java.lang.RuntimeException: Can not execute GRPC blocking request",
-                    ExceptionMetadata(
-                        "Can not execute GRPC blocking request",
-                        suspended = listOf(
-                            ExceptionMetadata(
-                                "UNAVAILABLE: io exception",
-                                ExceptionMetadata(
-                                    "Connection refused: localhost/127.0.0.1:8080",
-                                    ExceptionMetadata(
-                                        "Connection refused"
-                                    )
-                                ),
-                            ),
-                            ExceptionMetadata(
-                                "sleep interrupted"
-                            ),
-                        )
-                    )
-                )
-            )
+            assertInterruptedSync(exception)
         }
+
         @Test
         override fun `server terminated intermediate session (retry false)`() {
             val clientServerBaton = Baton("client-server")
             val future = executor.submit<Response> {
                 clientServerBaton.giveAndGet("client thread started", "wait server start")
-                createClientSync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build())
+                createClientSync().singleRequestSingleResponse(createRequest())
             }
 
             val handlerBaton = Baton("handler")
@@ -354,13 +285,14 @@ internal class DefaultGrpcRouterTest {
                 )
             )
         }
+
         @Test
         override fun `server terminated intermediate session (retry true)`() {
             val clientServerBaton = Baton("client-server")
             val future = executor.submit<Response> {
                 clientServerBaton.giveAndGet("client thread started", "wait server start")
                 createClientSync(retryInterruptedTransaction = true).singleRequestSingleResponse(
-                    Request.newBuilder().setSeq(1).build()
+                    createRequest()
                 )
             }
 
@@ -391,7 +323,7 @@ internal class DefaultGrpcRouterTest {
         override fun general() {
             val streamObserver = mock<StreamObserver<Response>> { }
             createServer().execAndClose(true) {
-                createClientAsync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
+                createClientAsync().singleRequestSingleResponse(createRequest(), streamObserver)
 
                 val captor = argumentCaptor<Response> { }
                 verify(streamObserver, timeout(60 * 1_000)).onCompleted()
@@ -403,10 +335,11 @@ internal class DefaultGrpcRouterTest {
                 assertEquals(1, captor.firstValue.origSeq)
             }
         }
+
         @Test
         override fun `delayed server start`() {
             val streamObserver = mock<StreamObserver<Response>> { }
-            createClientAsync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
+            createClientAsync().singleRequestSingleResponse(createRequest(), streamObserver)
 
             Thread.sleep(RETRY_TIMEOUT / 2)
 
@@ -421,19 +354,19 @@ internal class DefaultGrpcRouterTest {
                 assertEquals(1, captor.firstValue.origSeq)
             }
         }
+
         @Test
         override fun `cancel retry request`() {
             val grpcContext = Context.current().withCancellation()
 
             val streamObserver = mock<StreamObserver<Response>> { }
             grpcContext.call {
-                createClientAsync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
+                createClientAsync().singleRequestSingleResponse(createRequest(), streamObserver)
             }
 
             Thread.sleep(RETRY_TIMEOUT / 2)
 
-            val cancelExceptionMessage = "test request is canceled"
-            assertTrue(grpcContext.cancel(RuntimeException(cancelExceptionMessage)))
+            assertTrue(grpcContext.cancel(RuntimeException(CANCEL_REASON)))
 
             val captor = argumentCaptor<Throwable> { }
             verify(streamObserver, timeout(60 * 1_000)).onError(captor.capture())
@@ -446,11 +379,12 @@ internal class DefaultGrpcRouterTest {
                 captor.firstValue, ExceptionMetadata(
                     "CANCELLED: Context cancelled",
                     ExceptionMetadata(
-                        cancelExceptionMessage,
+                        CANCEL_REASON,
                     )
                 )
             )
         }
+
         @Test
         override fun `deadline retry request`() {
             val grpcContext = Context.current()
@@ -458,7 +392,7 @@ internal class DefaultGrpcRouterTest {
 
             val streamObserver = mock<StreamObserver<Response>> { }
             grpcContext.call {
-                createClientAsync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
+                createClientAsync().singleRequestSingleResponse(createRequest(), streamObserver)
             }
 
             val captor = argumentCaptor<Throwable> { }
@@ -477,17 +411,19 @@ internal class DefaultGrpcRouterTest {
                 )
             )
         }
+
         @Test
         override fun `interrupt thread during retry request`() {
             // this test isn't relevant for async request
         }
+
         @Test
         override fun `server terminated intermediate session (retry false)`() {
             val streamObserver = mock<StreamObserver<Response>> { }
             val handlerBaton = Baton("handler")
 
             createServer(completeResponse = false, handlerBaton = handlerBaton).execAndClose(true) {
-                createClientAsync().singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
+                createClientAsync().singleRequestSingleResponse(createRequest(), streamObserver)
 
                 handlerBaton.get("wait response sent")
                 Thread.sleep(RETRY_TIMEOUT / 2)
@@ -506,13 +442,17 @@ internal class DefaultGrpcRouterTest {
                 )
             )
         }
+
         @Test
         override fun `server terminated intermediate session (retry true)`() {
             val streamObserver = mock<StreamObserver<Response>> { }
             val handlerBaton = Baton("handler")
 
             createServer(completeResponse = false, handlerBaton = handlerBaton).execAndClose(true) {
-                createClientAsync(retryInterruptedTransaction = true).singleRequestSingleResponse(Request.newBuilder().setSeq(1).build(), streamObserver)
+                createClientAsync(retryInterruptedTransaction = true).singleRequestSingleResponse(
+                    createRequest(),
+                    streamObserver
+                )
                 handlerBaton.get("wait response sent")
                 Thread.sleep(RETRY_TIMEOUT / 2)
             }
@@ -539,7 +479,7 @@ internal class DefaultGrpcRouterTest {
         @Test
         override fun general() {
             createServer().execAndClose {
-                val responses = createClientSync().singleRequestMultipleResponse(Request.newBuilder().setSeq(1).build())
+                val responses = createClientSync().singleRequestMultipleResponse(createRequest())
                     .asSequence().toList()
 
                 assertEquals(2, responses.size)
@@ -549,46 +489,100 @@ internal class DefaultGrpcRouterTest {
                 }
             }
         }
+
         @Test
         override fun `delayed server start`() {
-            val iterator = createClientSync().singleRequestMultipleResponse(Request.newBuilder().setSeq(1).build())
-            val exception = assertThrows<StatusRuntimeException> {
-                // FIXME: gRPC router should retry to resend request when server isn't available.
-                //  iterator can throw exception when server disappears in the intermediate of response retransmission
-                //  and retryInterruptedTransaction false
-                iterator.hasNext()
+            val clientServerBaton = Baton("client-server")
+            val future = executor.submit<List<Response>> {
+                clientServerBaton.give("client thread started")
+                return@submit createClientSync().singleRequestMultipleResponse(createRequest())
+                    .asSequence().toList()
             }
-            K_LOGGER.error(exception) { "Handle exception" }
-            assertException(
-                exception, ExceptionMetadata(
-                    "UNAVAILABLE: io exception",
-                    cause = ExceptionMetadata(
-                        "Connection refused: localhost/127.0.0.1:8080",
-                        cause = ExceptionMetadata(
-                            "Connection refused"
-                        )
-                    )
-                )
-            )
+
+            clientServerBaton.get("wait client thread start")
+            Thread.sleep(RETRY_TIMEOUT / 2)
+
+            createServer().execAndClose {
+                val response = future.get(1, TimeUnit.MINUTES)
+                assertEquals(2, response.size)
+            }
         }
+
         @Test
         override fun `cancel retry request`() {
-            // FIXME: implement after retry implementing in the `delayed server start` case
+            val clientServerBaton = Baton("client-server")
+            val grpcContext = AtomicReference<Context.CancellableContext>()
+
+            val future = executor.submit<List<Response>> {
+                grpcContext.set(
+                    Context.current()
+                        .withCancellation()
+                )
+
+                clientServerBaton.give("client thread started")
+                grpcContext.get().call {
+                    createClientSync().singleRequestMultipleResponse(createRequest())
+                        .asSequence().toList()
+                }
+            }
+
+            clientServerBaton.get("wait client thread start")
+            Thread.sleep(RETRY_TIMEOUT / 2)
+            assertTrue(grpcContext.get().cancel(RuntimeException(CANCEL_REASON)))
+
+            val exception = assertThrows<ExecutionException> {
+                future.get(1, TimeUnit.MINUTES)
+            }
+            assertCanceledSync(exception)
         }
+
         @Test
         override fun `deadline retry request`() {
-            // FIXME: implement after retry implementing in the `delayed server start` case
+            val clientServerBaton = Baton("client-server")
+
+            val future = executor.submit<List<Response>> {
+                clientServerBaton.give("client thread started")
+                Context.current()
+                    .withDeadline(Deadline.after(RETRY_TIMEOUT / 2, TimeUnit.MILLISECONDS), deadlineExecutor)
+                    .call {
+                        createClientSync().singleRequestMultipleResponse(createRequest()).asSequence().toList()
+                    }
+            }
+
+            clientServerBaton.get("wait client thread start")
+
+            val exception = assertThrows<ExecutionException> {
+                future.get(1, TimeUnit.MINUTES)
+            }
+            assertDeadlineExceededSync(exception)
         }
+
         @Test
         override fun `interrupt thread during retry request`() {
-            // FIXME: implement after retry implementing in the `delayed server start` case
+            val clientServerBaton = Baton("client-server")
+
+            val future = executor.submit<List<Response>> {
+                clientServerBaton.give("client thread started")
+                createClientSync().singleRequestMultipleResponse(createRequest()).asSequence().toList()
+            }
+
+            clientServerBaton.get("wait client thread start")
+            Thread.sleep(RETRY_TIMEOUT / 2)
+
+            assertEquals(0, executor.shutdownNow().size)
+
+            val exception = assertThrows<ExecutionException> {
+                future.get(1, TimeUnit.MINUTES)
+            }
+            assertInterruptedSync(exception)
         }
+
         @Test
         override fun `server terminated intermediate session (retry false)`() {
             val clientServerBaton = Baton("client-server")
             val future = executor.submit<List<Response>> {
                 clientServerBaton.giveAndGet("client thread started", "wait server start")
-                createClientSync().singleRequestMultipleResponse(Request.newBuilder().setSeq(1).build())
+                createClientSync().singleRequestMultipleResponse(createRequest())
                     .asSequence().toList()
             }
 
@@ -607,23 +601,24 @@ internal class DefaultGrpcRouterTest {
             K_LOGGER.error(exception) { "Handle exception" }
             assertException(
                 exception, ExceptionMetadata(
-                    "io.grpc.StatusRuntimeException: CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                    "java.lang.IllegalStateException: Request failures mid-transfer",
                     ExceptionMetadata(
-                        "CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                        "Request failures mid-transfer",
+                        ExceptionMetadata(
+                            "CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST"
+                        )
                     )
                 )
             )
         }
+
         @Test
         override fun `server terminated intermediate session (retry true)`() {
             val clientServerBaton = Baton("client-server")
             val future = executor.submit<List<Response>> {
                 clientServerBaton.giveAndGet("client thread started", "wait server start")
-                // FIXME: gRPC router should retry to resend request when server is terminated intermediate handling.
-                //  iterator can throw exception when server disappears in the intermediate of response retransmission
-                //  and retryInterruptedTransaction false
                 createClientSync(retryInterruptedTransaction = true).singleRequestMultipleResponse(
-                    Request.newBuilder().setSeq(1).build()
+                    createRequest()
                 ).asSequence().toList()
             }
 
@@ -642,14 +637,103 @@ internal class DefaultGrpcRouterTest {
             K_LOGGER.error(exception) { "Handle exception" }
             assertException(
                 exception, ExceptionMetadata(
-                    "io.grpc.StatusRuntimeException: CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                    "java.lang.IllegalStateException: Request failures mid-transfer",
                     ExceptionMetadata(
-                        "CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST",
+                        "Request failures mid-transfer",
+                        ExceptionMetadata(
+                            "CANCELLED: $STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST"
+                        )
                     )
                 )
             )
         }
     }
+
+    private fun assertInterruptedSync(exception: ExecutionException) {
+        K_LOGGER.error(exception) { "Handle exception" }
+        assertException(
+            exception, ExceptionMetadata(
+                "java.lang.RuntimeException: Can not execute GRPC blocking request",
+                ExceptionMetadata(
+                    "Can not execute GRPC blocking request",
+                    suspended = listOf(
+                        ExceptionMetadata(
+                            "UNAVAILABLE: io exception",
+                            ExceptionMetadata(
+                                "Connection refused: localhost/127.0.0.1:8080",
+                                ExceptionMetadata(
+                                    "Connection refused"
+                                )
+                            ),
+                        ),
+                        ExceptionMetadata(
+                            "sleep interrupted"
+                        ),
+                    )
+                )
+            )
+        )
+    }
+
+    private fun assertDeadlineExceededSync(exception: ExecutionException) {
+        K_LOGGER.error(exception) { "Handle exception" }
+        assertException(
+            exception, ExceptionMetadata(
+                "java.lang.RuntimeException: Can not execute GRPC blocking request",
+                ExceptionMetadata(
+                    "Can not execute GRPC blocking request",
+                    suspended = listOf(
+                        ExceptionMetadata(
+                            "UNAVAILABLE: io exception",
+                            ExceptionMetadata(
+                                "Connection refused: localhost/127.0.0.1:8080",
+                                ExceptionMetadata(
+                                    "Connection refused"
+                                )
+                            ),
+                        ),
+                        ExceptionMetadata(
+                            "DEADLINE_EXCEEDED: context timed out",
+                            ExceptionMetadata(
+                                "context timed out",
+                            )
+                        ),
+                    )
+                )
+            )
+        )
+    }
+
+    private fun assertCanceledSync(exception: ExecutionException) {
+        K_LOGGER.error(exception) { "Handle exception" }
+        assertException(
+            exception, ExceptionMetadata(
+                "java.lang.RuntimeException: Can not execute GRPC blocking request",
+                ExceptionMetadata(
+                    "Can not execute GRPC blocking request",
+                    suspended = listOf(
+                        ExceptionMetadata(
+                            "UNAVAILABLE: io exception",
+                            ExceptionMetadata(
+                                "Connection refused: localhost/127.0.0.1:8080",
+                                ExceptionMetadata(
+                                    "Connection refused"
+                                )
+                            ),
+                        ),
+                        ExceptionMetadata(
+                            "CANCELLED: Context cancelled",
+                            ExceptionMetadata(
+                                CANCEL_REASON,
+                            )
+                        ),
+                    )
+                )
+            )
+        )
+    }
+
+    private fun createRequest(): Request? = Request.newBuilder().setSeq(1).build()
 
     companion object {
         private val K_LOGGER = KotlinLogging.logger { }
