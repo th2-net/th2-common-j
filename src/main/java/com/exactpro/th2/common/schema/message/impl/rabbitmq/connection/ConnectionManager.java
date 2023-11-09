@@ -252,12 +252,14 @@ public class ConnectionManager implements AutoCloseable {
                         errorBuilder.append(channelCause);
                         String errorString = errorBuilder.toString();
                         LOGGER.warn(errorString);
+
+                        var pinIdToChannelHolder = getChannelHolderByChannel(channel);
+                        if (pinIdToChannelHolder == null) return;
+
                         if (withRecovery && recoverableErrors.stream().anyMatch(errorString::contains)) {
-                            int channelNumber =  channel.getChannelNumber();
-                            var pinIdToChannelHolder = getChannelHolderByChannelNumber(channelNumber);
-                            if ((pinIdToChannelHolder != null) && (pinIdToChannelHolder.getValue().state() != ChannelState.SUBSCRIBING)) {
-                                recoverSubscriptionsOfChannel(channelNumber);
-                            }
+                            var pinId = pinIdToChannelHolder.getKey();
+                            var holder = pinIdToChannelHolder.getValue();
+                            recoverSubscriptionsOfChannel(pinId, channel, holder);
                         }
                     }
                 }
@@ -265,31 +267,41 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
-    private @Nullable Map.Entry<PinId, ChannelHolder> getChannelHolderByChannelNumber(int channelNumber) {
+    private @Nullable Map.Entry<PinId, ChannelHolder> getChannelHolderByChannel(Channel channel) {
         return channelsByPin
                 .entrySet()
                 .stream()
-                .filter(entry -> Objects.nonNull(entry.getValue().channel) && channelNumber == entry.getValue().channel.getChannelNumber())
+                .filter(entry -> channel == entry.getValue().channel)
                 .findAny()
                 .orElse(null);
     }
 
-    private void recoverSubscriptionsOfChannel(int channelNumber) {
+    private void recoverSubscriptionsOfChannel(@NotNull final PinId pinId, Channel channel, @NotNull final ChannelHolder holder) {
         channelChecker.execute(() -> {
             try {
-                var pinIdToChannelHolder = getChannelHolderByChannelNumber(channelNumber);
-                if (pinIdToChannelHolder != null) {
-                    PinId pinId = pinIdToChannelHolder.getKey();
-                    ChannelHolder channelHolder = pinIdToChannelHolder.getValue();
+                holder.lock.lock();
+                SubscriptionCallbacks subscriptionCallbacks = holder.subscriptionCallbacks;
+                boolean resubscribe = false;
+                try {
+                    if (holder.channel != channel) {
+                        LOGGER.warn("Channel already recovered");
+                        return;
+                    }
 
-                    SubscriptionCallbacks subscriptionCallbacks = channelHolder.subscriptionCallbacks;
                     if (subscriptionCallbacks != null) {
                         channelsByPin.remove(pinId);
-                        if (channelHolder.state == ChannelState.SUBSCRIBED) {
-                            LOGGER.info("Changing channel for holder with pin id: " + pinId.toString());
-                            basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
+                        if (holder.isSubscribed) {
+                            holder.isSubscribed = false;
+                            resubscribe = true;
                         }
                     }
+                } finally {
+                    holder.lock.unlock();
+                }
+
+                if (resubscribe) {
+                    LOGGER.info("Changing channel for holder with pin id: " + pinId);
+                    basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
                 }
             } catch (IOException e) {
                 LOGGER.warn("Failed to recovery channel's subscriptions", e);
@@ -676,12 +688,6 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private enum ChannelState {
-        UNSUBSCRIBED,
-        SUBSCRIBING,
-        SUBSCRIBED
-    }
-
     private static class ChannelHolder {
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
@@ -695,7 +701,7 @@ public class ConnectionManager implements AutoCloseable {
         @GuardedBy("lock")
         private Channel channel;
         @GuardedBy("lock")
-        private ChannelState state = ChannelState.UNSUBSCRIBED;
+        private boolean isSubscribed = false;
 
         public ChannelHolder(
                 Supplier<Channel> supplier,
@@ -772,30 +778,33 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         public <T> T retryingConsumeWithLock(ChannelMapper<T> mapper, ConnectionManagerConfiguration configuration) throws InterruptedException, IOException {
-            lock.lock();
-            state = ChannelState.SUBSCRIBING;
-            try {
-                Iterator<RetryingDelay> iterator = null;
-                Channel tempChannel = getChannel();
-                while (true) {
-                    try {
-                        var tag = mapper.map(tempChannel);
-                        state = ChannelState.SUBSCRIBED;
-                        return tag;
-                    } catch (IOException e) {
-                        iterator = handleAndSleep(configuration, iterator, "Retrying consume", e);
-                        var reason = tempChannel.getCloseReason();
-                        if (reason != null) {
-                            if (reason.getMessage().contains("reply-text=RESOURCE_LOCKED")) {
-                                state = ChannelState.UNSUBSCRIBED;
-                                throw e;
-                            }
-                            tempChannel = recreateChannel();
-                        }
+            Iterator<RetryingDelay> iterator = null;
+            IOException exception;
+            Channel tempChannel = null;
+            boolean isChannelClosed = false;
+            while (true) {
+                lock.lock();
+                try {
+                    if (tempChannel == null) {
+                        tempChannel = getChannel();
+                    } else if (isChannelClosed) {
+                        tempChannel = recreateChannel();
                     }
+
+                    var tag = mapper.map(tempChannel);
+                    isSubscribed = true;
+                    return tag;
+                } catch (IOException e) {
+                    var reason = tempChannel.getCloseReason();
+                    isChannelClosed = reason != null;
+                    if (isChannelClosed && reason.getMessage().contains("reply-text=RESOURCE_LOCKED")) {
+                        throw e;
+                    }
+                    exception = e;
+                } finally {
+                    lock.unlock();
                 }
-            } finally {
-                lock.unlock();
+                iterator = handleAndSleep(configuration, iterator, "Retrying consume", exception);
             }
         }
 
@@ -803,7 +812,7 @@ public class ConnectionManager implements AutoCloseable {
             lock.lock();
             try {
                 action.execute(channel, tag);
-                state = ChannelState.UNSUBSCRIBED;
+                isSubscribed = false;
             } finally {
                 lock.unlock();
             }
@@ -904,10 +913,6 @@ public class ConnectionManager implements AutoCloseable {
             }
             reconnectionChecker.accept(channel, waitForRecovery);
             return channel;
-        }
-
-        public ChannelState state() {
-            return state;
         }
     }
 
