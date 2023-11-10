@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.7.0)
+# th2 common library (Java) (5.7.1)
 
 ## Usage
 
@@ -500,6 +500,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.7.1-dev
+
+#### Updated:
++ grpc-service-generator: `3.5.1`
 
 ### 5.7.0-dev
 
