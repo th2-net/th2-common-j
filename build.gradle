@@ -39,7 +39,7 @@ version = release_version
 ext {
     grpcVersion = '1.56.0'
     protobufVersion = '3.23.2' // The protoc:3.23.3 https://github.com/protocolbuffers/protobuf/issues/13070
-    serviceGeneratorVersion = '3.5.1-th2-5122-+'
+    serviceGeneratorVersion = '3.5.1'
 
     cradleVersion = '5.1.1-dev'
     junitVersion = '5.10.0'
