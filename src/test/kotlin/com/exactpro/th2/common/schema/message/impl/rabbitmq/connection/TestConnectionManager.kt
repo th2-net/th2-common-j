@@ -20,6 +20,7 @@ import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_CONFIRMATION_TIMEOUT
 import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_PREFETCH_COUNT
 import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
+import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
@@ -38,6 +39,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import com.rabbitmq.client.CancelCallback
+import com.rabbitmq.client.Delivery
 import mu.KotlinLogging
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions
@@ -703,6 +705,190 @@ class TestConnectionManager {
                         assertFalse(thread!!.isAlive)
                     }
 
+                }
+            }
+    }
+
+    @Test
+    fun `connection manager handles ack timeout (multiple subscribers in parallel)`() {
+        val configFilename = "rabbitmq_it.conf"
+
+        class Counters {
+            val messages = AtomicInteger(0)
+            val redeliveredMessages = AtomicInteger(0)
+        }
+
+        class ConsumerParams(
+            val unsubscribe: Boolean,
+            val expectedReceivedMessages: Int,
+            val expectedRedeliveredMessages: Int
+        )
+
+        class TestParams(
+            val queueName: String,
+            val subscriberName: String,
+            val consumers: List<ConsumerParams>,
+            val messagesToSend: Int,
+            val expectedChannelsCount: Int,
+            val expectedLeftMessages: Int
+        )
+
+        val testCases = listOf(
+            TestParams(
+                queueName = "queue1",
+                subscriberName = "subscriber1",
+                consumers = listOf(
+                    ConsumerParams(
+                        unsubscribe = false,
+                        expectedReceivedMessages = 3,
+                        expectedRedeliveredMessages = 1
+                    )
+                ),
+                expectedChannelsCount = 1,
+                messagesToSend = 2,
+                expectedLeftMessages = 0
+            ),
+
+            TestParams(
+                queueName = "queue2",
+                subscriberName = "subscriber2",
+                consumers = listOf(
+                    ConsumerParams(
+                        unsubscribe = true,
+                        expectedReceivedMessages = 2,
+                        expectedRedeliveredMessages = 0
+                    )
+                ),
+                expectedChannelsCount = 0,
+                messagesToSend = 2,
+                expectedLeftMessages = 1
+            ),
+
+            TestParams(
+                queueName = "queue3",
+                subscriberName = "subscriber3",
+                consumers = listOf(
+                    ConsumerParams(
+                        unsubscribe = true,
+                        expectedReceivedMessages = 2,
+                        expectedRedeliveredMessages = 0
+                    ),
+                    ConsumerParams(
+                        unsubscribe = true,
+                        expectedReceivedMessages = 2,
+                        expectedRedeliveredMessages = 0
+                    )
+                ),
+                messagesToSend = 4,
+                expectedChannelsCount = 0,
+                expectedLeftMessages = 2
+            )
+        )
+
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
+            .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
+            .apply { testCases.forEach { withQueue(it.queueName) } }
+            .use { container ->
+                container.start()
+                LOGGER.info { "Started with port ${container.amqpPort}" }
+
+                class TestCaseContext(
+                    val connectionManager: ConnectionManager,
+                    val consumersThreads: List<Thread>,
+                    val consumerCounters: List<Counters>
+                )
+
+                val testCasesContexts: List<TestCaseContext> = testCases.map { params ->
+                    val connectionManager = createConnectionManager(
+                        container,
+                        ConnectionManagerConfiguration(
+                            subscriberName = params.subscriberName,
+                            prefetchCount = DEFAULT_PREFETCH_COUNT,
+                            confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
+                            minConnectionRecoveryTimeout = 100,
+                            maxConnectionRecoveryTimeout = 200,
+                            maxRecoveryAttempts = 5
+                        )
+                    )
+
+                    val consumerCounters: List<Counters> = List(params.consumers.size) { Counters() }
+
+                    class DeliverCallback(private val consumerNumber: Int) : ManualAckDeliveryCallback {
+                        override fun handle(
+                            deliveryMetadata: DeliveryMetadata,
+                            delivery: Delivery,
+                            confirmProcessed: ManualAckDeliveryCallback.Confirmation
+                        ) {
+                            val consumerCounter = consumerCounters[consumerNumber]
+
+                            LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
+                            if (consumerCounter.messages.getAndIncrement() == 1) {
+                                LOGGER.info { "Left this message unacked" }
+                            } else {
+                                confirmProcessed.confirm()
+                                LOGGER.info { "Confirmed!" }
+                            }
+
+                            if (delivery.envelope.isRedeliver) {
+                                consumerCounter.redeliveredMessages.incrementAndGet()
+                            }
+                        }
+                    }
+
+                    val consumersThreads = params.consumers.mapIndexed { index, subscriberParams ->
+                        thread {
+                            val subscriberMonitor = connectionManager.basicConsume(params.queueName, DeliverCallback(index)) {
+                                LOGGER.info { "Canceled $it" }
+                            }
+
+                            Thread.sleep(1000)
+
+                            if (subscriberParams.unsubscribe) {
+                                LOGGER.info { "Unsubscribing..." }
+                                subscriberMonitor.unsubscribe()
+                            }
+                        }
+                    }
+
+                    repeat(params.messagesToSend) {
+                        LOGGER.info { "Sending message ${it + 1} to queue ${params.queueName}" }
+                        putMessageInQueue(container, params.queueName)
+                    }
+
+                    TestCaseContext(connectionManager, consumersThreads, consumerCounters)
+                }
+
+                LOGGER.info { "Sleeping..." }
+                Thread.sleep(63000)
+
+                val queuesListExecResult = getQueuesInfo(container)
+                LOGGER.info { "queues list: \n $queuesListExecResult" }
+
+                testCases.forEachIndexed { index, params ->
+                    val context = testCasesContexts[index]
+                    assertEquals(params.expectedChannelsCount, getSubscribedChannelsCount(container, params.queueName)) {
+                        "Wrong number of opened channels (subscriber: `${params.subscriberName}`)"
+                    }
+
+                    params.consumers.forEachIndexed { consumerIndex, consumerParams ->
+                        val counters = context.consumerCounters[consumerIndex]
+                        assertEquals(consumerParams.expectedReceivedMessages, counters.messages.get()) {
+                            "Wrong number of received messages (subscriber: `${params.subscriberName}`, consumer index: `${consumerIndex}`)"
+                        }
+
+                        assertEquals(consumerParams.expectedRedeliveredMessages, counters.redeliveredMessages.get()) {
+                            "Wrong number of redelivered messages (subscriber: `${params.subscriberName}`, consumer index: `${consumerIndex}`)"
+                        }
+                    }
+
+                    assertTrue(queuesListExecResult.toString().contains("${params.queueName}\t${params.expectedLeftMessages}")) {
+                        "There should ${params.expectedLeftMessages} message(s) left in the '${params.queueName}' queue"
+                    }
+                }
+
+                testCasesContexts.forEach { context ->
+                    context.consumersThreads.forEach { it.interrupt() }
+                    context.connectionManager.close()
                 }
             }
     }
