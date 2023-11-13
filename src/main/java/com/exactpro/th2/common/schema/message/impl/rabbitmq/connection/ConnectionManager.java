@@ -290,10 +290,7 @@ public class ConnectionManager implements AutoCloseable {
 
                     if (subscriptionCallbacks != null) {
                         channelsByPin.remove(pinId);
-                        if (holder.isSubscribed) {
-                            holder.isSubscribed = false;
-                            resubscribe = true;
-                        }
+                        resubscribe = holder.isSubscribed;
                     }
                 } finally {
                     holder.lock.unlock();
