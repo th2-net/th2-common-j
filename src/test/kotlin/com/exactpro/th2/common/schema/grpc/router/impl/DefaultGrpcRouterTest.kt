@@ -289,13 +289,6 @@ internal class DefaultGrpcRouterTest {
             )
         }
 
-<<<<<<< HEAD
-        /* FIXME: this test sometimes failing with TimeoutException
-             Suppressed: java.lang.IllegalStateException: 'Executor' can't be stopped
-             at shutdownGracefully (DefaultGrpcRouterTest.kt:718)
-        */
-=======
->>>>>>> dev-version-5
         @Test
         override fun `server terminated intermediate session (retry true)`() {
             val clientServerBaton = Baton("client-server")
