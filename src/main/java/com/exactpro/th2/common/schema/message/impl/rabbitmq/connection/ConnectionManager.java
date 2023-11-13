@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -277,36 +278,20 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void recoverSubscriptionsOfChannel(@NotNull final PinId pinId, Channel channel, @NotNull final ChannelHolder holder) {
-        channelChecker.execute(() -> {
-            try {
-                holder.lock.lock();
-                SubscriptionCallbacks subscriptionCallbacks = holder.subscriptionCallbacks;
-                boolean resubscribe = false;
+        channelChecker.execute(() ->
+            holder.getCallbacksForRecovery(channel).ifPresent(subscriptionCallbacks -> {
+                LOGGER.info("Changing channel for holder with pin id: " + pinId);
+                channelsByPin.remove(pinId);
                 try {
-                    if (holder.channel != channel) {
-                        LOGGER.warn("Channel already recovered");
-                        return;
-                    }
-
-                    if (subscriptionCallbacks != null) {
-                        channelsByPin.remove(pinId);
-                        resubscribe = holder.isSubscribed;
-                    }
-                } finally {
-                    holder.lock.unlock();
-                }
-
-                if (resubscribe) {
-                    LOGGER.info("Changing channel for holder with pin id: " + pinId);
                     basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
+                } catch (IOException e) {
+                    LOGGER.warn("Failed to recovery channel's subscriptions", e);
+                    // this code executed in executor service and exception thrown here will not be handled anywhere
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-            } catch (IOException e) {
-                LOGGER.warn("Failed to recovery channel's subscriptions", e);
-                // this code executed in executor service and exception thrown here will not be handled anywhere
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        });
+            })
+        );
     }
 
     private void addShutdownListenerToConnection(Connection conn) {
@@ -803,6 +788,23 @@ public class ConnectionManager implements AutoCloseable {
                 }
                 iterator = handleAndSleep(configuration, iterator, "Retrying consume", exception);
             }
+        }
+
+        public Optional<SubscriptionCallbacks> getCallbacksForRecovery(Channel channelToRecover) {
+            lock.lock();
+            SubscriptionCallbacks callbacks = null;
+            try {
+                if (channel != channelToRecover) {
+                    LOGGER.warn("Channel already recovered");
+                } else if (subscriptionCallbacks != null && isSubscribed) {
+                    isSubscribed = false;
+                    callbacks = subscriptionCallbacks;
+                }
+            } finally {
+                lock.unlock();
+            }
+
+            return Optional.ofNullable(callbacks);
         }
 
         public void unsubscribeWithLock(String tag, CancelAction action) throws IOException {
