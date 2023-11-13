@@ -78,8 +78,8 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   routers.
   Please see more details about the exchanges in RabbitMQ
   via [link](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchanges)
-* connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use zero for
-  infinite waiting.
+* connectionTimeout - the connection TCP establishment timeout in milliseconds with its default value set to 60000. Use
+  zero for infinite waiting.
 * connectionCloseTimeout - the timeout in milliseconds for completing all the close-related operations, use -1 for
   infinity, the default value is set to 10000.
 * maxRecoveryAttempts - this option defines the number of reconnection attempts to RabbitMQ, with its default value set
@@ -509,6 +509,11 @@ dependencies {
 + Added additional logging for RabbitMQ errors.
 + Fixed connection recovery delay time.
 + Integration tests for these scenarios.
+
+### 5.7.1-dev
+
+#### Updated:
++ grpc-service-generator: `3.5.1`
 
 ### 5.7.0-dev
 
