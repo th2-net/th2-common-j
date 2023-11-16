@@ -93,6 +93,9 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with
   its default value set to 60000. Common factory increases the reconnect interval values from
   minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
+* retryTimeDeviationPercent - specifies random deviation to delay interval duration. Default value is 10 percents.
+  E.g. if delay interval is 30 seconds and `retryTimeDeviationPercent` is 10 percents the actual duration of interval
+  will be random value from 27 to 33 seconds.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if
   unlimited, the default value is set to 10.
 * messageRecursionLimit - an integer number denotes how deep the nested protobuf message might be, set by default 100
@@ -508,7 +511,7 @@ dependencies {
 + Added InterruptedException to basicConsume method signature.
 + Added additional logging for RabbitMQ errors.
 + Fixed connection recovery delay time.
-+ Integration tests for these scenarios.
++ Integration tests for RabbitMQ retry scenarios.
 
 ### 5.7.1-dev
 

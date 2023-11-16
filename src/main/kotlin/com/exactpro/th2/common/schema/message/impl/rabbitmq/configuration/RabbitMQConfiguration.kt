@@ -48,6 +48,7 @@ data class ConnectionManagerConfiguration(
         check(maxRecoveryAttempts > 0) { "expected 'maxRecoveryAttempts' greater than 0 but was $maxRecoveryAttempts" }
         check(minConnectionRecoveryTimeout > 0) { "expected 'minConnectionRecoveryTimeout' greater than 0 but was $minConnectionRecoveryTimeout" }
         check(maxConnectionRecoveryTimeout >= minConnectionRecoveryTimeout) { "expected 'maxConnectionRecoveryTimeout' ($maxConnectionRecoveryTimeout) no less than 'minConnectionRecoveryTimeout' ($minConnectionRecoveryTimeout)" }
+        check(retryTimeDeviationPercent in 0..100) { "expected 'retryTimeDeviationPercent' no less than 0 and not greater than 100 but was $retryTimeDeviationPercent" }
         check(workingThreads > 0) { "expected 'workingThreads' greater than 0 but was $workingThreads" }
         check(!confirmationTimeout.run { isNegative || isZero }) { "expected 'confirmationTimeout' greater than 0 but was $confirmationTimeout" }
     }
@@ -76,7 +77,7 @@ data class RetryingDelay(val tryNumber: Int, val delay: Int) {
             deviationPercent: Int
         ): Int {
             return if (numberOfTries <= maxRecoveryAttempts) {
-                getRecoveryDelayWithIncrement(numberOfTries, minTime, maxTime, maxRecoveryAttempts)
+                getRecoveryDelayWithIncrement(numberOfTries, minTime, maxTime, maxRecoveryAttempts, deviationPercent)
             } else {
                 getRecoveryDelayWithDeviation(maxTime, deviationPercent)
             }
@@ -93,9 +94,12 @@ data class RetryingDelay(val tryNumber: Int, val delay: Int) {
             numberOfTries: Int,
             minTime: Int,
             maxTime: Int,
-            maxRecoveryAttempts: Int
+            maxRecoveryAttempts: Int,
+            deviationPercent: Int
         ): Int {
-            return minTime + (maxTime - minTime) / maxRecoveryAttempts * numberOfTries
+            val delay = minTime + (maxTime - minTime) / maxRecoveryAttempts * numberOfTries
+            val deviation = maxTime * deviationPercent / 100
+            return ThreadLocalRandom.current().nextInt(delay - deviation, delay + deviation + 1)
         }
     }
 }

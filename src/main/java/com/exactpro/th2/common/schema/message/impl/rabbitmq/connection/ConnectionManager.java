@@ -343,7 +343,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     @Override
-    public void close()  throws IOException {
+    public void close() {
         if (connectionIsClosed.getAndSet(true)) {
             LOGGER.info("Connection manager already closed");
             return;
@@ -352,14 +352,16 @@ public class ConnectionManager implements AutoCloseable {
         LOGGER.info("Closing connection manager");
 
         for (ChannelHolder channelHolder: channelsByPin.values()) {
-            channelHolder.channel.abort();
+            try {
+                channelHolder.channel.abort();
+            } catch (IOException e) {
+                LOGGER.error("Cannot close channel", e);
+            }
         }
 
         int closeTimeout = configuration.getConnectionCloseTimeout();
         if (connection.isOpen()) {
             try {
-                // We close the connection and don't close channels
-                // because when a channel's connection is closed, so is the channel
                 connection.close(closeTimeout);
             } catch (IOException e) {
                 LOGGER.error("Cannot close connection", e);
