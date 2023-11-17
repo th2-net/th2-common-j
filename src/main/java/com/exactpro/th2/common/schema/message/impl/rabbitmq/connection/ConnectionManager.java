@@ -258,9 +258,11 @@ public class ConnectionManager implements AutoCloseable {
                         if (pinIdToChannelHolder == null) return;
 
                         if (withRecovery && recoverableErrors.stream().anyMatch(errorString::contains)) {
-                            var pinId = pinIdToChannelHolder.getKey();
                             var holder = pinIdToChannelHolder.getValue();
-                            recoverSubscriptionsOfChannel(pinId, channel, holder);
+                            if (holder.isSubscribed()) {
+                                var pinId = pinIdToChannelHolder.getKey();
+                                recoverSubscriptionsOfChannel(pinId, channel, holder);
+                            }
                         }
                     }
                 }
@@ -734,30 +736,30 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         public void retryingPublishWithLock(ChannelConsumer consumer, ConnectionManagerConfiguration configuration) throws InterruptedException {
-            lock.lock();
             Iterator<RetryingDelay> iterator = configuration.createRetryingDelaySequence().iterator();
-            try {
-                Channel tempChannel = getChannel(true);
-                while (true) {
-                    try {
-                        consumer.consume(tempChannel);
-                        break;
-                    } catch (IOException | ShutdownSignalException e) {
-                        var currentValue = iterator.next();
-                        int recoveryDelay = currentValue.getDelay();
-                        LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
-                        TimeUnit.MILLISECONDS.sleep(recoveryDelay);
+            int recoveryDelay;
+            Channel tempChannel = getChannel(true);
+            while (true) {
+                lock.lock();
+                try {
+                    consumer.consume(tempChannel);
+                    break;
+                } catch (IOException | ShutdownSignalException e) {
+                    var currentValue = iterator.next();
+                    recoveryDelay = currentValue.getDelay();
+                    LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
 
-                        // We should not recover the channel if its connection is closed
-                        // If we do that the channel will be also auto recovered by RabbitMQ client
-                        // during connection recovery, and we will get two new channels instead of one closed.
-                        if (!tempChannel.isOpen() && tempChannel.getConnection().isOpen()) {
-                            tempChannel = recreateChannel();
-                        }
+                    // We should not recover the channel if its connection is closed
+                    // If we do that the channel will be also auto recovered by RabbitMQ client
+                    // during connection recovery, and we will get two new channels instead of one closed.
+                    if (!tempChannel.isOpen() && tempChannel.getConnection().isOpen()) {
+                        tempChannel = recreateChannel();
                     }
+                } finally {
+                    lock.unlock();
                 }
-            } finally {
-                lock.unlock();
+
+                TimeUnit.MILLISECONDS.sleep(recoveryDelay);
             }
         }
 
@@ -797,7 +799,7 @@ public class ConnectionManager implements AutoCloseable {
             SubscriptionCallbacks callbacks = null;
             try {
                 if (channel != channelToRecover) {
-                    LOGGER.warn("Channel already recovered");
+                    LOGGER.error("Channel already recovered");
                 } else if (subscriptionCallbacks != null && isSubscribed) {
                     isSubscribed = false;
                     callbacks = subscriptionCallbacks;
@@ -884,6 +886,15 @@ public class ConnectionManager implements AutoCloseable {
                 if (reachedPendingLimit() && check == null) {
                     check = futureSupplier.get();
                 }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        public boolean isSubscribed() {
+            lock.lock();
+            try {
+                return isSubscribed;
             } finally {
                 lock.unlock();
             }
