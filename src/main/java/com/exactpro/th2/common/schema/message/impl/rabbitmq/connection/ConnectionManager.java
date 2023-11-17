@@ -61,7 +61,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -279,20 +278,24 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private void recoverSubscriptionsOfChannel(@NotNull final PinId pinId, Channel channel, @NotNull final ChannelHolder holder) {
-        channelChecker.execute(() ->
-            holder.getCallbacksForRecovery(channel).ifPresent(subscriptionCallbacks -> {
-                LOGGER.info("Changing channel for holder with pin id: " + pinId);
-                channelsByPin.remove(pinId);
-                try {
+        channelChecker.execute(() -> {
+            try {
+                var subscriptionCallbacks = holder.getCallbacksForRecovery(channel);
+
+                if (subscriptionCallbacks != null) {
+                    LOGGER.info("Changing channel for holder with pin id: " + pinId);
+                    channelsByPin.remove(pinId);
+                    if (channel.isOpen()) channel.abort();
                     basicConsume(pinId.queue, subscriptionCallbacks.deliverCallback, subscriptionCallbacks.cancelCallback);
-                } catch (IOException e) {
-                    LOGGER.warn("Failed to recovery channel's subscriptions", e);
-                    // this code executed in executor service and exception thrown here will not be handled anywhere
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
                 }
-            })
-        );
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOGGER.info("Recovering channel's subscriptions interrupted", e);
+            } catch (Throwable e) {
+                // this code executed in executor service and exception thrown here will not be handled anywhere
+                LOGGER.error("Failed to recovery channel's subscriptions", e);
+            }
+        });
     }
 
     private void addShutdownListenerToConnection(Connection conn) {
@@ -782,6 +785,10 @@ public class ConnectionManager implements AutoCloseable {
                 } catch (IOException e) {
                     var reason = tempChannel.getCloseReason();
                     isChannelClosed = reason != null;
+
+                    // We should not retry in this case because we never will be able to connect to the queue if we
+                    // receive this error. This error happens if we try to subscribe to an exclusive queue that was
+                    // created by another connection.
                     if (isChannelClosed && reason.getMessage().contains("reply-text=RESOURCE_LOCKED")) {
                         throw e;
                     }
@@ -793,21 +800,21 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        public Optional<SubscriptionCallbacks> getCallbacksForRecovery(Channel channelToRecover) {
+        public @Nullable SubscriptionCallbacks getCallbacksForRecovery(Channel channelToRecover) {
             lock.lock();
-            SubscriptionCallbacks callbacks = null;
+
             try {
                 if (channel != channelToRecover) {
-                    LOGGER.error("Channel already recovered");
+                    throw new IllegalStateException("Channel already recovered");
                 } else if (subscriptionCallbacks != null && isSubscribed) {
                     isSubscribed = false;
-                    callbacks = subscriptionCallbacks;
+                    return subscriptionCallbacks;
+                } else {
+                    return null;
                 }
             } finally {
                 lock.unlock();
             }
-
-            return Optional.ofNullable(callbacks);
         }
 
         public void unsubscribeWithLock(String tag, CancelAction action) throws IOException {
