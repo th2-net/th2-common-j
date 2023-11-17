@@ -253,15 +253,14 @@ public class ConnectionManager implements AutoCloseable {
                         errorBuilder.append(channelCause);
                         String errorString = errorBuilder.toString();
                         LOGGER.warn(errorString);
-
-                        var pinIdToChannelHolder = getChannelHolderByChannel(channel);
-                        if (pinIdToChannelHolder == null) return;
-
-                        if (withRecovery && recoverableErrors.stream().anyMatch(errorString::contains)) {
-                            var holder = pinIdToChannelHolder.getValue();
-                            if (holder.isSubscribed()) {
-                                var pinId = pinIdToChannelHolder.getKey();
-                                recoverSubscriptionsOfChannel(pinId, channel, holder);
+                        if (withRecovery) {
+                            var pinIdToChannelHolder = getChannelHolderByChannel(channel);
+                            if (pinIdToChannelHolder != null && recoverableErrors.stream().anyMatch(errorString::contains)) {
+                                var holder = pinIdToChannelHolder.getValue();
+                                if (holder.isSubscribed()) {
+                                    var pinId = pinIdToChannelHolder.getKey();
+                                    recoverSubscriptionsOfChannel(pinId, channel, holder);
+                                }
                             }
                         }
                     }

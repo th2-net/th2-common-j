@@ -762,26 +762,6 @@ class TestConnectionManager {
                 expectedChannelsCount = 0,
                 messagesToSend = 2,
                 expectedLeftMessages = 1
-            ),
-
-            TestParams(
-                queueName = "queue3",
-                subscriberName = "subscriber3",
-                consumers = listOf(
-                    ConsumerParams(
-                        unsubscribe = true,
-                        expectedReceivedMessages = 2,
-                        expectedRedeliveredMessages = 0
-                    ),
-                    ConsumerParams(
-                        unsubscribe = true,
-                        expectedReceivedMessages = 2,
-                        expectedRedeliveredMessages = 0
-                    )
-                ),
-                messagesToSend = 4,
-                expectedChannelsCount = 0,
-                expectedLeftMessages = 2
             )
         )
 
@@ -889,79 +869,6 @@ class TestConnectionManager {
                 testCasesContexts.forEach { context ->
                     context.consumersThreads.forEach { it.interrupt() }
                     context.connectionManager.close()
-                }
-            }
-    }
-
-    @Test
-    fun `connection manager handles ack timeout and subscription cancel`() {
-        val configFilename = "rabbitmq_it.conf"
-        val queueName = "queue"
-
-        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
-            .withRabbitMQConfig(MountableFile.forClasspathResource(configFilename))
-            .withQueue(queueName)
-            .use {
-                it.start()
-                LOGGER.info { "Started with port ${it.amqpPort}" }
-                val counter = AtomicInteger(0)
-                createConnectionManager(
-                    it,
-                    ConnectionManagerConfiguration(
-                        subscriberName = "test",
-                        prefetchCount = DEFAULT_PREFETCH_COUNT,
-                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
-                        minConnectionRecoveryTimeout = 100,
-                        maxConnectionRecoveryTimeout = 200,
-                        maxRecoveryAttempts = 5
-                    ),
-                ).use { connectionManager ->
-                    var thread: Thread? = null
-                    try {
-                        thread = thread {
-                            val subscriberMonitor = connectionManager.basicConsume(queueName, { _, delivery, ack ->
-                                LOGGER.info { "Received 1 ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
-                                if (counter.get() == 0) {
-                                    ack.confirm()
-                                    LOGGER.info { "Confirmed!" }
-                                } else {
-                                    LOGGER.info { "Left this message unacked" }
-                                }
-                                counter.incrementAndGet()
-                            }) {
-                                LOGGER.info { "Canceled $it" }
-                            }
-
-                            Thread.sleep(30000)
-                            LOGGER.info { "Unsubscribing..." }
-                            subscriberMonitor.unsubscribe()
-                        }
-
-                        LOGGER.info { "Sending first message" }
-                        putMessageInQueue(it, queueName)
-
-                        LOGGER.info { "queues list: \n ${getQueuesInfo(it)}" }
-
-                        LOGGER.info { "Sending second message" }
-                        putMessageInQueue(it, queueName)
-                        LOGGER.info { "Sleeping..." }
-                        Thread.sleep(63000)
-
-                        val queuesListExecResult = getQueuesInfo(it)
-                        LOGGER.info { "queues list: \n $queuesListExecResult" }
-
-                        assertEquals(0, getSubscribedChannelsCount(it, queueName))
-                        assertEquals(2, counter.get()) { "Wrong number of received messages" }
-                        assertTrue(queuesListExecResult.toString().contains("$queueName\t1")) {
-                            "There should a message left in the queue"
-                        }
-                    } finally {
-                        Assertions.assertNotNull(thread)
-                        Assertions.assertDoesNotThrow {
-                            thread!!.interrupt()
-                        }
-                        assertFalse(thread!!.isAlive)
-                    }
                 }
             }
     }

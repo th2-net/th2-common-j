@@ -382,6 +382,7 @@ describes gRPC service structure)
 
 This kind of router provides the ability for component to send / receive messages via RabbitMQ.
 Router has several methods to subscribe and publish RabbitMQ messages steam (th2 use batches of messages or events as transport).
+Supports recovery of subscriptions cancelled by RabbitMQ due to following errors: "delivery acknowledgement timed out" and "queue not found". 
 
 #### Choice pin by attributes
 
