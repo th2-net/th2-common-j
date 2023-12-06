@@ -19,15 +19,18 @@ import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_NAME
 import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_TYPE
 import com.exactpro.th2.common.event.EventUtils.toEventID
 import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
+import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toTimestamp
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
@@ -36,6 +39,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
+import kotlin.IllegalArgumentException as IllegalArgumentException1
 
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
@@ -75,8 +79,8 @@ class TestEvent {
     fun `negative or zero max size`() {
         val rootEvent = Event.start()
         assertAll(
-            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(-1, parentEventId) } },
-            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(0, parentEventId) } }
+            { assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(-1, parentEventId) } },
+            { assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(0, parentEventId) } }
         )
     }
 
@@ -86,7 +90,7 @@ class TestEvent {
             .bodyData(data)
 
         assertAll(
-            { Assertions.assertThrows(IllegalStateException::class.java) { rootEvent.toBatchesProtoWithLimit(1, parentEventId) } }
+            { assertThrows(IllegalStateException::class.java) { rootEvent.toBatchesProtoWithLimit(1, parentEventId) } }
         )
     }
 
@@ -302,6 +306,42 @@ class TestEvent {
             """[{"instant":"2023-10-13T12:35:05Z","dateTime":"2023-10-13T12:35:05","date":"2023-10-13","time":"12:35:05"}]""",
             jsonBody,
             "unexpected JSON body",
+        )
+    }
+
+    @Test
+    fun `book mismatch between attached message and event`() {
+        val event = Event.start()
+            .messageID(MessageID.newBuilder().apply {
+                this.bookName = "${parentEventId.bookName}-test"
+                this.connectionIdBuilder.apply {
+                    sessionGroup = "test-session-group"
+                    sessionAlias = "test-session-alias"
+                }
+                this.timestamp = Instant.now().toTimestamp()
+                this.direction = Direction.SECOND
+                this.sequence = 2
+            }.build())
+        assertAll(
+            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchProto(parentEventId.bookName) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchProto(parentEventId.bookName, parentEventId.scope) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchProto(parentEventId) } },
+
+            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchesProtoWithLimit(1, parentEventId.bookName) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchesProtoWithLimit(1, parentEventId.bookName, parentEventId.scope) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchesProtoWithLimit(1, parentEventId) } },
+
+            { assertThrows(IllegalArgumentException1::class.java) { event.toListBatchProto(parentEventId.bookName) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toListBatchProto(parentEventId.bookName, parentEventId.scope) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toListBatchProto(parentEventId) } },
+
+            { assertThrows(IllegalArgumentException1::class.java) { event.toListProto(parentEventId.bookName) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toListProto(parentEventId.bookName, parentEventId.scope) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toListProto(parentEventId) } },
+
+            { assertThrows(IllegalArgumentException1::class.java) { event.toProto(parentEventId.bookName) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toProto(parentEventId.bookName, parentEventId.scope) } },
+            { assertThrows(IllegalArgumentException1::class.java) { event.toProto(parentEventId) } },
         )
     }
 

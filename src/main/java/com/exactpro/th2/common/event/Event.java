@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -50,6 +51,7 @@ import static com.exactpro.th2.common.event.EventUtils.requireNonNullParentId;
 import static com.exactpro.th2.common.event.EventUtils.requireNonNullTimestamp;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.exactpro.th2.common.event.EventUtils.toTimestamp;
+import static com.exactpro.th2.common.message.MessageUtils.toJson;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.protobuf.TextFormat.shortDebugString;
 import static java.util.Objects.requireNonNull;
@@ -79,7 +81,7 @@ public class Event {
 
     protected final String id = UUID + '-' + ID_COUNTER.incrementAndGet();
     protected final List<Event> subEvents = new ArrayList<>();
-    protected final List<MessageID> attachedMessageIDS = new ArrayList<>();
+    protected final List<MessageID> attachedMessageIds = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
     protected final Instant startTimestamp;
     protected Instant endTimestamp;
@@ -260,9 +262,9 @@ public class Event {
     public Event messageID(MessageID attachedMessageID) {
         requireNonNull(attachedMessageID, "Attached message id can't be null");
         if (MessageUtils.isValid(attachedMessageID)) {
-            attachedMessageIDS.add(attachedMessageID);
+            attachedMessageIds.add(attachedMessageID);
         } else {
-            throw new IllegalArgumentException("Attached " + MessageUtils.toJson(attachedMessageID) + " message id");
+            throw new IllegalArgumentException("Attached " + toJson(attachedMessageID) + " message id");
         }
         return this;
     }
@@ -364,10 +366,22 @@ public class Event {
                 .setStatus(getAggregatedStatus().eventStatus)
                 .setBody(ByteString.copyFrom(buildBody()));
         if (parentId != null) {
+            if (!Objects.equals(parentId.getBookName(), eventId.getBookName())) {
+                throw new IllegalArgumentException(
+                        "Book name mismatch in '" + toJson(parentId) + "' parent and '" +
+                                toJson(eventId) + "' current event ids"
+                );
+            }
             eventBuilder.setParentId(parentId);
         }
-        for (MessageID messageID : attachedMessageIDS) {
-            eventBuilder.addAttachedMessageIds(messageID);
+        for (MessageID messageId : attachedMessageIds) {
+            if (!Objects.equals(messageId.getBookName(), eventId.getBookName())) {
+                throw new IllegalArgumentException(
+                        "Book name mismatch in '" + toJson(messageId) + "' message and '" +
+                                toJson(eventId) + "' current event ids"
+                );
+            }
+            eventBuilder.addAttachedMessageIds(messageId);
         }
         return eventBuilder.build();
     }

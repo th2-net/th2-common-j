@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.7.1)
+# th2 common library (Java) (5.7.2)
 
 ## Usage
 
@@ -500,6 +500,9 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.7.2-dev
++ Event builder checks is the book name from attached message match to the event book name
 
 ### 5.7.1-dev
 
