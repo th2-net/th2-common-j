@@ -32,14 +32,15 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertAll
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
-import kotlin.IllegalArgumentException as IllegalArgumentException1
 
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
@@ -309,8 +310,8 @@ class TestEvent {
         )
     }
 
-    @Test
-    fun `book mismatch between attached message and event`() {
+    @TestFactory
+    fun `book mismatch between attached message and event`(): Collection<DynamicTest> {
         val event = Event.start()
             .messageID(MessageID.newBuilder().apply {
                 this.bookName = "${parentEventId.bookName}-test"
@@ -322,26 +323,82 @@ class TestEvent {
                 this.direction = Direction.SECOND
                 this.sequence = 2
             }.build())
-        assertAll(
-            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchProto(parentEventId.bookName) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchProto(parentEventId.bookName, parentEventId.scope) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchProto(parentEventId) } },
-
-            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchesProtoWithLimit(1, parentEventId.bookName) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchesProtoWithLimit(1, parentEventId.bookName, parentEventId.scope) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toBatchesProtoWithLimit(1, parentEventId) } },
-
-            { assertThrows(IllegalArgumentException1::class.java) { event.toListBatchProto(parentEventId.bookName) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toListBatchProto(parentEventId.bookName, parentEventId.scope) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toListBatchProto(parentEventId) } },
-
-            { assertThrows(IllegalArgumentException1::class.java) { event.toListProto(parentEventId.bookName) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toListProto(parentEventId.bookName, parentEventId.scope) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toListProto(parentEventId) } },
-
-            { assertThrows(IllegalArgumentException1::class.java) { event.toProto(parentEventId.bookName) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toProto(parentEventId.bookName, parentEventId.scope) } },
-            { assertThrows(IllegalArgumentException1::class.java) { event.toProto(parentEventId) } },
+        return listOf(
+            DynamicTest.dynamicTest("different book in message 'toBatchProto(book)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toBatchProto(parentEventId.bookName)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchProto(book, scope)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toBatchProto(parentEventId.bookName, parentEventId.scope)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchProto(eventId)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toBatchProto(parentEventId)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchesProtoWithLimit(contentSize, book)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toBatchesProtoWithLimit(1, parentEventId.bookName)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchesProtoWithLimit(contentSize, book, scope)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toBatchesProtoWithLimit(1, parentEventId.bookName, parentEventId.scope)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchesProtoWithLimit(contentSize, eventId)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toBatchesProtoWithLimit(1, parentEventId)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListBatchProto(book)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toListBatchProto(parentEventId.bookName)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListBatchProto(book, scope)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toListBatchProto(parentEventId.bookName, parentEventId.scope)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListBatchProto(eventId)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toListBatchProto(parentEventId)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListProto(book)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toListProto(parentEventId.bookName)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListProto(book, scope)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toListProto(parentEventId.bookName, parentEventId.scope)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListProto(eventId)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toListProto(parentEventId)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toProto(book)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toProto(parentEventId.bookName)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toProto(book, scope)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toProto(parentEventId.bookName, parentEventId.scope)
+                }
+            },
+            DynamicTest.dynamicTest("different book in message 'toProto(eventId)'") {
+                assertThrows(IllegalArgumentException::class.java) {
+                    event.toProto(parentEventId)
+                }
+            },
         )
     }
 
