@@ -365,29 +365,31 @@ public class Event {
                 .setEndTimestamp(toTimestamp(endTimestamp))
                 .setStatus(getAggregatedStatus().eventStatus)
                 .setBody(ByteString.copyFrom(buildBody()));
+        List<String> problems = new ArrayList<>();
         if (parentId != null) {
             if (!Objects.equals(parentId.getBookName(), eventId.getBookName())) {
-                throw new IllegalArgumentException(
-                        "Book name mismatch in '" + toJson(parentId) + "' parent and '" +
-                                toJson(eventId) + "' current event ids"
-                );
+                problems.add("Book name mismatch in '" + toJson(parentId) + "' parent event id");
             }
             if (!Objects.equals(parentId.getScope(), eventId.getScope())) {
-                throw new IllegalArgumentException(
-                        "Scope mismatch in '" + toJson(parentId) + "' parent and '" +
-                                toJson(eventId) + "' current event ids"
-                );
+                problems.add("Scope mismatch in '" + toJson(parentId) + "' parent event id");
             }
-            eventBuilder.setParentId(parentId);
+            if (problems.isEmpty()) {
+                eventBuilder.setParentId(parentId);
+            }
         }
         for (MessageID messageId : attachedMessageIds) {
             if (!Objects.equals(messageId.getBookName(), eventId.getBookName())) {
-                throw new IllegalArgumentException(
-                        "Book name mismatch in '" + toJson(messageId) + "' message and '" +
-                                toJson(eventId) + "' current event ids"
-                );
+                problems.add("Book name mismatch in '" + toJson(messageId) + "' message id");
             }
-            eventBuilder.addAttachedMessageIds(messageId);
+            if (problems.isEmpty()) {
+                eventBuilder.addAttachedMessageIds(messageId);
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException(
+                    "Build event failure, book: '" + eventId.getBookName() + "', scope: '" + eventId.getScope() + "', " +
+                            "name: '" + eventBuilder.getName() + "', type: '" + eventBuilder.getType() + "', " +
+                            "problems: " + problems);
         }
         return eventBuilder.build();
     }
