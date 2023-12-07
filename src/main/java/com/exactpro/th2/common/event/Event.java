@@ -372,6 +372,12 @@ public class Event {
                                 toJson(eventId) + "' current event ids"
                 );
             }
+            if (!Objects.equals(parentId.getScope(), eventId.getScope())) {
+                throw new IllegalArgumentException(
+                        "Scope mismatch in '" + toJson(parentId) + "' parent and '" +
+                                toJson(eventId) + "' current event ids"
+                );
+            }
             eventBuilder.setParentId(parentId);
         }
         for (MessageID messageId : attachedMessageIds) {
