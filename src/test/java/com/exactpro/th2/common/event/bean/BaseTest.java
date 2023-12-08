@@ -31,6 +31,7 @@ import static com.fasterxml.jackson.module.kotlin.ExtensionsKt.jacksonObjectMapp
 public class BaseTest {
     public static final BoxConfiguration BOX_CONFIGURATION = new BoxConfiguration();
     public static final String BOOK_NAME = BOX_CONFIGURATION.getBookName();
+    public static final String SCOPE = "test-scope";
     public static final String SESSION_GROUP = "test-group";
     public static final String SESSION_ALIAS = "test-alias";
     public static final EventID PARENT_EVENT_ID = toEventID(Instant.now(), BOOK_NAME, "id");
