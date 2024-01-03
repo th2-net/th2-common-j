@@ -48,7 +48,9 @@ internal class LazyProvider<T : Any?> private constructor(
         return if (reference.compareAndSet(null, State.Init)) {
             val holder = State.Hold(initialize())
             if (!reference.compareAndSet(State.Init, holder)) {
-                onClose.consume(holder.value)
+                if (holder.value != null) {
+                    onClose.consume(holder.value)
+                }
                 error("provider '$name' already closed")
             }
             holder
@@ -70,7 +72,7 @@ internal class LazyProvider<T : Any?> private constructor(
         }
 
         val prevState = reference.getAndSet(State.Closed)
-        if (prevState is State.Hold) {
+        if (prevState is State.Hold && prevState.value != null) {
             onClose.consume(prevState.value)
         }
     }
