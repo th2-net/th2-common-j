@@ -20,7 +20,11 @@ import com.exactpro.th2.common.schema.factory.LazyProvider.ThrowableConsumer
 import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicReference
 
-internal class LazyProvider<T : Any?> private constructor(
+/**
+ * This is class is for internal use only. Please, keep that in mind when using it in another module
+ */
+// Kotlin internal keyword does not help here because you can still access the class from Java
+class LazyProvider<T : Any?> private constructor(
     private val name: String,
     private val supplier: Callable<out T>,
     private val onClose: ThrowableConsumer<in T>
