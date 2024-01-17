@@ -20,7 +20,11 @@ import com.exactpro.th2.common.schema.factory.LazyProvider.ThrowableConsumer
 import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicReference
 
-internal class LazyProvider<T : Any?> private constructor(
+/**
+ * This is class is for internal use only. Please, keep that in mind when using it in another module
+ */
+// Kotlin internal keyword does not help here because you can still access the class from Java
+class LazyProvider<T : Any?> private constructor(
     private val name: String,
     private val supplier: Callable<out T>,
     private val onClose: ThrowableConsumer<in T>
@@ -48,7 +52,9 @@ internal class LazyProvider<T : Any?> private constructor(
         return if (reference.compareAndSet(null, State.Init)) {
             val holder = State.Hold(initialize())
             if (!reference.compareAndSet(State.Init, holder)) {
-                onClose.consume(holder.value)
+                if (holder.value != null) {
+                    onClose.consume(holder.value)
+                }
                 error("provider '$name' already closed")
             }
             holder
@@ -70,7 +76,7 @@ internal class LazyProvider<T : Any?> private constructor(
         }
 
         val prevState = reference.getAndSet(State.Closed)
-        if (prevState is State.Hold) {
+        if (prevState is State.Hold && prevState.value != null) {
             onClose.consume(prevState.value)
         }
     }
