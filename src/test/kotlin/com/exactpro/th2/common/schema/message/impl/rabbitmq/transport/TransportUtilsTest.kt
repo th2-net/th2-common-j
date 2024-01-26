@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterS
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_ALIAS_KEY
 import com.exactpro.th2.common.schema.filter.strategy.impl.AbstractTh2MsgFilterStrategy.SESSION_GROUP_KEY
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.EQUAL
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.NOT_EMPTY
 import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation.NOT_EQUAL
@@ -34,6 +35,7 @@ import org.apache.commons.collections4.MultiMapUtils
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
 import kotlin.test.assertNull
@@ -101,180 +103,114 @@ class TransportUtilsTest {
             .setSessionGroup(strValue)
             .build()
         assertSame(group, listOf<RouterFilter>().filter(group))
+    }
 
+    @ParameterizedTest
+    @CsvSource(
+        "abc,abc,!abc,EQUAL",
+        "abc,!abc,abc,NOT_EQUAL",
+        "'','',abc,EMPTY",
+        "'',abc,'',NOT_EMPTY",
+        "abc_*,abc_,_abc_,WILDCARD",
+        "abc_*,abc_123,_abc_,WILDCARD",
+        "abc_?,abc_1,abc_,WILDCARD",
+        "abc_?,abc_a,abc_12,WILDCARD",
+        "abc_*,_abc_,abc_,NOT_WILDCARD",
+        "abc_*,_abc_,abc_123,NOT_WILDCARD",
+        "abc_?,abc_,abc_1,NOT_WILDCARD",
+        "abc_?,abc_12,abc_a,NOT_WILDCARD",
+    )
+    fun `filter operation test`(filterValue: String, validValue: String, invalidValue: String, operation: String) {
+        val filters = listOf(
+            MqRouterFilterConfiguration(
+                MultiMapUtils.newListValuedHashMap<String, FieldFilterConfiguration>().apply {
+                    put(
+                        SESSION_ALIAS_KEY,
+                        FieldFilterConfiguration(
+                            SESSION_ALIAS_KEY,
+                            filterValue,
+                            FieldFilterOperation.valueOf(operation)
+                        )
+                    )
+                },
+                emptyMultiMap()
+            )
+        )
+
+        val batch = EMPTY_MESSAGE_ID.toBuilder().setSessionAlias(validValue).build().toBatch()
+        assertSame(batch, filters.filter(batch), "'$validValue' matched by '$filterValue'[$operation] filter")
+
+        assertNull(filters.filter(
+            EMPTY_MESSAGE_ID.toBuilder().setSessionAlias(invalidValue).build().toBatch()
+        ), "'$validValue' isn't matched by '$filterValue'[$operation] filter")
     }
 
     @TestFactory
     fun `filter test`(): Collection<DynamicTest> {
         return listOf(
             DynamicTest.dynamicTest("empty batch") {
-                val batch = GroupBatch.builder()
-                    .setBook("")
-                    .setSessionGroup("")
-                    .addGroup(
-                        MessageGroup.builder()
-                            .addMessage(
-                                ParsedMessage.builder()
-                                    .setId(
-                                        MessageId.builder()
-                                            .setSessionAlias("")
-                                            .setDirection(Direction.OUTGOING)
-                                            .setSequence(1)
-                                            .setTimestamp(Instant.now())
-                                            .build()
-                                    )
-                                    .setType("")
-                                    .setBody(emptyMap())
-                                    .build()
-                            )
-                            .build()
-                    ).build()
+                val batch = EMPTY_MESSAGE_ID.toBatch()
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("only book match") {
-                val batch = GroupBatch.builder()
-                    .setBook(bookA)
-                    .setSessionGroup("")
-                    .addGroup(
-                        MessageGroup.builder()
-                            .addMessage(
-                                ParsedMessage.builder()
-                                    .setId(
-                                        MessageId.builder()
-                                            .setSessionAlias("")
-                                            .setDirection(Direction.OUTGOING)
-                                            .setSequence(1)
-                                            .setTimestamp(Instant.now())
-                                            .build()
-                                    )
-                                    .setType("")
-                                    .setBody(emptyMap())
-                                    .build()
-                            )
-                            .build()
-                    ).build()
+                val batch = EMPTY_MESSAGE_ID.toBatch(book = bookA)
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("only book and group match") {
-                val batch = GroupBatch.builder()
-                    .setBook(bookA)
-                    .setSessionGroup(groupA)
-                    .addGroup(
-                        MessageGroup.builder()
-                            .addMessage(
-                                ParsedMessage.builder()
-                                    .setId(
-                                        MessageId.builder()
-                                            .setSessionAlias("")
-                                            .setDirection(Direction.OUTGOING)
-                                            .setSequence(1)
-                                            .setTimestamp(Instant.now())
-                                            .build()
-                                    )
-                                    .setType("")
-                                    .setBody(emptyMap())
-                                    .build()
-                            )
-                            .build()
-                    ).build()
+                val batch = EMPTY_MESSAGE_ID.toBatch(book = bookA, sessionGroup = groupA)
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("only book, group, protocol match") {
-                val batch = GroupBatch.builder()
-                    .setBook(bookA)
-                    .setSessionGroup(groupA)
-                    .addGroup(
-                        MessageGroup.builder()
-                            .addMessage(
-                                ParsedMessage.builder()
-                                    .setProtocol(protocolA)
-                                    .setId(
-                                        MessageId.builder()
-                                            .setSessionAlias("")
-                                            .setDirection(Direction.OUTGOING)
-                                            .setSequence(1)
-                                            .setTimestamp(Instant.now())
-                                            .build()
-                                    )
-                                    .setType("")
-                                    .setBody(emptyMap())
-                                    .build()
-                            )
-                            .build()
-                    ).build()
+                val batch = EMPTY_MESSAGE_ID
+                    .toBatch(book = bookA, sessionGroup = groupA, protocol = protocolA)
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("with partial message match") {
-                val batch = GroupBatch.builder()
-                    .setBook(bookA)
-                    .setSessionGroup(groupA)
-                    .addGroup(
-                        MessageGroup.builder()
-                            .addMessage(
-                                ParsedMessage.builder()
-                                    .setProtocol(protocolA)
-                                    .setId(
-                                        MessageId.builder()
-                                            .setSessionAlias("")
-                                            .setDirection(Direction.OUTGOING)
-                                            .setSequence(1)
-                                            .setTimestamp(Instant.now())
-                                            .build()
-                                    )
-                                    .setType(msgType)
-                                    .setBody(emptyMap())
-                                    .build()
-                            )
-                            .build()
-                    ).build()
+                val batch = EMPTY_MESSAGE_ID
+                    .toBatch(book = bookA, sessionGroup = groupA, type = msgType, protocol = protocolA)
                 assertNull(routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("full match for A") {
-                val batch = GroupBatch.builder()
-                    .setBook(bookA)
-                    .setSessionGroup(groupA)
-                    .addGroup(
-                        MessageGroup.builder()
-                            .addMessage(
-                                ParsedMessage.builder()
-                                    .setType(msgType)
-                                    .setBody(emptyMap())
-                                    .setProtocol(protocolA)
-                                    .apply {
-                                        idBuilder()
-                                            .setSessionAlias("alias")
-                                            .setDirection(Direction.OUTGOING)
-                                            .setSequence(1)
-                                            .setTimestamp(Instant.now())
-                                    }.build()
-                            )
-                            .build()
-                    ).build()
+                val batch = EMPTY_MESSAGE_ID.toBuilder().setSessionAlias("alias").build()
+                    .toBatch(book = bookA, sessionGroup = groupA, type = msgType, protocol = protocolA)
                 assertSame(batch, routerFilters.filter(batch))
             },
             DynamicTest.dynamicTest("full match for B") {
-                val batch = GroupBatch.builder()
-                    .setBook(bookB)
-                    .setSessionGroup(groupB)
-                    .addGroup(
-                        MessageGroup.builder()
-                            .addMessage(
-                                ParsedMessage.builder()
-                                    .setType(msgType)
-                                    .setBody(emptyMap())
-                                    .setProtocol(protocolB)
-                                    .apply {
-                                        idBuilder()
-                                            .setSessionAlias("alias")
-                                            .setDirection(Direction.INCOMING)
-                                            .setSequence(1)
-                                            .setTimestamp(Instant.now())
-                                    }.build()
-                            )
-                            .build()
-                    ).build()
+                val batch = EMPTY_MESSAGE_ID.toBuilder()
+                    .setSessionAlias("alias").setDirection(Direction.INCOMING).build()
+                    .toBatch(book = bookB, sessionGroup = groupB, type = msgType, protocol = protocolB)
                 assertSame(batch, routerFilters.filter(batch))
             },
         )
+    }
+
+    companion object {
+        private val EMPTY_MESSAGE_ID = MessageId.builder()
+            .setSessionAlias("")
+            .setDirection(Direction.OUTGOING)
+            .setSequence(1)
+            .setTimestamp(Instant.now())
+            .build()
+
+        private fun MessageId.toBatch(
+            book: String = "",
+            sessionGroup: String = "",
+            type: String = "",
+            protocol: String = "",
+        ) = GroupBatch.builder()
+            .setBook(book)
+            .setSessionGroup(sessionGroup)
+            .addGroup(
+                MessageGroup.builder()
+                    .addMessage(
+                        ParsedMessage.builder()
+                            .setId(this)
+                            .setType(type)
+                            .setProtocol(protocol)
+                            .setBody(emptyMap())
+                            .build()
+                    )
+                    .build()
+            ).build()
     }
 }
