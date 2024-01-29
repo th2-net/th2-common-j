@@ -1,13 +1,11 @@
-name: Dev build and publish Java distributions to sonatype snapshot repository
+name: Build and publish jar to sonatype snapshot repository
 
 on:
   push:
     branches-ignore:
-    - master
-    - version-*
-    - dependabot*
-    # paths:
-    # - gradle.properties
+      - master
+      - version-*
+      - dependabot*
     paths-ignore:
       - README.md
 
@@ -16,7 +14,6 @@ jobs:
     uses: th2-net/.github/.github/workflows/compound-java-dev.yml@main
     with:
       build-target: 'Sonatype'
-      runsOn: ubuntu-latest
     secrets:
       sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
