@@ -40,26 +40,20 @@ import com.exactpro.th2.common.grpc.ValueFilter.KindCase.NULL_VALUE
 import com.exactpro.th2.common.grpc.ValueFilter.KindCase.SIMPLE_FILTER
 import com.exactpro.th2.common.value.emptyValueFilter
 import com.exactpro.th2.common.value.toValueFilter
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
+import java.util.Locale
 
 private val DEFAULT_TIME_PRECISION_REGEX = Regex("(\\d[HMS])(?!\$)")
 
-@Deprecated(
-        message = "The message type from MessageFilter will be removed in the future",
-        replaceWith = ReplaceWith(
-                expression = "rootMessageFilter(messageType)"
-        ),
-        level = DeprecationLevel.WARNING
-)
-fun messageFilter(messageType: String): MessageFilter.Builder = MessageFilter.newBuilder().setMessageType(messageType)
 fun messageFilter(): MessageFilter.Builder = MessageFilter.newBuilder()
-fun rootMessageFilter(messageType: String): RootMessageFilter.Builder = RootMessageFilter.newBuilder().setMessageType(messageType)
+fun rootMessageFilter(messageType: String): RootMessageFilter.Builder =
+    RootMessageFilter.newBuilder().setMessageType(messageType)
 
 fun MessageFilter.getField(key: String): ValueFilter? = getFieldsOrDefault(key, null)
 fun MessageFilter.Builder.getField(key: String): ValueFilter? = getFieldsOrDefault(key, null)
 
-fun MessageFilter.Builder.addField(key: String, value: Any?): MessageFilter.Builder = apply { putFields(key, value?.toValueFilter() ?: emptyValueFilter()) }
+fun MessageFilter.Builder.addField(key: String, value: Any?): MessageFilter.Builder =
+    apply { putFields(key, value?.toValueFilter() ?: emptyValueFilter()) }
 
 /**
  * It accepts vararg with even size and splits it into pairs where the first value of a pair is used as a key while the second is used as a value
@@ -70,20 +64,28 @@ fun MessageFilter.Builder.addFields(vararg fields: Any?): MessageFilter.Builder 
     }
 }
 
-fun MessageFilter.Builder.addFields(fields: Map<String, Any?>?): MessageFilter.Builder = apply { fields?.forEach { addField(it.key, it.value) } }
+fun MessageFilter.Builder.addFields(fields: Map<String, Any?>?): MessageFilter.Builder =
+    apply { fields?.forEach { addField(it.key, it.value) } }
 
-fun MessageFilter.Builder.copyField(message: MessageFilter.Builder, key: String): MessageFilter.Builder = apply { putFields(key, message.getField(key) ?: emptyValueFilter()) }
-fun MessageFilter.Builder.copyField(message: MessageFilter.Builder, vararg key: String): MessageFilter.Builder = apply { key.forEach { putFields(it, message.getField(it) ?: emptyValueFilter()) } }
-fun MessageFilter.Builder.copyField(message: MessageFilter, vararg key: String): MessageFilter.Builder = apply { key.forEach { putFields(it, message.getField(it) ?: emptyValueFilter()) } }
+fun MessageFilter.Builder.copyField(message: MessageFilter.Builder, key: String): MessageFilter.Builder =
+    apply { putFields(key, message.getField(key) ?: emptyValueFilter()) }
+
+fun MessageFilter.Builder.copyField(message: MessageFilter.Builder, vararg key: String): MessageFilter.Builder =
+    apply { key.forEach { putFields(it, message.getField(it) ?: emptyValueFilter()) } }
+
+fun MessageFilter.Builder.copyField(message: MessageFilter, vararg key: String): MessageFilter.Builder =
+    apply { key.forEach { putFields(it, message.getField(it) ?: emptyValueFilter()) } }
 
 fun MessageFilter.copy(): MessageFilter.Builder = MessageFilter.newBuilder().putAllFields(fieldsMap)
 
 fun MessageFilter.Builder.copy(): MessageFilter.Builder = MessageFilter.newBuilder().putAllFields(fieldsMap)
 
 fun RootMessageFilter.toTreeTable(): TreeTable = TreeTableBuilder().apply {
-    row("message-type", RowBuilder()
-        .column(MessageTypeColumn(messageType))
-        .build())
+    row(
+        "message-type", RowBuilder()
+            .column(MessageTypeColumn(messageType))
+            .build()
+    )
     row("message-filter", messageFilter.toTreeTableEntry())
     row("metadata-filter", metadataFilter.toTreeTableEntry())
     row("comparison-settings", comparisonSettings.toTreeTableEntry())
@@ -126,23 +128,33 @@ private fun MetadataFilter.toTreeTableEntry(): TreeTableEntry = CollectionBuilde
 
 private fun RootComparisonSettings.toTreeTableEntry(): TreeTableEntry = CollectionBuilder().apply {
     row("ignore-fields", CollectionBuilder().apply {
-        ignoreFieldsList.forEachIndexed { index, nestedValue ->  
+        ignoreFieldsList.forEachIndexed { index, nestedValue ->
             val nestedName = index.toString()
-            row(nestedName, RowBuilder()
-                .column(IgnoreFieldColumn(nestedValue))
-                .build())
+            row(
+                nestedName, RowBuilder()
+                    .column(IgnoreFieldColumn(nestedValue))
+                    .build()
+            )
         }
     }.build())
     if (hasTimePrecision()) {
         val timePrecision = timePrecision.toJavaDuration().toString().substring(2)
-        row("time-precision", RowBuilder()
-            .column(IgnoreFieldColumn(DEFAULT_TIME_PRECISION_REGEX.replace(timePrecision, "$1 ").toLowerCase()))
-            .build())
+        row(
+            "time-precision", RowBuilder()
+                .column(
+                    IgnoreFieldColumn(
+                        DEFAULT_TIME_PRECISION_REGEX.replace(timePrecision, "$1 ").lowercase(Locale.getDefault())
+                    )
+                )
+                .build()
+        )
     }
     if (decimalPrecision.isNotBlank()) {
-        row("decimal-precision", RowBuilder()
-            .column(IgnoreFieldColumn(decimalPrecision))
-            .build())
+        row(
+            "decimal-precision", RowBuilder()
+                .column(IgnoreFieldColumn(decimalPrecision))
+                .build()
+        )
     }
 }.build()
 
@@ -158,6 +170,7 @@ private fun SimpleFilter.toTreeTableEntry(): TreeTableEntry = when {
     filterValueCase == VALUE || operation == EMPTY || operation == NOT_EMPTY -> RowBuilder()
         .column(MessageFilterTableColumn(value, operation.toString(), key))
         .build()
+
     else -> error("Unsupported simple filter value: $filterValueCase")
 }
 
@@ -168,15 +181,23 @@ private fun ValueFilter.toTreeTableEntry(): TreeTableEntry = when {
     kindCase == NULL_VALUE -> RowBuilder()
         .column(MessageFilterTableColumn(if (operation == EQUAL) "IS_NULL" else "IS_NOT_NULL", key))
         .build()
+
     kindCase == SIMPLE_FILTER || operation == EMPTY || operation == NOT_EMPTY -> RowBuilder()
         .column(MessageFilterTableColumn(simpleFilter, operation.toString(), key))
         .build()
+
     else -> error("Unsupported ValueFilter value: $kindCase")
 }
 
 private fun SimpleList.toTreeTableEntry(operation: FilterOperation, key: Boolean): TreeTableEntry {
     return RowBuilder()
-        .column(MessageFilterTableColumn(simpleValuesList.joinToString(prefix = "[", postfix = "]"), operation.toString(), key))
+        .column(
+            MessageFilterTableColumn(
+                simpleValuesList.joinToString(prefix = "[", postfix = "]"),
+                operation.toString(),
+                key
+            )
+        )
         .build()
 }
 

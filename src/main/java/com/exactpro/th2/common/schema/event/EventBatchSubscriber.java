@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,21 @@
 package com.exactpro.th2.common.schema.event;
 
 import com.exactpro.th2.common.grpc.EventBatch;
-import com.exactpro.th2.common.schema.message.FilterFunction;
+import com.exactpro.th2.common.schema.message.ConfirmationListener;
+import com.exactpro.th2.common.schema.message.DeliveryMetadata;
+import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.rabbitmq.client.Delivery;
-
-import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
-import static com.exactpro.th2.common.schema.event.EventBatchRouter.EVENT_TYPE;
 import io.prometheus.client.Counter;
-
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
+
 import static com.exactpro.th2.common.message.MessageUtils.toJson;
+import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
+import static com.exactpro.th2.common.schema.event.EventBatchRouter.EVENT_TYPE;
 
 public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     private static final Counter EVENT_SUBSCRIBE_TOTAL = Counter.build()
@@ -42,10 +43,10 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     public EventBatchSubscriber(
             @NotNull ConnectionManager connectionManager,
             @NotNull String queue,
-            @NotNull FilterFunction filterFunc,
-            @NotNull String th2Pin
+            @NotNull String th2Pin,
+            @NotNull ConfirmationListener<EventBatch> listener
     ) {
-        super(connectionManager, queue, filterFunc, th2Pin, EVENT_TYPE);
+        super(connectionManager, queue, th2Pin, EVENT_TYPE, listener);
     }
 
     @Override
@@ -70,11 +71,11 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
     }
 
     @Override
-    protected void handle(String consumeTag, Delivery delivery, EventBatch value,
-                          Confirmation confirmation) {
+    protected void handle(DeliveryMetadata deliveryMetadata, Delivery delivery, EventBatch value,
+                          Confirmation confirmation) throws IOException {
         EVENT_SUBSCRIBE_TOTAL
                 .labels(th2Pin)
                 .inc(value.getEventsCount());
-        super.handle(consumeTag, delivery, value, confirmation);
+        super.handle(deliveryMetadata, delivery, value, confirmation);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,20 +26,20 @@ import org.mockito.kotlin.verify
 class TestConfirmationMessageListenerWrapper {
     @Test
     fun `calls confirmation when requested`() {
-        val listener = ConfirmationMessageListener.wrap<Any> { _, _ -> }
+        val listener = ConfirmationListener.wrap<Any> { _, _ -> }
 
         mock<ManualAckDeliveryCallback.Confirmation> {}.also {
-            listener.handle("", 2, it)
+            listener.handle(DeliveryMetadata(""), 2, it)
             verify(it, never()).confirm()
         }
     }
 
     @Test
     fun `calls confirmation when requested and method throw an exception`() {
-        val listener = ConfirmationMessageListener.wrap<Any> { _, _ -> error("test") }
+        val listener = ConfirmationListener.wrap<Any> { _, _ -> error("test") }
 
         mock<ManualAckDeliveryCallback.Confirmation> {}.also {
-            assertThrows(IllegalStateException::class.java) { listener.handle("", 2, it) }.apply {
+            assertThrows(IllegalStateException::class.java) { listener.handle(DeliveryMetadata("test"), 2, it) }.apply {
                 assertEquals("test", message)
             }
             verify(it, never()).confirm()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ import com.exactpro.th2.common.event.Event;
 import com.exactpro.th2.common.event.bean.builder.CollectionBuilder;
 import com.exactpro.th2.common.event.bean.builder.RowBuilder;
 import com.exactpro.th2.common.event.bean.builder.TreeTableBuilder;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-
 
 public class TreeTableTest extends BaseTest {
 
@@ -38,8 +38,10 @@ public class TreeTableTest extends BaseTest {
 
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("FirstRow", row).build();
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).toProtoEvent("id");
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[{\n" +
                 "    \"type\": \"treeTable\",\n" +
@@ -80,8 +82,10 @@ public class TreeTableTest extends BaseTest {
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).toProtoEvent("id");
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -141,8 +145,10 @@ public class TreeTableTest extends BaseTest {
                 .row("FirstRow", row)
                 .build();
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).toProtoEvent("id");
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +
@@ -192,8 +198,10 @@ public class TreeTableTest extends BaseTest {
         TreeTableBuilder treeTableBuilder = new TreeTableBuilder();
         TreeTable treeTable = treeTableBuilder.row("Row B with some other name", collection).build();
 
-        com.exactpro.th2.common.grpc.Event event =
-                Event.start().bodyData(treeTable).toProtoEvent("id");
+        com.exactpro.th2.common.grpc.Event event = Event
+                .start()
+                .bodyData(treeTable)
+                .toProto(PARENT_EVENT_ID);
 
         String expectedJson = "[ {\"type\": \"treeTable\",\n" +
                 "               \"rows\": {" +

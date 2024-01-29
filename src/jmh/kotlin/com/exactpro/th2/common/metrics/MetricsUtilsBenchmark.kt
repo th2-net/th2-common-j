@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.exactpro.th2
+package com.exactpro.th2.common.metrics
 
 import com.exactpro.th2.common.grpc.AnyMessage
 import com.exactpro.th2.common.grpc.Direction
@@ -24,13 +24,6 @@ import com.exactpro.th2.common.message.direction
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.common.message.sequence
 import com.exactpro.th2.common.message.sessionAlias
-import com.exactpro.th2.common.metrics.DIRECTION_LABEL
-import com.exactpro.th2.common.metrics.MESSAGE_TYPE_LABEL
-import com.exactpro.th2.common.metrics.SESSION_ALIAS_LABEL
-import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
-import com.exactpro.th2.common.metrics.incrementDroppedMetrics
-import com.exactpro.th2.common.metrics.incrementTotalMetrics
-import com.exactpro.th2.common.metrics.incrementTotalMetricsOld
 import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
 import org.openjdk.jmh.annotations.Benchmark

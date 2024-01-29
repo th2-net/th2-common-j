@@ -22,4 +22,5 @@ data class GrpcRouterConfiguration(
     var enableSizeMeasuring: Boolean = false,
     var keepAliveInterval: Long = 60L,
     var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
+    var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration(),
 ) : Configuration()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,11 +26,6 @@ import org.jetbrains.annotations.NotNull;
  * @see AbstractGrpcRouter
  */
 public interface GrpcRouter extends AutoCloseable {
-    /**
-     * Initialization router
-     */
-    @Deprecated(since = "3.9.0", forRemoval = true)
-    void init(GrpcRouterConfiguration configuration);
 
     void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration);
 

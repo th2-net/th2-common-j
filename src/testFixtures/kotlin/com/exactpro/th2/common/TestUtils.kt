@@ -175,6 +175,7 @@ fun Message.assertDouble(name: String, expected: Double? = null): Double {
     return actual
 }
 
+@Suppress("UNCHECKED_CAST")
 fun <T> Message.assertValue(name: String, expected: T? = null): T {
     this.assertContains(name)
     val actual = when (expected) {
@@ -185,7 +186,7 @@ fun <T> Message.assertValue(name: String, expected: T? = null): T {
         is List<*> -> this.getList(name)
         is String -> this.getString(name)
         null -> this[name]
-        else -> error("Cannot assert $name field value. Expected value type is not supported: ${expected!!::class.simpleName}")
+        else -> error("Cannot assert $name field value. Expected value type is not supported: ${expected.let { it::class.simpleName }}")
     }!!
     expected?.let {
         Assertions.assertEquals(expected, actual) {"Unexpected $name field value"}
@@ -194,11 +195,11 @@ fun <T> Message.assertValue(name: String, expected: T? = null): T {
 }
 
 private fun Message.withTimestamp(ts: Timestamp) = toBuilder().apply {
-    metadataBuilder.timestamp = ts
+    metadataBuilder.idBuilder.timestamp = ts
 }.build()!!
 
 private fun RawMessage.withTimestamp(ts: Timestamp) = toBuilder().apply {
-    metadataBuilder.timestamp = ts
+    metadataBuilder.idBuilder.timestamp = ts
 }.build()!!
 
 private fun AssertionFailedError.rewrap(additional: String) = AssertionFailedError(

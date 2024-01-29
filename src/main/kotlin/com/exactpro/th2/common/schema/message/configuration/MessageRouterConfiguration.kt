@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,7 +25,10 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import org.apache.commons.collections4.MultiMapUtils
 import org.apache.commons.collections4.MultiValuedMap
 
-data class MessageRouterConfiguration(var queues: Map<String, QueueConfiguration> = emptyMap()) : Configuration() {
+data class MessageRouterConfiguration(
+    var queues: Map<String, QueueConfiguration> = emptyMap(),
+    var globalNotification: GlobalNotificationConfiguration = GlobalNotificationConfiguration()
+) : Configuration() {
 
     fun getQueueByAlias(queueAlias: String): QueueConfiguration? {
         return queues[queueAlias]
@@ -79,8 +82,8 @@ data class FieldFilterConfigurationOld(
 ) : Configuration()
 
 data class FieldFilterConfiguration(
-    @JsonProperty(value = "fieldName", required = true) var fieldName: String,
-    @JsonProperty("expectedValue") @JsonAlias("value") var expectedValue: String?,
+    @JsonProperty(value = "fieldName", required = true) @JsonAlias("fieldName", "field-name") var fieldName: String,
+    @JsonProperty("expectedValue") @JsonAlias("value", "expected-value") var expectedValue: String?,
     @JsonProperty(required = true) var operation: FieldFilterOperation
 ) : Configuration()
 
@@ -89,5 +92,10 @@ enum class FieldFilterOperation {
     NOT_EQUAL,
     EMPTY,
     NOT_EMPTY,
-    WILDCARD
+    WILDCARD,
+    NOT_WILDCARD,
 }
+
+data class GlobalNotificationConfiguration(
+    @JsonProperty var exchange: String = "global-notification"
+) : Configuration()

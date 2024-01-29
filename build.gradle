@@ -1,10 +1,14 @@
+import com.github.jk1.license.filter.LicenseBundleNormalizer
+import com.github.jk1.license.render.JsonReportRenderer
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 buildscript {
     repositories {
         mavenCentral()
     }
 
     ext {
-        kotlin_version = "1.6.21"
+        kotlin_version = "1.8.22"
     }
 
     dependencies {
@@ -19,37 +23,43 @@ plugins {
     id 'maven-publish'
     id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
     id 'signing'
-    id 'com.google.protobuf' version '0.8.8' apply false
     id 'org.jetbrains.kotlin.jvm' version "${kotlin_version}"
-    id "org.owasp.dependencycheck" version "8.1.0"
+    id 'org.jetbrains.kotlin.kapt' version "${kotlin_version}"
+    id "org.owasp.dependencycheck" version "8.3.1"
     id "me.champeau.jmh" version "0.6.8"
+    id "com.gorylenko.gradle-git-properties" version "2.4.1"
+    id 'com.github.jk1.dependency-license-report' version '2.5'
+    id "de.undercouch.download" version "5.4.0"
+    id "com.google.protobuf" version "0.9.4"
 }
 
 group = 'com.exactpro.th2'
 version = release_version
 
-sourceCompatibility = 11
-targetCompatibility = 11
-
 ext {
-    cradleVersion       = '3.1.2'
-    junitVersion      = '5.8.2'
-    sharedDir           = file("${project.rootDir}/shared")
+    grpcVersion = '1.56.0'
+    protobufVersion = '3.23.2' // The protoc:3.23.3 https://github.com/protocolbuffers/protobuf/issues/13070
+    serviceGeneratorVersion = '3.5.1'
+
+    cradleVersion = '5.1.1-dev'
+    junitVersion = '5.10.0'
+
+    genBaseDir = file("${buildDir}/generated/source/proto")
 }
 
 repositories {
     mavenCentral()
     maven {
-            name 'Sonatype_snapshots'
-            url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+        name 'Sonatype_snapshots'
+        url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     }
     maven {
-            name 'Sonatype_releases'
-            url 'https://s01.oss.sonatype.org/content/repositories/releases/'
+        name 'Sonatype_releases'
+        url 'https://s01.oss.sonatype.org/content/repositories/releases/'
     }
     mavenLocal()
 
-    configurations.all {
+    configurations.configureEach {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
         resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
     }
@@ -62,32 +72,35 @@ configurations {
 }
 
 java {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+
     withJavadocJar()
     withSourcesJar()
 }
 
 // conditionals for publications
-tasks.withType(PublishToMavenRepository) {
+tasks.withType(PublishToMavenRepository).configureEach {
     onlyIf {
         (repository == publishing.repositories.nexusRepository &&
-            project.hasProperty('nexus_user') &&
-            project.hasProperty('nexus_password') &&
-            project.hasProperty('nexus_url')) ||
-        (repository == publishing.repositories.sonatype &&
-            project.hasProperty('sonatypeUsername') &&
-            project.hasProperty('sonatypePassword')) ||
-        (repository == publishing.repositories.localRepo)
+                project.hasProperty('nexus_user') &&
+                project.hasProperty('nexus_password') &&
+                project.hasProperty('nexus_url')) ||
+                (repository == publishing.repositories.sonatype &&
+                        project.hasProperty('sonatypeUsername') &&
+                        project.hasProperty('sonatypePassword'))
     }
 }
-tasks.withType(Sign) {
-    onlyIf { project.hasProperty('signingKey') &&
-        project.hasProperty('signingPassword')
+tasks.withType(Sign).configureEach {
+    onlyIf {
+        project.hasProperty('signingKey') &&
+                project.hasProperty('signingPassword')
     }
 }
 // disable running task 'initializeSonatypeStagingRepository' on a gitlab
-tasks.whenTaskAdded {task ->
-    if(task.name.equals('initializeSonatypeStagingRepository') &&
-        !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
+tasks.configureEach { task ->
+    if (task.name == 'initializeSonatypeStagingRepository' &&
+            !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
     ) {
         task.enabled = false
     }
@@ -98,37 +111,33 @@ publishing {
         mavenJava(MavenPublication) {
             from(components.java)
             pom {
-              name = rootProject.name
-              packaging = 'jar'
-              description = rootProject.description
-              url = vcs_url
-              scm {
+                name = rootProject.name
+                packaging = 'jar'
+                description = rootProject.description
                 url = vcs_url
-              }
-              licenses {
-                license {
-                  name = 'The Apache License, Version 2.0'
-                  url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                scm {
+                    url = vcs_url
                 }
-              }
-              developers {
-                developer {
-                  id = 'developer'
-                  name = 'developer'
-                  email = 'developer@exactpro.com'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
                 }
-              }
-              scm {
-                url = vcs_url
-              }
+                developers {
+                    developer {
+                        id = 'developer'
+                        name = 'developer'
+                        email = 'developer@exactpro.com'
+                    }
+                }
+                scm {
+                    url = vcs_url
+                }
             }
         }
     }
     repositories {
-        maven {
-            name = 'localRepo'
-            url = sharedDir
-        }
 //Nexus repo to publish from gitlab
         maven {
             name = 'nexusRepository'
@@ -150,13 +159,9 @@ nexusPublishing {
     }
 }
 
-clean {
-    delete sharedDir
-}
-
 signing {
-    def signingKey = findProperty("signingKey")
-    def signingPassword = findProperty("signingPassword")
+    String signingKey = findProperty("signingKey")
+    String signingPassword = findProperty("signingPassword")
     useInMemoryPgpKeys(signingKey, signingPassword)
     sign publishing.publications.mavenJava
 }
@@ -175,21 +180,32 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.2.0")
-    api 'com.exactpro.th2:grpc-common:3.11.1'
-    api ("com.exactpro.th2:cradle-core:${cradleVersion}") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
+    api platform("com.exactpro.th2:bom:4.5.0")
+    api('com.exactpro.th2:grpc-common:4.3.0-dev') {
+        because('protobuf transport is main now, this dependnecy should be moved to grpc, mq protobuf modules after splitting')
     }
-    api 'io.github.microutils:kotlin-logging:2.1.21'
+    api("com.exactpro.th2:cradle-core:${cradleVersion}") {
+        because('cradle is included into common library now, this dependnecy should be moved to a cradle module after splitting')
+    }
+    api('io.netty:netty-buffer') {
+        because('th2 transport protocol is included into common library now, this dependnecy should be moved to a th2 transport module after splitting')
+    }
 
     jmh 'org.openjdk.jmh:jmh-core:0.9'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
 
     implementation 'com.google.protobuf:protobuf-java-util'
-    implementation 'com.exactpro.th2:grpc-service-generator:3.2.2'
-    implementation ("com.exactpro.th2:cradle-cassandra:${cradleVersion}") {
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12' // because of the vulnerability
+    implementation "com.exactpro.th2:grpc-service-generator:${serviceGeneratorVersion}"
+    implementation "com.exactpro.th2:cradle-cassandra:${cradleVersion}"
+
+    def autoValueVersion = '1.10.1'
+    implementation "com.google.auto.value:auto-value-annotations:$autoValueVersion"
+    kapt("com.google.auto.value:auto-value:$autoValueVersion") {
+        //FIXME: Updated library because it is fat jar
+        // auto-value-1.10.1.jar/META-INF/maven/com.google.guava/guava/pom.xml (pkg:maven/com.google.guava/guava@31.1-jre, cpe:2.3:a:google:guava:31.1:*:*:*:*:*:*:*) : CVE-2023-2976, CVE-2020-8908
     }
+    //this is required to add generated bridge classes for kotlin default constructors
+    implementation(files("$buildDir/tmp/kapt3/classes/main"))
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"
@@ -204,17 +220,22 @@ dependencies {
     implementation "org.apache.commons:commons-lang3"
     implementation "org.apache.commons:commons-collections4"
     implementation "org.apache.commons:commons-text"
+    implementation("commons-io:commons-io") {
+        because('we need FilenameUtil to use wildcard matching')
+    }
     implementation "commons-cli:commons-cli"
+    implementation "commons-io:commons-io"
 
     implementation "com.fasterxml.jackson.core:jackson-core"
-    api("com.fasterxml.jackson.core:jackson-databind") {
+    implementation("com.fasterxml.jackson.core:jackson-databind") {
         because('provide ability to use object mapper in components')
     }
-    api("com.fasterxml.jackson.core:jackson-annotations") {
+    implementation("com.fasterxml.jackson.core:jackson-annotations") {
         because('providee ability to use jackson annotations in components')
     }
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor'
 
     implementation 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
 
@@ -226,17 +247,27 @@ dependencies {
     implementation 'io.prometheus:simpleclient_httpserver'
     implementation 'io.prometheus:simpleclient_log4j2'
 
-    implementation ('com.squareup.okhttp3:okhttp:4.10.0') {
-        because ('fix vulnerability in transitive dependency <kubernetes-client>')
+    implementation('com.squareup.okio:okio:3.5.0') {
+        because('fix vulnerability in transitive dependency <com.squareup.okhttp3:okhttp>')
     }
-    implementation ('io.fabric8:kubernetes-client:6.1.1') {
+    implementation('com.squareup.okhttp3:okhttp:4.11.0') {
+        because('fix vulnerability in transitive dependency <kubernetes-client>')
+    }
+    implementation('io.fabric8:kubernetes-client:6.8.0') {
         exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
     }
 
+    implementation 'io.github.microutils:kotlin-logging:3.0.0' // The last version bases on kotlin 1.6.0
+
+    testImplementation 'javax.annotation:javax.annotation-api:1.3.2'
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
     testImplementation 'org.mockito.kotlin:mockito-kotlin:4.0.0'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
     testImplementation "org.testcontainers:testcontainers:1.17.1"
     testImplementation "org.testcontainers:rabbitmq:1.17.1"
+    testImplementation("org.junit-pioneer:junit-pioneer:2.1.0") {
+        because("system property tests")
+    }
 
     testFixturesImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
@@ -245,36 +276,83 @@ dependencies {
 jar {
     manifest {
         attributes(
-                'Created-By':               "${System.getProperty('java.version')} (${System.getProperty('java.vendor')})",
-                'Specification-Title':      '',
-                'Specification-Vendor':     'Exactpro Systems LLC',
-                'Implementation-Title':     project.archivesBaseName,
-                'Implementation-Vendor':    'Exactpro Systems LLC',
+                'Created-By': "${System.getProperty('java.version')} (${System.getProperty('java.vendor')})",
+                'Specification-Title': '',
+                'Specification-Vendor': 'Exactpro Systems LLC',
+                'Implementation-Title': project.archivesBaseName,
+                'Implementation-Vendor': 'Exactpro Systems LLC',
                 'Implementation-Vendor-Id': 'com.exactpro',
-                'Implementation-Version':   project.version
+                'Implementation-Version': project.version
         )
     }
 }
 
 sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
+    test.resources.srcDirs += "$genBaseDir/test/services/java/resources"
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+        services {
+            artifact = "com.exactpro.th2:grpc-service-generator:${serviceGeneratorVersion}:all@jar"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+            services {
+                option 'javaInterfacesPath=./java/src'
+                option 'javaInterfacesImplPath=./java/src'
+                option 'javaMetaInfPath=./java/resources'
+            }
+        }
+        ofSourceSet('test')
+    }
+}
+
+compileTestJava.dependsOn.add('generateTestProto')
+processTestResources.dependsOn.add('generateTestProto')
+
+tasks.withType(KotlinCompile).configureEach {
     kotlinOptions.jvmTarget = "11"
-}
-
-clean {
-    delete sharedDir
+    kotlinOptions.freeCompilerArgs += "-Xjvm-default=all"
 }
 
 dependencyCheck {
-    formats=['SARIF', 'JSON', 'HTML']
-    failBuildOnCVSS=5
-
+    formats = ['SARIF', 'JSON', 'HTML']
+    failBuildOnCVSS = 5
+    suppressionFile = file('suppressions.xml')
     analyzers {
         assemblyEnabled = false
         nugetconfEnabled = false
         nodeEnabled = false
     }
+}
+
+licenseReport {
+    def licenseNormalizerBundlePath = "$buildDir/license-normalizer-bundle.json"
+
+    if (!file(licenseNormalizerBundlePath).exists()) {
+        download.run {
+            src 'https://raw.githubusercontent.com/th2-net/.github/main/license-compliance/gradle-license-report/license-normalizer-bundle.json'
+            dest "$buildDir/license-normalizer-bundle.json"
+            overwrite false
+        }
+    }
+
+    filters = [
+            new LicenseBundleNormalizer(licenseNormalizerBundlePath, false)
+    ]
+    renderers = [
+            new JsonReportRenderer('licenses.json', false),
+    ]
+    excludeOwnGroup = false
+    allowedLicensesFile = new URL("https://raw.githubusercontent.com/th2-net/.github/main/license-compliance/gradle-license-report/allowed-licenses.json")
 }

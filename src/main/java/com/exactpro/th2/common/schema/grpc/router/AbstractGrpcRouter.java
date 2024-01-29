@@ -39,17 +39,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 /**
  * Abstract implementation for {@link GrpcRouter}
- * <p>
- * Implement {@link GrpcRouter#init(GrpcRouterConfiguration)}
  * <p>
  * Implement {@link GrpcRouter#init(GrpcConfiguration, GrpcRouterConfiguration)}
  * <p>
@@ -67,6 +65,12 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
     protected final List<ExecutorService> executors = new ArrayList<>();
     protected GrpcRouterConfiguration routerConfiguration;
     protected GrpcConfiguration configuration;
+
+    // Metrics below are collectd to maps to improve getting <Metric>.Child performance.
+    // Prometheus metric has the `labels` tread-safe method for getting <Metric>.Child but its logic includes:
+    // * array String creation
+    // * covert the array to list
+    // * search <Metric>.Child by the list
 
     protected static final Counter GRPC_INVOKE_CALL_TOTAL = Counter.build()
             .name("th2_grpc_invoke_call_total")
@@ -115,11 +119,6 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_RESPONSE_SIZE_MAP = new ConcurrentHashMap<>();
-
-    @Override
-    public void init(GrpcRouterConfiguration configuration) {
-        init(new GrpcConfiguration(), configuration);
-    }
 
     @Override
     public void init(@NotNull GrpcConfiguration configuration, @NotNull GrpcRouterConfiguration routerConfiguration) {

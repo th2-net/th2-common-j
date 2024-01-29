@@ -18,11 +18,19 @@ package com.exactpro.th2.common.schema.box.configuration;
 import com.exactpro.th2.common.schema.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static com.exactpro.th2.common.event.EventUtils.requireNonBlankBookName;
+
 public class BoxConfiguration extends Configuration {
+    public static final String DEFAULT_BOOK_NAME = "test_book";
+
     @JsonProperty
     private String boxName = null;
+
+    @JsonProperty
+    private String bookName = DEFAULT_BOOK_NAME;
 
     @Nullable
     public String getBoxName() {
@@ -31,5 +39,14 @@ public class BoxConfiguration extends Configuration {
 
     public void setBoxName(@Nullable String boxName) {
         this.boxName = boxName;
+    }
+
+    @NotNull
+    public String getBookName() {
+        return bookName;
+    }
+
+    public void setBookName(@NotNull String bookName) {
+        this.bookName = requireNonBlankBookName(bookName);
     }
 }

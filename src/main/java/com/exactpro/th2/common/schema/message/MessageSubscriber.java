@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,27 +15,10 @@
 
 package com.exactpro.th2.common.schema.message;
 
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.SubscribeTarget;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
-
-import org.jetbrains.annotations.NotNull;
-
-import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Listen messages and transmit it to {@link MessageListener}
  */
-@NotThreadSafe
-public interface MessageSubscriber<T> extends AutoCloseable {
-    // Please use constructor for initialization
-    @Deprecated(since = "3.3.0", forRemoval = true)
-    void init(@NotNull ConnectionManager connectionManager, @NotNull String exchangeName, @NotNull SubscribeTarget subscribeTargets);
-
-    // Please use constructor for initialization
-    @Deprecated
-    void init(@NotNull ConnectionManager connectionManager, @NotNull SubscribeTarget subscribeTarget, @NotNull FilterFunction filterFunc);
-
-    void start() throws Exception;
-
-    void addListener(ConfirmationMessageListener<T> messageListener);
-}
+@ThreadSafe
+public interface MessageSubscriber extends AutoCloseable { }

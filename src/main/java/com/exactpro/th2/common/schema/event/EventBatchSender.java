@@ -20,6 +20,7 @@ import java.io.IOException;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.exactpro.th2.common.grpc.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
@@ -27,6 +28,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.Connectio
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
 import static com.exactpro.th2.common.schema.event.EventBatchRouter.EVENT_TYPE;
+
 import io.prometheus.client.Counter;
 
 public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
@@ -40,9 +42,10 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
             @NotNull ConnectionManager connectionManager,
             @NotNull String exchangeName,
             @NotNull String routingKey,
-            @NotNull String th2Pin
+            @NotNull String th2Pin,
+            @NotNull String bookName
     ) {
-        super(connectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE);
+        super(connectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE, bookName);
     }
 
     @Override
@@ -50,7 +53,19 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
         EVENT_PUBLISH_TOTAL
                 .labels(th2Pin)
                 .inc(value.getEventsCount());
-        super.send(value);
+        if (value.getEventsList().stream().anyMatch(event -> event.getId().getBookName().isEmpty())) {
+            EventBatch.Builder eventBatchBuilder = EventBatch.newBuilder();
+            value.getEventsList().forEach(event -> {
+                Event.Builder eventBuilder = event.toBuilder();
+                if (event.getId().getBookName().isEmpty()) {
+                    eventBuilder.getIdBuilder().setBookName(bookName);
+                }
+                eventBatchBuilder.addEvents(eventBuilder);
+            });
+            super.send(eventBatchBuilder.build());
+        } else {
+            super.send(value);
+        }
     }
 
     @Override

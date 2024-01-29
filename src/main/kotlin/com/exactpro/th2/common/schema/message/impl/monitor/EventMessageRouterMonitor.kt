@@ -18,11 +18,15 @@ package com.exactpro.th2.common.schema.message.impl.monitor
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.bean.Message
 import com.exactpro.th2.common.grpc.EventBatch
+import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor
 import org.slf4j.helpers.MessageFormatter.arrayFormat
 
-class EventMessageRouterMonitor(private val router: MessageRouter<EventBatch>, private val parentEventID: String?) :
+class EventMessageRouterMonitor(
+    private val router: MessageRouter<EventBatch>,
+    private val parentEventId: EventID
+) :
     MessageRouterMonitor {
 
     override fun onInfo(msg: String, vararg args: Any?) {
@@ -37,17 +41,15 @@ class EventMessageRouterMonitor(private val router: MessageRouter<EventBatch>, p
         router.send(createEventBatch("Error message in message router", arrayFormat(msg, args).message, Event.Status.FAILED))
     }
 
-    private fun createEventBatch(name: String, msg: String, status: Event.Status): EventBatch =
-        EventBatch.newBuilder().apply {
-            addEvents(
+    private fun createEventBatch(name: String, msg: String, status: Event.Status) =
+        EventBatch.newBuilder().also {
+            it.addEvents(
                 Event.start()
                     .name(name)
                     .bodyData(Message().apply { data = msg; type = "message" })
                     .status(status)
                     .type("event")
-                    .toProtoEvent(parentEventID)
+                    .toProto(parentEventId)
             )
         }.build()
-
-
 }
