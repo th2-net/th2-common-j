@@ -37,9 +37,9 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    grpcVersion = '1.56.0'
-    protobufVersion = '3.23.2' // The protoc:3.23.3 https://github.com/protocolbuffers/protobuf/issues/13070
-    serviceGeneratorVersion = '3.5.1'
+    grpcVersion = '1.62.2'
+    protobufVersion = '3.25.3'
+    serviceGeneratorVersion = '3.6.0-th2-5042-8129749597-d00d9fc-SNAPSHOT'
 
     cradleVersion = '5.1.5-dev'
     junitVersion = '5.10.2'
@@ -180,7 +180,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.5.0")
+    api platform("com.exactpro.th2:bom:4.6.0-update-bom-8129602206-434846f-SNAPSHOT")
     api('com.exactpro.th2:grpc-common:4.4.0-dev') {
         because('protobuf transport is main now, this dependnecy should be moved to grpc, mq protobuf modules after splitting')
     }
@@ -253,6 +253,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0") {
         because('fix vulnerability in transitive dependency <kubernetes-client>')
     }
+    implementation('com.squareup.okhttp3:logging-interceptor:4.12.0') {
+        because('fix vulnerability in transitive dependency <kubernetes-client>')
+    }
+
     implementation("io.fabric8:kubernetes-client:6.10.0") {
         exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
     }
@@ -316,6 +320,10 @@ protobuf {
         ofSourceSet('test')
     }
 }
+
+tasks.named('generateProto') {enabled = false }
+tasks.named('extractIncludeProto') {enabled = false }
+tasks.named('extractIncludeTestFixturesProto') {enabled = false }
 
 compileTestJava.dependsOn.add('generateTestProto')
 processTestResources.dependsOn.add('generateTestProto')
