@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.9.1)
+# th2 common library (Java) (5.10.0)
 
 ## Usage
 
@@ -506,6 +506,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.10.0-dev
+
++ Update bom: 4.5.0 -> 4.6.0
++ Update grpc-service-generator: 3.5.1 -> 3.6.0
 
 ### 5.9.1-dev
 
