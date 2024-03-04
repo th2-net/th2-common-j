@@ -681,7 +681,7 @@ class TestConnectionManager {
                                 LOGGER.info { "Canceled $it" }
                             }
 
-                            Thread.sleep(3500)
+                            Thread.sleep(2500)
                             LOGGER.info { "Unsubscribing..." }
                             monitor!!.unsubscribe()
                         }
