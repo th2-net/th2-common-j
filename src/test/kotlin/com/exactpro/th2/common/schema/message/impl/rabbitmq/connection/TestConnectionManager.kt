@@ -687,7 +687,6 @@ class TestConnectionManager {
                         }
                         for (i in 1..5) {
                             putMessageInQueue(it, queueName)
-
                             Thread.sleep(1000)
                         }
 
