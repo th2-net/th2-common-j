@@ -31,6 +31,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.Direction.OUTGOING
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
+import mu.KotlinLogging
 import com.exactpro.th2.common.grpc.Direction as ProtoDirection
 
 fun Collection<RouterFilter>.filter(batch: GroupBatch): GroupBatch? {
@@ -112,3 +113,38 @@ val ProtoDirection.transport: Direction
         SECOND -> OUTGOING
         else -> error("Unsupported $this direction in the th2 transport protocol")
     }
+
+private const val trackedSecondaryClOrdID = "10050000"
+private val trackedSecondaryClOrdIDBytes = trackedSecondaryClOrdID.toByteArray()
+
+private fun containsSubArray(buffer: ByteBuf): Boolean {
+    var i = 0
+    var isFound = false
+    buffer.forEachByte { byte ->
+        if (byte == trackedSecondaryClOrdIDBytes[i]) {
+            if (++i == trackedSecondaryClOrdIDBytes.size) {
+                isFound = true
+                return@forEachByte false // stop processing
+            }
+        } else {
+            i = 0
+        }
+        true
+    }
+    return isFound
+}
+
+private val LOGGER = KotlinLogging.logger {}
+fun logTrackedMessages(batch: GroupBatch, logMessage: String) {
+    batch.groups.flatMap { it.messages }.forEach {
+        val isLogging = when(it) {
+            is RawMessage -> containsSubArray(it.body)
+            is ParsedMessage -> trackedSecondaryClOrdID == it.body["SecondaryClOrdID"].toString()
+            else -> false
+        }
+
+        if (isLogging) {
+            LOGGER.error { "$logMessage. msg = $it" }
+        }
+    }
+}

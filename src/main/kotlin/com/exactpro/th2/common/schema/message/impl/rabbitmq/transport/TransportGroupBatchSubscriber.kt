@@ -51,6 +51,8 @@ class TransportGroupBatchSubscriber(
         value: GroupBatch,
         confirmation: ManualAckDeliveryCallback.Confirmation,
     ) {
+        logTrackedMessages(value, "Batch with tracked message received")
+
         TRANSPORT_GROUP_SUBSCRIBE_TOTAL
             .labels(th2Pin, value.book, value.sessionGroup)
             .inc(value.groups.size.toDouble())

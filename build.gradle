@@ -41,7 +41,7 @@ ext {
     protobufVersion = '3.23.2' // The protoc:3.23.3 https://github.com/protocolbuffers/protobuf/issues/13070
     serviceGeneratorVersion = '3.5.1'
 
-    cradleVersion = '5.1.1-dev'
+    cradleVersion = '5.1.4-dev'
     junitVersion = '5.10.0'
 
     genBaseDir = file("${buildDir}/generated/source/proto")

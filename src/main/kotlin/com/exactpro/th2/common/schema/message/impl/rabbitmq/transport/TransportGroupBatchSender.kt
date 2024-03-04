@@ -40,6 +40,8 @@ class TransportGroupBatchSender(
     bookName
 ) {
     override fun send(value: GroupBatch) {
+        logTrackedMessages(value, "Sending batch with tracked message")
+
         TRANSPORT_GROUP_PUBLISH_TOTAL
             .labels(th2Pin, value.book, value.sessionGroup)
             .inc(value.groups.size.toDouble())
