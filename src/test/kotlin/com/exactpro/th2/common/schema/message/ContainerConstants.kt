@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 
 object ContainerConstants {
-    @JvmField val RABBITMQ_IMAGE_NAME: DockerImageName = DockerImageName.parse("rabbitmq:3.12.8-management-alpine")
+    @JvmField val RABBITMQ_IMAGE_NAME: DockerImageName = DockerImageName.parse("rabbitmq:3.13.0-management-alpine")
     const val ROUTING_KEY = "routingKey"
     const val QUEUE_NAME = "queue"
     const val EXCHANGE = "test-exchange"
