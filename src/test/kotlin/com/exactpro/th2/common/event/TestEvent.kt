@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,19 +17,27 @@ package com.exactpro.th2.common.event
 
 import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_NAME
 import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_TYPE
+import com.exactpro.th2.common.event.EventUtils.DEFAULT_SCOPE
 import com.exactpro.th2.common.event.EventUtils.toEventID
 import com.exactpro.th2.common.event.bean.BaseTest.BOOK_NAME
+import com.exactpro.th2.common.event.bean.BaseTest.SCOPE
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
+import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toJson
+import com.exactpro.th2.common.message.toTimestamp
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertAll
 import java.time.Instant
 import java.time.LocalDate
@@ -40,7 +48,7 @@ import java.time.ZoneOffset
 typealias ProtoEvent = com.exactpro.th2.common.grpc.Event
 
 class TestEvent {
-    private val parentEventId: EventID = toEventID(Instant.now(), BOOK_NAME, "parentEventId")
+    private val parentEventId: EventID = toEventID(Instant.now(), BOOK_NAME, SCOPE, "parentEventId")
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
@@ -75,8 +83,8 @@ class TestEvent {
     fun `negative or zero max size`() {
         val rootEvent = Event.start()
         assertAll(
-            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(-1, parentEventId) } },
-            { Assertions.assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(0, parentEventId) } }
+            { assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(-1, parentEventId) } },
+            { assertThrows(IllegalArgumentException::class.java) { rootEvent.toBatchesProtoWithLimit(0, parentEventId) } }
         )
     }
 
@@ -86,7 +94,7 @@ class TestEvent {
             .bodyData(data)
 
         assertAll(
-            { Assertions.assertThrows(IllegalStateException::class.java) { rootEvent.toBatchesProtoWithLimit(1, parentEventId) } }
+            { assertThrows(IllegalStateException::class.java) { rootEvent.toBatchesProtoWithLimit(1, parentEventId) } }
         )
     }
 
@@ -302,6 +310,107 @@ class TestEvent {
             """[{"instant":"2023-10-13T12:35:05Z","dateTime":"2023-10-13T12:35:05","date":"2023-10-13","time":"12:35:05"}]""",
             jsonBody,
             "unexpected JSON body",
+        )
+    }
+
+    @TestFactory
+    fun `book mismatch between attached message and event`(): Collection<DynamicTest> {
+        val event = Event.start()
+            .name("test-event")
+            .type("test-type")
+            .status(Event.Status.FAILED)
+            .messageID(MessageID.newBuilder().apply {
+                this.bookName = "${parentEventId.bookName}-test"
+                this.connectionIdBuilder.apply {
+                    sessionGroup = "test-session-group"
+                    sessionAlias = "test-session-alias"
+                }
+                this.timestamp = Instant.now().toTimestamp()
+                this.direction = Direction.SECOND
+                this.sequence = 2
+            }.build())
+        val message = "Build event failure, book: '${parentEventId.bookName}', scope: '${parentEventId.scope}', " +
+                "name: '${event.name}', type: '${event.type}', " +
+                "problems: [Book name mismatch in '${event.attachedMessageIds.single().toJson()}' message id]"
+        val messageDefaultScope = "Build event failure, book: '${parentEventId.bookName}', scope: '$DEFAULT_SCOPE', " +
+                "name: '${event.name}', type: '${event.type}', " +
+                "problems: [Book name mismatch in '${event.attachedMessageIds.single().toJson()}' message id]"
+        return listOf(
+            DynamicTest.dynamicTest("different book in message 'toBatchProto(book)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toBatchProto(parentEventId.bookName)
+                }.also { assertEquals(messageDefaultScope, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchProto(book, scope)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toBatchProto(parentEventId.bookName, parentEventId.scope)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchProto(eventId)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toBatchProto(parentEventId)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchesProtoWithLimit(contentSize, book)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toBatchesProtoWithLimit(1, parentEventId.bookName)
+                }.also { assertEquals(messageDefaultScope, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchesProtoWithLimit(contentSize, book, scope)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toBatchesProtoWithLimit(1, parentEventId.bookName, parentEventId.scope)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toBatchesProtoWithLimit(contentSize, eventId)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toBatchesProtoWithLimit(1, parentEventId)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListBatchProto(book)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toListBatchProto(parentEventId.bookName)
+                }.also { assertEquals(messageDefaultScope, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListBatchProto(book, scope)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toListBatchProto(parentEventId.bookName, parentEventId.scope)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListBatchProto(eventId)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toListBatchProto(parentEventId)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListProto(book)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toListProto(parentEventId.bookName)
+                }.also { assertEquals(messageDefaultScope, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListProto(book, scope)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toListProto(parentEventId.bookName, parentEventId.scope)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toListProto(eventId)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toListProto(parentEventId)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toProto(book)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toProto(parentEventId.bookName)
+                }.also { assertEquals(messageDefaultScope, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toProto(book, scope)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toProto(parentEventId.bookName, parentEventId.scope)
+                }.also { assertEquals(message, it.message) }
+            },
+            DynamicTest.dynamicTest("different book in message 'toProto(eventId)'") {
+                assertThrows(IllegalStateException::class.java) {
+                    event.toProto(parentEventId)
+                }.also { assertEquals(message, it.message) }
+            },
         )
     }
 

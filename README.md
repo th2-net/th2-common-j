@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.8.0)
+# th2 common library (Java) (5.9.0)
 
 ## Usage
 
@@ -152,6 +152,7 @@ Filters format:
     * `EMPTY` - the filter passes if the field is empty
     * `NOT_EMPTY` - the filter passes if the field is not empty
     * `WILDCARD` - filters the field by wildcard expression
+    * `NOT_WILDCARD` - filters the field which isn't matched by wildcard expression
 
 ```json
 {
@@ -506,13 +507,18 @@ dependencies {
 
 ## Release notes
 
-### 5.8.0-dev
-
+### 5.9.0-dev
 + Added retry in case of a RabbitMQ channel or connection error (when possible).
 + Added InterruptedException to basicConsume method signature.
 + Added additional logging for RabbitMQ errors.
 + Fixed connection recovery delay time.
 + Integration tests for RabbitMQ retry scenarios.
+
+### 5.8.0-dev
++ Added `NOT_WILDCARD` filter operation, which filter a field which isn't matched by wildcard expression.
+
+### 5.7.2-dev
++ Event builder checks is the book name from attached message match to the event book name
 
 ### 5.7.1-dev
 
