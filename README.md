@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.8.0)
+# th2 common library (Java) (5.9.0)
 
 ## Usage
 
@@ -93,6 +93,9 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with
   its default value set to 60000. Common factory increases the reconnect interval values from
   minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
+* retryTimeDeviationPercent - specifies random deviation to delay interval duration. Default value is 10 percents.
+  E.g. if delay interval is 30 seconds and `retryTimeDeviationPercent` is 10 percents the actual duration of interval
+  will be random value from 27 to 33 seconds.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if
   unlimited, the default value is set to 10.
 * messageRecursionLimit - an integer number denotes how deep the nested protobuf message might be, set by default 100
@@ -110,6 +113,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   "maxRecoveryAttempts": 5,
   "minConnectionRecoveryTimeout": 10000,
   "maxConnectionRecoveryTimeout": 60000,
+  "retryTimeDeviationPercent": 10,
   "prefetchCount": 10,
   "messageRecursionLimit": 100
 }
@@ -379,6 +383,7 @@ describes gRPC service structure)
 
 This kind of router provides the ability for component to send / receive messages via RabbitMQ.
 Router has several methods to subscribe and publish RabbitMQ messages steam (th2 use batches of messages or events as transport).
+Supports recovery of subscriptions cancelled by RabbitMQ due to following errors: "delivery acknowledgement timed out" and "queue not found". 
 
 #### Choice pin by attributes
 
@@ -501,6 +506,13 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.9.0-dev
++ Added retry in case of a RabbitMQ channel or connection error (when possible).
++ Added InterruptedException to basicConsume method signature.
++ Added additional logging for RabbitMQ errors.
++ Fixed connection recovery delay time.
++ Integration tests for RabbitMQ retry scenarios.
 
 ### 5.8.0-dev
 + Added `NOT_WILDCARD` filter operation, which filter a field which isn't matched by wildcard expression.

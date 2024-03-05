@@ -153,7 +153,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
             consumerMonitor.updateAndGet(previous -> previous == EMPTY_INITIALIZER
                             ? Suppliers.memoize(this::basicConsume)
                             : previous)
-                    .get(); // initialize subscribtion
+                    .get(); // initialize subscription
         } catch (Exception e) {
             throw new IllegalStateException("Can not start listening", e);
         }
@@ -189,6 +189,10 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
             return connectionManager.basicConsume(queue, this::handle, this::canceled);
         } catch (IOException e) {
             throw new IllegalStateException("Can not subscribe to queue = " + queue, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.error("Interrupted exception while consuming from queue '{}'", queue);
+            throw new IllegalStateException("Thread was interrupted while consuming", e);
         }
     }
 

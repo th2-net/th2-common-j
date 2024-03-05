@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_CONFIRMATION_TIMEOUT
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_PREFETCH_COUNT
+import com.exactpro.th2.common.schema.message.ContainerConstants.EXCHANGE
+import com.exactpro.th2.common.schema.message.ContainerConstants.QUEUE_NAME
+import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
+import com.exactpro.th2.common.schema.message.ContainerConstants.ROUTING_KEY
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
@@ -30,7 +37,6 @@ import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions.assertNull
 import org.mockito.kotlin.mock
 import org.testcontainers.containers.RabbitMQContainer
-import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -43,7 +49,7 @@ class AbstractRabbitRouterIntegrationTest {
 
     @Test
     fun `receive unconfirmed message after resubscribe`() {
-        RabbitMQContainer(DockerImageName.parse(RABBITMQ_MANAGEMENT_ALPINE))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .withExchange(EXCHANGE, BuiltinExchangeType.DIRECT.type, false, false, true, emptyMap())
             .withQueue(QUEUE_NAME, false, true, emptyMap())
             .withBinding(
@@ -166,9 +172,7 @@ class AbstractRabbitRouterIntegrationTest {
             prefetchCount = prefetchCount,
             confirmationTimeout = confirmationTimeout,
         ),
-    ) {
-        K_LOGGER.error { "Fatal connection problem" }
-    }
+    )
 
     private fun createRouter(connectionManager: ConnectionManager) = RabbitCustomRouter(
         "test-custom-tag",
@@ -202,14 +206,6 @@ class AbstractRabbitRouterIntegrationTest {
 
     companion object {
         private val K_LOGGER = KotlinLogging.logger { }
-
-        private const val RABBITMQ_MANAGEMENT_ALPINE = "rabbitmq:3.11.2-management-alpine"
-        private const val ROUTING_KEY = "routingKey"
-        private const val QUEUE_NAME = "queue"
-        private const val EXCHANGE = "test-exchange"
-
-        private const val DEFAULT_PREFETCH_COUNT = 10
-        private val DEFAULT_CONFIRMATION_TIMEOUT: Duration = Duration.ofSeconds(1)
 
         private class Expectation(
             val message: String,
