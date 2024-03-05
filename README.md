@@ -507,6 +507,11 @@ dependencies {
 
 ## Release notes
 
+### 5.9.1-dev
+
+#### Updated:
++ cradle: `5.1.5-dev` (fixed: NullPointerException on AbstractMessageIteratorProvider creation for book with no pages in it)
+
 ### 5.9.0-dev
 + Added retry in case of a RabbitMQ channel or connection error (when possible).
 + Added InterruptedException to basicConsume method signature.
