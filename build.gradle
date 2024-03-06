@@ -41,7 +41,7 @@ ext {
     protobufVersion = '3.23.2' // The protoc:3.23.3 https://github.com/protocolbuffers/protobuf/issues/13070
     serviceGeneratorVersion = '3.5.1'
 
-    cradleVersion = '5.1.4-dev'
+    cradleVersion = '5.1.5-dev'
     junitVersion = '5.10.2'
 
     genBaseDir = file("${buildDir}/generated/source/proto")
@@ -268,6 +268,7 @@ dependencies {
     testImplementation("org.junit-pioneer:junit-pioneer:2.2.0") {
         because("system property tests")
     }
+
     testFixturesImplementation "org.jetbrains.kotlin:kotlin-test-junit5:$kotlin_version"
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
 }
