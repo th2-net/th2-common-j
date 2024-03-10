@@ -180,15 +180,15 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.6.0-update-bom-8129602206-434846f-SNAPSHOT")
+    api platform("com.exactpro.th2:bom:4.6.0")
     api('com.exactpro.th2:grpc-common:4.4.0-dev') {
-        because('protobuf transport is main now, this dependnecy should be moved to grpc, mq protobuf modules after splitting')
+        because('protobuf transport is main now, this dependency should be moved to grpc, mq protobuf modules after splitting')
     }
     api("com.exactpro.th2:cradle-core:$cradleVersion") {
-        because('cradle is included into common library now, this dependnecy should be moved to a cradle module after splitting')
+        because('cradle is included into common library now, this dependency should be moved to a cradle module after splitting')
     }
     api('io.netty:netty-buffer') {
-        because('th2 transport protocol is included into common library now, this dependnecy should be moved to a th2 transport module after splitting')
+        because('th2 transport protocol is included into common library now, this dependency should be moved to a th2 transport module after splitting')
     }
 
     jmh 'org.openjdk.jmh:jmh-core:0.9'
