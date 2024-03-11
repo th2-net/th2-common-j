@@ -39,7 +39,7 @@ version = release_version
 ext {
     grpcVersion = '1.62.2'
     protobufVersion = '3.25.3'
-    serviceGeneratorVersion = '3.6.0-th2-5042-8129749597-d00d9fc-SNAPSHOT'
+    serviceGeneratorVersion = '3.6.0'
 
     cradleVersion = '5.1.5-dev'
     junitVersion = '5.10.2'
