@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.9.1)
+# th2 common library (Java) (5.9.2)
 
 ## Usage
 
@@ -506,6 +506,9 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.9.2-dev
++ Fixed UUID generation for each event id
 
 ### 5.9.1-dev
 

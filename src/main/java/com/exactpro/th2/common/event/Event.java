@@ -76,7 +76,7 @@ public class Event {
                     // otherwise, type supported by JavaTimeModule will be serialized as array of date component
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                     .setSerializationInclusion(NON_NULL));
-    protected final String UUID = generateUUID();
+    protected static final String UUID = generateUUID();
     protected final AtomicLong ID_COUNTER = new AtomicLong();
 
     protected final String id = UUID + '-' + ID_COUNTER.incrementAndGet();
