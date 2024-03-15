@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.exactpro.th2.common.event;
 
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -34,12 +35,16 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 @SuppressWarnings("ClassNamePrefixedWithPackageName")
 public class EventUtils {
     public static final NoArgGenerator TIME_BASED_UUID_GENERATOR = Generators.timeBasedGenerator();
+    private static final String UUID = TIME_BASED_UUID_GENERATOR.generate().toString();
+    private static final AtomicLong ID_COUNTER = new AtomicLong();
     public static final String DEFAULT_SCOPE = "th2-scope";
 
+    /**
+     * Creates UUID based on cached UUID plus sequential number
+     */
     public static String generateUUID() {
-        return TIME_BASED_UUID_GENERATOR.generate().toString();
+        return UUID + ID_COUNTER.incrementAndGet();
     }
-
     public static Message createMessageBean(String text) {
         return new MessageBuilder().text(text).build();
     }

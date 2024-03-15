@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
@@ -76,10 +75,8 @@ public class Event {
                     // otherwise, type supported by JavaTimeModule will be serialized as array of date component
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                     .setSerializationInclusion(NON_NULL));
-    protected final String UUID = generateUUID();
-    protected final AtomicLong ID_COUNTER = new AtomicLong();
 
-    protected final String id = UUID + '-' + ID_COUNTER.incrementAndGet();
+    protected final String id = generateUUID();
     protected final List<Event> subEvents = new ArrayList<>();
     protected final List<MessageID> attachedMessageIds = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
