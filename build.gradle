@@ -342,6 +342,10 @@ dependencyCheck {
         nugetconfEnabled = false
         nodeEnabled = false
     }
+    nvd {
+        apiKey = nvdApiKey
+        delay = 10_000
+    }
 }
 
 licenseReport {
