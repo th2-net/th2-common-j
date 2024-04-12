@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,6 +123,7 @@ class TransportGroupBatchRouterIntegrationTest {
         prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
         confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
     ) = ConnectionManager(
+        "test-connection",
         RabbitMQConfiguration(
             host = rabbitMQContainer.host,
             vHost = "",
