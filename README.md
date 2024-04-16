@@ -515,6 +515,7 @@ dependencies {
 
 + Use box name from `box.json` config as RabbitMQ connection name
 + Rise `th2_component` metric with box name as `name` label value
++ Fixed UUID generation for each event id
 
 ### 5.10.0-dev
 
