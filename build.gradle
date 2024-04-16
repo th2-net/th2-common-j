@@ -180,7 +180,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.6.0")
+    api platform("com.exactpro.th2:bom:4.6.1")
     api('com.exactpro.th2:grpc-common:4.4.0-dev') {
         because('protobuf transport is main now, this dependency should be moved to grpc, mq protobuf modules after splitting')
     }
