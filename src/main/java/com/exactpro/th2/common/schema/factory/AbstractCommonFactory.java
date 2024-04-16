@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -28,6 +28,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.ComponentMetric;
 import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
@@ -187,6 +188,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
         // init exporter
         prometheusExporter.getOrNull();
+        ComponentMetric.enable(getBoxConfiguration().getBoxName());
         livenessMonitor.enable();
     }
 
@@ -658,7 +660,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected ConnectionManager createRabbitMQConnectionManager() {
-        return new ConnectionManager(getRabbitMqConfiguration(), getConnectionManagerConfiguration());
+        return new ConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration());
     }
 
     protected ConnectionManager getRabbitMqConnectionManager() {

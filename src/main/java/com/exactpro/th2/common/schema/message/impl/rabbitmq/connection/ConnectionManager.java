@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ public class ConnectionManager implements AutoCloseable {
         return configuration;
     }
 
-    public ConnectionManager(@NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration) {
+    public ConnectionManager(@NotNull String connectionName, @NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration) {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
 
@@ -218,7 +218,7 @@ public class ConnectionManager implements AutoCloseable {
         factory.setSharedExecutor(sharedExecutor);
 
         try {
-            connection = factory.newConnection();
+            connection = factory.newConnection(connectionName);
             LOGGER.info("Created RabbitMQ connection {} [{}]", connection, connection.hashCode());
             addShutdownListenerToConnection(this.connection);
             addBlockedListenersToConnection(this.connection);

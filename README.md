@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.9.2)
+# th2 common library (Java) (5.10.1)
 
 ## Usage
 
@@ -433,6 +433,10 @@ NOTES:
 * some metric labels are
   enumerations (`th2_type`: `MESSAGE_GROUP`, `EVENT`, `<customTag>`;`message_type`: `RAW_MESSAGE`, `MESSAGE`)
 
+COMMON METRICS:
+
+* th2_component (`name`): information about the current component
+
 RABBITMQ METRICS:
 
 * th2_rabbitmq_message_size_publish_bytes (`th2_pin`, `th2_type`, `exchange`, `routing_key`): number of published
@@ -507,8 +511,16 @@ dependencies {
 
 ## Release notes
 
-### 5.9.2-dev
+### 5.10.1-dev
+
++ Use box name from `box.json` config as RabbitMQ connection name
++ Rise `th2_component` metric with box name as `name` label value
 + Fixed UUID generation for each event id
+
+### 5.10.0-dev
+
++ Update bom: 4.5.0 -> 4.6.0
++ Update grpc-service-generator: 3.5.1 -> 3.6.0
 
 ### 5.9.1-dev
 
