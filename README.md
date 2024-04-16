@@ -516,6 +516,7 @@ dependencies {
 + Migrated to the th2 gradle plugin: `0.0.5` (bom: `4.6.1`)
 + Updated:
   + grpc-common: `4.5.0-dev`
+  + grpc-service-generator: `3.6.1`
 
 ### 5.10.1-dev
 
