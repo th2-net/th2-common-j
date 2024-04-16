@@ -28,6 +28,7 @@ import com.exactpro.th2.common.grpc.MessageGroupBatch;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.grpc.RawMessageBatch;
 import com.exactpro.th2.common.metrics.CommonMetrics;
+import com.exactpro.th2.common.metrics.ComponentMetric;
 import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
@@ -187,6 +188,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
         // init exporter
         prometheusExporter.getOrNull();
+        ComponentMetric.enable(getBoxConfiguration().getBoxName());
         livenessMonitor.enable();
     }
 

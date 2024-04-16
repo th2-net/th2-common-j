@@ -433,6 +433,10 @@ NOTES:
 * some metric labels are
   enumerations (`th2_type`: `MESSAGE_GROUP`, `EVENT`, `<customTag>`;`message_type`: `RAW_MESSAGE`, `MESSAGE`)
 
+COMMON METRICS:
+
+* th2_component (`name`): information about the current component
+
 RABBITMQ METRICS:
 
 * th2_rabbitmq_message_size_publish_bytes (`th2_pin`, `th2_type`, `exchange`, `routing_key`): number of published
@@ -509,7 +513,8 @@ dependencies {
 
 ### 5.10.1-dev
 
-+ Use box name from `box.json` config as RabbitMQ connection name  
++ Use box name from `box.json` config as RabbitMQ connection name
++ Rise `th2_component` metric with box name as `name` label value
 
 ### 5.10.0-dev
 
