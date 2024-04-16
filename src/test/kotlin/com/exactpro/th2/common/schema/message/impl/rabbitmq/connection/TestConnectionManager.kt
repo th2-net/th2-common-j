@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -418,6 +418,7 @@ class TestConnectionManager {
                 declareQueue(it, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
                 ConnectionManager(
+                    "test-connection",
                     RabbitMQConfiguration(
                         host = it.host,
                         vHost = "",
@@ -894,6 +895,7 @@ class TestConnectionManager {
 
     private fun createConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
         ConnectionManager(
+            "test-connection",
             RabbitMQConfiguration(
                 host = container.host,
                 vHost = "",
@@ -970,6 +972,7 @@ class TestConnectionManager {
         prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
         confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT,
     ) = ConnectionManager(
+        "test-connection",
         RabbitMQConfiguration(
             host = rabbitMQContainer.host,
             vHost = "",

@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.10.0)
+# th2 common library (Java) (5.10.1)
 
 ## Usage
 
@@ -506,6 +506,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.10.1-dev
+
++ Use box name from `box.json` config as RabbitMQ connection name  
 
 ### 5.10.0-dev
 
