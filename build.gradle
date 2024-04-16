@@ -41,7 +41,7 @@ ext {
     protobufVersion = '3.25.3'
     serviceGeneratorVersion = '3.6.0'
 
-    cradleVersion = '5.1.5-dev'
+    cradleVersion = '5.2.0-TH2-5165-8173726792-afe632e-SNAPSHOT'
     junitVersion = '5.10.2'
 
     genBaseDir = file("${buildDir}/generated/source/proto")
