@@ -164,6 +164,7 @@ dependencies {
         because("system property tests")
     }
 
+    testFixturesImplementation(platform("com.exactpro.th2:bom:4.6.1"))
     testFixturesImplementation "org.jetbrains.kotlin:kotlin-test-junit5:$kotlin_version"
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
 }
