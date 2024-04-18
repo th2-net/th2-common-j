@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id "com.exactpro.th2.gradle.base" version "0.0.5"
-    id "com.exactpro.th2.gradle.publish" version "0.0.5"
+    id "com.exactpro.th2.gradle.base" version "0.0.6"
+    id "com.exactpro.th2.gradle.publish" version "0.0.6"
     id "org.jetbrains.kotlin.jvm" version "$kotlin_version"
     id 'org.jetbrains.kotlin.kapt' version "$kotlin_version"
     id "java-library"
@@ -164,7 +164,6 @@ dependencies {
         because("system property tests")
     }
 
-    testFixturesImplementation(platform("com.exactpro.th2:bom:4.6.1"))
     testFixturesImplementation "org.jetbrains.kotlin:kotlin-test-junit5:$kotlin_version"
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
 }
