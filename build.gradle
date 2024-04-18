@@ -73,7 +73,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api('com.exactpro.th2:grpc-common:4.5.0-dev') {
+    api('com.exactpro.th2:grpc-common:4.5.0-dev-version-4-8599736039-52e1edb-SNAPSHOT') {
         because('protobuf transport is main now, this dependency should be moved to grpc, mq protobuf modules after splitting')
     }
     api("com.exactpro.th2:cradle-core:$cradleVersion") {
