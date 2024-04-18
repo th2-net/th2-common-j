@@ -511,6 +511,14 @@ dependencies {
 
 ## Release notes
 
+### 5.11.0-dev
+
++ Migrated to the th2 gradle plugin: `0.0.6` (bom: `4.6.1`)
++ Updated:
+  + grpc-common: `4.5.0-dev`
+  + grpc-service-generator: `3.6.1`
+  + cradle: `5.3.0-dev`
+
 ### 5.10.1-dev
 
 + Use box name from `box.json` config as RabbitMQ connection name

@@ -1,36 +1,15 @@
-import com.github.jk1.license.filter.LicenseBundleNormalizer
-import com.github.jk1.license.render.JsonReportRenderer
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-
-    ext {
-        kotlin_version = "1.8.22"
-    }
-
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
-}
-
 plugins {
-    id 'java'
-    id 'java-library'
-    id 'java-test-fixtures'
-    id 'maven-publish'
-    id "io.github.gradle-nexus.publish-plugin" version "1.3.0"
-    id 'signing'
-    id 'org.jetbrains.kotlin.jvm' version "$kotlin_version"
+    id "com.exactpro.th2.gradle.base" version "0.0.6"
+    id "com.exactpro.th2.gradle.publish" version "0.0.6"
+    id "org.jetbrains.kotlin.jvm" version "$kotlin_version"
     id 'org.jetbrains.kotlin.kapt' version "$kotlin_version"
-    id "org.owasp.dependencycheck" version "9.0.9"
-    id "me.champeau.jmh" version "0.7.2"
-    id "com.gorylenko.gradle-git-properties" version "2.4.1"
-    id 'com.github.jk1.dependency-license-report' version '2.5'
-    id "de.undercouch.download" version "5.6.0"
+    id "java-library"
+    id "java-test-fixtures"
+    id "maven-publish"
     id "com.google.protobuf" version "0.9.4"
+    id "me.champeau.jmh" version "0.7.2"
 }
 
 group = 'com.exactpro.th2'
@@ -39,11 +18,13 @@ version = release_version
 ext {
     grpcVersion = '1.62.2'
     protobufVersion = '3.25.3'
-    serviceGeneratorVersion = '3.6.0'
+    serviceGeneratorVersion = '3.6.1'
 
-    cradleVersion = '5.1.5-dev'
+    cradleVersion = '5.3.0-dev'
     junitVersion = '5.10.2'
 
+    jmhVersion = '1.37'
+    autoValueVersion = '1.10.4'
     genBaseDir = file("${buildDir}/generated/source/proto")
 }
 
@@ -65,105 +46,17 @@ repositories {
     }
 }
 
-configurations {
-    compileClasspath {
-        resolutionStrategy.activateDependencyLocking()
-    }
-}
-
 java {
-    sourceCompatibility = 11
-    targetCompatibility = 11
-
     withJavadocJar()
     withSourcesJar()
 }
 
-// conditionals for publications
-tasks.withType(PublishToMavenRepository).configureEach {
-    onlyIf {
-        (repository == publishing.repositories.nexusRepository &&
-                project.hasProperty('nexus_user') &&
-                project.hasProperty('nexus_password') &&
-                project.hasProperty('nexus_url')) ||
-                (repository == publishing.repositories.sonatype &&
-                        project.hasProperty('sonatypeUsername') &&
-                        project.hasProperty('sonatypePassword'))
-    }
-}
-tasks.withType(Sign).configureEach {
-    onlyIf {
-        project.hasProperty('signingKey') &&
-                project.hasProperty('signingPassword')
-    }
-}
-// disable running task 'initializeSonatypeStagingRepository' on a gitlab
-tasks.configureEach { task ->
-    if (task.name == 'initializeSonatypeStagingRepository' &&
-            !(project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword'))
-    ) {
-        task.enabled = false
-    }
+kotlin {
+    jvmToolchain(11)
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from(components.java)
-            pom {
-                name = rootProject.name
-                packaging = 'jar'
-                description = rootProject.description
-                url = vcs_url
-                scm {
-                    url = vcs_url
-                }
-                licenses {
-                    license {
-                        name = 'The Apache License, Version 2.0'
-                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-                developers {
-                    developer {
-                        id = 'developer'
-                        name = 'developer'
-                        email = 'developer@exactpro.com'
-                    }
-                }
-                scm {
-                    url = vcs_url
-                }
-            }
-        }
-    }
-    repositories {
-//Nexus repo to publish from gitlab
-        maven {
-            name = 'nexusRepository'
-            credentials {
-                username = project.findProperty('nexus_user')
-                password = project.findProperty('nexus_password')
-            }
-            url = project.findProperty('nexus_url')
-        }
-    }
-}
-
-nexusPublishing {
-    repositories {
-        sonatype {
-            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
-            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
-        }
-    }
-}
-
-signing {
-    String signingKey = findProperty("signingKey")
-    String signingPassword = findProperty("signingPassword")
-    useInMemoryPgpKeys(signingKey, signingPassword)
-    sign publishing.publications.mavenJava
+tasks.withType(KotlinCompile).configureEach {
+    kotlinOptions.freeCompilerArgs += "-Xjvm-default=all"
 }
 
 test {
@@ -180,8 +73,7 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
-    api platform("com.exactpro.th2:bom:4.6.0")
-    api('com.exactpro.th2:grpc-common:4.4.0-dev') {
+    api('com.exactpro.th2:grpc-common:4.5.0-dev') {
         because('protobuf transport is main now, this dependency should be moved to grpc, mq protobuf modules after splitting')
     }
     api("com.exactpro.th2:cradle-core:$cradleVersion") {
@@ -191,14 +83,13 @@ dependencies {
         because('th2 transport protocol is included into common library now, this dependency should be moved to a th2 transport module after splitting')
     }
 
-    jmh 'org.openjdk.jmh:jmh-core:0.9'
-    jmh 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
+    jmh "org.openjdk.jmh:jmh-core:$jmhVersion"
+    jmh "org.openjdk.jmh:jmh-generator-annprocess:$jmhVersion"
 
     implementation 'com.google.protobuf:protobuf-java-util'
     implementation "com.exactpro.th2:grpc-service-generator:$serviceGeneratorVersion"
     implementation "com.exactpro.th2:cradle-cassandra:$cradleVersion"
 
-    def autoValueVersion = '1.10.4'
     implementation "com.google.auto.value:auto-value-annotations:$autoValueVersion"
     kapt("com.google.auto.value:auto-value:$autoValueVersion") {
         //FIXME: Updated library because it is fat jar
@@ -277,20 +168,6 @@ dependencies {
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
 }
 
-jar {
-    manifest {
-        attributes(
-                'Created-By': "${System.getProperty('java.version')} (${System.getProperty('java.vendor')})",
-                'Specification-Title': '',
-                'Specification-Vendor': 'Exactpro Systems LLC',
-                'Implementation-Title': project.archivesBaseName,
-                'Implementation-Vendor': 'Exactpro Systems LLC',
-                'Implementation-Vendor-Id': 'com.exactpro',
-                'Implementation-Version': project.version
-        )
-    }
-}
-
 sourceSets {
     main.kotlin.srcDirs += "src/main/kotlin"
     test.resources.srcDirs += "$genBaseDir/test/services/java/resources"
@@ -327,40 +204,3 @@ tasks.named('extractIncludeTestFixturesProto') {enabled = false }
 
 compileTestJava.dependsOn.add('generateTestProto')
 processTestResources.dependsOn.add('generateTestProto')
-
-tasks.withType(KotlinCompile).configureEach {
-    kotlinOptions.jvmTarget = "11"
-    kotlinOptions.freeCompilerArgs += "-Xjvm-default=all"
-}
-
-dependencyCheck {
-    formats = ['SARIF', 'JSON', 'HTML']
-    failBuildOnCVSS = 5
-    suppressionFile = file('suppressions.xml')
-    analyzers {
-        assemblyEnabled = false
-        nugetconfEnabled = false
-        nodeEnabled = false
-    }
-}
-
-licenseReport {
-    def licenseNormalizerBundlePath = "$buildDir/license-normalizer-bundle.json"
-
-    if (!file(licenseNormalizerBundlePath).exists()) {
-        download.run {
-            src 'https://raw.githubusercontent.com/th2-net/.github/main/license-compliance/gradle-license-report/license-normalizer-bundle.json'
-            dest "$buildDir/license-normalizer-bundle.json"
-            overwrite false
-        }
-    }
-
-    filters = [
-            new LicenseBundleNormalizer(licenseNormalizerBundlePath, false)
-    ]
-    renderers = [
-            new JsonReportRenderer('licenses.json', false),
-    ]
-    excludeOwnGroup = false
-    allowedLicensesFile = new URL("https://raw.githubusercontent.com/th2-net/.github/main/license-compliance/gradle-license-report/allowed-licenses.json")
-}
