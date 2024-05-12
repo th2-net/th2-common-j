@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.10.1)
+# th2 common library (Java) (5.11.1)
 
 ## Usage
 
@@ -510,6 +510,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.11.1-dev
+
++ Add `remove` and `clear` operations to `MapBuilder`
 
 ### 5.11.0-dev
 
