@@ -32,6 +32,21 @@ class MapBuilder<K, V>(
         innerMap.putAll(from)
     }
 
+    fun remove(key: K): MapBuilder<K, V> = apply {
+        innerMap.remove(key)
+    }
+
+    fun removeAll(key: K, vararg keys: K): MapBuilder<K, V> = apply {
+        innerMap.remove(key)
+        for (otherKeys in keys) {
+            innerMap.remove(otherKeys)
+        }
+    }
+
+    fun clear(): MapBuilder<K, V> = apply {
+        innerMap.clear()
+    }
+
     fun build(): Map<K, V> {
         return innerMap
     }
