@@ -20,14 +20,26 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.builders.C
 import java.time.Instant
 import java.util.StringJoiner
 
-data class MessageId(
+class MessageId private constructor(
     val sessionAlias: String,
     val direction: Direction,
     val sequence: Long,
     val timestamp: Instant,
     /** The subsequence is not mutable by default */
     val subsequence: List<Int> = emptyList(),
+    private val batchInfoProvider: BatchInfoProvider,
 ) {
+
+    val book: String by batchInfoProvider::book
+    val sessionGroup: String by batchInfoProvider::sessionGroup
+
+    constructor(
+        sessionAlias: String,
+        direction: Direction,
+        sequence: Long,
+        timestamp: Instant,
+        subsequence: List<Int> = emptyList(),
+    ) : this(sessionAlias, direction, sequence, timestamp, subsequence, BatchInfoProvider.Empty)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -80,119 +92,123 @@ data class MessageId(
 
     fun toBuilder(): Builder = MessageIdBuilderImpl(this)
 
+    private class MessageIdBuilderImpl(
+        private val provider: BatchInfoProvider = BatchInfoProvider.Empty,
+    ) : Builder {
+        private var _sessionAlias: String? = null
+        private var _direction: Direction? = null
+        private var _sequence: Long = SEQUENCE_NOT_SET
+        private var _timestamp: Instant? = null
+        private var _subsequenceBuilder: CollectionBuilder<Int>? = null
+        private var _subsequence: List<Int> = emptyList()
+
+        constructor(source: MessageId) : this(source.batchInfoProvider) {
+            _sessionAlias = source.sessionAlias
+            _direction = source.direction
+            _sequence = source.sequence
+            _timestamp = source.timestamp
+            _subsequence = source.subsequence
+        }
+
+        override fun setSessionAlias(sessionAlias: String): Builder = apply {
+            this._sessionAlias = sessionAlias
+        }
+
+        override val sessionAlias: String
+            get() = checkNotNull(_sessionAlias) { "Property \"sessionAlias\" has not been set" }
+
+        override fun isSessionAliasSet(): Boolean = _sessionAlias != null
+
+        override fun setDirection(direction: Direction): Builder = apply {
+            this._direction = direction
+        }
+
+        override val direction: Direction
+            get() = checkNotNull(_direction) { "Property \"direction\" has not been set" }
+
+        override fun isDirectionSet(): Boolean = _direction != null
+
+        override fun setSequence(sequence: Long): Builder = apply {
+            require(sequence != SEQUENCE_NOT_SET) { "Value $sequence for property \"sequence\" is reserved" }
+            this._sequence = sequence
+        }
+
+        override val sequence: Long
+            get() {
+                check(_sequence != SEQUENCE_NOT_SET) { "Property \"sequence\" has not been set" }
+                return _sequence
+            }
+
+        override fun isSequenceSet(): Boolean = _sequence != SEQUENCE_NOT_SET
+
+        override fun setTimestamp(timestamp: Instant): Builder = apply {
+            this._timestamp = timestamp
+        }
+
+        override val timestamp: Instant
+            get() = checkNotNull(_timestamp) { "Property \"timestamp\" has not been set" }
+
+        override fun isTimestampSet(): Boolean = _timestamp != null
+
+        override fun setSubsequence(subsequence: List<Int>): Builder = apply {
+            check(_subsequenceBuilder == null) { "Cannot set subsequence after calling subsequenceBuilder()" }
+            this._subsequence = subsequence
+        }
+
+        override fun subsequenceBuilder(): CollectionBuilder<Int> {
+            if (_subsequenceBuilder == null) {
+                if (_subsequence.isEmpty()) {
+                    _subsequenceBuilder = CollectionBuilder()
+                } else {
+                    _subsequenceBuilder = CollectionBuilder<Int>().apply {
+                        addAll(_subsequence)
+                    }
+                    _subsequence = emptyList()
+                }
+            }
+            return checkNotNull(_subsequenceBuilder) { "subsequenceBuilder" }
+        }
+
+        override fun build(): MessageId {
+            _subsequence = _subsequenceBuilder?.build() ?: _subsequence
+            if (_sessionAlias == null || _direction == null || _sequence == SEQUENCE_NOT_SET || _timestamp == null) {
+                val missing = StringJoiner(",", "[", "]")
+                if (_sessionAlias == null) {
+                    missing.add("sessionAlias")
+                }
+                if (_direction == null) {
+                    missing.add("direction")
+                }
+                if (_sequence == SEQUENCE_NOT_SET) {
+                    missing.add("sequence")
+                }
+                if (_timestamp == null) {
+                    missing.add("timestamp")
+                }
+                error("Missing required properties: $missing")
+            }
+            return MessageId(
+                _sessionAlias!!,
+                _direction!!,
+                _sequence,
+                _timestamp!!,
+                _subsequence,
+                provider,
+            )
+        }
+    }
+
     companion object {
         @JvmStatic
         val DEFAULT: MessageId = MessageId("", Direction.OUTGOING, 0, Instant.EPOCH)
 
         @JvmStatic
         fun builder(): Builder = MessageIdBuilderImpl()
+
+        @JvmStatic
+        internal fun builder(provider: BatchInfoProvider): Builder = MessageIdBuilderImpl(provider)
     }
 }
-
 
 private const val SEQUENCE_NOT_SET = Long.MIN_VALUE
-
-private class MessageIdBuilderImpl : MessageId.Builder {
-    private var _sessionAlias: String? = null
-    private var _direction: Direction? = null
-    private var _sequence: Long = SEQUENCE_NOT_SET
-    private var _timestamp: Instant? = null
-    private var _subsequenceBuilder: CollectionBuilder<Int>? = null
-    private var _subsequence: List<Int> = emptyList()
-
-    constructor()
-    constructor(source: MessageId) {
-        _sessionAlias = source.sessionAlias
-        _direction = source.direction
-        _sequence = source.sequence
-        _timestamp = source.timestamp
-        _subsequence = source.subsequence
-    }
-
-    override fun setSessionAlias(sessionAlias: String): MessageId.Builder = apply {
-        this._sessionAlias = sessionAlias
-    }
-
-    override val sessionAlias: String
-        get() = checkNotNull(_sessionAlias) { "Property \"sessionAlias\" has not been set" }
-
-    override fun isSessionAliasSet(): Boolean = _sessionAlias != null
-
-    override fun setDirection(direction: Direction): MessageId.Builder = apply {
-        this._direction = direction
-    }
-
-    override val direction: Direction
-        get() = checkNotNull(_direction) { "Property \"direction\" has not been set" }
-
-    override fun isDirectionSet(): Boolean = _direction != null
-
-    override fun setSequence(sequence: Long): MessageId.Builder = apply {
-        require(sequence != SEQUENCE_NOT_SET) { "Value $sequence for property \"sequence\" is reserved" }
-        this._sequence = sequence
-    }
-
-    override val sequence: Long
-        get() {
-            check(_sequence != SEQUENCE_NOT_SET) { "Property \"sequence\" has not been set" }
-            return _sequence
-        }
-
-    override fun isSequenceSet(): Boolean = _sequence != SEQUENCE_NOT_SET
-
-    override fun setTimestamp(timestamp: Instant): MessageId.Builder = apply {
-        this._timestamp = timestamp
-    }
-
-    override val timestamp: Instant
-        get() = checkNotNull(_timestamp) { "Property \"timestamp\" has not been set" }
-
-    override fun isTimestampSet(): Boolean = _timestamp != null
-
-    override fun setSubsequence(subsequence: List<Int>): MessageId.Builder = apply {
-        check(_subsequenceBuilder == null) { "Cannot set subsequence after calling subsequenceBuilder()" }
-        this._subsequence = subsequence
-    }
-
-    override fun subsequenceBuilder(): CollectionBuilder<Int> {
-        if (_subsequenceBuilder == null) {
-            if (_subsequence.isEmpty()) {
-                _subsequenceBuilder = CollectionBuilder()
-            } else {
-                _subsequenceBuilder = CollectionBuilder<Int>().apply {
-                    addAll(_subsequence)
-                }
-                _subsequence = emptyList()
-            }
-        }
-        return checkNotNull(_subsequenceBuilder) { "subsequenceBuilder" }
-    }
-
-    override fun build(): MessageId {
-        _subsequence = _subsequenceBuilder?.build() ?: _subsequence
-        if (_sessionAlias == null || _direction == null || _sequence == SEQUENCE_NOT_SET || _timestamp == null) {
-            val missing = StringJoiner(",", "[", "]")
-            if (_sessionAlias == null) {
-                missing.add("sessionAlias")
-            }
-            if (_direction == null) {
-                missing.add("direction")
-            }
-            if (_sequence == SEQUENCE_NOT_SET) {
-                missing.add("sequence")
-            }
-            if (_timestamp == null) {
-                missing.add("timestamp")
-            }
-            error("Missing required properties: $missing")
-        }
-        return MessageId(
-            _sessionAlias!!,
-            _direction!!,
-            _sequence,
-            _timestamp!!,
-            _subsequence,
-        )
-    }
-}
 
