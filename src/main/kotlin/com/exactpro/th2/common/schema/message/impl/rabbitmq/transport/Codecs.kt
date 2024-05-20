@@ -26,6 +26,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.ByteBufOutputStream
 import io.netty.buffer.ByteBufUtil
+import mu.KotlinLogging
 import java.io.OutputStream
 import java.nio.charset.Charset
 import java.time.Instant
@@ -416,15 +417,23 @@ object GroupBatchCodec : AbstractCodec<GroupBatch>(50u) {
 
 object GroupListCodec : ListCodec<MessageGroup>(51u, MessageGroupCodec)
 
-inline fun ByteBuf.forEachValue(context: DecodeContext, action: (codec: ValueCodec<*>) -> Unit) {
+private val LOGGER = KotlinLogging.logger(UnknownValueCodec::class.java.canonicalName)
+
+private inline fun ByteBuf.forEachValue(context: DecodeContext, action: (codec: ValueCodec<*>) -> Unit) {
     while (isReadable) {
         val type = getByte(readerIndex()).toUByte()
 
         when (val codec = ValueType.forId(type).codec) {
-            is UnknownValueCodec -> println("Skipping unknown type $type value: ${ByteBufUtil.hexDump(codec.decode(
-                context,
-                this
-            ))}")
+            is UnknownValueCodec -> LOGGER.warn {
+                "Skipping unknown type $type value: ${
+                    ByteBufUtil.hexDump(
+                        codec.decode(
+                            context,
+                            this
+                        )
+                    )
+                }"
+            }
             else -> action(codec)
         }
     }
