@@ -78,6 +78,7 @@ enum class ValueType(val codec: ValueCodec<*>) {
 class DecodeContext private constructor(
     internal val batchInfoProvider: BatchInfoProvider
 ) {
+    internal lateinit var currentCodec: ValueCodec<*>
     companion object {
         private val DEFAULT = DecodeContext(BatchInfoProvider.Empty)
         @JvmStatic
@@ -112,6 +113,7 @@ abstract class AbstractCodec<T>(final override val type: UByte) : ValueCodec<T> 
     protected abstract fun write(buffer: ByteBuf, value: T)
 
     override fun decode(context: DecodeContext, source: ByteBuf): T {
+        context.currentCodec = this
         val tag = source.readByte().toUByte()
         check(tag == this.type) { "Unexpected type tag: $tag (expected: ${this.type})" }
         val length = source.readIntLE()
@@ -425,7 +427,7 @@ private inline fun ByteBuf.forEachValue(context: DecodeContext, action: (codec: 
 
         when (val codec = ValueType.forId(type).codec) {
             is UnknownValueCodec -> LOGGER.warn {
-                "Skipping unknown type $type value: ${
+                "Skipping unknown type $type when decoding with ${context.currentCodec::class.simpleName} value: ${
                     ByteBufUtil.hexDump(
                         codec.decode(
                             context,
