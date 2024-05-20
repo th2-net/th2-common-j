@@ -16,8 +16,6 @@
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
-import kotlin.properties.Delegates
-
 /**
  * This class holds information about book and session group from the batch root.
  * It is used to pass this information down to [MessageId].
@@ -27,8 +25,8 @@ internal sealed interface BatchInfoProvider {
     val sessionGroup: String
 
     class Mutable : BatchInfoProvider {
-        override var book: String by Delegates.notNull()
-        override var sessionGroup: String by Delegates.notNull()
+        override lateinit var book: String
+        override lateinit var sessionGroup: String
         override fun equals(other: Any?): Boolean {
             return this === other
         }
