@@ -30,6 +30,7 @@ import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.BlockedListener;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Consumer;
@@ -56,11 +57,15 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Collections;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -70,8 +75,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
@@ -144,6 +152,10 @@ public class ConnectionManager implements AutoCloseable {
 
         if (connectionManagerConfiguration.getConnectionTimeout() > 0) {
             factory.setConnectionTimeout(connectionManagerConfiguration.getConnectionTimeout());
+        }
+
+        if (connectionManagerConfiguration.getHeartbeatIntervalSeconds() > ConnectionManagerConfiguration.DEFAULT_HB_INTERVAL_SECONDS) {
+            factory.setRequestedHeartbeat(connectionManagerConfiguration.getHeartbeatIntervalSeconds());
         }
 
         factory.setExceptionHandler(new ExceptionHandler() {
@@ -357,16 +369,31 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         LOGGER.info("Closing connection manager");
+        int closeTimeout = configuration.getConnectionCloseTimeout();
 
-        for (ChannelHolder channelHolder: channelsByPin.values()) {
+        for (Map.Entry<PinId, ChannelHolder> entry: channelsByPin.entrySet()) {
+            PinId id = entry.getKey();
+            ChannelHolder channelHolder = entry.getValue();
             try {
+                if (channelHolder.hasUnconfirmedMessages()) {
+                    if (channelHolder.noConfirmationWillBeReceived()) {
+                        LOGGER.warn("Some messages were not confirmed by broken in channel {} and were not republished. Try to republish messages", id);
+                        channelHolder.publishUnconfirmedMessages();
+                    }
+                    try {
+                        channelHolder.awaitConfirmations(closeTimeout, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+                if (channelHolder.hasUnconfirmedMessages()) {
+                    LOGGER.error("RabbitMQ channel for pin {} has unconfirmed messages on close", id);
+                }
                 channelHolder.channel.abort();
             } catch (IOException e) {
-                LOGGER.error("Cannot close channel", e);
+                LOGGER.error("Cannot close channel for pin {}", id, e);
             }
         }
 
-        int closeTimeout = configuration.getConnectionCloseTimeout();
         if (connection.isOpen()) {
             try {
                 connection.close(closeTimeout);
@@ -379,13 +406,14 @@ public class ConnectionManager implements AutoCloseable {
         shutdownExecutor(channelChecker, closeTimeout, "channel-checker");
     }
 
-    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws InterruptedException {
+    public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException, InterruptedException {
         ChannelHolder holder = getOrCreateChannelFor(PinId.forRoutingKey(exchange, routingKey));
-        holder.retryingPublishWithLock(channel -> channel.basicPublish(exchange, routingKey, props, body), configuration);
+        holder.retryingPublishWithLock(configuration, body,
+                (channel, payload) -> channel.basicPublish(exchange, routingKey, props, payload));
     }
 
     public String queueDeclare() throws IOException {
-        ChannelHolder holder = new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
+        ChannelHolder holder = new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configurationToOptions());
         return holder.mapWithLock(channel -> {
             String queue = channel.queueDeclare(
                     "", // queue name
@@ -472,6 +500,14 @@ public class ConnectionManager implements AutoCloseable {
         return metrics.getLivenessMonitor().isEnabled();
     }
 
+    private ChannelHolderOptions configurationToOptions() {
+        return new ChannelHolderOptions(
+                configuration.getPrefetchCount(),
+                configuration.getEnablePublisherConfirmation(),
+                configuration.getMaxInflightPublications()
+        );
+    }
+
     private void basicCancel(Channel channel, String consumerTag) throws IOException {
         channel.basicCancel(consumerTag);
     }
@@ -511,14 +547,14 @@ public class ConnectionManager implements AutoCloseable {
     private ChannelHolder getOrCreateChannelFor(PinId pinId) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder for {}", pinId);
-            return new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configuration.getPrefetchCount());
+            return new ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configurationToOptions());
         });
     }
 
     private ChannelHolder getOrCreateChannelFor(PinId pinId, SubscriptionCallbacks subscriptionCallbacks) {
         return channelsByPin.computeIfAbsent(pinId, ignore -> {
             LOGGER.trace("Creating channel holder with callbacks for {}", pinId);
-            return new ChannelHolder(() -> createChannelWithOptionalRecovery(true), this::waitForConnectionRecovery, configuration.getPrefetchCount(), subscriptionCallbacks);
+            return new ChannelHolder(() -> createChannelWithOptionalRecovery(true), this::waitForConnectionRecovery, configurationToOptions(), subscriptionCallbacks);
         });
     }
 
@@ -679,11 +715,35 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
+    private static class ChannelHolderOptions {
+        private final int maxCount;
+        private final boolean enablePublisherConfirmation;
+        private final int maxInflightRequests;
+
+        private ChannelHolderOptions(int maxCount, boolean enablePublisherConfirmation, int maxInflightRequests) {
+            this.maxCount = maxCount;
+            this.enablePublisherConfirmation = enablePublisherConfirmation;
+            this.maxInflightRequests = maxInflightRequests;
+        }
+
+        public int getMaxCount() {
+            return maxCount;
+        }
+
+        public boolean isEnablePublisherConfirmation() {
+            return enablePublisherConfirmation;
+        }
+
+        public int getMaxInflightRequests() {
+            return maxInflightRequests;
+        }
+    }
+
     private static class ChannelHolder {
         private final Lock lock = new ReentrantLock();
         private final Supplier<Channel> supplier;
         private final BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker;
-        private final int maxCount;
+        private final ChannelHolderOptions options;
         private final SubscriptionCallbacks subscriptionCallbacks;
         @GuardedBy("lock")
         private int pending;
@@ -693,30 +753,47 @@ public class ConnectionManager implements AutoCloseable {
         private Channel channel;
         private final Lock subscribingLock = new ReentrantLock();
         @GuardedBy("subscribingLock")
-        private boolean isSubscribed = false;
+        private boolean isSubscribed;
+        @GuardedBy("lock")
+        private Deque<PublicationHolder> redeliveryQueue = new ArrayDeque<>();
+
+        private final PublisherConfirmationListener publishConfirmationListener;
 
         public ChannelHolder(
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker,
-                int maxCount
+                ChannelHolderOptions options
         ) {
-            this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
-            this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
-            this.maxCount = maxCount;
-            this.subscriptionCallbacks = null;
+            this(supplier, reconnectionChecker, options, null);
         }
 
         public ChannelHolder(
                 Supplier<Channel> supplier,
                 BiConsumer<ShutdownNotifier, Boolean> reconnectionChecker,
-                int maxCount,
+                ChannelHolderOptions options,
                 SubscriptionCallbacks subscriptionCallbacks
 
         ) {
             this.supplier = Objects.requireNonNull(supplier, "'Supplier' parameter");
             this.reconnectionChecker = Objects.requireNonNull(reconnectionChecker, "'Reconnection checker' parameter");
-            this.maxCount = maxCount;
+            this.options = options;
             this.subscriptionCallbacks = subscriptionCallbacks;
+            publishConfirmationListener = new PublisherConfirmationListener(
+                    options.isEnablePublisherConfirmation(),
+                    options.getMaxInflightRequests()
+            );
+        }
+
+        public boolean hasUnconfirmedMessages() {
+            return publishConfirmationListener.hasUnconfirmedMessages();
+        }
+
+        public boolean noConfirmationWillBeReceived() {
+            return publishConfirmationListener.isNoConfirmationWillBeReceived();
+        }
+
+        public boolean awaitConfirmations(long timeout, TimeUnit timeUnit) throws InterruptedException {
+            return publishConfirmationListener.awaitConfirmations(timeout, timeUnit);
         }
 
         public void withLock(ChannelConsumer consumer) throws IOException {
@@ -741,25 +818,53 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        public void retryingPublishWithLock(ChannelConsumer consumer, ConnectionManagerConfiguration configuration) throws InterruptedException {
+        public void retryingPublishWithLock(ConnectionManagerConfiguration configuration, byte[] payload, ChannelPublisher publisher) throws IOException, InterruptedException {
             lock.lock();
             try {
                 Iterator<RetryingDelay> iterator = configuration.createRetryingDelaySequence().iterator();
                 Channel tempChannel = getChannel(true);
+                // add current message to the end to unify logic for sending current and redelivered messages
+                redeliveryQueue.addLast(new PublicationHolder(publisher, payload));
                 while (true) {
-                    try {
-                        consumer.consume(tempChannel);
+                    if (publishConfirmationListener.isNoConfirmationWillBeReceived()) {
+                        LOGGER.warn("Connection was closed on channel. No delivery confirmation will be received. Drain message to redelivery");
+                        publishConfirmationListener.transferUnconfirmedTo(redeliveryQueue);
+                    }
+                    PublicationHolder currentPayload = redeliveryQueue.pollFirst();
+                    if (!redeliveryQueue.isEmpty()) {
+                        LOGGER.warn("Redelivery queue size: {}", redeliveryQueue.size());
+                    }
+                    if (currentPayload == null) {
                         break;
+                    }
+                    long msgSeq = tempChannel.getNextPublishSeqNo();
+                    try {
+                        publishConfirmationListener.put(msgSeq, currentPayload);
+                        if (publishConfirmationListener.isNoConfirmationWillBeReceived()) {
+                            // will drain message to queue on next iteration
+                            publishConfirmationListener.remove(msgSeq);
+                            continue;
+                        }
+                        currentPayload.publish(channel);
+                        if (redeliveryQueue.isEmpty()) {
+                            break;
+                        }
                     } catch (IOException | ShutdownSignalException e) {
                         var currentValue = iterator.next();
                         var recoveryDelay = currentValue.getDelay();
                         LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);
+                        // cleanup after failure
+                        publishConfirmationListener.remove(msgSeq);
+                        redeliveryQueue.addFirst(currentPayload);
 
                         // We should not recover the channel if its connection is closed
                         // If we do that the channel will be also auto recovered by RabbitMQ client
                         // during connection recovery, and we will get two new channels instead of one closed.
                         if (!tempChannel.isOpen() && tempChannel.getConnection().isOpen()) {
+                            // once channel is recreated there won't be any confirmation received
+                            // so we should redeliver all inflight requests
+                            publishConfirmationListener.transferUnconfirmedTo(redeliveryQueue);
                             tempChannel = recreateChannel();
                         }
                     }
@@ -873,17 +978,17 @@ public class ConnectionManager implements AutoCloseable {
 
         /**
          * Decreases the number of unacked messages.
-         * If the number of unacked messages is less than {@link #maxCount}
+         * If the number of unacked messages is less than {@link ChannelHolderOptions#getMaxCount()}
          * the <b>onWaterMarkDecreased</b> action will be called.
          * The future created in {@link #acquireAndSubmitCheck(Supplier)} method will be canceled
          * @param onWaterMarkDecreased
-         * the action that will be executed when the number of unacked messages is less than {@link #maxCount} and there is a future to cancel
+         * the action that will be executed when the number of unacked messages is less than {@link ChannelHolderOptions#getMaxCount()} and there is a future to cancel
          */
         public void release(Runnable onWaterMarkDecreased) {
             lock.lock();
             try {
                 pending--;
-                if (pending < maxCount && check != null) {
+                if (pending < options.getMaxCount() && check != null) {
                     check.cancel(true);
                     check = null;
                     onWaterMarkDecreased.run();
@@ -895,11 +1000,11 @@ public class ConnectionManager implements AutoCloseable {
 
         /**
          * Increases the number of unacked messages.
-         * If the number of unacked messages is higher than or equal to {@link #maxCount}
+         * If the number of unacked messages is higher than or equal to {@link ChannelHolderOptions#getMaxCount()}
          * the <b>futureSupplier</b> will be invoked to create a task
-         * that either will be executed or canceled when number of unacked message will be less that {@link #maxCount}
+         * that either will be executed or canceled when number of unacked message will be less that {@link ChannelHolderOptions#getMaxCount()}
          * @param futureSupplier
-         * creates a future to track the task that should be executed until the number of unacked message is not less than {@link #maxCount}
+         * creates a future to track the task that should be executed until the number of unacked message is not less than {@link ChannelHolderOptions#getMaxCount()}
          */
         public void acquireAndSubmitCheck(Supplier<Future<?>> futureSupplier) {
             lock.lock();
@@ -925,28 +1030,223 @@ public class ConnectionManager implements AutoCloseable {
         public boolean reachedPendingLimit() {
             lock.lock();
             try {
-                return pending >= maxCount;
+                return pending >= options.getMaxCount();
             } finally {
                 lock.unlock();
             }
         }
 
-        private Channel getChannel() {
+        private Channel getChannel() throws IOException {
             return getChannel(true);
         }
 
-        private Channel recreateChannel() {
+        private Channel recreateChannel() throws IOException {
             channel = supplier.get();
             reconnectionChecker.accept(channel, true);
+            setupPublisherConfirmation(channel);
             return channel;
         }
 
-        private Channel getChannel(boolean waitForRecovery) {
+        private Channel getChannel(boolean waitForRecovery) throws IOException {
             if (channel == null) {
                 channel = supplier.get();
+                setupPublisherConfirmation(channel);
             }
             reconnectionChecker.accept(channel, waitForRecovery);
             return channel;
+        }
+
+        private void setupPublisherConfirmation(Channel channel) throws IOException {
+            if (!options.isEnablePublisherConfirmation()) {
+                return;
+            }
+            channel.confirmSelect();
+            channel.addShutdownListener(cause -> {
+                publishConfirmationListener.noConfirmationWillBeReceived();
+            });
+            channel.addConfirmListener(publishConfirmationListener);
+        }
+
+        public void publishUnconfirmedMessages() throws IOException {
+            lock.lock();
+            try {
+                Channel channel = getChannel(false);
+                if (!channel.isOpen()) {
+                    throw new IllegalStateException("channel is not opened to publish unconfirmed messages");
+                }
+                publishConfirmationListener.transferUnconfirmedTo(redeliveryQueue);
+                while (!redeliveryQueue.isEmpty()) {
+                    PublicationHolder holder = redeliveryQueue.pollFirst();
+                    if (holder == null) {
+                        break;
+                    }
+                    holder.publish(channel);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+    private static class PublicationHolder {
+        private final ChannelPublisher publisher;
+        private final byte[] payload;
+
+        private PublicationHolder(ChannelPublisher publisher, byte[] payload) {
+            this.publisher = publisher;
+            this.payload = payload;
+        }
+
+        public void publish(Channel channel) throws IOException {
+            publisher.publish(channel, payload);
+        }
+    }
+
+    private static class PublisherConfirmationListener implements ConfirmListener {
+        private final ReadWriteLock lock = new ReentrantReadWriteLock();
+        private final Condition hasSpaceToWriteCondition = lock.writeLock().newCondition();
+        private final Condition allMessagesConfirmed = lock.writeLock().newCondition();
+        @GuardedBy("lock")
+        private final NavigableMap<Long, PublicationHolder> inflightRequests = new TreeMap<>();
+        private final int maxInflightRequests;
+        private final boolean enablePublisherConfirmation;
+        private final boolean hasLimit;
+        private volatile boolean noConfirmationWillBeReceived;
+
+        private PublisherConfirmationListener(boolean enablePublisherConfirmation, int maxInflightRequests) {
+            if (maxInflightRequests <= 0 && maxInflightRequests != ConnectionManagerConfiguration.NO_LIMIT_INFLIGHT_REQUESTS) {
+                throw new IllegalArgumentException("invalid maxInflightRequests: " + maxInflightRequests);
+            }
+            hasLimit = maxInflightRequests != ConnectionManagerConfiguration.NO_LIMIT_INFLIGHT_REQUESTS;
+            this.maxInflightRequests = maxInflightRequests;
+            this.enablePublisherConfirmation = enablePublisherConfirmation;
+        }
+
+        public void put(long deliveryTag, PublicationHolder payload) throws InterruptedException {
+            if (!enablePublisherConfirmation) {
+                return;
+            }
+            lock.writeLock().lock();
+            try {
+                // there is only one thread at a time that tries to publish message
+                // so it is safe to check the limit only once
+                if (hasLimit && inflightRequests.size() >= maxInflightRequests) {
+                    LOGGER.warn("blocking because inflight requests size is above limit {} for publication channel", maxInflightRequests);
+                    hasSpaceToWriteCondition.await();
+                    LOGGER.info("unblocking because inflight requests size is below limit {} for publication channel", maxInflightRequests);
+                }
+                inflightRequests.put(deliveryTag, payload);
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
+        public void remove(long deliveryTag) {
+            removeInflightRequests(deliveryTag, false);
+        }
+
+        @Override
+        public void handleAck(long deliveryTag, boolean multiple) {
+            LOGGER.trace("Delivery ack received for tag {} (multiple:{})", deliveryTag, multiple);
+            removeInflightRequests(deliveryTag, multiple);
+        }
+
+        @Override
+        public void handleNack(long deliveryTag, boolean multiple) {
+            LOGGER.warn("Delivery nack received for tag {} (multiple:{})", deliveryTag, multiple);
+            // we cannot do match with nack because this is an internal error in rabbitmq
+            // we can try to republish the message but there is no guarantee that the message will be accepted
+            removeInflightRequests(deliveryTag, multiple);
+        }
+
+        private void removeInflightRequests(long deliveryTag, boolean multiple) {
+            if (!enablePublisherConfirmation) {
+                return;
+            }
+            lock.writeLock().lock();
+            try {
+                if (multiple) {
+                    inflightRequests.headMap(deliveryTag, true).clear();
+                } else {
+                    inflightRequests.remove(deliveryTag);
+                }
+                if (inflightRequests.isEmpty()) {
+                    allMessagesConfirmed.signalAll();
+                }
+                hasSpaceToWriteCondition.signalAll();
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
+        public boolean hasUnconfirmedMessages() {
+            lock.readLock().lock();
+            try {
+                return !inflightRequests.isEmpty();
+            } finally {
+                lock.readLock().unlock();
+            }
+        }
+
+        /**
+         * Adds unconfirmed messages to provided queue.
+         * Messages will be added to the beginning of the queue.
+         * As result, queue will have the oldest messages in the start and newest in the end.
+         * </p>
+         * {@link #inflightRequests} map will be cleared.
+         * </p>
+         * {@link #noConfirmationWillBeReceived} will be reset
+         * @param redelivery queue to transfer messages
+         */
+        public void transferUnconfirmedTo(Deque<PublicationHolder> redelivery) {
+            lock.writeLock().lock();
+            try {
+                for (PublicationHolder payload : inflightRequests.descendingMap().values()) {
+                    redelivery.addFirst(payload);
+                }
+                inflightRequests.clear();
+                hasSpaceToWriteCondition.signalAll();
+                allMessagesConfirmed.signalAll();
+                noConfirmationWillBeReceived = false;
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
+        /**
+         * Indicates that no confirmation will be received for inflight requests.
+         * Method {@link #transferUnconfirmedTo(Deque)} should be called to reset the flag
+         * and obtain messages for redeliver
+         * @return true if channel was closed and no confirmation will be received
+         */
+        public boolean isNoConfirmationWillBeReceived() {
+            lock.readLock().lock();
+            try {
+                return noConfirmationWillBeReceived;
+            } finally {
+                lock.readLock().unlock();
+            }
+        }
+
+        public void noConfirmationWillBeReceived() {
+            lock.writeLock().lock();
+            try {
+                noConfirmationWillBeReceived = true;
+                // we need to unlock possible locked publisher so it can check that nothing will be confirmed
+                // and retry the publication
+                hasSpaceToWriteCondition.signalAll();
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
+        public boolean awaitConfirmations(long timeout, TimeUnit timeUnit) throws InterruptedException {
+            lock.writeLock().lock();
+            try {
+                return inflightRequests.isEmpty() || allMessagesConfirmed.await(timeout, timeUnit);
+            } finally {
+                lock.writeLock().unlock();
+            }
         }
     }
 
@@ -956,5 +1256,9 @@ public class ConnectionManager implements AutoCloseable {
 
     private interface ChannelConsumer {
         void consume(Channel channel) throws IOException;
+    }
+
+    private interface ChannelPublisher {
+        void publish(Channel channel, byte[] payload) throws IOException;
     }
 }

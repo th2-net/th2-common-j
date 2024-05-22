@@ -34,6 +34,7 @@ class NotificationEventBatchSender(
         throw UnsupportedOperationException("Method is deprecated, please use constructor")
     }
 
+    @Throws(IOException::class)
     override fun send(message: EventBatch) {
         try {
             connectionManager.basicPublish(exchange, EMPTY_ROUTING_KEY, null, message.toByteArray())
