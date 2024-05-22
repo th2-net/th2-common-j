@@ -514,6 +514,7 @@ dependencies {
 ### 5.11.1-dev
 
 + Add `remove` and `clear` operations to `MapBuilder`
++ Pass information about `book` and `session group` from batch down to `MessageID` in raw and parsed transport messages
 
 ### 5.11.0-dev
 
