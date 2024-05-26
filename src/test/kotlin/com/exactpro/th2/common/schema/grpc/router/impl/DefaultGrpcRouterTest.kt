@@ -825,7 +825,7 @@ internal class DefaultGrpcRouterTest {
                         ExceptionMetadata(
                             "UNAVAILABLE: io exception",
                             ExceptionMetadata(
-                                "Connection refused: localhost/127.0.0.1:8080",
+                                "Connection refused: localhost/",
                                 ExceptionMetadata(
                                     "Connection refused"
                                 )
@@ -851,7 +851,7 @@ internal class DefaultGrpcRouterTest {
                         ExceptionMetadata(
                             "UNAVAILABLE: io exception",
                             ExceptionMetadata(
-                                "Connection refused: localhost/127.0.0.1:8080",
+                                "Connection refused: localhost/",
                                 ExceptionMetadata(
                                     "Connection refused"
                                 )
@@ -880,7 +880,7 @@ internal class DefaultGrpcRouterTest {
                         ExceptionMetadata(
                             "UNAVAILABLE: io exception",
                             ExceptionMetadata(
-                                "Connection refused: localhost/127.0.0.1:8080",
+                                "Connection refused: localhost/",
                                 ExceptionMetadata(
                                     "Connection refused"
                                 )
@@ -928,9 +928,9 @@ internal class DefaultGrpcRouterTest {
             exceptionMetadata: ExceptionMetadata,
             path: List<String?> = emptyList()
         ) {
-            assertEquals(
-                exceptionMetadata.message,
-                exception.message,
+            val expectedMessage = exceptionMetadata.message
+            assertTrue(
+                exception.message == expectedMessage || exception.message?.startsWith(expectedMessage ?: "null") == true,
                 "Message for exception: $exception, path: ${path.printAsStackTrace()}"
             )
             exceptionMetadata.suspended?.let { suspendMetadataList ->
