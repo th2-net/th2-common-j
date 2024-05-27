@@ -1091,10 +1091,23 @@ public class ConnectionManager implements AutoCloseable {
     private static class PublicationHolder {
         private final ChannelPublisher publisher;
         private final byte[] payload;
+        private volatile boolean confirmed;
 
         private PublicationHolder(ChannelPublisher publisher, byte[] payload) {
             this.publisher = publisher;
             this.payload = payload;
+        }
+
+        boolean isConfirmed() {
+            return confirmed;
+        }
+
+        void confirmed() {
+            confirmed = true;
+        }
+
+        void reset() {
+            confirmed = false;
         }
 
         public void publish(Channel channel) throws IOException {
@@ -1165,15 +1178,35 @@ public class ConnectionManager implements AutoCloseable {
             }
             lock.writeLock().lock();
             try {
+                int initialSize = inflightRequests.size();
                 if (multiple) {
                     inflightRequests.headMap(deliveryTag, true).clear();
                 } else {
-                    inflightRequests.remove(deliveryTag);
+                    var head = inflightRequests.headMap(deliveryTag, true);
+                    // received the confirmation for oldest publication
+                    // check all earlier confirmation that were confirmed but not removed
+                    if (head.size() == 1) {
+                        head.clear();
+                        Iterator<Map.Entry<Long, PublicationHolder>> tailIterator =
+                                inflightRequests.tailMap(deliveryTag, false).entrySet().iterator();
+                        while (tailIterator.hasNext()) {
+                            if (!tailIterator.next().getValue().isConfirmed()) {
+                                break;
+                            }
+                            tailIterator.remove();
+                        }
+                    } else if (!head.isEmpty()) {
+                        // this is not the oldest publication
+                        // mark as confirm but wait for oldest to be confirmed
+                        head.lastEntry().getValue().confirmed();
+                    }
                 }
                 if (inflightRequests.isEmpty()) {
                     allMessagesConfirmed.signalAll();
                 }
-                hasSpaceToWriteCondition.signalAll();
+                if (inflightRequests.size() != initialSize) {
+                    hasSpaceToWriteCondition.signalAll();
+                }
             } finally {
                 lock.writeLock().unlock();
             }
@@ -1202,6 +1235,7 @@ public class ConnectionManager implements AutoCloseable {
             lock.writeLock().lock();
             try {
                 for (PublicationHolder payload : inflightRequests.descendingMap().values()) {
+                    payload.reset();
                     redelivery.addFirst(payload);
                 }
                 inflightRequests.clear();
