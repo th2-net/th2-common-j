@@ -207,3 +207,9 @@ tasks.named('extractIncludeTestFixturesProto') {enabled = false }
 
 compileTestJava.dependsOn.add('generateTestProto')
 processTestResources.dependsOn.add('generateTestProto')
+
+tasks.register("publicationManualBench", JavaExec.class) {
+    mainClass.set('com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManualBenchmark')
+    classpath(sourceSets.test.runtimeClasspath)
+    dependsOn('testClasses')
+}
