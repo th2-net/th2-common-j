@@ -1182,23 +1182,28 @@ public class ConnectionManager implements AutoCloseable {
                 if (multiple) {
                     inflightRequests.headMap(deliveryTag, true).clear();
                 } else {
-                    var head = inflightRequests.headMap(deliveryTag, true);
-                    // received the confirmation for oldest publication
-                    // check all earlier confirmation that were confirmed but not removed
-                    if (head.size() == 1) {
-                        head.clear();
+                    long oldestPublication = Objects.requireNonNullElse(inflightRequests.firstKey(), deliveryTag);
+                    if (oldestPublication == deliveryTag) {
+                        // received the confirmation for oldest publication
+                        // check all earlier confirmation that were confirmed but not removed
                         Iterator<Map.Entry<Long, PublicationHolder>> tailIterator =
-                                inflightRequests.tailMap(deliveryTag, false).entrySet().iterator();
+                                inflightRequests.tailMap(deliveryTag, true).entrySet().iterator();
                         while (tailIterator.hasNext()) {
-                            if (!tailIterator.next().getValue().isConfirmed()) {
+                            Map.Entry<Long, PublicationHolder> next = tailIterator.next();
+                            long key = next.getKey();
+                            PublicationHolder holder = next.getValue();
+                            if (key > deliveryTag && !holder.isConfirmed()) {
                                 break;
                             }
                             tailIterator.remove();
                         }
-                    } else if (!head.isEmpty()) {
+                    } else {
                         // this is not the oldest publication
                         // mark as confirm but wait for oldest to be confirmed
-                        head.lastEntry().getValue().confirmed();
+                        var holder = inflightRequests.get(deliveryTag);
+                        if (holder != null) {
+                            holder.confirmed();
+                        }
                     }
                 }
                 if (inflightRequests.isEmpty()) {
