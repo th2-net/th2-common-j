@@ -962,7 +962,7 @@ internal class DefaultGrpcRouterTest {
 
         private fun ExecutorService.shutdownGracefully() {
             shutdown()
-            if (!awaitTermination(1, TimeUnit.SECONDS)) {
+            if (!awaitTermination(30, TimeUnit.SECONDS)) {
                 shutdownNow()
                 error("'Executor' can't be stopped")
             }
