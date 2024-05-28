@@ -44,7 +44,8 @@ data class ConnectionManagerConfiguration(
     val workingThreads: Int = 1,
     val confirmationTimeout: Duration = Duration.ofMinutes(5),
     val enablePublisherConfirmation: Boolean = false,
-    val maxInflightPublications: Int = NO_LIMIT_INFLIGHT_REQUESTS,
+    // Default value is taken based on measurement done in ConnectionManualBenchmark class
+    val maxInflightPublications: Int = 200,
     val heartbeatIntervalSeconds: Int = DEFAULT_HB_INTERVAL_SECONDS,
 ) : Configuration() {
     init {
