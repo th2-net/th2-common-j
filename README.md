@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.11.1)
+# th2 common library (Java) (5.12.0)
 
 ## Usage
 
@@ -510,6 +510,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.12.0-dev
+
++ Updated kubernetes-client: `6.12.1`
 
 ### 5.11.1-dev
 
