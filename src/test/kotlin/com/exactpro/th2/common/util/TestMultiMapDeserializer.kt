@@ -40,8 +40,8 @@ class TestMultiMapDeserializer {
                     .configure(KotlinFeature.NullToEmptyCollection, false)
                     .configure(KotlinFeature.NullToEmptyMap, false)
                     .configure(KotlinFeature.NullIsSameAsDefault, false)
-                    .configure(KotlinFeature.SingletonSupport, false)
-                    .configure(KotlinFeature.StrictNullChecks, true)
+                    .configure(KotlinFeature.SingletonSupport, true)
+                    .configure(KotlinFeature.StrictNullChecks, false)
                     .build()
             )
 
