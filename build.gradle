@@ -212,4 +212,6 @@ tasks.register("publicationManualBench", JavaExec.class) {
     mainClass.set('com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManualBenchmark')
     classpath(sourceSets.test.runtimeClasspath)
     dependsOn('testClasses')
+
+    jvmArgs('-XX:StartFlightRecording=duration=60s,settings=profile,filename=publishing-profile-record.jfr')
 }
