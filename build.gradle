@@ -138,17 +138,20 @@ dependencies {
     implementation 'io.prometheus:simpleclient_httpserver'
     implementation 'io.prometheus:simpleclient_log4j2'
 
-    implementation("com.squareup.okio:okio:3.8.0") {
-        because('fix vulnerability in transitive dependency <com.squareup.okhttp3:okhttp>')
+    implementation("com.squareup.okio:okio:3.4.0") {
+        because('fix vulnerability in transitive dependency <com.squareup.okhttp3:okhttp>' +
+                'Note: kotlin:1.9 is transitive dependency since 3.5.0')
     }
-    implementation("com.squareup.okhttp3:okhttp:4.12.0") {
-        because('fix vulnerability in transitive dependency <kubernetes-client>')
+    implementation("com.squareup.okhttp3:okhttp:4.11.0") {
+        because('fix vulnerability in transitive dependency <kubernetes-client>. ' +
+                'Note: kotlin:1.9 is transitive dependency since 4.12.0')
     }
-    implementation('com.squareup.okhttp3:logging-interceptor:4.12.0') {
-        because('fix vulnerability in transitive dependency <kubernetes-client>')
+    implementation('com.squareup.okhttp3:logging-interceptor:4.11.0') {
+        because('fix vulnerability in transitive dependency <kubernetes-client>. ' +
+                'Note: kotlin:1.9 is transitive dependency since 4.12.0')
     }
 
-    implementation("io.fabric8:kubernetes-client:6.10.0") {
+    implementation("io.fabric8:kubernetes-client:6.12.1") {
         exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
     }
 
