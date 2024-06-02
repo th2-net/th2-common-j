@@ -282,7 +282,8 @@ class TestConnectionManager {
             .let {
                 declareQueue(rabbit, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val counter = AtomicInteger(0)
+                val counter = AtomicInteger()
+                val downLatch = CountDownLatch(1)
                 createConnectionManager(
                     it,
                     ConnectionManagerConfiguration(
@@ -298,6 +299,7 @@ class TestConnectionManager {
                     try {
                         monitor = connectionManager.basicConsume(queueName, { _, delivery, _ ->
                             counter.incrementAndGet()
+                            downLatch.countDown()
                             LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
                         }) {
                             LOGGER.info { "Canceled $it" }
@@ -309,19 +311,18 @@ class TestConnectionManager {
                         LOGGER.info { "Publication finished!" }
                         assertEquals(
                             0,
-                            counter.get()
+                            counter.get(),
                         ) { "Unexpected number of messages received. The first message shouldn't be received" }
-                        Thread.sleep(200)
                         LOGGER.info { "Creating the correct exchange..." }
                         declareFanoutExchangeWithBinding(it, exchange, queueName)
-                        Thread.sleep(200)
                         LOGGER.info { "Exchange created!" }
 
                         Assertions.assertDoesNotThrow {
                             connectionManager.basicPublish(exchange, "", null, "Hello2".toByteArray(Charsets.UTF_8))
                         }
 
-                        Thread.sleep(200)
+                        downLatch.assertComplete(1L, TimeUnit.SECONDS) { "no messages were received" }
+
                         assertEquals(
                             1,
                             counter.get()
@@ -967,16 +968,21 @@ class TestConnectionManager {
             }
     }
 
-    private fun CountDownLatch.assertComplete(message: String) {
-        assertComplete { message }
+    private fun CountDownLatch.assertComplete(
+        message: String,
+        timeout: Long = 1,
+        timeUnit: TimeUnit = TimeUnit.SECONDS,
+    ) {
+        assertComplete(timeout, timeUnit) { message }
     }
 
-    private fun CountDownLatch.assertComplete(messageSupplier: () -> String) {
+    private fun CountDownLatch.assertComplete(
+        timeout: Long = 1,
+        timeUnit: TimeUnit = TimeUnit.SECONDS,
+        messageSupplier: () -> String,
+    ) {
         assertTrue(
-            await(
-                1L,
-                TimeUnit.SECONDS
-            )
+            await(timeout, timeUnit)
         ) { "${messageSupplier()}, actual count: $count" }
     }
 

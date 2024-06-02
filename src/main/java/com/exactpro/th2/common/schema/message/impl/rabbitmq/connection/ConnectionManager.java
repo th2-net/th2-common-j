@@ -853,6 +853,9 @@ public class ConnectionManager implements AutoCloseable {
                         var recoveryDelay = currentValue.getDelay();
                         LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);
+                        // cleanup after failure
+                        publishConfirmationListener.remove(msgSeq);
+                        redeliveryQueue.addFirst(currentPayload);
 
                         // We should not recover the channel if its connection is closed
                         // If we do that the channel will be also auto recovered by RabbitMQ client
@@ -862,10 +865,6 @@ public class ConnectionManager implements AutoCloseable {
                             // so we should redeliver all inflight requests
                             publishConfirmationListener.transferUnconfirmedTo(redeliveryQueue);
                             tempChannel = recreateChannel();
-                        } else {
-                            // cleanup after failure
-                            publishConfirmationListener.remove(msgSeq);
-                            redeliveryQueue.addFirst(currentPayload);
                         }
                     }
                 }
@@ -1174,7 +1173,24 @@ public class ConnectionManager implements AutoCloseable {
         }
 
         public void remove(long deliveryTag) {
-            removeInflightRequests(deliveryTag, false);
+            if (!enablePublisherConfirmation) {
+                return;
+            }
+            lock.writeLock().lock();
+            try {
+                PublicationHolder holder = inflightRequests.remove(deliveryTag);
+                if (holder == null) {
+                    return;
+                }
+                inflightBytes -= holder.size();
+                hasSpaceToWriteCondition.signalAll();
+                if (inflightRequests.isEmpty()) {
+                    inflightBytes = 0;
+                    allMessagesConfirmed.signalAll();
+                }
+            } finally {
+                lock.writeLock().unlock();
+            }
         }
 
         @Override
