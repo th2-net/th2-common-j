@@ -516,7 +516,7 @@ dependencies {
 + Added functionality for publisher confirmations to mitigate network issues for message producers.
 + New parameters are added to connection manager configuration:
   + enablePublisherConfirmation - enables publisher confirmation. `false` by default.
-  + maxInflightPublications - the max number of unconfirmed published messages per channel. `200`, by default.
+  + maxInflightPublicationsBytes - the max number of unconfirmed published messages per channel. `52428800` (50 MB), by default.
   + heartbeatIntervalSeconds - rabbitmq connection heartbeat interval in seconds.
     `0` by default (that means the default interval will be set by the internal library used to communicate with RabbitMQ). 
 

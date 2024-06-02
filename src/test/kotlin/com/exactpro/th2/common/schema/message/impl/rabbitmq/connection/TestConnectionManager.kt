@@ -53,6 +53,7 @@ import org.testcontainers.utility.MountableFile
 import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -74,13 +75,14 @@ class TestConnectionManager {
                 LOGGER.info { "Started with port ${rabbit.amqpPort}" }
                 val messagesCount = 10
                 val countDown = CountDownLatch(messagesCount)
+                val messageSizeBytes = 7
                 createConnectionManager(
                     rabbit, ConnectionManagerConfiguration(
                         subscriberName = "test",
                         prefetchCount = DEFAULT_PREFETCH_COUNT,
                         confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
                         enablePublisherConfirmation = true,
-                        maxInflightPublications = 5,
+                        maxInflightPublicationsBytes = 5 * messageSizeBytes,
                         heartbeatIntervalSeconds = 1,
                         minConnectionRecoveryTimeout = 2000,
                         maxConnectionRecoveryTimeout = 2000,
@@ -104,6 +106,7 @@ class TestConnectionManager {
                     }
 
 
+                    var future: CompletableFuture<*>? = null
                     repeat(messagesCount) { index ->
                         if (index == 1) {
                             // delay should allow ack for the first message be received
@@ -119,16 +122,22 @@ class TestConnectionManager {
                             // So, we will have to deal with it on the consumer side
                             rabbit.executeInContainerWithLogging("ifconfig", "eth0", "down")
                         } else if (index == 4) {
-                            // More than 2 HB will be missed
-                            // This is enough for rabbitmq server to understand the connection is lost
-                            Thread.sleep(4_000)
-                            // enabling network interface back
-                            rabbit.executeInContainerWithLogging("ifconfig", "eth0", "up")
+                            future = CompletableFuture.supplyAsync {
+                                // Interface is unblock in separate thread to emulate more realistic scenario
+
+                                // More than 2 HB will be missed
+                                // This is enough for rabbitmq server to understand the connection is lost
+                                Thread.sleep(3_000)
+                                // enabling network interface back
+                                rabbit.executeInContainerWithLogging("ifconfig", "eth0", "up")
+                            }
                         }
                         manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
                     }
 
-                    countDown.assertComplete("Not all messages were received: $receivedMessages")
+                    future?.get(30, TimeUnit.SECONDS)
+
+                    countDown.assertComplete { "Not all messages were received: $receivedMessages" }
                     assertEquals(
                         (0 until messagesCount).map {
                             "Hello $it"
@@ -959,12 +968,16 @@ class TestConnectionManager {
     }
 
     private fun CountDownLatch.assertComplete(message: String) {
+        assertComplete { message }
+    }
+
+    private fun CountDownLatch.assertComplete(messageSupplier: () -> String) {
         assertTrue(
             await(
                 1L,
                 TimeUnit.SECONDS
             )
-        ) { "$message, actual count: $count" }
+        ) { "${messageSupplier()}, actual count: $count" }
     }
 
     private fun <T> assertTarget(target: T, timeout: Long = 1_000, message: String, func: () -> T) {

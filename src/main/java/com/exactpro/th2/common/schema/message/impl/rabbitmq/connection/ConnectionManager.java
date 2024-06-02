@@ -504,7 +504,7 @@ public class ConnectionManager implements AutoCloseable {
         return new ChannelHolderOptions(
                 configuration.getPrefetchCount(),
                 configuration.getEnablePublisherConfirmation(),
-                configuration.getMaxInflightPublications()
+                configuration.getMaxInflightPublicationsBytes()
         );
     }
 
@@ -718,12 +718,12 @@ public class ConnectionManager implements AutoCloseable {
     private static class ChannelHolderOptions {
         private final int maxCount;
         private final boolean enablePublisherConfirmation;
-        private final int maxInflightRequests;
+        private final int maxInflightRequestsBytes;
 
-        private ChannelHolderOptions(int maxCount, boolean enablePublisherConfirmation, int maxInflightRequests) {
+        private ChannelHolderOptions(int maxCount, boolean enablePublisherConfirmation, int maxInflightRequestsBytes) {
             this.maxCount = maxCount;
             this.enablePublisherConfirmation = enablePublisherConfirmation;
-            this.maxInflightRequests = maxInflightRequests;
+            this.maxInflightRequestsBytes = maxInflightRequestsBytes;
         }
 
         public int getMaxCount() {
@@ -734,8 +734,8 @@ public class ConnectionManager implements AutoCloseable {
             return enablePublisherConfirmation;
         }
 
-        public int getMaxInflightRequests() {
-            return maxInflightRequests;
+        public int getMaxInflightRequestsBytes() {
+            return maxInflightRequestsBytes;
         }
     }
 
@@ -780,7 +780,7 @@ public class ConnectionManager implements AutoCloseable {
             this.subscriptionCallbacks = subscriptionCallbacks;
             publishConfirmationListener = new PublisherConfirmationListener(
                     options.isEnablePublisherConfirmation(),
-                    options.getMaxInflightRequests()
+                    options.getMaxInflightRequestsBytes()
             );
         }
 
@@ -842,7 +842,6 @@ public class ConnectionManager implements AutoCloseable {
                         publishConfirmationListener.put(msgSeq, currentPayload);
                         if (publishConfirmationListener.isNoConfirmationWillBeReceived()) {
                             // will drain message to queue on next iteration
-                            publishConfirmationListener.remove(msgSeq);
                             continue;
                         }
                         currentPayload.publish(channel);
@@ -854,9 +853,6 @@ public class ConnectionManager implements AutoCloseable {
                         var recoveryDelay = currentValue.getDelay();
                         LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);
-                        // cleanup after failure
-                        publishConfirmationListener.remove(msgSeq);
-                        redeliveryQueue.addFirst(currentPayload);
 
                         // We should not recover the channel if its connection is closed
                         // If we do that the channel will be also auto recovered by RabbitMQ client
@@ -866,6 +862,10 @@ public class ConnectionManager implements AutoCloseable {
                             // so we should redeliver all inflight requests
                             publishConfirmationListener.transferUnconfirmedTo(redeliveryQueue);
                             tempChannel = recreateChannel();
+                        } else {
+                            // cleanup after failure
+                            publishConfirmationListener.remove(msgSeq);
+                            redeliveryQueue.addFirst(currentPayload);
                         }
                     }
                 }
@@ -1098,6 +1098,10 @@ public class ConnectionManager implements AutoCloseable {
             this.payload = payload;
         }
 
+        int size() {
+            return payload.length;
+        }
+
         boolean isConfirmed() {
             return confirmed;
         }
@@ -1121,17 +1125,20 @@ public class ConnectionManager implements AutoCloseable {
         private final Condition allMessagesConfirmed = lock.writeLock().newCondition();
         @GuardedBy("lock")
         private final NavigableMap<Long, PublicationHolder> inflightRequests = new TreeMap<>();
-        private final int maxInflightRequests;
+        private final int maxInflightRequestsBytes;
         private final boolean enablePublisherConfirmation;
         private final boolean hasLimit;
-        private volatile boolean noConfirmationWillBeReceived;
+        @GuardedBy("lock")
+        private boolean noConfirmationWillBeReceived;
+        @GuardedBy("lock")
+        private int inflightBytes;
 
-        private PublisherConfirmationListener(boolean enablePublisherConfirmation, int maxInflightRequests) {
-            if (maxInflightRequests <= 0 && maxInflightRequests != ConnectionManagerConfiguration.NO_LIMIT_INFLIGHT_REQUESTS) {
-                throw new IllegalArgumentException("invalid maxInflightRequests: " + maxInflightRequests);
+        private PublisherConfirmationListener(boolean enablePublisherConfirmation, int maxInflightRequestsBytes) {
+            if (maxInflightRequestsBytes <= 0 && maxInflightRequestsBytes != ConnectionManagerConfiguration.NO_LIMIT_INFLIGHT_REQUESTS) {
+                throw new IllegalArgumentException("invalid maxInflightRequests: " + maxInflightRequestsBytes);
             }
-            hasLimit = maxInflightRequests != ConnectionManagerConfiguration.NO_LIMIT_INFLIGHT_REQUESTS;
-            this.maxInflightRequests = maxInflightRequests;
+            hasLimit = maxInflightRequestsBytes != ConnectionManagerConfiguration.NO_LIMIT_INFLIGHT_REQUESTS;
+            this.maxInflightRequestsBytes = maxInflightRequestsBytes;
             this.enablePublisherConfirmation = enablePublisherConfirmation;
         }
 
@@ -1141,14 +1148,26 @@ public class ConnectionManager implements AutoCloseable {
             }
             lock.writeLock().lock();
             try {
-                // there is only one thread at a time that tries to publish message
-                // so it is safe to check the limit only once
-                if (hasLimit && inflightRequests.size() >= maxInflightRequests) {
-                    LOGGER.warn("blocking because inflight requests size is above limit {} for publication channel", maxInflightRequests);
-                    hasSpaceToWriteCondition.await();
-                    LOGGER.info("unblocking because inflight requests size is below limit {} for publication channel", maxInflightRequests);
+                int payloadSize = payload.size();
+                if (hasLimit) {
+                    int newSize = inflightBytes + payloadSize;
+                    if (newSize > maxInflightRequestsBytes) {
+                        LOGGER.warn("blocking because {} inflight requests bytes size is above limit {} bytes for publication channel",
+                                newSize, maxInflightRequestsBytes);
+                        do {
+                            hasSpaceToWriteCondition.await();
+                            newSize = inflightBytes + payloadSize;
+                        } while (newSize > maxInflightRequestsBytes && !noConfirmationWillBeReceived);
+                        if (noConfirmationWillBeReceived) {
+                            LOGGER.warn("unblocking because no confirmation will be received and inflight request size will not change");
+                        } else {
+                            LOGGER.info("unblocking because {} inflight requests bytes size is below limit {} bytes for publication channel",
+                                    newSize, maxInflightRequestsBytes);
+                        }
+                    }
                 }
                 inflightRequests.put(deliveryTag, payload);
+                inflightBytes += payloadSize;
             } finally {
                 lock.writeLock().unlock();
             }
@@ -1162,6 +1181,7 @@ public class ConnectionManager implements AutoCloseable {
         public void handleAck(long deliveryTag, boolean multiple) {
             LOGGER.trace("Delivery ack received for tag {} (multiple:{})", deliveryTag, multiple);
             removeInflightRequests(deliveryTag, multiple);
+            LOGGER.trace("Delivery ack processed for tag {} (multiple:{})", deliveryTag, multiple);
         }
 
         @Override
@@ -1170,6 +1190,7 @@ public class ConnectionManager implements AutoCloseable {
             // we cannot do match with nack because this is an internal error in rabbitmq
             // we can try to republish the message but there is no guarantee that the message will be accepted
             removeInflightRequests(deliveryTag, multiple);
+            LOGGER.warn("Delivery nack processed for tag {} (multiple:{})", deliveryTag, multiple);
         }
 
         private void removeInflightRequests(long deliveryTag, boolean multiple) {
@@ -1178,9 +1199,13 @@ public class ConnectionManager implements AutoCloseable {
             }
             lock.writeLock().lock();
             try {
-                int initialSize = inflightRequests.size();
+                int currentSize = inflightBytes;
                 if (multiple) {
-                    inflightRequests.headMap(deliveryTag, true).clear();
+                    Map<Long, PublicationHolder> headMap = inflightRequests.headMap(deliveryTag, true);
+                    for (Map.Entry<Long, PublicationHolder> entry : headMap.entrySet()) {
+                        currentSize -= entry.getValue().size();
+                    }
+                    headMap.clear();
                 } else {
                     long oldestPublication = Objects.requireNonNullElse(inflightRequests.firstKey(), deliveryTag);
                     if (oldestPublication == deliveryTag) {
@@ -1195,6 +1220,7 @@ public class ConnectionManager implements AutoCloseable {
                             if (key > deliveryTag && !holder.isConfirmed()) {
                                 break;
                             }
+                            currentSize -= holder.size();
                             tailIterator.remove();
                         }
                     } else {
@@ -1206,11 +1232,13 @@ public class ConnectionManager implements AutoCloseable {
                         }
                     }
                 }
-                if (inflightRequests.isEmpty()) {
-                    allMessagesConfirmed.signalAll();
-                }
-                if (inflightRequests.size() != initialSize) {
+                if (inflightBytes != currentSize) {
+                    inflightBytes = currentSize;
                     hasSpaceToWriteCondition.signalAll();
+                }
+                if (inflightRequests.isEmpty()) {
+                    inflightBytes = 0;
+                    allMessagesConfirmed.signalAll();
                 }
             } finally {
                 lock.writeLock().unlock();
@@ -1244,6 +1272,7 @@ public class ConnectionManager implements AutoCloseable {
                     redelivery.addFirst(payload);
                 }
                 inflightRequests.clear();
+                inflightBytes = 0;
                 hasSpaceToWriteCondition.signalAll();
                 allMessagesConfirmed.signalAll();
                 noConfirmationWillBeReceived = false;
@@ -1270,6 +1299,7 @@ public class ConnectionManager implements AutoCloseable {
         public void noConfirmationWillBeReceived() {
             lock.writeLock().lock();
             try {
+                LOGGER.warn("Publication listener was notified that no confirmations will be received");
                 noConfirmationWillBeReceived = true;
                 // we need to unlock possible locked publisher so it can check that nothing will be confirmed
                 // and retry the publication

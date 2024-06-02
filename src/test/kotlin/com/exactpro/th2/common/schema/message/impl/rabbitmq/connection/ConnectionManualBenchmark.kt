@@ -46,7 +46,7 @@ object ConnectionManualBenchmark {
                         prefetchCount = 1000,
                         confirmationTimeout = Duration.ofSeconds(5),
                         enablePublisherConfirmation = true,
-                        maxInflightPublications = 100,
+                        maxInflightPublicationsBytes = 1024 * 1024 * 25,
                     )
                 )
 
@@ -57,7 +57,7 @@ object ConnectionManualBenchmark {
                             prefetchCount = 100,
                             confirmationTimeout = Duration.ofSeconds(5),
                             enablePublisherConfirmation = true,
-                            maxInflightPublications = 200,
+                            maxInflightPublicationsBytes = 1024 * 1024 * 1,
                         )
                     )
                 }
@@ -69,7 +69,7 @@ object ConnectionManualBenchmark {
                             prefetchCount = 100,
                             confirmationTimeout = Duration.ofSeconds(5),
                             enablePublisherConfirmation = false,
-                            maxInflightPublications = -1,
+                            maxInflightPublicationsBytes = -1,
                         )
                     )
                 }
