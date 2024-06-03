@@ -380,9 +380,12 @@ public class ConnectionManager implements AutoCloseable {
                         LOGGER.warn("Some messages were not confirmed by broken in channel {} and were not republished. Try to republish messages", id);
                         channelHolder.publishUnconfirmedMessages();
                     }
+                    LOGGER.info("Waiting for messages confirmation in channel {}", id);
                     try {
                         channelHolder.awaitConfirmations(closeTimeout, TimeUnit.MILLISECONDS);
                     } catch (InterruptedException ignored) {
+                        LOGGER.warn("Waiting for messages confirmation in channel {} was interrupted", id);
+                        Thread.currentThread().interrupt();
                     }
                 }
                 if (channelHolder.hasUnconfirmedMessages()) {
@@ -844,7 +847,7 @@ public class ConnectionManager implements AutoCloseable {
                             // will drain message to queue on next iteration
                             continue;
                         }
-                        currentPayload.publish(channel);
+                        currentPayload.publish(tempChannel);
                         if (redeliveryQueue.isEmpty()) {
                             break;
                         }
@@ -1076,9 +1079,6 @@ public class ConnectionManager implements AutoCloseable {
                 publishConfirmationListener.transferUnconfirmedTo(redeliveryQueue);
                 while (!redeliveryQueue.isEmpty()) {
                     PublicationHolder holder = redeliveryQueue.pollFirst();
-                    if (holder == null) {
-                        break;
-                    }
                     holder.publish(channel);
                 }
             } finally {
@@ -1289,9 +1289,9 @@ public class ConnectionManager implements AutoCloseable {
                 }
                 inflightRequests.clear();
                 inflightBytes = 0;
+                noConfirmationWillBeReceived = false;
                 hasSpaceToWriteCondition.signalAll();
                 allMessagesConfirmed.signalAll();
-                noConfirmationWillBeReceived = false;
             } finally {
                 lock.writeLock().unlock();
             }
