@@ -166,6 +166,7 @@ dependencies {
     testImplementation("org.junit-pioneer:junit-pioneer:2.2.0") {
         because("system property tests")
     }
+    testImplementation("org.awaitility:awaitility:4.2.1")
 
     testFixturesImplementation "org.jetbrains.kotlin:kotlin-test-junit5:$kotlin_version"
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"

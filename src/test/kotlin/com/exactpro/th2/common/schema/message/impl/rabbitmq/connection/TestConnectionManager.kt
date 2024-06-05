@@ -36,6 +36,7 @@ import com.rabbitmq.client.BuiltinExchangeType
 import com.rabbitmq.client.CancelCallback
 import com.rabbitmq.client.Delivery
 import mu.KotlinLogging
+import org.awaitility.Awaitility
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions
@@ -110,7 +111,10 @@ class TestConnectionManager {
                     repeat(messagesCount) { index ->
                         if (index == 1) {
                             // delay should allow ack for the first message be received
-                            Thread.sleep(100)
+                            Awaitility.await("first message is confirmed")
+                                .pollInterval(10, TimeUnit.MILLISECONDS)
+                                .atMost(100, TimeUnit.MILLISECONDS)
+                                .until { countDown.count == messagesCount - 1L }
                             // Man pages:
                             // https://man7.org/linux/man-pages/man8/tc-netem.8.html
                             // https://man7.org/linux/man-pages/man8/ifconfig.8.html
@@ -127,7 +131,9 @@ class TestConnectionManager {
 
                                 // More than 2 HB will be missed
                                 // This is enough for rabbitmq server to understand the connection is lost
-                                Thread.sleep(3_000)
+                                Awaitility.await("connection is closed")
+                                    .atMost(3, TimeUnit.SECONDS)
+                                    .until { !manager.isOpen }
                                 // enabling network interface back
                                 rabbit.executeInContainerWithLogging("ifconfig", "eth0", "up")
                             }
@@ -136,6 +142,99 @@ class TestConnectionManager {
                     }
 
                     future?.get(30, TimeUnit.SECONDS)
+
+                    countDown.assertComplete { "Not all messages were received: $receivedMessages" }
+                    assertEquals(
+                        (0 until messagesCount).map {
+                            "Hello $it"
+                        },
+                        receivedMessages.toList(),
+                        "messages received in unexpected order",
+                    )
+                }
+            }
+    }
+
+    @Test
+    fun `connection manager redelivers unconfirmed messages on close`() {
+        val routingKey = "routingKey1"
+        val queueName = "queue1"
+        val exchange = "test-exchange1"
+        rabbit
+            .let { rabbit ->
+                declareQueue(rabbit, queueName)
+                declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
+                LOGGER.info { "Started with port ${rabbit.amqpPort}" }
+                val messagesCount = 10
+                val countDown = CountDownLatch(messagesCount)
+                val messageSizeBytes = 7
+                createConnectionManager(
+                    rabbit, ConnectionManagerConfiguration(
+                        subscriberName = "test",
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
+                        minConnectionRecoveryTimeout = 2000,
+                        maxConnectionRecoveryTimeout = 2000,
+                        // to avoid unexpected delays before recovery
+                        retryTimeDeviationPercent = 0,
+                    )
+                ).use { manager ->
+                    val receivedMessages = linkedSetOf<String>()
+                    manager.basicConsume(queueName, { _, delivery, ack ->
+                        val message = delivery.body.toString(Charsets.UTF_8)
+                        LOGGER.info { "Received $message from ${delivery.envelope.routingKey}" }
+                        if (receivedMessages.add(message)) {
+                            // decrement only unique messages
+                            countDown.countDown()
+                        } else {
+                            LOGGER.warn { "Duplicated $message for ${delivery.envelope.routingKey}" }
+                        }
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
+
+                    createConnectionManager(
+                        rabbit, ConnectionManagerConfiguration(
+                            prefetchCount = DEFAULT_PREFETCH_COUNT,
+                            confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
+                            enablePublisherConfirmation = true,
+                            maxInflightPublicationsBytes = messagesCount * 2 * messageSizeBytes,
+                            heartbeatIntervalSeconds = 1,
+                            minConnectionRecoveryTimeout = 2000,
+                            maxConnectionRecoveryTimeout = 2000,
+                            // to avoid unexpected delays before recovery
+                            retryTimeDeviationPercent = 0,
+                        )
+                    ).use { managerWithConfirmation ->
+                        repeat(messagesCount) { index ->
+                            if (index == 1) {
+                                // delay should allow ack for the first message be received
+                                Awaitility.await("first message is confirmed")
+                                    .pollInterval(10, TimeUnit.MILLISECONDS)
+                                    .atMost(100, TimeUnit.MILLISECONDS)
+                                    .until { countDown.count == messagesCount - 1L }
+                                // looks like if nothing is sent yet through the channel
+                                // it will detekt connection lost right away and start waiting for recovery
+                                rabbit.executeInContainerWithLogging("ifconfig", "eth0", "down")
+                            }
+                            managerWithConfirmation.basicPublish(
+                                exchange,
+                                routingKey,
+                                null,
+                                "Hello $index".toByteArray(Charsets.UTF_8)
+                            )
+                        }
+                        // ensure connection is closed because of HB timeout
+                        Awaitility.await("connection is closed")
+                            .atMost(4, TimeUnit.SECONDS)
+                            .until { !managerWithConfirmation.isOpen }
+                        rabbit.executeInContainerWithLogging("ifconfig", "eth0", "up")
+                        // wait for connection to recover before closing
+                        Awaitility.await("connection is recovered")
+                            .atMost(4, TimeUnit.SECONDS)
+                            .until { managerWithConfirmation.isOpen }
+                    }
 
                     countDown.assertComplete { "Not all messages were received: $receivedMessages" }
                     assertEquals(

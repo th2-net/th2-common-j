@@ -73,8 +73,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -89,7 +89,7 @@ public class ConnectionManager implements AutoCloseable {
 
     private final Connection connection;
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
-    private final AtomicBoolean connectionIsClosed = new AtomicBoolean(false);
+    private final AtomicReference<State> connectionIsClosed = new AtomicReference<>(State.OPEN);
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
@@ -117,6 +117,8 @@ public class ConnectionManager implements AutoCloseable {
     public ConnectionManagerConfiguration getConfiguration() {
         return configuration;
     }
+
+    private enum State { OPEN, CLOSING, CLOSED }
 
     public ConnectionManager(@NotNull String connectionName, @NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration) {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
@@ -205,7 +207,7 @@ public class ConnectionManager implements AutoCloseable {
             }
         });
 
-        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> !connectionIsClosed.get());
+        factory.setConnectionRecoveryTriggeringCondition(shutdownSignal -> connectionIsClosed.get() != State.CLOSED);
 
         factory.setRecoveryDelayHandler(recoveryAttempts -> {
             int minTime = connectionManagerConfiguration.getMinConnectionRecoveryTimeout();
@@ -358,12 +360,12 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     public boolean isOpen() {
-        return connection.isOpen() && !connectionIsClosed.get();
+        return connection.isOpen() && connectionIsClosed.get() == State.OPEN;
     }
 
     @Override
     public void close() {
-        if (connectionIsClosed.getAndSet(true)) {
+        if (!connectionIsClosed.compareAndSet(State.OPEN, State.CLOSING)) {
             LOGGER.info("Connection manager already closed");
             return;
         }
@@ -396,6 +398,8 @@ public class ConnectionManager implements AutoCloseable {
                 LOGGER.error("Cannot close channel for pin {}", id, e);
             }
         }
+
+        connectionIsClosed.set(State.CLOSED);
 
         if (connection.isOpen()) {
             try {
@@ -602,7 +606,7 @@ public class ConnectionManager implements AutoCloseable {
             }
         }
 
-        if (connectionIsClosed.get()) {
+        if (connectionIsClosed.get() == State.CLOSED) {
             throw new IllegalStateException("Connection is already closed");
         }
     }
@@ -621,7 +625,8 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private boolean isConnectionRecovery(ShutdownNotifier notifier) {
-        return !(notifier instanceof AutorecoveringChannel) && !notifier.isOpen() && !connectionIsClosed.get();
+        return !(notifier instanceof AutorecoveringChannel) && !notifier.isOpen()
+                && connectionIsClosed.get() != State.CLOSED;
     }
 
     /**
