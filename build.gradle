@@ -166,6 +166,7 @@ dependencies {
     testImplementation("org.junit-pioneer:junit-pioneer:2.2.0") {
         because("system property tests")
     }
+    testImplementation("org.awaitility:awaitility:4.2.1")
 
     testFixturesImplementation "org.jetbrains.kotlin:kotlin-test-junit5:$kotlin_version"
     testFixturesImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
@@ -207,3 +208,11 @@ tasks.named('extractIncludeTestFixturesProto') {enabled = false }
 
 compileTestJava.dependsOn.add('generateTestProto')
 processTestResources.dependsOn.add('generateTestProto')
+
+tasks.register("publicationManualBench", JavaExec.class) {
+    mainClass.set('com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManualBenchmark')
+    classpath(sourceSets.test.runtimeClasspath)
+    dependsOn('testClasses')
+
+    jvmArgs('-XX:StartFlightRecording=duration=60s,settings=profile,filename=publishing-profile-record.jfr')
+}

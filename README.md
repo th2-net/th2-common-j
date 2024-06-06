@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.12.0)
+# th2 common library (Java) (5.13.0)
 
 ## Usage
 
@@ -510,6 +510,15 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.13.0-dev
+
++ Added functionality for publisher confirmations to mitigate network issues for message producers.
++ New parameters are added to connection manager configuration:
+  + enablePublisherConfirmation - enables publisher confirmation. `false` by default.
+  + maxInflightPublicationsBytes - the max number of unconfirmed published messages per channel. `52428800` (50 MB), by default.
+  + heartbeatIntervalSeconds - rabbitmq connection heartbeat interval in seconds.
+    `0` by default (that means the default interval will be set by the internal library used to communicate with RabbitMQ). 
 
 ### 5.12.0-dev
 

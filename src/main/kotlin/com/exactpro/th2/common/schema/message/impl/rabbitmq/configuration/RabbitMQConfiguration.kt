@@ -42,7 +42,11 @@ data class ConnectionManagerConfiguration(
     val retryTimeDeviationPercent: Int = 10,
     val messageRecursionLimit: Int = 100,
     val workingThreads: Int = 1,
-    val confirmationTimeout: Duration = Duration.ofMinutes(5)
+    val confirmationTimeout: Duration = Duration.ofMinutes(5),
+    val enablePublisherConfirmation: Boolean = false,
+    // Default value 50MB is taken based on measurement done in ConnectionManualBenchmark class
+    val maxInflightPublicationsBytes: Int = 50 * 1024 * 1024,
+    val heartbeatIntervalSeconds: Int = DEFAULT_HB_INTERVAL_SECONDS,
 ) : Configuration() {
     init {
         check(maxRecoveryAttempts > 0) { "expected 'maxRecoveryAttempts' greater than 0 but was $maxRecoveryAttempts" }
@@ -63,6 +67,11 @@ data class ConnectionManagerConfiguration(
                 retryTimeDeviationPercent
             ))
         }
+    }
+
+    companion object {
+        const val NO_LIMIT_INFLIGHT_REQUESTS: Int = -1
+        const val DEFAULT_HB_INTERVAL_SECONDS: Int = 0
     }
 }
 

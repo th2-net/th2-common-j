@@ -31,17 +31,14 @@ import com.exactpro.th2.common.util.getChannelsInfo
 import com.exactpro.th2.common.util.getQueuesInfo
 import com.exactpro.th2.common.util.getSubscribedChannelsCount
 import com.exactpro.th2.common.util.putMessageInQueue
+import com.github.dockerjava.api.model.Capability
 import com.rabbitmq.client.BuiltinExchangeType
-import java.time.Duration
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
-import kotlin.concurrent.thread
 import com.rabbitmq.client.CancelCallback
 import com.rabbitmq.client.Delivery
 import mu.KotlinLogging
+import org.awaitility.Awaitility
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -49,13 +46,208 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
+import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.RabbitMQContainer
+import org.testcontainers.containers.output.Slf4jLogConsumer
 import org.testcontainers.utility.MountableFile
 import java.io.IOException
+import java.time.Duration
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import kotlin.test.assertFailsWith
 
 @IntegrationTest
 class TestConnectionManager {
+
+    @Test
+    fun `connection manager redelivers unconfirmed messages`() {
+        val routingKey = "routingKey1"
+        val queueName = "queue1"
+        val exchange = "test-exchange1"
+        rabbit
+            .let { rabbit ->
+                declareQueue(rabbit, queueName)
+                declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
+                LOGGER.info { "Started with port ${rabbit.amqpPort}" }
+                val messagesCount = 10
+                val countDown = CountDownLatch(messagesCount)
+                val messageSizeBytes = 7
+                createConnectionManager(
+                    rabbit, ConnectionManagerConfiguration(
+                        subscriberName = "test",
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
+                        enablePublisherConfirmation = true,
+                        maxInflightPublicationsBytes = 5 * messageSizeBytes,
+                        heartbeatIntervalSeconds = 1,
+                        minConnectionRecoveryTimeout = 2000,
+                        maxConnectionRecoveryTimeout = 2000,
+                        // to avoid unexpected delays before recovery
+                        retryTimeDeviationPercent = 0,
+                    )
+                ).use { manager ->
+                    val receivedMessages = linkedSetOf<String>()
+                    manager.basicConsume(queueName, { _, delivery, ack ->
+                        val message = delivery.body.toString(Charsets.UTF_8)
+                        LOGGER.info { "Received $message from ${delivery.envelope.routingKey}" }
+                        if (receivedMessages.add(message)) {
+                            // decrement only unique messages
+                            countDown.countDown()
+                        } else {
+                            LOGGER.warn { "Duplicated $message for ${delivery.envelope.routingKey}" }
+                        }
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
+
+
+                    var future: CompletableFuture<*>? = null
+                    repeat(messagesCount) { index ->
+                        if (index == 1) {
+                            // delay should allow ack for the first message be received
+                            Awaitility.await("first message is confirmed")
+                                .pollInterval(10, TimeUnit.MILLISECONDS)
+                                .atMost(100, TimeUnit.MILLISECONDS)
+                                .until { countDown.count == messagesCount - 1L }
+                            // Man pages:
+                            // https://man7.org/linux/man-pages/man8/tc-netem.8.html
+                            // https://man7.org/linux/man-pages/man8/ifconfig.8.html
+                            //
+                            // Here we try to emulate network outage to cause missing publication confirmations.
+                            //
+                            // In real life we will probably get duplicates in this case because
+                            // rabbitmq does not provide exactly-once semantic.
+                            // So, we will have to deal with it on the consumer side
+                            rabbit.executeInContainerWithLogging("ifconfig", "eth0", "down")
+                        } else if (index == 4) {
+                            future = CompletableFuture.supplyAsync {
+                                // Interface is unblock in separate thread to emulate more realistic scenario
+
+                                // More than 2 HB will be missed
+                                // This is enough for rabbitmq server to understand the connection is lost
+                                Awaitility.await("connection is closed")
+                                    .atMost(3, TimeUnit.SECONDS)
+                                    .until { !manager.isOpen }
+                                // enabling network interface back
+                                rabbit.executeInContainerWithLogging("ifconfig", "eth0", "up")
+                            }
+                        }
+                        manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
+                    }
+
+                    future?.get(30, TimeUnit.SECONDS)
+
+                    countDown.assertComplete { "Not all messages were received: $receivedMessages" }
+                    assertEquals(
+                        (0 until messagesCount).map {
+                            "Hello $it"
+                        },
+                        receivedMessages.toList(),
+                        "messages received in unexpected order",
+                    )
+                }
+            }
+    }
+
+    @Test
+    fun `connection manager redelivers unconfirmed messages on close`() {
+        val routingKey = "routingKey1"
+        val queueName = "queue1"
+        val exchange = "test-exchange1"
+        rabbit
+            .let { rabbit ->
+                declareQueue(rabbit, queueName)
+                declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
+                LOGGER.info { "Started with port ${rabbit.amqpPort}" }
+                val messagesCount = 10
+                val countDown = CountDownLatch(messagesCount)
+                val messageSizeBytes = 7
+                createConnectionManager(
+                    rabbit, ConnectionManagerConfiguration(
+                        subscriberName = "test",
+                        prefetchCount = DEFAULT_PREFETCH_COUNT,
+                        confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
+                        minConnectionRecoveryTimeout = 2000,
+                        maxConnectionRecoveryTimeout = 2000,
+                        // to avoid unexpected delays before recovery
+                        retryTimeDeviationPercent = 0,
+                    )
+                ).use { manager ->
+                    val receivedMessages = linkedSetOf<String>()
+                    manager.basicConsume(queueName, { _, delivery, ack ->
+                        val message = delivery.body.toString(Charsets.UTF_8)
+                        LOGGER.info { "Received $message from ${delivery.envelope.routingKey}" }
+                        if (receivedMessages.add(message)) {
+                            // decrement only unique messages
+                            countDown.countDown()
+                        } else {
+                            LOGGER.warn { "Duplicated $message for ${delivery.envelope.routingKey}" }
+                        }
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
+
+                    createConnectionManager(
+                        rabbit, ConnectionManagerConfiguration(
+                            prefetchCount = DEFAULT_PREFETCH_COUNT,
+                            confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
+                            enablePublisherConfirmation = true,
+                            maxInflightPublicationsBytes = messagesCount * 2 * messageSizeBytes,
+                            heartbeatIntervalSeconds = 1,
+                            minConnectionRecoveryTimeout = 2000,
+                            maxConnectionRecoveryTimeout = 2000,
+                            // to avoid unexpected delays before recovery
+                            retryTimeDeviationPercent = 0,
+                        )
+                    ).use { managerWithConfirmation ->
+                        repeat(messagesCount) { index ->
+                            if (index == 1) {
+                                // delay should allow ack for the first message be received
+                                Awaitility.await("first message is confirmed")
+                                    .pollInterval(10, TimeUnit.MILLISECONDS)
+                                    .atMost(100, TimeUnit.MILLISECONDS)
+                                    .until { countDown.count == messagesCount - 1L }
+                                // looks like if nothing is sent yet through the channel
+                                // it will detekt connection lost right away and start waiting for recovery
+                                rabbit.executeInContainerWithLogging("ifconfig", "eth0", "down")
+                            }
+                            managerWithConfirmation.basicPublish(
+                                exchange,
+                                routingKey,
+                                null,
+                                "Hello $index".toByteArray(Charsets.UTF_8)
+                            )
+                        }
+                        // ensure connection is closed because of HB timeout
+                        Awaitility.await("connection is closed")
+                            .atMost(4, TimeUnit.SECONDS)
+                            .until { !managerWithConfirmation.isOpen }
+                        rabbit.executeInContainerWithLogging("ifconfig", "eth0", "up")
+                        // wait for connection to recover before closing
+                        Awaitility.await("connection is recovered")
+                            .atMost(4, TimeUnit.SECONDS)
+                            .until { managerWithConfirmation.isOpen }
+                    }
+
+                    countDown.assertComplete { "Not all messages were received: $receivedMessages" }
+                    assertEquals(
+                        (0 until messagesCount).map {
+                            "Hello $it"
+                        },
+                        receivedMessages.toList(),
+                        "messages received in unexpected order",
+                    )
+                }
+            }
+    }
+
     @Test
     fun `connection manager reports unacked messages when confirmation timeout elapsed`() {
         val routingKey = "routingKey1"
@@ -189,7 +381,8 @@ class TestConnectionManager {
             .let {
                 declareQueue(rabbit, queueName)
                 LOGGER.info { "Started with port ${it.amqpPort}" }
-                val counter = AtomicInteger(0)
+                val counter = AtomicInteger()
+                val downLatch = CountDownLatch(1)
                 createConnectionManager(
                     it,
                     ConnectionManagerConfiguration(
@@ -205,6 +398,7 @@ class TestConnectionManager {
                     try {
                         monitor = connectionManager.basicConsume(queueName, { _, delivery, _ ->
                             counter.incrementAndGet()
+                            downLatch.countDown()
                             LOGGER.info { "Received ${delivery.body.toString(Charsets.UTF_8)} from \"${delivery.envelope.routingKey}\"" }
                         }) {
                             LOGGER.info { "Canceled $it" }
@@ -216,19 +410,18 @@ class TestConnectionManager {
                         LOGGER.info { "Publication finished!" }
                         assertEquals(
                             0,
-                            counter.get()
+                            counter.get(),
                         ) { "Unexpected number of messages received. The first message shouldn't be received" }
-                        Thread.sleep(200)
                         LOGGER.info { "Creating the correct exchange..." }
                         declareFanoutExchangeWithBinding(it, exchange, queueName)
-                        Thread.sleep(200)
                         LOGGER.info { "Exchange created!" }
 
                         Assertions.assertDoesNotThrow {
                             connectionManager.basicPublish(exchange, "", null, "Hello2".toByteArray(Charsets.UTF_8))
                         }
 
-                        Thread.sleep(200)
+                        downLatch.assertComplete(1L, TimeUnit.SECONDS) { "no messages were received" }
+
                         assertEquals(
                             1,
                             counter.get()
@@ -408,9 +601,10 @@ class TestConnectionManager {
     fun `connection manager receives a messages after container restart`() {
         val queueName = "queue5"
         val amqpPort = 5672
-        val container = object : RabbitMQContainer(RABBITMQ_IMAGE_NAME) {
-            init { super.addFixedExposedPort(amqpPort, amqpPort) }
-        }
+        val container = RabbitMQContainer(RABBITMQ_IMAGE_NAME)
+            .apply {
+                portBindings = listOf("$amqpPort:$amqpPort")
+            }
 
         container
             .use {
@@ -873,13 +1067,22 @@ class TestConnectionManager {
             }
     }
 
-    private fun CountDownLatch.assertComplete(message: String) {
+    private fun CountDownLatch.assertComplete(
+        message: String,
+        timeout: Long = 1,
+        timeUnit: TimeUnit = TimeUnit.SECONDS,
+    ) {
+        assertComplete(timeout, timeUnit) { message }
+    }
+
+    private fun CountDownLatch.assertComplete(
+        timeout: Long = 1,
+        timeUnit: TimeUnit = TimeUnit.SECONDS,
+        messageSupplier: () -> String,
+    ) {
         assertTrue(
-            await(
-                1L,
-                TimeUnit.SECONDS
-            )
-        ) { "$message, actual count: $count" }
+            await(timeout, timeUnit)
+        ) { "${messageSupplier()}, actual count: $count" }
     }
 
     private fun <T> assertTarget(target: T, timeout: Long = 1_000, message: String, func: () -> T) {
@@ -987,15 +1190,41 @@ class TestConnectionManager {
         )
     )
 
+    @AfterEach
+    fun cleanupRabbitMq() {
+        // cleanup is done to prevent queue name collision during test
+        rabbit.apply {
+            executeInContainerWithLogging("rabbitmqctl", "stop_app")
+            executeInContainerWithLogging("rabbitmqctl", "reset")
+            executeInContainerWithLogging("rabbitmqctl", "start_app")
+        }
+    }
+
     companion object {
         private val LOGGER = KotlinLogging.logger { }
 
         private lateinit var rabbit: RabbitMQContainer
 
+        @JvmStatic
+        fun GenericContainer<*>.executeInContainerWithLogging(vararg command: String, exceptionOnExecutionError: Boolean = true) {
+            execInContainer(*command).also {
+                LOGGER.info { "Command: ${command.joinToString(separator = " ")}; out: ${it.stdout}; err: ${it.stderr}; exit code: ${it.exitCode}" }
+                if (exceptionOnExecutionError && it.exitCode != 0) {
+                    throw IllegalStateException("Command ${command.joinToString()} exited with error code: ${it.exitCode}")
+                }
+            }
+        }
+
         @BeforeAll
         @JvmStatic
         fun initRabbit() {
             rabbit = RabbitMQContainer(RABBITMQ_IMAGE_NAME)
+                .withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("rabbitmq")))
+                .withCreateContainerCmdModifier {
+                    it.hostConfig
+                        // required to use tc tool to emulate network problems
+                        ?.withCapAdd(Capability.NET_ADMIN)
+                }
             rabbit.start()
         }
 
