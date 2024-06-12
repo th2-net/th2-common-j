@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,8 @@ class TestEvent {
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
+    /** Event build truncates 25 characters of raw body for error message */
+    private val rawBody = "Test raw data longer than 25 characters"
 
     @Test
     fun `call the toProto method on a simple event`() {
@@ -286,6 +288,7 @@ class TestEvent {
     }
 
     @Test
+    @Suppress("unused")
     fun `serializes date time fields`() {
         class TestBody(
             val instant: Instant,
@@ -311,6 +314,51 @@ class TestEvent {
             jsonBody,
             "unexpected JSON body",
         )
+    }
+
+    @Test
+    fun `add body data when raw body is already set`() {
+        val event = Event.start()
+            .rawBody(rawBody.toByteArray())
+        assertThrows(IllegalStateException::class.java) {
+            event.bodyData(data)
+        }.also { assertEquals("Body data can't be added to body data of event '${event.id}' because raw body is already set", it.message) }
+    }
+
+    @Test
+    fun `set raw body again when raw body is already set`() {
+        val event = Event.start()
+            .rawBody(rawBody.toByteArray())
+        assertThrows(IllegalStateException::class.java) {
+            event.rawBody(rawBody.toByteArray())
+        }.also { assertEquals("Raw body in event '${event.id}' already set with value '${rawBody.substring(0, 25)}'", it.message) }
+    }
+
+    @Test
+    fun `set description when raw body is already set`() {
+        val event = Event.start()
+            .rawBody(rawBody.toByteArray())
+        assertThrows(IllegalStateException::class.java) {
+            event.description("test-description")
+        }.also { assertEquals("Description can't be added to body data of event '${event.id}' because raw body is already set", it.message) }
+    }
+
+    @Test
+    fun `set raw body when body data is already added`() {
+        val event = Event.start()
+            .bodyData(data)
+        assertThrows(IllegalStateException::class.java) {
+            event.rawBody(rawBody.toByteArray())
+        }.also { assertEquals("Raw body can't be set to event '${event.id}' because body data list isn't empty", it.message) }
+    }
+
+    @Test
+    fun `set raw body when description is already set`() {
+        val event = Event.start()
+            .description("test-description")
+        assertThrows(IllegalStateException::class.java) {
+            event.rawBody(rawBody.toByteArray())
+        }.also { assertEquals("Raw body can't be set to event '${event.id}' because body data list isn't empty", it.message) }
     }
 
     @TestFactory
