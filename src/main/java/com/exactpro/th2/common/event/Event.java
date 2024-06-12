@@ -27,12 +27,14 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.kotlin.KotlinFeature;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.UnsafeByteOperations;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,6 +60,7 @@ import static java.util.Objects.requireNonNullElse;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.truncate;
 
 //TODO: move to common-utils-j
 @SuppressWarnings("unused")
@@ -80,6 +83,7 @@ public class Event {
     protected final List<Event> subEvents = new ArrayList<>();
     protected final List<MessageID> attachedMessageIds = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
+    protected byte[] rawBody;
     protected final Instant startTimestamp;
     protected Instant endTimestamp;
     protected String type;
@@ -151,12 +155,15 @@ public class Event {
      * This property value will be appended to the end of event name and added into event body in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      *
      * @return current event
-     * @throws IllegalStateException if description already set
+     * @throws IllegalStateException if description already set or raw body is already set
      */
     public Event description(String description) {
         if (isNotBlank(description)) {
             if (this.description != null) {
                 throw new IllegalStateException(formatStateException("Description", this.description));
+            }
+            if (this.rawBody != null) {
+                throw new IllegalStateException(formatRawBodyStateException("Description"));
             }
             body.add(0, createMessageBean(description));
             this.description = description;
@@ -217,21 +224,53 @@ public class Event {
     }
 
     /**
-     * Adds passed body data bodyData
+     * Set raw body
+     * Note: you can set either of the whole raw body or several body data
      *
      * @return current event
+     * @throws IllegalStateException if raw body is already set or body data list isn't empty
+     */
+    public Event rawBody(byte[] rawBody) {
+        if (this.rawBody != null) {
+            throw new IllegalStateException(
+                formatStateException("Raw body", truncate(new String(this.rawBody, StandardCharsets.UTF_8), 25))
+            );
+        }
+        if (!this.body.isEmpty()) {
+            throw new IllegalStateException(
+                "Raw body can't be set to event '" + id + "' because body data list isn't empty"
+            );
+        }
+        this.rawBody = rawBody;
+        return this;
+    }
+
+    /**
+     * Adds passed body data bodyData.
+     * Note: you can set either of several body data or the whole raw body
+     *
+     * @return current event
+     * @throws IllegalStateException if raw body is already set
      */
     public Event bodyData(IBodyData bodyData) {
+        if (this.rawBody != null) {
+            throw new IllegalStateException(formatRawBodyStateException("Body data"));
+        }
         body.add(requireNonNull(bodyData, "Body data can't be null"));
         return this;
     }
 
     /**
      * Adds passed collection of body data
+     * Note: you can set either of several body data or the whole raw body
      *
      * @return current event
+     * @throws IllegalStateException if raw body is already set
      */
     public Event bodyData(Collection<? extends IBodyData> bodyDataCollection) {
+        if (this.rawBody != null) {
+            throw new IllegalStateException(formatRawBodyStateException("Body data collection"));
+        }
         body.addAll(requireNonNull(bodyDataCollection, "Body data collection cannot be null"));
         return this;
     }
@@ -361,7 +400,7 @@ public class Event {
                 .setType(defaultIfBlank(type, UNKNOWN_EVENT_TYPE))
                 .setEndTimestamp(toTimestamp(endTimestamp))
                 .setStatus(getAggregatedStatus().eventStatus)
-                .setBody(ByteString.copyFrom(buildBody()));
+                .setBody(UnsafeByteOperations.unsafeWrap(buildBody()));
         List<String> problems = new ArrayList<>();
         if (parentId != null) {
             if (!Objects.equals(parentId.getBookName(), eventId.getBookName())) {
@@ -559,11 +598,19 @@ public class Event {
     }
 
     protected byte[] buildBody() throws IOException {
-        return OBJECT_MAPPER.get().writeValueAsBytes(body);
+        if (rawBody == null) {
+            return OBJECT_MAPPER.get().writeValueAsBytes(body);
+        } else {
+            return rawBody;
+        }
     }
 
     protected String formatStateException(String fieldName, Object value) {
         return fieldName + " in event '" + id + "' already sed with value '" + value + '\'';
+    }
+
+    protected String formatRawBodyStateException(String fieldName) {
+        return fieldName + " can't be added to body data of event '" + id + "' because raw body is already sed";
     }
 
     @NotNull

@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.13.0)
+# th2 common library (Java) (5.13.1)
 
 ## Usage
 
@@ -510,6 +510,11 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.13.1-dev
+
++ Provided ability to set either of raw body of several dody data to `Event` builder
++ Updated th2 gradle plugin `0.0.8`
 
 ### 5.13.0-dev
 
