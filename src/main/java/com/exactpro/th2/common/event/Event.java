@@ -606,11 +606,11 @@ public class Event {
     }
 
     protected String formatStateException(String fieldName, Object value) {
-        return fieldName + " in event '" + id + "' already sed with value '" + value + '\'';
+        return fieldName + " in event '" + id + "' already set with value '" + value + '\'';
     }
 
     protected String formatRawBodyStateException(String fieldName) {
-        return fieldName + " can't be added to body data of event '" + id + "' because raw body is already sed";
+        return fieldName + " can't be added to body data of event '" + id + "' because raw body is already set";
     }
 
     @NotNull
