@@ -322,7 +322,7 @@ class TestEvent {
             .rawBody(rawBody.toByteArray())
         assertThrows(IllegalStateException::class.java) {
             event.bodyData(data)
-        }.also { assertEquals("Body data can't be added to body data of event '${event.id}' because raw body is already sed", it.message) }
+        }.also { assertEquals("Body data can't be added to body data of event '${event.id}' because raw body is already set", it.message) }
     }
 
     @Test
@@ -331,7 +331,7 @@ class TestEvent {
             .rawBody(rawBody.toByteArray())
         assertThrows(IllegalStateException::class.java) {
             event.rawBody(rawBody.toByteArray())
-        }.also { assertEquals("Raw body in event '${event.id}' already sed with value '${rawBody.substring(0, 25)}'", it.message) }
+        }.also { assertEquals("Raw body in event '${event.id}' already set with value '${rawBody.substring(0, 25)}'", it.message) }
     }
 
     @Test
@@ -340,7 +340,7 @@ class TestEvent {
             .rawBody(rawBody.toByteArray())
         assertThrows(IllegalStateException::class.java) {
             event.description("test-description")
-        }.also { assertEquals("Description can't be added to body data of event '${event.id}' because raw body is already sed", it.message) }
+        }.also { assertEquals("Description can't be added to body data of event '${event.id}' because raw body is already set", it.message) }
     }
 
     @Test
