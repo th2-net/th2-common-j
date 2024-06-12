@@ -20,7 +20,7 @@ ext {
     protobufVersion = '3.25.3'
     serviceGeneratorVersion = '3.6.1'
 
-    cradleVersion = '5.3.0-dev'
+    cradleVersion = '5.5.0-TH2-5207-9401645332-8dd6fd9-SNAPSHOT'
     junitVersion = '5.10.2'
 
     jmhVersion = '1.37'
