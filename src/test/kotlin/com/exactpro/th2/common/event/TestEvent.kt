@@ -52,6 +52,7 @@ class TestEvent {
     private val data = EventUtils.createMessageBean("0123456789".repeat(20))
     private val dataSize = MAPPER.writeValueAsBytes(listOf(data)).size
     private val bigData = EventUtils.createMessageBean("0123456789".repeat(30))
+    /** Event build truncates 25 characters of raw body for error message */
     private val rawBody = "Test raw data longer than 25 characters"
 
     @Test
