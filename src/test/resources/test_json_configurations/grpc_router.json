@@ -1,0 +1,10 @@
+{
+  "enableSizeMeasuring": true,
+  "keepAliveInterval": 61,
+  "maxMessageSize": 4194305,
+  "retryConfiguration": {
+    "maxAttempts": 61,
+    "minMethodRetriesTimeout": 101,
+    "maxMethodRetriesTimeout": 120001
+  }
+}

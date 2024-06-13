@@ -1,5 +1,6 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2024 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,14 +14,17 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.grpc.configuration
+package com.exactpro.th2.common.schema.factory;
 
-import com.exactpro.th2.common.schema.configuration.Configuration
-import io.grpc.internal.GrpcUtil
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-data class GrpcRouterConfiguration(
-    var enableSizeMeasuring: Boolean = false,
-    var keepAliveInterval: Long = 60L,
-    var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
-    var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration(),
-) : Configuration()
+class LazyProviderJavaTest {
+    @Test
+    void nullAutoClosable() {
+        LazyProvider<AutoCloseable> provider = LazyProvider.lazyAutocloseable("test", () -> null);
+        var resource = provider.get();
+        Assertions.assertNull(resource, "unexpected resource value");
+        Assertions.assertDoesNotThrow(provider::close, "unexpected error when closing resource");
+    }
+}

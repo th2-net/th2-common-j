@@ -192,7 +192,10 @@ class ParsedMessageTest {
         private const val TEST_PROTOCOL = "test-protocol"
         private const val TEST_SESSION_ALIAS = "test-session-alias"
         private const val TEST_MESSAGE_TYPE = "test-message-type"
-        private val TEST_SEQUENCE = Random.nextLong()
-        private val TEST_SUB_SEQUENCE = listOf(Random.nextInt(), Random.nextInt())
+        private val TEST_SEQUENCE = Random.nextLong(from = Long.MIN_VALUE + 1, until = Long.MAX_VALUE)
+        private val TEST_SUB_SEQUENCE = listOf(
+            Random.nextInt(from = 0, until = Int.MAX_VALUE),
+            Random.nextInt(from = 0, until = Int.MAX_VALUE),
+        )
     }
 }

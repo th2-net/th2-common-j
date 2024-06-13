@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.6.0)
+# th2 common library (Java) (5.14.0)
 
 ## Usage
 
@@ -93,6 +93,9 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
 * maxConnectionRecoveryTimeout - this option defines a maximum interval in milliseconds between reconnect attempts, with
   its default value set to 60000. Common factory increases the reconnect interval values from
   minConnectionRecoveryTimeout to maxConnectionRecoveryTimeout.
+* retryTimeDeviationPercent - specifies random deviation to delay interval duration. Default value is 10 percents.
+  E.g. if delay interval is 30 seconds and `retryTimeDeviationPercent` is 10 percents the actual duration of interval
+  will be random value from 27 to 33 seconds.
 * prefetchCount - this option is the maximum number of messages that the server will deliver, with its value set to 0 if
   unlimited, the default value is set to 10.
 * messageRecursionLimit - an integer number denotes how deep the nested protobuf message might be, set by default 100
@@ -110,6 +113,7 @@ The `CommonFactory` reads a RabbitMQ configuration from the rabbitMQ.json file.
   "maxRecoveryAttempts": 5,
   "minConnectionRecoveryTimeout": 10000,
   "maxConnectionRecoveryTimeout": 60000,
+  "retryTimeDeviationPercent": 10,
   "prefetchCount": 10,
   "messageRecursionLimit": 100
 }
@@ -148,6 +152,7 @@ Filters format:
     * `EMPTY` - the filter passes if the field is empty
     * `NOT_EMPTY` - the filter passes if the field is not empty
     * `WILDCARD` - filters the field by wildcard expression
+    * `NOT_WILDCARD` - filters the field which isn't matched by wildcard expression
 
 ```json
 {
@@ -192,12 +197,22 @@ The `CommonFactory` reads a gRPC router configuration from the `grpc_router.json
 * maxMessageSize - this option enables endpoint message filtering based on message size (message with size larger than
   option value will be skipped). By default, it has a value of `4 MB`. The unit of measurement of the value is number of
   bytes.
+* retryConfiguration - this settings aria is responsible for how a component executes gRPC retries before gives up with exception.
+    Component executes request attempts with growing timeout between them until success or attempts over
+  * maxAttempts - number of attempts before give up
+  * minMethodRetriesTimeout - minimal timeout between retry in milliseconds
+  * maxMethodRetriesTimeout - maximum timeout between retry in milliseconds
 
 ```json
 {
   "enableSizeMeasuring": false,
   "keepAliveInterval": 60,
-  "maxMessageSize": 4194304
+  "maxMessageSize": 4194304,
+  "retryConfiguration": {
+    "maxAttempts": 60,
+    "minMethodRetriesTimeout": 100,
+    "maxMethodRetriesTimeout": 120000
+  }
 }
 ```
 
@@ -368,6 +383,7 @@ describes gRPC service structure)
 
 This kind of router provides the ability for component to send / receive messages via RabbitMQ.
 Router has several methods to subscribe and publish RabbitMQ messages steam (th2 use batches of messages or events as transport).
+Supports recovery of subscriptions cancelled by RabbitMQ due to following errors: "delivery acknowledgement timed out" and "queue not found". 
 
 #### Choice pin by attributes
 
@@ -416,6 +432,10 @@ NOTES:
 * common JVM metrics will also be exported alongside common service metrics
 * some metric labels are
   enumerations (`th2_type`: `MESSAGE_GROUP`, `EVENT`, `<customTag>`;`message_type`: `RAW_MESSAGE`, `MESSAGE`)
+
+COMMON METRICS:
+
+* th2_component (`name`): information about the current component
 
 RABBITMQ METRICS:
 
@@ -491,10 +511,90 @@ dependencies {
 
 ## Release notes
 
-### 5.6.0-dev
+### 5.14.0-dev
 #### Feature:
 + Added common microservice entry point
 + Added configuration provider to common factory
+
+### 5.13.1-dev
+
++ Provided ability to set either of raw body of several dody data to `Event` builder
++ Updated th2 gradle plugin `0.0.8`
+
+### 5.13.0-dev
+
++ Added functionality for publisher confirmations to mitigate network issues for message producers.
++ New parameters are added to connection manager configuration:
+  + enablePublisherConfirmation - enables publisher confirmation. `false` by default.
+  + maxInflightPublicationsBytes - the max number of unconfirmed published messages per channel. `52428800` (50 MB), by default.
+  + heartbeatIntervalSeconds - rabbitmq connection heartbeat interval in seconds.
+    `0` by default (that means the default interval will be set by the internal library used to communicate with RabbitMQ). 
+
+### 5.12.0-dev
+
++ Updated kubernetes-client: `6.12.1`
+
+### 5.11.1-dev
+
++ Add `remove` and `clear` operations to `MapBuilder`
++ Pass information about `book` and `session group` from batch down to `MessageID` in raw and parsed transport messages
+
+### 5.11.0-dev
+
++ Migrated to the th2 gradle plugin: `0.0.6` (bom: `4.6.1`)
++ Updated:
+  + grpc-common: `4.5.0-dev`
+  + grpc-service-generator: `3.6.1`
+  + cradle: `5.3.0-dev`
+
+### 5.10.1-dev
+
++ Use box name from `box.json` config as RabbitMQ connection name
++ Rise `th2_component` metric with box name as `name` label value
++ Fixed UUID generation for each event id
+
+### 5.10.0-dev
+
++ Update bom: 4.5.0 -> 4.6.0
++ Update grpc-service-generator: 3.5.1 -> 3.6.0
+
+### 5.9.1-dev
+
+#### Updated:
++ cradle: `5.1.5-dev` (fixed: NullPointerException on AbstractMessageIteratorProvider creation for book with no pages in it)
+
+### 5.9.0-dev
++ Added retry in case of a RabbitMQ channel or connection error (when possible).
++ Added InterruptedException to basicConsume method signature.
++ Added additional logging for RabbitMQ errors.
++ Fixed connection recovery delay time.
++ Integration tests for RabbitMQ retry scenarios.
+
+### 5.8.0-dev
++ Added `NOT_WILDCARD` filter operation, which filter a field which isn't matched by wildcard expression.
+
+### 5.7.2-dev
++ Event builder checks is the book name from attached message match to the event book name
+
+### 5.7.1-dev
+
+#### Updated:
++ grpc-service-generator: `3.5.1`
+
+### 5.7.0-dev
+
+#### Fix:
++ gRPC `retryConfiguration` has been moved from grpc.json to grpc_router.json
++ the whole default gRPC retry interval is about 1 minute
+
+#### Updated:
++ grpc-service-generator: `3.5.0`
+
+### 5.6.0-dev
+
+#### Added:
++ New methods for transport message builders which allows checking whether the field is set or not
++ Serialization support for date time types (e.g. Instant, LocalDateTime/Date/Time) to event body serialization
 
 ### 5.5.0-dev
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.transport
 
 import com.exactpro.th2.common.annotations.IntegrationTest
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_CONFIRMATION_TIMEOUT
+import com.exactpro.th2.common.schema.message.ContainerConstants.DEFAULT_PREFETCH_COUNT
+import com.exactpro.th2.common.schema.message.ContainerConstants.EXCHANGE
+import com.exactpro.th2.common.schema.message.ContainerConstants.QUEUE_NAME
+import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
+import com.exactpro.th2.common.schema.message.ContainerConstants.ROUTING_KEY
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
@@ -27,7 +34,6 @@ import mu.KotlinLogging
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.testcontainers.containers.RabbitMQContainer
-import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -38,7 +44,7 @@ class TransportGroupBatchRouterIntegrationTest {
 
     @Test
     fun `subscribe to exclusive queue`() {
-        RabbitMQContainer(DockerImageName.parse(RABBITMQ_3_8_MANAGEMENT_ALPINE))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .use { rabbitMQContainer ->
                 rabbitMQContainer.start()
                 LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
@@ -68,7 +74,7 @@ class TransportGroupBatchRouterIntegrationTest {
 
     @Test
     fun `send receive message group batch`() {
-        RabbitMQContainer(DockerImageName.parse(RABBITMQ_3_8_MANAGEMENT_ALPINE))
+        RabbitMQContainer(RABBITMQ_IMAGE_NAME)
             .withExchange(EXCHANGE, BuiltinExchangeType.DIRECT.type, false, false, true, emptyMap())
             .withQueue(QUEUE_NAME)
             .withBinding(EXCHANGE, QUEUE_NAME, emptyMap(), ROUTING_KEY, "queue")
@@ -117,6 +123,7 @@ class TransportGroupBatchRouterIntegrationTest {
         prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
         confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
     ) = ConnectionManager(
+        "test-connection",
         RabbitMQConfiguration(
             host = rabbitMQContainer.host,
             vHost = "",
@@ -129,19 +136,9 @@ class TransportGroupBatchRouterIntegrationTest {
             prefetchCount = prefetchCount,
             confirmationTimeout = confirmationTimeout,
         ),
-    ) {
-        LOGGER.error { "Fatal connection problem" }
-    }
+    )
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
-
-        private const val RABBITMQ_3_8_MANAGEMENT_ALPINE = "rabbitmq:3.8-management-alpine"
-        private const val ROUTING_KEY = "routingKey"
-        private const val QUEUE_NAME = "queue"
-        private const val EXCHANGE = "test-exchange"
-
-        private const val DEFAULT_PREFETCH_COUNT = 10
-        private val DEFAULT_CONFIRMATION_TIMEOUT: Duration = Duration.ofSeconds(1)
     }
 }

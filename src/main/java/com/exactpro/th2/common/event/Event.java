@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,20 +22,26 @@ import com.exactpro.th2.common.grpc.EventStatus;
 import com.exactpro.th2.common.grpc.MessageID;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.kotlin.KotlinFeature;
+import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.UnsafeByteOperations;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.exactpro.th2.common.event.EventUtils.createMessageBean;
@@ -46,6 +52,7 @@ import static com.exactpro.th2.common.event.EventUtils.requireNonNullParentId;
 import static com.exactpro.th2.common.event.EventUtils.requireNonNullTimestamp;
 import static com.exactpro.th2.common.event.EventUtils.toEventID;
 import static com.exactpro.th2.common.event.EventUtils.toTimestamp;
+import static com.exactpro.th2.common.message.MessageUtils.toJson;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.protobuf.TextFormat.shortDebugString;
 import static java.util.Objects.requireNonNull;
@@ -53,6 +60,7 @@ import static java.util.Objects.requireNonNullElse;
 import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.truncate;
 
 //TODO: move to common-utils-j
 @SuppressWarnings("unused")
@@ -61,14 +69,21 @@ public class Event {
     public static final String UNKNOWN_EVENT_NAME = "Unknown event name";
     public static final String UNKNOWN_EVENT_TYPE = "Unknown event type";
     public static final EventID DEFAULT_EVENT_ID = EventID.getDefaultInstance();
-    protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER = ThreadLocal.withInitial(() -> new ObjectMapper().setSerializationInclusion(NON_NULL));
-    protected final String UUID = generateUUID();
-    protected final AtomicLong ID_COUNTER = new AtomicLong();
+    protected static final ThreadLocal<ObjectMapper> OBJECT_MAPPER = ThreadLocal.withInitial(() ->
+            new ObjectMapper()
+                    .registerModule(new KotlinModule.Builder()
+                            .enable(KotlinFeature.SingletonSupport)
+                            .build())
+                    .registerModule(new JavaTimeModule())
+                    // otherwise, type supported by JavaTimeModule will be serialized as array of date component
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                    .setSerializationInclusion(NON_NULL));
 
-    protected final String id = UUID + '-' + ID_COUNTER.incrementAndGet();
+    protected final String id = generateUUID();
     protected final List<Event> subEvents = new ArrayList<>();
-    protected final List<MessageID> attachedMessageIDS = new ArrayList<>();
+    protected final List<MessageID> attachedMessageIds = new ArrayList<>();
     protected final List<IBodyData> body = new ArrayList<>();
+    protected byte[] rawBody;
     protected final Instant startTimestamp;
     protected Instant endTimestamp;
     protected String type;
@@ -140,12 +155,15 @@ public class Event {
      * This property value will be appended to the end of event name and added into event body in the {@link #toProto(com.exactpro.th2.common.grpc.EventID)} and {@link #toListProto(com.exactpro.th2.common.grpc.EventID)} methods if this property isn't set
      *
      * @return current event
-     * @throws IllegalStateException if description already set
+     * @throws IllegalStateException if description already set or raw body is already set
      */
     public Event description(String description) {
         if (isNotBlank(description)) {
             if (this.description != null) {
                 throw new IllegalStateException(formatStateException("Description", this.description));
+            }
+            if (this.rawBody != null) {
+                throw new IllegalStateException(formatRawBodyStateException("Description"));
             }
             body.add(0, createMessageBean(description));
             this.description = description;
@@ -206,21 +224,53 @@ public class Event {
     }
 
     /**
-     * Adds passed body data bodyData
+     * Set raw body
+     * Note: you can set either of the whole raw body or several body data
      *
      * @return current event
+     * @throws IllegalStateException if raw body is already set or body data list isn't empty
+     */
+    public Event rawBody(byte[] rawBody) {
+        if (this.rawBody != null) {
+            throw new IllegalStateException(
+                formatStateException("Raw body", truncate(new String(this.rawBody, StandardCharsets.UTF_8), 25))
+            );
+        }
+        if (!this.body.isEmpty()) {
+            throw new IllegalStateException(
+                "Raw body can't be set to event '" + id + "' because body data list isn't empty"
+            );
+        }
+        this.rawBody = rawBody;
+        return this;
+    }
+
+    /**
+     * Adds passed body data bodyData.
+     * Note: you can set either of several body data or the whole raw body
+     *
+     * @return current event
+     * @throws IllegalStateException if raw body is already set
      */
     public Event bodyData(IBodyData bodyData) {
+        if (this.rawBody != null) {
+            throw new IllegalStateException(formatRawBodyStateException("Body data"));
+        }
         body.add(requireNonNull(bodyData, "Body data can't be null"));
         return this;
     }
 
     /**
      * Adds passed collection of body data
+     * Note: you can set either of several body data or the whole raw body
      *
      * @return current event
+     * @throws IllegalStateException if raw body is already set
      */
     public Event bodyData(Collection<? extends IBodyData> bodyDataCollection) {
+        if (this.rawBody != null) {
+            throw new IllegalStateException(formatRawBodyStateException("Body data collection"));
+        }
         body.addAll(requireNonNull(bodyDataCollection, "Body data collection cannot be null"));
         return this;
     }
@@ -248,9 +298,9 @@ public class Event {
     public Event messageID(MessageID attachedMessageID) {
         requireNonNull(attachedMessageID, "Attached message id can't be null");
         if (MessageUtils.isValid(attachedMessageID)) {
-            attachedMessageIDS.add(attachedMessageID);
+            attachedMessageIds.add(attachedMessageID);
         } else {
-            throw new IllegalArgumentException("Attached " + MessageUtils.toJson(attachedMessageID) + " message id");
+            throw new IllegalArgumentException("Attached " + toJson(attachedMessageID) + " message id");
         }
         return this;
     }
@@ -350,12 +400,32 @@ public class Event {
                 .setType(defaultIfBlank(type, UNKNOWN_EVENT_TYPE))
                 .setEndTimestamp(toTimestamp(endTimestamp))
                 .setStatus(getAggregatedStatus().eventStatus)
-                .setBody(ByteString.copyFrom(buildBody()));
+                .setBody(UnsafeByteOperations.unsafeWrap(buildBody()));
+        List<String> problems = new ArrayList<>();
         if (parentId != null) {
-            eventBuilder.setParentId(parentId);
+            if (!Objects.equals(parentId.getBookName(), eventId.getBookName())) {
+                problems.add("Book name mismatch in '" + toJson(parentId) + "' parent event id");
+            }
+            if (!Objects.equals(parentId.getScope(), eventId.getScope())) {
+                problems.add("Scope mismatch in '" + toJson(parentId) + "' parent event id");
+            }
+            if (problems.isEmpty()) {
+                eventBuilder.setParentId(parentId);
+            }
         }
-        for (MessageID messageID : attachedMessageIDS) {
-            eventBuilder.addAttachedMessageIds(messageID);
+        for (MessageID messageId : attachedMessageIds) {
+            if (!Objects.equals(messageId.getBookName(), eventId.getBookName())) {
+                problems.add("Book name mismatch in '" + toJson(messageId) + "' message id");
+            }
+            if (problems.isEmpty()) {
+                eventBuilder.addAttachedMessageIds(messageId);
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException(
+                    "Build event failure, book: '" + eventId.getBookName() + "', scope: '" + eventId.getScope() + "', " +
+                            "name: '" + eventBuilder.getName() + "', type: '" + eventBuilder.getType() + "', " +
+                            "problems: " + problems);
         }
         return eventBuilder.build();
     }
@@ -528,11 +598,19 @@ public class Event {
     }
 
     protected byte[] buildBody() throws IOException {
-        return OBJECT_MAPPER.get().writeValueAsBytes(body);
+        if (rawBody == null) {
+            return OBJECT_MAPPER.get().writeValueAsBytes(body);
+        } else {
+            return rawBody;
+        }
     }
 
     protected String formatStateException(String fieldName, Object value) {
-        return fieldName + " in event '" + id + "' already sed with value '" + value + '\'';
+        return fieldName + " in event '" + id + "' already set with value '" + value + '\'';
+    }
+
+    protected String formatRawBodyStateException(String fieldName) {
+        return fieldName + " can't be added to body data of event '" + id + "' because raw body is already set";
     }
 
     @NotNull

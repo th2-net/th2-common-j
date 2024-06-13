@@ -1,21 +1,22 @@
-name: Build and release Java distributions to sonatype.
+name: Build and publish jar to sonatype snapshot repository
 
 on:
   push:
-    branches:
-    - master
-    - version-*
-    paths:
-    - gradle.properties
+    branches-ignore:
+      - master
+      - version-*
+      - dependabot*
+    paths-ignore:
+      - README.md
 
 jobs:
-  build:
-    uses: th2-net/.github/.github/workflows/compound-java.yml@main
+  build-job:
+    uses: th2-net/.github/.github/workflows/compound-java-dev.yml@main
     with:
       build-target: 'Sonatype'
-      runsOn: ubuntu-latest
     secrets:
       sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
       sonatypeSigningKey: ${{ secrets.SONATYPE_GPG_ARMORED_KEY }}
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
+      nvd-api-key: ${{ secrets.NVD_APIKEY }}

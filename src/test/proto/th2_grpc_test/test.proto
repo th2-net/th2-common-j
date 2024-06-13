@@ -1,5 +1,6 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,14 +14,22 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.common.schema.grpc.configuration
+syntax = "proto3";
 
-import com.exactpro.th2.common.schema.configuration.Configuration
-import io.grpc.internal.GrpcUtil
+option java_multiple_files = true;
+option java_package = "com.exactpro.th2.common.test.grpc";
 
-data class GrpcRouterConfiguration(
-    var enableSizeMeasuring: Boolean = false,
-    var keepAliveInterval: Long = 60L,
-    var maxMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
-    var retryConfiguration: GrpcRetryConfiguration = GrpcRetryConfiguration(),
-) : Configuration()
+
+service Test {
+  rpc singleRequestSingleResponse (Request) returns (Response) {}
+  rpc singleRequestMultipleResponse (Request) returns (stream Response) {}
+}
+
+message Request {
+  uint32 seq = 1;
+}
+
+message Response {
+  uint32 orig_seq = 1;
+  uint32 seq = 2;
+}

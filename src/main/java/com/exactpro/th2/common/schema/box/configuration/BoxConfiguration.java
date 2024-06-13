@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,28 +17,29 @@ package com.exactpro.th2.common.schema.box.configuration;
 
 import com.exactpro.th2.common.schema.configuration.Configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static com.exactpro.th2.common.event.EventUtils.requireNonBlankBookName;
+import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 public class BoxConfiguration extends Configuration {
     public static final String DEFAULT_BOOK_NAME = "test_book";
+    public static final String DEFAULT_BOX_NAME = "th2_component";
 
     @JsonProperty
-    private String boxName = null;
+    private String boxName = DEFAULT_BOX_NAME;
 
     @JsonProperty
     private String bookName = DEFAULT_BOOK_NAME;
 
-    @Nullable
+    @NotNull
     public String getBoxName() {
         return boxName;
     }
 
     public void setBoxName(@Nullable String boxName) {
-        this.boxName = boxName;
+        this.boxName = defaultIfBlank(boxName, DEFAULT_BOX_NAME);
     }
 
     @NotNull

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
+import org.junit.jupiter.api.assertAll
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -116,7 +117,7 @@ class CodecsTest {
 
         val dest = Unpooled.buffer()
         ParsedMessageCodec.encode(parsedMessage, dest)
-        val decoded = ParsedMessageCodec.decode(dest)
+        val decoded = ParsedMessageCodec.decode(DecodeContext.create(), dest)
         assertEquals(0, dest.readableBytes()) { "unexpected bytes left: ${ByteBufUtil.hexDump(dest)}" }
 
         assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
@@ -126,6 +127,70 @@ class CodecsTest {
             },
             decoded.rawBody,
             "unexpected raw body",
+        )
+    }
+
+    @Test
+    fun `book and session group from batch are available on message id level`() {
+        val message1 = RawMessage(
+            id = MessageId(
+                sessionAlias = "alias2",
+                direction = Direction.OUTGOING,
+                sequence = 2,
+                subsequence = mutableListOf(3, 4),
+                timestamp = Instant.now()
+            ),
+            metadata = mutableMapOf(
+                "prop3" to "value3",
+                "prop4" to "value4"
+            ),
+            protocol = "proto2",
+            body = Unpooled.wrappedBuffer(byteArrayOf(5, 6, 7, 8))
+        )
+
+        val message2 = ParsedMessage(
+            id = MessageId(
+                sessionAlias = "alias3",
+                direction = Direction.OUTGOING,
+                sequence = 3,
+                subsequence = mutableListOf(5, 6),
+                timestamp = Instant.now()
+            ),
+            metadata = mutableMapOf(
+                "prop5" to "value6",
+                "prop7" to "value8"
+            ),
+            protocol = "proto3",
+            type = "some-type",
+            rawBody = Unpooled.buffer().apply { writeCharSequence("{}", Charsets.UTF_8) }
+        )
+
+        val batch = GroupBatch(
+            book = "book1",
+            sessionGroup = "group1",
+            groups = mutableListOf(MessageGroup(mutableListOf(message1, message2)))
+        )
+        val target = Unpooled.buffer()
+        GroupBatchCodec.encode(batch, target)
+        val decoded = GroupBatchCodec.decode(target)
+
+        val messages = decoded.groups.flatMap { it.messages }
+        assertEquals(2, messages.size)
+
+        assertAll(
+            messages.map {
+                {
+                    assertAll(
+                        heading = "${it::class} has book and session group",
+                        {
+                            assertEquals("book1", it.id.book, "unexpected book")
+                        },
+                        {
+                            assertEquals("group1", it.id.sessionGroup, "unexpected session group")
+                        },
+                    )
+                }
+            }
         )
     }
 
@@ -154,7 +219,7 @@ class CodecsTest {
 
                 val dest = Unpooled.buffer()
                 ParsedMessageCodec.encode(parsedMessage, dest)
-                val decoded = ParsedMessageCodec.decode(dest)
+                val decoded = ParsedMessageCodec.decode(DecodeContext.create(), dest)
                 assertEquals(0, dest.readableBytes()) { "unexpected bytes left: ${ByteBufUtil.hexDump(dest)}" }
 
                 assertEquals(parsedMessage, decoded, "unexpected parsed result decoded")
