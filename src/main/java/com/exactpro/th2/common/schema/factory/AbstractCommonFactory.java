@@ -522,7 +522,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      *
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary or found more than one target
+     * @deprecated please use {@link #loadDictionary(String)}
      */
+    @Deprecated(since = "6", forRemoval = true)
     public abstract InputStream loadSingleDictionary();
 
     /**
@@ -551,7 +553,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @param dictionaryType desired type of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
-     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
+     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead.
+     * Please use {@link #loadDictionary(String)}
      */
     @Deprecated(since = "3.33.0", forRemoval = true)
     public abstract InputStream readDictionary(DictionaryType dictionaryType);
@@ -587,20 +590,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected abstract ConfigurationManager getConfigurationManager();
-
-    /**
-     * @return Path to dictionaries with type dir
-     */
-    @Deprecated(since = "3.33.0", forRemoval = true)
-    protected abstract Path getPathToDictionaryTypesDir();
-
-    /**
-     * @return Path to dictionaries with alias dir
-     */
-    protected abstract Path getPathToDictionaryAliasesDir();
-
-    @Deprecated(since = "3.33.0", forRemoval = true)
-    protected abstract Path getOldPathToDictionariesDir();
 
     /**
      * @return Context for all routers except event router

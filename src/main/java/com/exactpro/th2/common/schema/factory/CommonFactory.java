@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,6 +20,9 @@ import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
 import com.exactpro.th2.common.schema.configuration.IConfigurationProvider;
+import com.exactpro.th2.common.schema.configuration.IDictionaryProvider;
+import com.exactpro.th2.common.schema.configuration.impl.DictionaryKind;
+import com.exactpro.th2.common.schema.configuration.impl.DictionaryProvider;
 import com.exactpro.th2.common.schema.configuration.impl.JsonConfigurationProvider;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
@@ -44,7 +47,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -52,7 +54,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -62,15 +63,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
@@ -113,50 +111,27 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_MANAGER_CONFIG_MAP = "cradle-manager";
     private static final String LOGGING_CONFIG_MAP = "logging-config";
 
-    private final Path dictionaryTypesDir;
-    private final Path dictionaryAliasesDir;
-    private final Path oldDictionariesDir;
     final IConfigurationProvider configurationProvider;
+    final IDictionaryProvider dictionaryProvider;
     final ConfigurationManager configurationManager;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
-    private CommonFactory(IConfigurationProvider configurationProvider) {
+    private CommonFactory(@NotNull IConfigurationProvider configurationProvider, @NotNull IDictionaryProvider dictionaryProvider) {
         super();
-        dictionaryTypesDir = defaultPathIfNull(configurationProvider, DICTIONARY_TYPE_DIR_NAME);
-        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), settings.getBaseConfigDir(), DICTIONARY_ALIAS_DIR_NAME);
-        oldDictionariesDir = defaultPathIfNull(settings.getOldDictionariesDir(), settings.getBaseConfigDir(), "");
-    }
-
-    @Deprecated(since = "6", forRemoval = true)
-    public CommonFactory(FactorySettings settings) {
-        super(settings);
-        dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), settings.getBaseConfigDir(), DICTIONARY_TYPE_DIR_NAME);
-        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), settings.getBaseConfigDir(), DICTIONARY_ALIAS_DIR_NAME);
-        oldDictionariesDir = defaultPathIfNull(settings.getOldDictionariesDir(), settings.getBaseConfigDir(), "");
-
-        configurationProvider = createConfigurationProvider(settings);
+        this.dictionaryProvider = requireNonNull(dictionaryProvider, "Dictionary provider can't be null");
+        this.configurationProvider = requireNonNull(configurationProvider, "Configuration provider can't be null");
         configurationManager = createConfigurationManager(configurationProvider);
         start();
     }
 
+    @Deprecated(since = "6", forRemoval = true)
+    public CommonFactory(FactorySettings settings) {
+        this(createConfigurationProvider(settings), createDictionaryProvider(settings));
+    }
+
     public CommonFactory() {
         this(new FactorySettings());
-    }
-
-    @Override
-    protected Path getPathToDictionaryTypesDir() {
-        return dictionaryTypesDir;
-    }
-
-    @Override
-    protected Path getPathToDictionaryAliasesDir() {
-        return dictionaryAliasesDir;
-    }
-
-    @Override
-    protected Path getOldPathToDictionariesDir() {
-        return oldDictionariesDir;
     }
 
     @Override
@@ -453,122 +428,27 @@ public class CommonFactory extends AbstractCommonFactory {
 
     @Override
     public InputStream loadSingleDictionary() {
-        Path dictionaryFolder = getPathToDictionaryAliasesDir();
-        try {
-            LOGGER.debug("Loading dictionary from folder: {}", dictionaryFolder);
-            List<Path> dictionaries = null;
-            if (Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile).collect(Collectors.toList());
-                }
-            }
-
-            if (dictionaries==null || dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary at path: " + dictionaryFolder.toAbsolutePath());
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries at path: " + dictionaryFolder.toAbsolutePath());
-            }
-
-            var targetDictionary = dictionaries.get(0);
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary from path: " + dictionaryFolder.toAbsolutePath(), e);
-        }
+        return dictionaryProvider.load();
     }
 
     @Override
     public Set<String> getDictionaryAliases() {
-        Path dictionaryFolder = getPathToDictionaryAliasesDir();
-        try {
-            if (!Files.isDirectory(dictionaryFolder)) {
-                return Set.of();
-            }
-
-            try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                return files
-                        .filter(Files::isRegularFile)
-                        .map(dictionary -> FilenameUtils.removeExtension(dictionary.getFileName().toString()))
-                        .collect(Collectors.toSet());
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not get dictionaries aliases from path: " + dictionaryFolder.toAbsolutePath(), e);
-        }
+        return dictionaryProvider.aliases();
     }
 
     @Override
     public InputStream loadDictionary(String alias) {
-        Path dictionaryFolder = getPathToDictionaryAliasesDir();
-        try {
-            LOGGER.debug("Loading dictionary by alias ({}) from folder: {}", alias, dictionaryFolder);
-            List<Path> dictionaries = null;
-
-            if (Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    dictionaries = files
-                            .filter(Files::isRegularFile)
-                            .filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias))
-                            .collect(Collectors.toList());
-                }
-            }
-
-            if (dictionaries==null || dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary was found by alias '" + alias + "' at path: " + dictionaryFolder.toAbsolutePath());
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries by alias '" + alias + "' at path: " + dictionaryFolder.toAbsolutePath());
-            }
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(dictionaries.get(0))));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary '" + alias + "' from path: " + dictionaryFolder.toAbsolutePath(), e);
-        }
+        return dictionaryProvider.load(alias);
     }
 
     @Override
     public InputStream readDictionary() {
-        return readDictionary(DictionaryType.MAIN);
+        return dictionaryProvider.load(DictionaryType.MAIN);
     }
 
     @Override
     public InputStream readDictionary(DictionaryType dictionaryType) {
-        try {
-            List<Path> dictionaries = null;
-            Path typeFolder = dictionaryType.getDictionary(getPathToDictionaryTypesDir());
-            if (Files.isDirectory(typeFolder)) {
-                try (Stream<Path> files = Files.list(typeFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile)
-                            .collect(Collectors.toList());
-                }
-            }
-
-            // Find with old format
-            Path oldFolder = getOldPathToDictionariesDir();
-            if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(oldFolder)) {
-                try (Stream<Path> files = Files.list(oldFolder)) {
-                    dictionaries = files.filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
-                            .collect(Collectors.toList());
-                }
-            }
-
-            Path dictionaryAliasFolder = getPathToDictionaryAliasesDir();
-            if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(dictionaryAliasFolder)) {
-                try (Stream<Path> files = Files.list(dictionaryAliasFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(dictionaryType.name())).collect(Collectors.toList());
-                }
-            }
-
-            if (dictionaries == null || dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries satisfying the '" + dictionaryType + "' type");
-            }
-
-            var targetDictionary = dictionaries.get(0);
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary", e);
-        }
+        return dictionaryProvider.load(dictionaryType);
     }
 
     static @NotNull Path getConfigPath() {
@@ -674,6 +554,14 @@ public class CommonFactory extends AbstractCommonFactory {
         }
     }
 
+    private static IDictionaryProvider createDictionaryProvider(FactorySettings settings) {
+        Map<DictionaryKind, Path> paths = new EnumMap<>(DictionaryKind.class);
+        putIfNotNull(paths, DictionaryKind.OLD, settings.getOldDictionariesDir());
+        putIfNotNull(paths, DictionaryKind.TYPE, settings.getDictionaryTypesDir());
+        putIfNotNull(paths, DictionaryKind.ALIAS, settings.getDictionaryAliasesDir());
+        return new DictionaryProvider(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
+    }
+
     private static IConfigurationProvider createConfigurationProvider(FactorySettings settings) {
         Map<String, Path> paths = new HashMap<>();
         putIfNotNull(paths, CUSTOM_CFG_ALIAS, settings.getCustom());
@@ -707,11 +595,11 @@ public class CommonFactory extends AbstractCommonFactory {
         return customPath == null ? getConfigPath(basePath).resolve(name) : customPath;
     }
 
-    private static void putIfNotNull(@NotNull Map<String, Path> paths, @NotNull String alias, @Nullable Path path) {
+    private static <T> void putIfNotNull(@NotNull Map<T, Path> paths, @NotNull T key, @Nullable Path path) {
         requireNonNull(paths, "'Paths' can't be null");
-        requireNonNull(alias, "'Alias' can't be null");
+        requireNonNull(key, "'Key' can't be null");
         if (path != null) {
-            paths.put(alias, path);
+            paths.put(key, path);
         }
     }
 
