@@ -17,85 +17,249 @@ package com.exactpro.th2.common.schema
 
 import com.exactpro.th2.common.schema.dictionary.DictionaryType
 import com.exactpro.th2.common.schema.factory.CommonFactory
-import com.exactpro.th2.common.schema.factory.FactorySettings
+import com.exactpro.th2.common.schema.util.ArchiveUtils
+import org.apache.commons.lang3.RandomStringUtils
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeBytes
+import kotlin.io.path.writeText
+import kotlin.test.assertEquals
 
 class TestDictionaryLoad {
 
-    @Test
-    fun `test file load dictionary`() {
-        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+    @TempDir
+    lateinit var tempDir: Path
+    
+    @BeforeEach
+    fun beforeEach() {
+        writePrometheus(tempDir)
+    }
 
-        factory.readDictionary().use {
-            assert(String(it.readAllBytes()) == "test file")
+    //--//--//--readDictionary()--//--//--//
+
+    @Test
+    fun `test read dictionary from old dictionary dir`() {
+        val content = writeDictionary(tempDir.resolve(Path.of("MAIN")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(content, commonFactory.readDictionary().use { String(it.readAllBytes()) })
         }
     }
 
     @Test
-    fun `test folder load dictionary`() {
-        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+    fun `test read dictionary from old dictionary dir - file name mismatch`() {
+        writeDictionary(tempDir.resolve(Path.of("main")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.readDictionary()
+            }
+        }
+    }
 
-        factory.readDictionary(DictionaryType.LEVEL1).use {
-            assert(String(it.readAllBytes()) == "test file")
+    @ParameterizedTest
+    @ValueSource(strings = ["MAIN", "main", "test-dictionary"])
+    fun `test read dictionary from type dictionary dir`(fileName: String, ) {
+        val content = writeDictionary(tempDir.resolve(Path.of("dictionary", "main", fileName)))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(content, commonFactory.readDictionary().use { String(it.readAllBytes()) })
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["MAIN", "main", "test-dictionary"])
+    fun `test read dictionary from type dictionary dir - dictionary name mismatch`(
+        fileName: String,
+        
+    ) {
+        writeDictionary(tempDir.resolve(Path.of("dictionary", "MAIN", fileName)))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.readDictionary()
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["MAIN", "main", "MAIN.xml", "main.json"])
+    fun `test read dictionary from alias dictionary dir`(fileName: String, ) {
+        val content = writeDictionary(tempDir.resolve(Path.of("dictionaries", fileName)))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(content, commonFactory.readDictionary().use { String(it.readAllBytes()) })
+        }
+    }
+
+    //--//--//--readDictionary(<type>)--//--//--//
+
+    @Test
+    fun `test read dictionary by type from old dictionary dir`() {
+        val content = writeDictionary(tempDir.resolve(Path.of("INCOMING")))
+        writeDictionary(tempDir.resolve(Path.of("MAIN")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(
+                content,
+                commonFactory.readDictionary(DictionaryType.INCOMING).use { String(it.readAllBytes()) })
         }
     }
 
     @Test
-    fun `test folder load dictionaries by alias`() {
-        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
+    fun `test read dictionary by type from old dictionary dir - file name mismatch`() {
+        writeDictionary(tempDir.resolve(Path.of("incoming")))
+        writeDictionary(tempDir.resolve(Path.of("MAIN")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.readDictionary(DictionaryType.INCOMING)
+            }
+        }
+    }
 
-        Assertions.assertDoesNotThrow {
-            factory.loadDictionary("test_alias_2").use {
-                assert(String(it.readAllBytes()) == "test file")
+    @ParameterizedTest
+    @ValueSource(strings = ["INCOMING", "incoming", "test-dictionary"])
+    fun `test read dictionary by type from type dictionary dir`(fileName: String, ) {
+        val content = writeDictionary(tempDir.resolve(Path.of("dictionary", "incoming", fileName)))
+        writeDictionary(tempDir.resolve(Path.of("dictionary", "main", "MAIN")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(
+                content,
+                commonFactory.readDictionary(DictionaryType.INCOMING).use { String(it.readAllBytes()) })
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["INCOMING", "incoming", "test-dictionary"])
+    fun `test read dictionary by type from type dictionary dir - dictionary name mismatch`(
+        fileName: String,
+        
+    ) {
+        writeDictionary(tempDir.resolve(Path.of("dictionary", "INCOMING", fileName)))
+        writeDictionary(tempDir.resolve(Path.of("dictionary", "main", "MAIN")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.readDictionary(DictionaryType.INCOMING)
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["INCOMING", "incoming", "INCOMING.xml", "incoming.json"])
+    fun `test read dictionary by type from alias dictionary dir`(fileName: String, ) {
+        val content = writeDictionary(tempDir.resolve(Path.of("dictionaries", fileName)))
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "MAIN")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(
+                content,
+                commonFactory.readDictionary(DictionaryType.INCOMING).use { String(it.readAllBytes()) })
+        }
+    }
+
+    //--//--//--loadSingleDictionary()--//--//--//
+
+    @Test
+    fun `test load single dictionary from alias dictionary dir`() {
+        val content = writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(content, commonFactory.loadSingleDictionary().use { String(it.readAllBytes()) })
+        }
+    }
+
+    @Test
+    fun `test load single dictionary from alias dictionary dir - several dictionaries`() {
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary-1")))
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary-2")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.loadSingleDictionary()
             }
         }
     }
 
     @Test
-    fun `test folder load all dictionary aliases`() {
-        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
-        val expectedNames = listOf("main", "test_alias_1", "test_alias_2", "test_alias_3", "test_alias_4")
-        val names = factory.dictionaryAliases
-        Assertions.assertEquals(5, names.size)
-        Assertions.assertTrue(names.containsAll(expectedNames))
-    }
-
-    @Test
-    fun `test folder load single dictionary from folder with several`() {
-        val factory = CommonFactory.createFromArguments("-c", "src/test/resources/test_load_dictionaries")
-
-        Assertions.assertThrows(IllegalStateException::class.java) {
-            factory.loadSingleDictionary()
+    fun `test load single dictionary from alias dictionary dir - several dictionaries with name in different case`() {
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary")))
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "TEST-DICTIONARY")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.loadSingleDictionary()
+            }
         }
     }
 
-    @Test
-    fun `test folder load single dictionary`() {
-        val customSettings = FactorySettings().apply {
-            prometheus = Path.of("src/test/resources/test_load_dictionaries/prometheus.json")
-            dictionaryAliasesDir = Path.of("src/test/resources/test_load_dictionaries/single_dictionary")
-        }
-        val customFactory = CommonFactory(customSettings)
+    //--//--//--loadDictionary(<alias>)--//--//--//
 
-        customFactory.loadSingleDictionary().use {
-            assert(String(it.readAllBytes()) == "test file")
+    @ParameterizedTest
+    @ValueSource(strings = ["TEST-ALIAS", "test-alias"])
+    fun `test load dictionary by alias from alias dictionary dir`(fileName: String, ) {
+        val content = writeDictionary(tempDir.resolve(Path.of("dictionaries", fileName)))
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(content, commonFactory.loadDictionary("test-alias").use { String(it.readAllBytes()) })
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["TEST-DICTIONARY", "test-dictionary"])
+    fun `test load dictionary by alias from alias dictionary dir - several dictionaries with name in different case`(
+        alias: String,
+        
+    ) {
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary")))
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "TEST-DICTIONARY")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.loadDictionary(alias)
+            }
+        }
+    }
+
+    //--//--//--loadAliases--//--//--//
+
+    @Test
+    fun `test dictionary aliases from alias dictionary dir`() {
+        val alias1 = "test-dictionary-1"
+        val alias2 = "TEST-DICTIONARY-2"
+        val file1 = "$alias1.xml"
+        val file2 = "$alias2.json"
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", file1)))
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", file2)))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(setOf(alias1, alias2.lowercase()), commonFactory.dictionaryAliases)
         }
     }
 
     @Test
-    fun `test folder load single dictionary by type as alias`() {
-        val customSettings = FactorySettings().apply {
-            prometheus = Path.of("src/test/resources/test_load_dictionaries/prometheus.json")
-            dictionaryTypesDir = Path.of("..")
-            dictionaryAliasesDir = Path.of("src/test/resources/test_load_dictionaries/dictionaries")
+    fun `test dictionary aliases from alias dictionary dir - empty directory`() {
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            assertEquals(emptySet(), commonFactory.dictionaryAliases)
         }
-        val customFactory = CommonFactory(customSettings)
+    }
 
-        customFactory.readDictionary().use {
-            assert(String(it.readAllBytes()) == "test file")
+    @Test
+    fun `test dictionary aliases from alias dictionary dir - several dictionaries with name in different case`() {
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary")))
+        writeDictionary(tempDir.resolve(Path.of("dictionaries", "TEST-DICTIONARY")))
+        CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
+            Assertions.assertThrows(IllegalStateException::class.java) {
+                commonFactory.dictionaryAliases
+            }
         }
+    }
+
+    //--//--//--Others--//--//--//
+
+    private fun writePrometheus(cfgPath: Path) {
+        cfgPath.resolve("prometheus.json").writeText("{\"enabled\":false}")
+    }
+
+    private fun writeDictionary(path: Path): String? {
+        val content = RandomStringUtils.randomAlphanumeric(10)
+        path.parent.createDirectories()
+        path.writeBytes(ArchiveUtils.getGzipBase64StringEncoder().encode(content))
+        return content
     }
 
 }
