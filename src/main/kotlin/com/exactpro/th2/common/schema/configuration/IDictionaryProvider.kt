@@ -23,6 +23,5 @@ interface IDictionaryProvider {
     fun load(alias: String): InputStream
     @Deprecated("Load dictionary by type is deprecated, please use load by alias")
     fun load(type: DictionaryType): InputStream
-    @Deprecated("Load single dictionary is deprecated, please use load by alias")
     fun load(): InputStream
 }

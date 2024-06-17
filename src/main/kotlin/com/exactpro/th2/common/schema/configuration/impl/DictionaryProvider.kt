@@ -27,19 +27,15 @@ import java.io.IOException
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.io.path.exists
+import java.util.Locale
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.streams.asSequence
 
 class DictionaryProvider @JvmOverloads constructor(
-    private val baseDir: Path,
+    baseDir: Path,
     paths: Map<DictionaryKind, Path> = emptyMap()
-): IDictionaryProvider {
-    init {
-        require(baseDir.exists()) { "Base dir '$baseDir' doesn't exist" }
-        require(baseDir.isDirectory()) { "Base dir '$baseDir' isn't a dictionary" }
-    }
+) : IDictionaryProvider {
 
     private val directoryPaths = DictionaryKind.createMapping(baseDir)
         .plus(paths.mapValues { (_, value) -> value.toAbsolutePath() })
@@ -61,15 +57,31 @@ class DictionaryProvider @JvmOverloads constructor(
 
     override fun aliases(): Set<String> {
         try {
-            if(!dictionaryAliasPath.isDirectory()) {
+            if (!dictionaryAliasPath.isDirectory()) {
                 return emptySet()
             }
-            return Files.walk(dictionaryAliasPath).asSequence()
+
+            val fileList = Files.walk(dictionaryAliasPath, 1).asSequence()
                 .filter(Path::isRegularFile)
-                .map(::toAlias)
-                .toSet()
+                .toList()
+            val aliasSet: MutableSet<String> = mutableSetOf()
+            val duplicates: MutableMap<String, MutableSet<String>> = mutableMapOf()
+            for (path in fileList) {
+                val alias = FilenameUtils.removeExtension(path.fileName.toString())
+                    .lowercase(Locale.getDefault())
+                if (!aliasSet.add(alias)) {
+                    duplicates.getOrPut(alias, ::mutableSetOf).add(path.fileName.toString())
+                }
+            }
+            check(duplicates.isEmpty()) {
+                "Dictionary directory contains files with the same name in different cases, files: $duplicates, path: $dictionaryAliasPath"
+            }
+            return aliasSet
         } catch (e: IOException) {
-            throw IllegalStateException("Can not get dictionaries aliases from path: ${dictionaryAliasPath.toAbsolutePath()}", e)
+            throw IllegalStateException(
+                "Can not get dictionaries aliases from path: ${dictionaryAliasPath.toAbsolutePath()}",
+                e
+            )
         }
     }
 
@@ -88,7 +100,10 @@ class DictionaryProvider @JvmOverloads constructor(
 
             return open(file)
         } catch (e: IOException) {
-            throw IllegalStateException("Can not load dictionary by '$alias' alias from path: ${dictionaryAliasPath.toAbsolutePath()}", e)
+            throw IllegalStateException(
+                "Can not load dictionary by '$alias' alias from path: ${dictionaryAliasPath.toAbsolutePath()}",
+                e
+            )
         }
     }
 
@@ -117,19 +132,19 @@ class DictionaryProvider @JvmOverloads constructor(
         val dirs = listOf(dictionaryAliasPath, dictionaryTypePath)
         try {
             var files: List<Path> = if (dictionaryAliasPath.isDirectory()) {
-                emptyList()
-            } else {
-                Files.walk(dictionaryAliasPath).asSequence()
+                Files.walk(dictionaryAliasPath, 1).asSequence()
                     .filter(Path::isRegularFile)
                     .toList()
+            } else {
+                emptyList()
             }
-            
+
             if (files.isEmpty()) {
                 if (dictionaryTypePath.isDirectory()) {
-                    files = Files.walk(dictionaryTypePath).asSequence()
+                    files = Files.walk(dictionaryTypePath, 1).asSequence()
                         .filter(Path::isDirectory)
                         .flatMap { dir ->
-                            Files.walk(dir).asSequence()
+                            Files.walk(dir, 1).asSequence()
                                 .filter(Path::isRegularFile)
                         }.toList()
                 }
@@ -163,33 +178,33 @@ class DictionaryProvider @JvmOverloads constructor(
     }
 
     private fun searchInOldDir(name: String): List<Path> {
-        if (!dictionaryOldPath.isDirectory()) {
-            return emptyList()
+        if (dictionaryOldPath.isDirectory()) {
+            return Files.walk(dictionaryOldPath, 1).asSequence()
+                .filter(Path::isRegularFile)
+                .filter { file -> file.fileName.toString().contains(name) }
+                .toList()
         }
-        return Files.walk(dictionaryOldPath).asSequence()
-            .filter(Path::isRegularFile)
-            .filter { file -> file.fileName.toString().contains(name) }
-            .toList()
+        return emptyList()
     }
 
     private fun searchInTypeDir(type: DictionaryType): List<Path> {
         val path = type.getDictionary(dictionaryTypePath)
-        if (!path.isDirectory()) {
-            return emptyList()
+        if (path.isDirectory()) {
+            return Files.walk(path, 1).asSequence()
+                .filter(Path::isRegularFile)
+                .toList()
         }
-        return Files.walk(path).asSequence()
-            .filter(Path::isRegularFile)
-            .toList()
+        return emptyList()
     }
 
     private fun searchInAliasDir(alias: String): List<Path> {
-        if (!dictionaryAliasPath.isDirectory()) {
-            return emptyList()
+        if (dictionaryAliasPath.isDirectory()) {
+            return Files.walk(dictionaryAliasPath, 1).asSequence()
+                .filter(Path::isRegularFile)
+                .filter { file -> alias.equals(toAlias(file), true) }
+                .toList()
         }
-        return Files.walk(dictionaryAliasPath).asSequence()
-            .filter(Path::isRegularFile)
-            .filter { file -> alias.equals(toAlias(file), true) }
-            .toList()
+        return emptyList()
     }
 
     companion object {
@@ -206,8 +221,6 @@ enum class DictionaryKind(
 
     companion object {
         fun createMapping(baseDir: Path): Map<DictionaryKind, Path> {
-            require(baseDir.exists()) { "Base dir '$baseDir' doesn't exist" }
-            require(baseDir.isDirectory()) { "Base dir '$baseDir' isn't a dictionary" }
             return buildMap {
                 DictionaryKind.values().forEach {
                     put(it, baseDir.resolve(it.directoryName).toAbsolutePath())

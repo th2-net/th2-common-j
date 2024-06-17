@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,34 +14,64 @@
  */
 package com.exactpro.th2.common.schema.factory
 
+import com.exactpro.th2.common.metrics.PrometheusConfiguration
+import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
 import com.exactpro.th2.common.schema.configuration.impl.JsonConfigurationProvider
-import com.exactpro.th2.common.schema.factory.AbstractCommonFactory.CUSTOM_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.BOX_CFG_ALIAS
+import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration
+import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration
+import com.exactpro.th2.common.schema.dictionary.DictionaryType
+import com.exactpro.th2.common.schema.dictionary.DictionaryType.INCOMING
+import com.exactpro.th2.common.schema.dictionary.DictionaryType.MAIN
+import com.exactpro.th2.common.schema.dictionary.DictionaryType.OUTGOING
 import com.exactpro.th2.common.schema.factory.CommonFactory.CONFIG_DEFAULT_PATH
-import com.exactpro.th2.common.schema.factory.CommonFactory.CONNECTION_MANAGER_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.CRADLE_CONFIDENTIAL_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.CRADLE_NON_CONFIDENTIAL_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.DICTIONARY_ALIAS_DIR_NAME
-import com.exactpro.th2.common.schema.factory.CommonFactory.DICTIONARY_TYPE_DIR_NAME
-import com.exactpro.th2.common.schema.factory.CommonFactory.GRPC_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.PROMETHEUS_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.RABBIT_MQ_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.ROUTER_GRPC_CFG_ALIAS
-import com.exactpro.th2.common.schema.factory.CommonFactory.ROUTER_MQ_CFG_ALIAS
 import com.exactpro.th2.common.schema.factory.CommonFactory.TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY
+import com.exactpro.th2.common.schema.factory.CommonFactoryTest.Companion.DictionaryHelper.ALIAS
+import com.exactpro.th2.common.schema.factory.CommonFactoryTest.Companion.DictionaryHelper.Companion.assertDictionary
+import com.exactpro.th2.common.schema.factory.CommonFactoryTest.Companion.DictionaryHelper.OLD
+import com.exactpro.th2.common.schema.factory.CommonFactoryTest.Companion.DictionaryHelper.TYPE
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
+import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
+import com.exactpro.th2.common.schema.util.ArchiveUtils
+import org.apache.commons.io.file.PathUtils.deleteDirectory
+import org.apache.commons.lang3.RandomStringUtils
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.samePropertyValuesAs
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.params.provider.EnumSource
 import org.junitpioneer.jupiter.ClearSystemProperty
 import org.junitpioneer.jupiter.SetSystemProperty
 import java.nio.file.Path
+import java.util.Locale
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
+import kotlin.io.path.exists
+import kotlin.io.path.writeBytes
 import kotlin.reflect.cast
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 
+@Suppress("DEPRECATION", "removal")
 class CommonFactoryTest {
+
+    @BeforeEach
+    fun beforeEach() {
+        if (TEMP_DIR.toPath().exists()) {
+            deleteDirectory(TEMP_DIR.toPath())
+        }
+        CMD_ARG_CFG_DIR_PATH.createDirectories()
+        SYSTEM_PROPERTY_CFG_DIR_PATH.createDirectories()
+        CUSTOM_DIR_PATH.createDirectories()
+    }
 
     @Nested
     @ClearSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY)
@@ -49,17 +79,17 @@ class CommonFactoryTest {
         @Test
         fun `test default`() {
             CommonFactory().use { commonFactory ->
-                assertDictionaryDir(commonFactory, CONFIG_DEFAULT_PATH)
-                assertConfigs(commonFactory)
+                assertThrowsDictionaryDir(commonFactory)
+                assertThrowsConfigs(commonFactory)
             }
         }
 
         @Test
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
         fun `test with system property`() {
             CommonFactory().use { commonFactory ->
-                assertDictionaryDir(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath())
-                assertConfigs(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath(), false)
+                assertDictionaryDirs(commonFactory, SYSTEM_PROPERTY_CFG_DIR_PATH)
+                assertConfigs(commonFactory, SYSTEM_PROPERTY_CFG_DIR_PATH)
             }
         }
     }
@@ -70,198 +100,161 @@ class CommonFactoryTest {
         @Test
         fun `test default`() {
             CommonFactory(FactorySettings()).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CONFIG_DEFAULT_PATH)
-                assertConfigs(commonFactory)
+                assertThrowsDictionaryDir(commonFactory)
+                assertThrowsConfigs(commonFactory)
             }
         }
 
         @ParameterizedTest
-        @ValueSource(strings = [
-            ALIASES_DICTIONARY_NAME,
-            TYPES_DICTIONARY_NAME,
-            OLD_DICTIONARY_NAME
-        ])
-        fun `test custom dictionary path`(name: String) {
-            val factorySettings = FactorySettings().apply {
-                setCustomDictionaryPath(name)
-            }
-            CommonFactory(factorySettings).use { commonFactory ->
-                assertCustomDictionaryPath(name, CONFIG_DEFAULT_PATH, commonFactory)
-                assertConfigs(commonFactory)
+        @EnumSource(value = DictionaryHelper::class)
+        fun `test custom dictionary path`(helper: DictionaryHelper) {
+            CommonFactory(FactorySettings().apply {
+                helper.setOption(this, CUSTOM_DIR_PATH)
+            }).use { commonFactory ->
+                val content = helper.writeDictionaryByCustomPath(CUSTOM_DIR_PATH, DICTIONARY_NAME)
+                assertDictionary(commonFactory, content)
+
+                assertThrowsConfigs(commonFactory)
             }
         }
 
         @ParameterizedTest
-        @ValueSource(strings = [
-            RABBIT_MQ_CFG_ALIAS,
-            ROUTER_MQ_CFG_ALIAS,
-            CONNECTION_MANAGER_CFG_ALIAS,
-            GRPC_CFG_ALIAS,
-            ROUTER_GRPC_CFG_ALIAS,
-            CRADLE_CONFIDENTIAL_CFG_ALIAS,
-            CRADLE_NON_CONFIDENTIAL_CFG_ALIAS,
-            PROMETHEUS_CFG_ALIAS,
-            BOX_CFG_ALIAS,
-            CUSTOM_CFG_ALIAS,
-        ])
-        fun `test custom path for config`(alias: String) {
-            val factorySettings = FactorySettings().apply {
-                setCustomPathForConfig(alias)
-            }
-            CommonFactory(factorySettings).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CONFIG_DEFAULT_PATH)
-                assertCustomPathForConfig(commonFactory, CONFIG_DEFAULT_PATH, alias)
+        @EnumSource(ConfigHelper::class)
+        fun `test custom path for config`(helper: ConfigHelper) {
+            val configPath = CUSTOM_DIR_PATH.resolve(helper.alias)
+            CommonFactory(FactorySettings().apply {
+                helper.setOption(this, configPath)
+            }).use { commonFactory ->
+                assertThrowsDictionaryDir(commonFactory)
+
+                val cfgBean = helper.writeConfigByCustomPath(configPath)
+                assertThat(helper.loadConfig(commonFactory), samePropertyValuesAs(cfgBean))
             }
         }
 
         @Test
         fun `test with custom config path`() {
             CommonFactory(FactorySettings().apply {
-                baseConfigDir = CMD_ARG_CONFIG_DIR.toPath()
+                baseConfigDir = CMD_ARG_CFG_DIR_PATH
             }).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CMD_ARG_CONFIG_DIR.toPath())
-                assertConfigs(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), false)
+                assertDictionaryDirs(commonFactory, CMD_ARG_CFG_DIR_PATH)
+                assertConfigs(commonFactory, CMD_ARG_CFG_DIR_PATH)
             }
         }
 
         @ParameterizedTest
-        @ValueSource(strings = [
-            ALIASES_DICTIONARY_NAME,
-            TYPES_DICTIONARY_NAME,
-            OLD_DICTIONARY_NAME
-        ])
-        fun `test with custom config path and custom dictionary path`(name: String) {
-            CommonFactory(FactorySettings().apply {
-                baseConfigDir = CMD_ARG_CONFIG_DIR.toPath()
-                setCustomDictionaryPath(name)
-            }).use { commonFactory ->
-                assertCustomDictionaryPath(name, CMD_ARG_CONFIG_DIR.toPath(), commonFactory)
-                assertConfigs(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), false)
+        @EnumSource(value = DictionaryHelper::class)
+        fun `test with custom config path and custom dictionary path`(helper: DictionaryHelper) {
+            val settings = FactorySettings().apply {
+                baseConfigDir = CMD_ARG_CFG_DIR_PATH
+                helper.setOption(this, CMD_ARG_CFG_DIR_PATH)
+            }
+            CommonFactory(settings).use { commonFactory ->
+                val content = helper.writeDictionaryByCustomPath(CMD_ARG_CFG_DIR_PATH, DICTIONARY_NAME)
+                assertDictionary(commonFactory, content)
+
+                assertConfigs(commonFactory, CMD_ARG_CFG_DIR_PATH)
             }
         }
 
         @ParameterizedTest
-        @ValueSource(strings = [
-            RABBIT_MQ_CFG_ALIAS,
-            ROUTER_MQ_CFG_ALIAS,
-            CONNECTION_MANAGER_CFG_ALIAS,
-            GRPC_CFG_ALIAS,
-            ROUTER_GRPC_CFG_ALIAS,
-            CRADLE_CONFIDENTIAL_CFG_ALIAS,
-            CRADLE_NON_CONFIDENTIAL_CFG_ALIAS,
-            PROMETHEUS_CFG_ALIAS,
-            BOX_CFG_ALIAS,
-            CUSTOM_CFG_ALIAS,
-        ])
-        fun `test with custom config path and custom path for config`(alias: String) {
+        @EnumSource(ConfigHelper::class)
+        fun `test with custom config path and custom path for config`(helper: ConfigHelper) {
+            val configPath = CUSTOM_DIR_PATH.resolve(helper.alias)
             CommonFactory(FactorySettings().apply {
-                baseConfigDir = CMD_ARG_CONFIG_DIR.toPath()
-                setCustomPathForConfig(alias)
+                baseConfigDir = CMD_ARG_CFG_DIR_PATH
+                helper.setOption(this, configPath)
             }).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CMD_ARG_CONFIG_DIR.toPath())
-                assertCustomPathForConfig(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), alias)
+                assertDictionaryDirs(commonFactory, CMD_ARG_CFG_DIR_PATH)
+
+                val cfgBean = helper.writeConfigByCustomPath(configPath)
+                assertThat(helper.loadConfig(commonFactory), samePropertyValuesAs(cfgBean))
             }
         }
 
-        @Test
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
-        fun `test with system property`() {
+        @ParameterizedTest
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
+        @EnumSource(DictionaryHelper::class)
+        fun `test with system property`(helper: DictionaryHelper) {
             CommonFactory(FactorySettings()).use { commonFactory ->
-                assertDictionaryDir(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath())
-                assertConfigs(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath(), false)
+                val content = helper.writeDictionaryByDefaultPath(SYSTEM_PROPERTY_CFG_DIR_PATH, DICTIONARY_NAME)
+                assertDictionary(commonFactory, content)
+
+                assertConfigs(commonFactory, SYSTEM_PROPERTY_CFG_DIR_PATH)
             }
         }
 
         @ParameterizedTest
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
-        @ValueSource(strings = [
-            ALIASES_DICTIONARY_NAME,
-            TYPES_DICTIONARY_NAME,
-            OLD_DICTIONARY_NAME
-        ])
-        fun `test with system property and custom dictionary path`(name: String) {
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
+        @EnumSource(value = DictionaryHelper::class)
+        fun `test with system property and custom dictionary path`(helper: DictionaryHelper) {
             val factorySettings = FactorySettings().apply {
-                setCustomDictionaryPath(name)
+                helper.setOption(this, CUSTOM_DIR_PATH)
             }
             CommonFactory(factorySettings).use { commonFactory ->
-                assertCustomDictionaryPath(name, SYSTEM_PROPERTY_CONFIG_DIR.toPath(), commonFactory)
-                assertConfigs(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath(), false)
+                val content = helper.writeDictionaryByCustomPath(CUSTOM_DIR_PATH, DICTIONARY_NAME)
+                assertDictionary(commonFactory, content)
+
+                assertConfigs(commonFactory, SYSTEM_PROPERTY_CFG_DIR_PATH)
             }
         }
 
         @ParameterizedTest
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
-        @ValueSource(strings = [
-            RABBIT_MQ_CFG_ALIAS,
-            ROUTER_MQ_CFG_ALIAS,
-            CONNECTION_MANAGER_CFG_ALIAS,
-            GRPC_CFG_ALIAS,
-            ROUTER_GRPC_CFG_ALIAS,
-            CRADLE_CONFIDENTIAL_CFG_ALIAS,
-            CRADLE_NON_CONFIDENTIAL_CFG_ALIAS,
-            PROMETHEUS_CFG_ALIAS,
-            BOX_CFG_ALIAS,
-            CUSTOM_CFG_ALIAS,
-        ])
-        fun `test with system property and custom path for config`(alias: String) {
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
+        @EnumSource(ConfigHelper::class)
+        fun `test with system property and custom path for config`(helper: ConfigHelper) {
+            val configPath = CUSTOM_DIR_PATH.resolve(helper.alias)
             val factorySettings = FactorySettings().apply {
-                setCustomPathForConfig(alias)
+                helper.setOption(this, configPath)
             }
             CommonFactory(factorySettings).use { commonFactory ->
-                assertDictionaryDir(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath())
-                assertCustomPathForConfig(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath(), alias)
+                assertDictionaryDirs(commonFactory, SYSTEM_PROPERTY_CFG_DIR_PATH)
+
+                val cfgBean = helper.writeConfigByCustomPath(configPath)
+                assertThat(helper.loadConfig(commonFactory), samePropertyValuesAs(cfgBean))
             }
         }
 
         @Test
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
         fun `test with cmd config argument and system property`() {
             CommonFactory(FactorySettings().apply {
-                baseConfigDir = CMD_ARG_CONFIG_DIR.toPath()
+                baseConfigDir = CMD_ARG_CFG_DIR_PATH
             }).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CMD_ARG_CONFIG_DIR.toPath())
-                assertConfigs(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), false)
+                assertDictionaryDirs(commonFactory, CMD_ARG_CFG_DIR_PATH)
+                assertConfigs(commonFactory, CMD_ARG_CFG_DIR_PATH)
             }
         }
 
         @ParameterizedTest
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
-        @ValueSource(strings = [
-            ALIASES_DICTIONARY_NAME,
-            TYPES_DICTIONARY_NAME,
-            OLD_DICTIONARY_NAME
-        ])
-        fun `test with cmd config argument and system property and custom dictionary path`(name: String) {
-            CommonFactory(FactorySettings().apply {
-                baseConfigDir = CMD_ARG_CONFIG_DIR.toPath()
-                setCustomDictionaryPath(name)
-            }).use { commonFactory ->
-                assertCustomDictionaryPath(name, CMD_ARG_CONFIG_DIR.toPath(), commonFactory)
-                assertConfigs(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), false)
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
+        @EnumSource(value = DictionaryHelper::class)
+        fun `test with cmd config argument and system property and custom dictionary path`(helper: DictionaryHelper) {
+            val settings = FactorySettings().apply {
+                baseConfigDir = CMD_ARG_CFG_DIR_PATH
+                helper.setOption(this, CUSTOM_DIR_PATH)
+            }
+            CommonFactory(settings).use { commonFactory ->
+                val content = helper.writeDictionaryByCustomPath(CUSTOM_DIR_PATH, DICTIONARY_NAME)
+                assertDictionary(commonFactory, content)
+
+                assertConfigs(commonFactory, CMD_ARG_CFG_DIR_PATH)
             }
         }
 
         @ParameterizedTest
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
-        @ValueSource(strings = [
-            RABBIT_MQ_CFG_ALIAS,
-            ROUTER_MQ_CFG_ALIAS,
-            CONNECTION_MANAGER_CFG_ALIAS,
-            GRPC_CFG_ALIAS,
-            ROUTER_GRPC_CFG_ALIAS,
-            CRADLE_CONFIDENTIAL_CFG_ALIAS,
-            CRADLE_NON_CONFIDENTIAL_CFG_ALIAS,
-            PROMETHEUS_CFG_ALIAS,
-            BOX_CFG_ALIAS,
-            CUSTOM_CFG_ALIAS,
-        ])
-        fun `test with cmd config argument and system property and custom path for config`(alias: String) {
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
+        @EnumSource(ConfigHelper::class)
+        fun `test with cmd config argument and system property and custom path for config`(helper: ConfigHelper) {
+            val configPath = CUSTOM_DIR_PATH.resolve(helper.alias)
             CommonFactory(FactorySettings().apply {
-                baseConfigDir = CMD_ARG_CONFIG_DIR.toPath()
-                setCustomPathForConfig(alias)
+                baseConfigDir = CMD_ARG_CFG_DIR_PATH
+                helper.setOption(this, configPath)
             }).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CMD_ARG_CONFIG_DIR.toPath())
-                assertCustomPathForConfig(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), alias)
+                assertDictionaryDirs(commonFactory, CMD_ARG_CFG_DIR_PATH)
+
+                val cfgBean = helper.writeConfigByCustomPath(configPath)
+                assertThat(helper.loadConfig(commonFactory), samePropertyValuesAs(cfgBean))
             }
         }
     }
@@ -272,97 +265,132 @@ class CommonFactoryTest {
         @Test
         fun `test without parameters`() {
             CommonFactory.createFromArguments().use { commonFactory ->
-                assertDictionaryDir(commonFactory, CONFIG_DEFAULT_PATH)
-                assertConfigs(commonFactory)
+                assertThrowsDictionaryDir(commonFactory)
+                assertThrowsConfigs(commonFactory)
             }
         }
 
         @Test
         fun `test with cmd config argument`() {
-            CommonFactory.createFromArguments("-c", CMD_ARG_CONFIG_DIR).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CMD_ARG_CONFIG_DIR.toPath())
-                assertConfigs(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), false)
+            CommonFactory.createFromArguments("-c", CMD_ARG_CFG_DIR).use { commonFactory ->
+                assertDictionaryDirs(commonFactory, CMD_ARG_CFG_DIR_PATH)
+                assertConfigs(commonFactory, CMD_ARG_CFG_DIR_PATH)
             }
         }
 
         @Test
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
         fun `test with system property`() {
             CommonFactory.createFromArguments().use { commonFactory ->
-                assertDictionaryDir(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath())
-                assertConfigs(commonFactory, SYSTEM_PROPERTY_CONFIG_DIR.toPath(), false)
+                assertDictionaryDirs(commonFactory, SYSTEM_PROPERTY_CFG_DIR_PATH)
+                assertConfigs(commonFactory, SYSTEM_PROPERTY_CFG_DIR_PATH)
             }
         }
 
         @Test
-        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CONFIG_DIR)
+        @SetSystemProperty(key = TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY, value = SYSTEM_PROPERTY_CFG_DIR)
         fun `test with cmd config argument and system property`() {
-            CommonFactory.createFromArguments("-c", CMD_ARG_CONFIG_DIR).use { commonFactory ->
-                assertDictionaryDir(commonFactory, CMD_ARG_CONFIG_DIR.toPath())
-                assertConfigs(commonFactory, CMD_ARG_CONFIG_DIR.toPath(), false)
+            CommonFactory.createFromArguments("-c", CMD_ARG_CFG_DIR).use { commonFactory ->
+                assertDictionaryDirs(commonFactory, CMD_ARG_CFG_DIR_PATH)
+                assertConfigs(commonFactory, CMD_ARG_CFG_DIR_PATH)
             }
         }
     }
 
     companion object {
-        private const val CMD_ARG_CONFIG_DIR = "src/test/resources/test_cmd_arg_config"
-        private const val SYSTEM_PROPERTY_CONFIG_DIR = "src/test/resources/test_system_property_config"
-        private val CUSTOM_DIR = Path.of("dictionary/custom/path")
+        private const val TEMP_DIR = "build/tmp/test/common-factory"
+        private const val CMD_ARG_CFG_DIR = "$TEMP_DIR/test-cmd-arg-config"
+        private const val SYSTEM_PROPERTY_CFG_DIR = "$TEMP_DIR/test-system-property-config"
+        private const val CUSTOM_DIR = "$TEMP_DIR/test-custom-dictionary-path"
 
-        private const val ALIASES_DICTIONARY_NAME = "aliases"
-        private const val TYPES_DICTIONARY_NAME = "types"
-        private const val OLD_DICTIONARY_NAME = "old"
+        private val CMD_ARG_CFG_DIR_PATH = CMD_ARG_CFG_DIR.toPath()
+        private val SYSTEM_PROPERTY_CFG_DIR_PATH = SYSTEM_PROPERTY_CFG_DIR.toPath()
+        private val CUSTOM_DIR_PATH = CUSTOM_DIR.toPath()
 
-        private val CONFIG_NAME_TO_COMMON_FACTORY_SUPPLIER: Map<String, DictionaryDirMetadata> = hashMapOf(
-            ALIASES_DICTIONARY_NAME to DictionaryDirMetadata(DICTIONARY_ALIAS_DIR_NAME, FactorySettings::dictionaryAliasesDir, CommonFactory::getPathToDictionaryAliasesDir),
-            TYPES_DICTIONARY_NAME to DictionaryDirMetadata(DICTIONARY_TYPE_DIR_NAME, FactorySettings::dictionaryTypesDir, CommonFactory::getPathToDictionaryTypesDir),
-            OLD_DICTIONARY_NAME to DictionaryDirMetadata("", FactorySettings::oldDictionariesDir, CommonFactory::getOldPathToDictionariesDir),
-        )
-
-        private val CONFIG_ALIASES: Map<String, ConfigMetadata> = hashMapOf(
-            RABBIT_MQ_CFG_ALIAS to ConfigMetadata(FactorySettings::rabbitMQ),
-            ROUTER_MQ_CFG_ALIAS to ConfigMetadata(FactorySettings::routerMQ),
-            CONNECTION_MANAGER_CFG_ALIAS to ConfigMetadata(FactorySettings::connectionManagerSettings),
-            GRPC_CFG_ALIAS to ConfigMetadata(FactorySettings::grpc),
-            ROUTER_GRPC_CFG_ALIAS to ConfigMetadata(FactorySettings::routerGRPC),
-            CRADLE_CONFIDENTIAL_CFG_ALIAS to ConfigMetadata(FactorySettings::cradleConfidential),
-            CRADLE_NON_CONFIDENTIAL_CFG_ALIAS to ConfigMetadata(FactorySettings::cradleNonConfidential),
-            PROMETHEUS_CFG_ALIAS to ConfigMetadata(FactorySettings::prometheus),
-            BOX_CFG_ALIAS to ConfigMetadata(FactorySettings::boxConfiguration),
-            CUSTOM_CFG_ALIAS to ConfigMetadata(FactorySettings::custom),
-        )
+        private val DICTIONARY_NAME = MAIN.name
 
         private fun String.toPath() = Path.of(this)
 
-        private fun assertDictionaryDir(commonFactory: CommonFactory, configPath: Path) {
-            CONFIG_NAME_TO_COMMON_FACTORY_SUPPLIER.forEach { (name, dictionaryDirMetadata) ->
-                assertEquals(
-                    configPath.resolve(dictionaryDirMetadata.dirName),
-                    dictionaryDirMetadata.getPath.invoke(commonFactory),
-                    "Configured config path: $configPath, config name: $name"
-                )
+        // FIXME: find another way to check default dictionary path
+        private fun assertThrowsDictionaryDir(commonFactory: CommonFactory) {
+            val exception = assertThrows<IllegalStateException>("Search dictionary by default path") {
+                commonFactory.readDictionary()
             }
+            val message = assertNotNull(exception.message, "Exception message is null")
+            assertAll(
+                {
+                    assertContains(
+                        message,
+                        other = CONFIG_DEFAULT_PATH.resolve("dictionaries").absolutePathString(),
+                        message = "Exception message contains alias dictionaries path"
+                    )
+                },
+                {
+                    assertContains(
+                        message,
+                        other = CONFIG_DEFAULT_PATH.resolve("dictionary").absolutePathString(),
+                        message = "Exception message contains type dictionaries path"
+                    )
+                },
+                {
+                    assertContains(
+                        message,
+                        other = CONFIG_DEFAULT_PATH.absolutePathString(),
+                        message = "Exception message contains old dictionaries path"
+                    )
+                }
+            )
         }
 
-        private fun assertConfigs(commonFactory: CommonFactory) {
+        private fun assertDictionaryDirs(commonFactory: CommonFactory, basePath: Path) {
+            assertAll(
+                {
+                    val content = ALIAS.writeDictionaryByDefaultPath(basePath, MAIN.name)
+                    ALIAS.assertDictionary(commonFactory, MAIN, content)
+                },
+                {
+                    val content = TYPE.writeDictionaryByDefaultPath(basePath, INCOMING.name)
+                    TYPE.assertDictionary(commonFactory, INCOMING, content)
+                },
+                {
+                    val content = OLD.writeDictionaryByDefaultPath(basePath, OUTGOING.name)
+                    OLD.assertDictionary(commonFactory, OUTGOING, content)
+                }
+            )
+        }
+
+        // FIXME: find another way to check default config path
+        private fun assertThrowsConfigs(commonFactory: CommonFactory) {
+            assertAll(
+                *ConfigHelper.values().asSequence()
+                    .filter { it != ConfigHelper.PROMETHEUS_CFG_ALIAS && it != ConfigHelper.BOX_CFG_ALIAS }
+                    .map { helper ->
+                    {
+                        val exception = assertThrows<IllegalStateException>(
+                            "Search config $helper by default path"
+                        ) {
+                            helper.loadConfig(commonFactory)
+                        }
+                        val message = assertNotNull(exception.message, "Exception message is null")
+                        assertContains(message, other = CONFIG_DEFAULT_PATH.resolve("${helper.alias}.json").absolutePathString(), message = "Exception message contains alias config path")
+                    }
+                }.toList().toTypedArray()
+            )
+
             val provider = assertProvider(commonFactory)
             assertEquals(CONFIG_DEFAULT_PATH, provider.baseDir)
             assertEquals(0, provider.customPaths.size)
         }
-        private fun assertConfigs(commonFactory: CommonFactory, configPath: Path, customPaths: Boolean) {
-            val provider = assertProvider(commonFactory)
-            assertEquals(configPath, provider.baseDir)
 
-            if (customPaths) {
-                assertEquals(CONFIG_ALIASES.size, provider.customPaths.size)
-
-                CONFIG_ALIASES.keys.forEach { alias ->
-                    val path = assertNotNull(provider.customPaths[alias])
-                    assertEquals(configPath, path.parent, "Configured config path: $configPath")
+        private fun assertConfigs(commonFactory: CommonFactory, configPath: Path) {
+            assertAll(
+                ConfigHelper.values().map { helper ->
+                    {
+                        val cfgBean = helper.writeConfigByDefaultPath(configPath)
+                        assertThat(helper.loadConfig(commonFactory), samePropertyValuesAs(cfgBean))
+                    }
                 }
-            } else {
-                assertEquals(0, provider.customPaths.size)
-            }
+            )
         }
 
         private fun assertProvider(commonFactory: CommonFactory): JsonConfigurationProvider {
@@ -370,57 +398,175 @@ class CommonFactoryTest {
             return JsonConfigurationProvider::class.cast(commonFactory.getConfigurationProvider())
         }
 
-        private fun assertCustomPathForConfig(commonFactory: CommonFactory, basePath: Path, alias: String) {
-            val provider = assertProvider(commonFactory)
-            assertEquals(basePath, provider.baseDir)
-            assertEquals(1, provider.customPaths.size)
-            assertEquals(CUSTOM_DIR, provider.customPaths[alias])
-        }
+        data class TestCustomConfig(val testField: String = "test-value")
 
-        private fun FactorySettings.setCustomPathForConfig(alias: String) {
-            CONFIG_ALIASES.asSequence()
-                .find { (optionName, _) -> optionName == alias }
-                ?.value?.setPath?.invoke(this, CUSTOM_DIR)
-        }
-
-        private fun assertCustomDictionaryPath(
-            name: String,
-            basePath: Path,
-            commonFactory: CommonFactory
+        enum class ConfigHelper(
+            val alias: String,
+            private val configClass: Class<*>
         ) {
-            CONFIG_NAME_TO_COMMON_FACTORY_SUPPLIER.forEach { (optionName, dictionaryDirMetadata) ->
-                if (optionName == name) {
-                    assertEquals(
-                        CUSTOM_DIR,
-                        dictionaryDirMetadata.getPath.invoke(commonFactory),
-                        "Configured config path: $CUSTOM_DIR, config optionName: $optionName"
-                    )
-                } else {
-                    assertEquals(
-                        basePath.resolve(dictionaryDirMetadata.dirName),
-                        dictionaryDirMetadata.getPath.invoke(commonFactory),
-                        "Configured config path: $basePath, config optionName: $optionName"
-                    )
+            RABBIT_MQ_CFG_ALIAS("rabbitMQ", RabbitMQConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.rabbitMQ = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): RabbitMQConfiguration = RabbitMQConfiguration(
+                    "test-host",
+                    "test-vHost",
+                    1234,
+                    "test-username",
+                    "test-password",
+                ).also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            ROUTER_MQ_CFG_ALIAS("mq", MessageRouterConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.routerMQ = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): MessageRouterConfiguration = MessageRouterConfiguration()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            CONNECTION_MANAGER_CFG_ALIAS("mq_router", ConnectionManagerConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.connectionManagerSettings = filePath
+                }
+                override fun writeConfigByCustomPath(filePath: Path): ConnectionManagerConfiguration = ConnectionManagerConfiguration()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            GRPC_CFG_ALIAS("grpc", GrpcConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.grpc = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): GrpcConfiguration = GrpcConfiguration()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            ROUTER_GRPC_CFG_ALIAS("grpc_router", GrpcRouterConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.routerGRPC = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): GrpcRouterConfiguration = GrpcRouterConfiguration()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            CRADLE_CONFIDENTIAL_CFG_ALIAS("cradle", CradleConfidentialConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.cradleConfidential = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): CradleConfidentialConfiguration = CradleConfidentialConfiguration(
+                    "test-dataCenter",
+                    "test-host",
+                    "test-keyspace",
+                ).also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            CRADLE_NON_CONFIDENTIAL_CFG_ALIAS("cradle_manager", CradleNonConfidentialConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.cradleNonConfidential = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): CradleNonConfidentialConfiguration = CradleNonConfidentialConfiguration()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            PROMETHEUS_CFG_ALIAS("prometheus", PrometheusConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.prometheus = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): PrometheusConfiguration = PrometheusConfiguration()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            BOX_CFG_ALIAS("box", BoxConfiguration::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.boxConfiguration = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): BoxConfiguration = BoxConfiguration()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            },
+            CUSTOM_CFG_ALIAS("custom", TestCustomConfig::class.java) {
+                override fun setOption(settings: FactorySettings, filePath: Path) {
+                    settings.custom = filePath
+                }
+
+                override fun writeConfigByCustomPath(filePath: Path): TestCustomConfig = TestCustomConfig()
+                    .also { CommonFactory.MAPPER.writeValue(filePath.toFile(), it) }
+            };
+
+            abstract fun setOption(settings: FactorySettings, filePath: Path)
+
+            abstract fun writeConfigByCustomPath(filePath: Path): Any
+
+            open fun writeConfigByDefaultPath(configPath: Path): Any = writeConfigByCustomPath(configPath.resolve("${alias}.json"))
+
+            fun loadConfig(factory: CommonFactory): Any =
+                factory.getConfigurationProvider().load(alias, configClass)
+        }
+
+        enum class DictionaryHelper {
+            ALIAS {
+                override fun setOption(settings: FactorySettings, path: Path) {
+                    settings.dictionaryAliasesDir = path
+                }
+
+                override fun writeDictionaryByDefaultPath(basePath: Path, fileName: String): String {
+                    return DictionaryHelper.writeDictionary(basePath.resolve("dictionaries").resolve(fileName))
+                }
+
+                override fun writeDictionaryByCustomPath(basePath: Path, fileName: String): String {
+                    return DictionaryHelper.writeDictionary(basePath.resolve(fileName))
+                }
+            },
+            TYPE {
+                override fun setOption(settings: FactorySettings, path: Path) {
+                    settings.dictionaryTypesDir = path
+                }
+
+                override fun writeDictionaryByDefaultPath(basePath: Path, fileName: String): String {
+                    return DictionaryHelper.writeDictionary(basePath.resolve("dictionary").resolve(fileName.lowercase(
+                        Locale.getDefault()
+                    )).resolve(fileName))
+                }
+
+                override fun writeDictionaryByCustomPath(basePath: Path, fileName: String): String {
+                    return DictionaryHelper.writeDictionary(basePath.resolve(fileName.lowercase(
+                        Locale.getDefault()
+                    )).resolve(fileName))
+                }
+            },
+            OLD {
+                override fun setOption(settings: FactorySettings, path: Path) {
+                    settings.oldDictionariesDir = path
+                }
+
+                override fun writeDictionaryByDefaultPath(basePath: Path, fileName: String): String {
+                    return DictionaryHelper.writeDictionary(basePath.resolve(fileName))
+                }
+
+                override fun writeDictionaryByCustomPath(basePath: Path, fileName: String): String {
+                    return DictionaryHelper.writeDictionary(basePath.resolve(fileName))
+                }
+            };
+
+            abstract fun setOption(settings: FactorySettings, path: Path)
+            abstract fun writeDictionaryByDefaultPath(basePath: Path, fileName: String): String
+            abstract fun writeDictionaryByCustomPath(basePath: Path, fileName: String): String
+
+            fun assertDictionary(factory: CommonFactory, type: DictionaryType,  content: String) {
+                assertEquals(content, factory.readDictionary(type).use { String(it.readAllBytes()) })
+            }
+
+            companion object {
+                fun assertDictionary(factory: CommonFactory, content: String) {
+                    assertEquals(content, factory.readDictionary().use { String(it.readAllBytes()) })
+                }
+
+                private fun writeDictionary(path: Path): String {
+                    val content = RandomStringUtils.randomAlphanumeric(10)
+                    path.parent.createDirectories()
+                    path.writeBytes(ArchiveUtils.getGzipBase64StringEncoder().encode(content))
+                    return content
                 }
             }
         }
-
-        private fun FactorySettings.setCustomDictionaryPath(
-            name: String
-        ) {
-            CONFIG_NAME_TO_COMMON_FACTORY_SUPPLIER.asSequence()
-                .find { (optionName, _) -> optionName == name }
-                ?.value?.setPath?.invoke(this, CUSTOM_DIR)
-        }
-
-        private data class DictionaryDirMetadata(
-            val dirName: String,
-            val setPath: FactorySettings.(Path) -> Unit,
-            val getPath: CommonFactory.() -> Path,
-        )
-
-        private data class ConfigMetadata(
-            val setPath: FactorySettings.(Path) -> Unit,
-        )
     }
 }

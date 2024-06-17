@@ -65,8 +65,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -145,12 +143,9 @@ public class CommonFactory extends AbstractCommonFactory {
         return configurationProvider;
     }
 
-    public static CommonFactory createFromProvider(IConfigurationProvider provider) {
-        FactorySettings settings = new FactorySettings();
-
-
-
-        return new CommonFactory(settings);
+    public static CommonFactory createFromProvider(@NotNull IConfigurationProvider configurationProvider,
+                                                   @NotNull IDictionaryProvider dictionaryProvider) {
+        return new CommonFactory(configurationProvider, dictionaryProvider);
     }
 
     /**
@@ -591,10 +586,6 @@ public class CommonFactory extends AbstractCommonFactory {
         paths.put(PrometheusConfiguration.class, PROMETHEUS_CFG_ALIAS);
         paths.put(BoxConfiguration.class, BOX_CFG_ALIAS);
         return new ConfigurationManager(configurationProvider, paths);
-    }
-
-    private static Path defaultPathIfNull(Path customPath, Path basePath, String name) {
-        return customPath == null ? getConfigPath(basePath).resolve(name) : customPath;
     }
 
     private static <T> void putIfNotNull(@NotNull Map<T, Path> paths, @NotNull T key, @Nullable Path path) {

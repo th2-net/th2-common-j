@@ -522,9 +522,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      *
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary or found more than one target
-     * @deprecated please use {@link #loadDictionary(String)}
      */
-    @Deprecated(since = "6", forRemoval = true)
     public abstract InputStream loadSingleDictionary();
 
     /**
