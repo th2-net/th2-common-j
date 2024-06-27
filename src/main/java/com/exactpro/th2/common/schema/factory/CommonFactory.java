@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -42,7 +42,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -65,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -72,6 +72,7 @@ import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64Stri
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
+import static org.apache.commons.io.FilenameUtils.removeExtension;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
@@ -465,10 +466,21 @@ public class CommonFactory extends AbstractCommonFactory {
             }
 
             try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                return files
-                        .filter(Files::isRegularFile)
-                        .map(dictionary -> FilenameUtils.removeExtension(dictionary.getFileName().toString()))
-                        .collect(Collectors.toSet());
+                Function<Path, String> getAlias = path -> removeExtension(path.getFileName().toString()).toLowerCase();
+
+                Map<String, Set<Path>> filesByAlias = files.filter(Files::isRegularFile)
+                        .collect(Collectors.groupingBy(getAlias, Collectors.toSet()));
+                Map<String, Set<Path>> duplicates = filesByAlias.entrySet().stream()
+                        .filter(entry -> entry.getValue().size() > 1)
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                if (!duplicates.isEmpty()) {
+                    throw new IllegalStateException(
+                            "Dictionary directory contains files with the same name in different cases, " +
+                                    "files by dictionary alias: " + duplicates + ", " +
+                                    "path: " + dictionaryFolder.toAbsolutePath());
+                }
+                return Set.copyOf(filesByAlias.keySet());
             }
         } catch (IOException e) {
             throw new IllegalStateException("Can not get dictionaries aliases from path: " + dictionaryFolder.toAbsolutePath(), e);
@@ -486,7 +498,7 @@ public class CommonFactory extends AbstractCommonFactory {
                 try (Stream<Path> files = Files.list(dictionaryFolder)) {
                     dictionaries = files
                             .filter(Files::isRegularFile)
-                            .filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias))
+                            .filter(path -> removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias))
                             .collect(Collectors.toList());
                 }
             }
@@ -532,7 +544,7 @@ public class CommonFactory extends AbstractCommonFactory {
             Path dictionaryAliasFolder = getPathToDictionaryAliasesDir();
             if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(dictionaryAliasFolder)) {
                 try (Stream<Path> files = Files.list(dictionaryAliasFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile).filter(path -> FilenameUtils.removeExtension(path.getFileName().toString()).equalsIgnoreCase(dictionaryType.name())).collect(Collectors.toList());
+                    dictionaries = files.filter(Files::isRegularFile).filter(path -> removeExtension(path.getFileName().toString()).equalsIgnoreCase(dictionaryType.name())).collect(Collectors.toList());
                 }
             }
 
