@@ -511,9 +511,15 @@ dependencies {
 
 ## Release notes
 
+### 5.14.0-dev
+
++ Separate connections for publisher and consumer
++ Updated cradle `5.4.1-dev`
++ Updated kubernetes-client: `6.13.1`
+
 ### 5.13.1-dev
 
-+ Provided ability to set either of raw body of several dody data to `Event` builder
++ Provided ability to set either of raw body of several body data to `Event` builder
 + Updated th2 gradle plugin `0.0.8`
 
 ### 5.13.0-dev
