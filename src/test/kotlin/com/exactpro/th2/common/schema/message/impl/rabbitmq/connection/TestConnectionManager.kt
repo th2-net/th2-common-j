@@ -44,6 +44,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
@@ -56,6 +57,7 @@ import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
@@ -1189,6 +1191,82 @@ class TestConnectionManager {
             confirmationTimeout = confirmationTimeout
         )
     )
+
+    @Test
+    fun `connection manager receives messages when publishing is blocked`() {
+        val routingKey = "routingKey1"
+        val queueName = "queue1"
+        val exchange = "test-exchange1"
+        rabbit.let { rabbit ->
+            declareQueue(rabbit, queueName)
+            declareFanoutExchangeWithBinding(rabbit, exchange, queueName)
+
+            LOGGER.info { "Started with port ${rabbit.amqpPort}" }
+            LOGGER.info { "Started with port ${rabbit.amqpPort}" }
+            val messagesCount = 10
+            val blockAfter = 3
+            val countDown = CountDownLatch(messagesCount)
+            val messageSizeBytes = 7
+            createConnectionManager(
+                rabbit, ConnectionManagerConfiguration(
+                    subscriberName = "test",
+                    prefetchCount = DEFAULT_PREFETCH_COUNT,
+                    confirmationTimeout = DEFAULT_CONFIRMATION_TIMEOUT,
+                    enablePublisherConfirmation = true,
+                    maxInflightPublicationsBytes = messagesCount * messageSizeBytes,
+                    heartbeatIntervalSeconds = 1,
+                    minConnectionRecoveryTimeout = 2000,
+                    maxConnectionRecoveryTimeout = 2000,
+                    // to avoid unexpected delays before recovery
+                    retryTimeDeviationPercent = 0
+                )
+            ).use { manager ->
+                repeat(messagesCount) { index ->
+                    if (index == blockAfter) {
+                        // blocks all publishers ( https://www.rabbitmq.com/docs/memory )
+                        rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0")
+                    }
+
+                    manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
+                    LOGGER.info("Published $index")
+                }
+
+                val receivedMessages = linkedSetOf<String>()
+                LOGGER.info { "creating consumer" }
+
+                val subscribeFuture = Executors.newSingleThreadExecutor().submit {
+                    manager.basicConsume(queueName, { _, delivery, ack ->
+                        val message = delivery.body.toString(Charsets.UTF_8)
+                        LOGGER.info { "Received $message from ${delivery.envelope.routingKey}" }
+                        if (receivedMessages.add(message)) {
+                            // decrement only unique messages
+                            countDown.countDown()
+                        } else {
+                            LOGGER.warn { "Duplicated $message for ${delivery.envelope.routingKey}" }
+                        }
+                        ack.confirm()
+                    }) {
+                        LOGGER.info { "Canceled $it" }
+                    }
+                }
+
+                assertDoesNotThrow("Failed to subscribe to queue") {
+                    // if subscription connection is blocked generates TimeoutException
+                    subscribeFuture.get(1, TimeUnit.SECONDS)
+                    subscribeFuture.cancel(true)
+                }
+
+                Thread.sleep(20) // wait to receive messages sent before blocking
+                assertEquals(blockAfter.toLong(), messagesCount - countDown.count)
+
+                // unblocks publishers
+                rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0.4")
+
+                Thread.sleep(20) // wait to receive all messages
+                assertEquals(messagesCount.toLong(), messagesCount - countDown.count)
+            }
+        }
+    }
 
     @AfterEach
     fun cleanupRabbitMq() {

@@ -390,7 +390,6 @@ public class ConnectionManager implements AutoCloseable {
         });
     }
 
-    // TODO: what should it return if one of the connections is not opened?
     public boolean isOpen() {
         return (publishConnection.isOpen() && consumeConnection.isOpen()) && connectionState.get() == State.OPEN;
     }
@@ -445,7 +444,7 @@ public class ConnectionManager implements AutoCloseable {
             try {
                 connection.close(timeout);
             } catch (IOException e) {
-                LOGGER.error("Failed to  close connection", e);
+                LOGGER.error("Failed to close connection", e);
             }
         }
     }
@@ -537,12 +536,10 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     boolean isReady() {
-        // TODO: what should it return if one of the connections is not ready?
         return ConnectionType.PUBLISH.metrics.getReadinessMonitor().isEnabled() && ConnectionType.CONSUME.metrics.getReadinessMonitor().isEnabled();
     }
 
     boolean isAlive() {
-        // TODO: what should it return if one of the connections is disabled?
         return ConnectionType.PUBLISH.metrics.getLivenessMonitor().isEnabled() && ConnectionType.CONSUME.metrics.getLivenessMonitor().isEnabled();
     }
 
