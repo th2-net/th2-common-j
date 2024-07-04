@@ -87,12 +87,11 @@ public class ConnectionManager implements AutoCloseable {
     public static final String EMPTY_ROUTING_KEY = "";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
 
-    enum ConnectionType {
-        PUBLISH("-publish"),
-        CONSUME("-consume");
+    private enum ConnectionType {
+        PUBLISH("publish"),
+        CONSUME("consume");
 
         private final String nameSuffix;
-        private final HealthMetrics metrics = new HealthMetrics(this);
 
         ConnectionType(String nameSuffix) {
             this.nameSuffix = nameSuffix;
@@ -101,14 +100,12 @@ public class ConnectionManager implements AutoCloseable {
         public String getNameSuffix() {
             return nameSuffix;
         }
-
-        public HealthMetrics getMetrics() {
-            return metrics;
-        }
     }
 
     private final Connection publishConnection;
     private final Connection consumeConnection;
+    private final HealthMetrics publishMetrics = new HealthMetrics(this, ConnectionType.PUBLISH.getNameSuffix());
+    private final HealthMetrics consumeMetrics = new HealthMetrics(this, ConnectionType.CONSUME.getNameSuffix());
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicReference<State> connectionState = new AtomicReference<>(State.OPEN);
     private final ConnectionManagerConfiguration configuration;
@@ -174,7 +171,7 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     private Connection createConnection(ConnectionFactory factory, String connectionName, ConnectionType connectionType) {
-        HealthMetrics metrics = connectionType.getMetrics();
+        HealthMetrics metrics = connectionType == ConnectionType.PUBLISH ? publishMetrics : consumeMetrics;
 
         factory.setExceptionHandler(new ExceptionHandler() {
             @Override
@@ -245,7 +242,7 @@ public class ConnectionManager implements AutoCloseable {
         Connection connection;
 
         try {
-            connection = factory.newConnection(connectionName + connectionType.getNameSuffix());
+            connection = factory.newConnection(connectionName + '-' + connectionType.getNameSuffix());
             LOGGER.info("Created RabbitMQ connection {} [{}]", connection, connection.hashCode());
             addShutdownListenerToConnection(connection);
             addBlockedListenersToConnection(connection);
@@ -491,7 +488,7 @@ public class ConnectionManager implements AutoCloseable {
                                         LOGGER.warn("Error during basicReject of message with deliveryTag = {} inside channel #{}: {}", deliveryTag, ch.getChannelNumber(), e);
                                         throw e;
                                     } finally {
-                                        holder.release(() -> ConnectionType.CONSUME.metrics.getReadinessMonitor().enable());
+                                        holder.release(() -> consumeMetrics.getReadinessMonitor().enable());
                                     }
                                 });
                             }
@@ -505,7 +502,7 @@ public class ConnectionManager implements AutoCloseable {
                                         LOGGER.warn("Error during basicAck of message with deliveryTag = {} inside channel #{}: {}", deliveryTag, ch.getChannelNumber(), e);
                                         throw e;
                                     } finally {
-                                        holder.release(() -> ConnectionType.CONSUME.metrics.getReadinessMonitor().enable());
+                                        holder.release(() -> consumeMetrics.getReadinessMonitor().enable());
                                     }
                                 });
                             }
@@ -519,7 +516,7 @@ public class ConnectionManager implements AutoCloseable {
                                         LOGGER.warn("The confirmation for delivery {} in queue={} routing_key={} was not invoked within the specified delay",
                                                 deliveryTag, queue, routingKey);
                                         if (holder.reachedPendingLimit()) {
-                                            ConnectionType.CONSUME.metrics.getReadinessMonitor().disable();
+                                            consumeMetrics.getReadinessMonitor().disable();
                                         }
                                     });
                                     return false; // to cast to Callable
@@ -536,11 +533,11 @@ public class ConnectionManager implements AutoCloseable {
     }
 
     boolean isReady() {
-        return ConnectionType.PUBLISH.metrics.getReadinessMonitor().isEnabled() && ConnectionType.CONSUME.metrics.getReadinessMonitor().isEnabled();
+        return publishMetrics.getReadinessMonitor().isEnabled() && consumeMetrics.getReadinessMonitor().isEnabled();
     }
 
     boolean isAlive() {
-        return ConnectionType.PUBLISH.metrics.getLivenessMonitor().isEnabled() && ConnectionType.CONSUME.metrics.getLivenessMonitor().isEnabled();
+        return publishMetrics.getLivenessMonitor().isEnabled() && consumeMetrics.getLivenessMonitor().isEnabled();
     }
 
     private ChannelHolderOptions configurationToOptions() {

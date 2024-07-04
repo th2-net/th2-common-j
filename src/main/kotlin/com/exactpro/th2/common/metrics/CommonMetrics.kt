@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -51,8 +51,12 @@ private val ALL_READINESS = CopyOnWriteArrayList(listOf(RABBITMQ_READINESS, GRPC
 fun registerLiveness(name: String) = LIVENESS_ARBITER.createMonitor(name)
 fun registerReadiness(name: String) = READINESS_ARBITER.createMonitor(name)
 
-fun registerLiveness(obj: Any) = LIVENESS_ARBITER.createMonitor("${obj::class.simpleName}_liveness_${obj.hashCode()}")
-fun registerReadiness(obj: Any) = READINESS_ARBITER.createMonitor("${obj::class.simpleName}_readiness_${obj.hashCode()}")
+@JvmOverloads
+fun registerLiveness(obj: Any, suffix: String = "") = LIVENESS_ARBITER.createMonitor(getMonitorName(obj, suffix))
+@JvmOverloads
+fun registerReadiness(obj: Any, suffix: String = "") = READINESS_ARBITER.createMonitor(getMonitorName(obj, suffix))
+
+private fun getMonitorName(obj: Any, suffix: String) = "${obj::class.simpleName}_liveness_${obj.hashCode()}" + if (suffix.isEmpty()) "" else "_$suffix"
 
 @JvmField
 val LIVENESS_MONITOR = registerLiveness("user_liveness")
@@ -131,6 +135,7 @@ class HealthMetrics @JvmOverloads constructor(
 ) {
     @JvmOverloads
     constructor(parent: Any, attempts: Int = 10) : this(registerLiveness(parent), registerReadiness(parent), attempts)
+    constructor(parent: Any, suffix: String = "") : this(registerLiveness(parent, suffix), registerReadiness(parent, suffix))
 
     private val attempts = AtomicInteger(0)
 
