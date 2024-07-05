@@ -52,11 +52,11 @@ fun registerLiveness(name: String) = LIVENESS_ARBITER.createMonitor(name)
 fun registerReadiness(name: String) = READINESS_ARBITER.createMonitor(name)
 
 @JvmOverloads
-fun registerLiveness(obj: Any, suffix: String = "") = LIVENESS_ARBITER.createMonitor(getMonitorName(obj, suffix))
+fun registerLiveness(obj: Any, suffix: String = "") = LIVENESS_ARBITER.createMonitor(getMonitorName(obj, "liveness", suffix))
 @JvmOverloads
-fun registerReadiness(obj: Any, suffix: String = "") = READINESS_ARBITER.createMonitor(getMonitorName(obj, suffix))
+fun registerReadiness(obj: Any, suffix: String = "") = READINESS_ARBITER.createMonitor(getMonitorName(obj, "readiness", suffix))
 
-private fun getMonitorName(obj: Any, suffix: String) = "${obj::class.simpleName}_liveness_${obj.hashCode()}" + if (suffix.isEmpty()) "" else "_$suffix"
+private fun getMonitorName(obj: Any, infix: String, suffix: String) = "${obj::class.simpleName}_${infix}_${obj.hashCode()}" + if (suffix.isEmpty()) "" else "_$suffix"
 
 @JvmField
 val LIVENESS_MONITOR = registerLiveness("user_liveness")

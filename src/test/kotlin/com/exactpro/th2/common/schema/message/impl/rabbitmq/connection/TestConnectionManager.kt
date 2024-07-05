@@ -1204,7 +1204,6 @@ class TestConnectionManager {
             LOGGER.info { "Started with port ${rabbit.amqpPort}" }
             LOGGER.info { "Started with port ${rabbit.amqpPort}" }
             val messagesCount = 10
-            val blockAfter = 3
             val countDown = CountDownLatch(messagesCount)
             val messageSizeBytes = 7
             createConnectionManager(
@@ -1222,14 +1221,13 @@ class TestConnectionManager {
                 )
             ).use { manager ->
                 repeat(messagesCount) { index ->
-                    if (index == blockAfter) {
-                        // blocks all publishers ( https://www.rabbitmq.com/docs/memory )
-                        rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0")
-                    }
-
                     manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
                     LOGGER.info("Published $index")
                 }
+
+                // blocks all publishers ( https://www.rabbitmq.com/docs/memory )
+                rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0")
+                manager.basicPublish(exchange, routingKey, null, "Final message.".toByteArray(Charsets.UTF_8)) // this message initiates publishers blocking
 
                 val receivedMessages = linkedSetOf<String>()
                 LOGGER.info { "creating consumer" }
@@ -1256,14 +1254,11 @@ class TestConnectionManager {
                     subscribeFuture.cancel(true)
                 }
 
-                Thread.sleep(20) // wait to receive messages sent before blocking
-                assertEquals(blockAfter.toLong(), messagesCount - countDown.count)
-
-                // unblocks publishers
-                rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0.4")
-
-                Thread.sleep(20) // wait to receive all messages
-                assertEquals(messagesCount.toLong(), messagesCount - countDown.count)
+                // delay receiving all messages
+                Awaitility.await("all messages received")
+                    .pollInterval(10L, TimeUnit.MILLISECONDS)
+                    .atMost(100L, TimeUnit.MILLISECONDS)
+                    .until { countDown.count == 0L }
             }
         }
     }
