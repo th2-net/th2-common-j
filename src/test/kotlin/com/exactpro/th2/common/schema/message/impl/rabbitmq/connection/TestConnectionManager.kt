@@ -1204,6 +1204,7 @@ class TestConnectionManager {
             LOGGER.info { "Started with port ${rabbit.amqpPort}" }
             LOGGER.info { "Started with port ${rabbit.amqpPort}" }
             val messagesCount = 10
+            val blockAfter = 3
             val countDown = CountDownLatch(messagesCount)
             val messageSizeBytes = 7
             createConnectionManager(
@@ -1221,13 +1222,24 @@ class TestConnectionManager {
                 )
             ).use { manager ->
                 repeat(messagesCount) { index ->
+                    if (index == blockAfter) {
+                        assertFalse(manager.isPublishingBlocked)
+
+                        // blocks all publishers ( https://www.rabbitmq.com/docs/memory )
+                        rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0")
+                    }
+
                     manager.basicPublish(exchange, routingKey, null, "Hello $index".toByteArray(Charsets.UTF_8))
                     LOGGER.info("Published $index")
-                }
 
-                // blocks all publishers ( https://www.rabbitmq.com/docs/memory )
-                rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0")
-                manager.basicPublish(exchange, routingKey, null, "Final message.".toByteArray(Charsets.UTF_8)) // this message initiates publishers blocking
+                    if (index == blockAfter) {
+                        // wait for blocking of publishing connection
+                        Awaitility.await("publishing blocked")
+                            .pollInterval(10L, TimeUnit.MILLISECONDS)
+                            .atMost(100L, TimeUnit.MILLISECONDS)
+                            .until { manager.isPublishingBlocked }
+                    }
+                }
 
                 val receivedMessages = linkedSetOf<String>()
                 LOGGER.info { "creating consumer" }
@@ -1253,6 +1265,19 @@ class TestConnectionManager {
                     subscribeFuture.get(1, TimeUnit.SECONDS)
                     subscribeFuture.cancel(true)
                 }
+
+                Awaitility.await("receive messages sent before blocking")
+                    .pollInterval(10L, TimeUnit.MILLISECONDS)
+                    .atMost(100L, TimeUnit.MILLISECONDS)
+                    .until { blockAfter.toLong() == messagesCount - countDown.count }
+
+                Thread.sleep(100) // ensure no more messages received
+                assertEquals(blockAfter.toLong(), messagesCount - countDown.count)
+                assertTrue(manager.isPublishingBlocked)
+
+                // unblocks publishers
+                rabbit.executeInContainerWithLogging("rabbitmqctl", "set_vm_memory_high_watermark", "0.4")
+                assertFalse(manager.isPublishingBlocked)
 
                 // delay receiving all messages
                 Awaitility.await("all messages received")

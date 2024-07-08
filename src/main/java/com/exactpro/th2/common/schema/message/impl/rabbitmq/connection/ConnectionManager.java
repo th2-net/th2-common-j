@@ -73,6 +73,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
@@ -108,6 +109,7 @@ public class ConnectionManager implements AutoCloseable {
     private final HealthMetrics consumeMetrics = new HealthMetrics(this, ConnectionType.CONSUME.getNameSuffix());
     private final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicReference<State> connectionState = new AtomicReference<>(State.OPEN);
+    private final AtomicBoolean isPublishingBlocked = new AtomicBoolean(false);
     private final ConnectionManagerConfiguration configuration;
     private final String subscriberName;
     private final AtomicInteger nextSubscriberId = new AtomicInteger(1);
@@ -245,7 +247,7 @@ public class ConnectionManager implements AutoCloseable {
             connection = factory.newConnection(connectionName + '-' + connectionType.getNameSuffix());
             LOGGER.info("Created RabbitMQ connection {} [{}]", connection, connection.hashCode());
             addShutdownListenerToConnection(connection);
-            addBlockedListenersToConnection(connection);
+            addBlockedListenersToConnection(connection, connectionType);
             addRecoveryListenerToConnection(connection, metrics);
             metrics.getReadinessMonitor().enable();
             LOGGER.debug("Set RabbitMQ readiness to true");
@@ -373,18 +375,34 @@ public class ConnectionManager implements AutoCloseable {
         }
     }
 
-    private void addBlockedListenersToConnection(Connection conn) {
-        conn.addBlockedListener(new BlockedListener() {
-            @Override
-            public void handleBlocked(String reason) {
-                LOGGER.warn("RabbitMQ blocked connection: {}", reason);
-            }
+    private void addBlockedListenersToConnection(Connection conn, ConnectionType type) {
+        BlockedListener listener = (type == ConnectionType.PUBLISH) ?
+                new BlockedListener() {
+                    @Override
+                    public void handleBlocked(String reason) {
+                        isPublishingBlocked.set(true);
+                        LOGGER.warn("RabbitMQ blocked publish connection: {}", reason);
+                    }
 
-            @Override
-            public void handleUnblocked() {
-                LOGGER.warn("RabbitMQ unblocked connection");
-            }
-        });
+                    @Override
+                    public void handleUnblocked() {
+                        isPublishingBlocked.set(false);
+                        LOGGER.warn("RabbitMQ unblocked publish connection");
+                    }
+                } :
+                new BlockedListener() {
+                    @Override
+                    public void handleBlocked(String reason) {
+                        LOGGER.error("RabbitMQ blocked consumer connection: {}", reason);
+                    }
+
+                    @Override
+                    public void handleUnblocked() {
+                        LOGGER.error("RabbitMQ unblocked consumer connection");
+                    }
+                };
+
+        conn.addBlockedListener(listener);
     }
 
     public boolean isOpen() {
@@ -449,7 +467,12 @@ public class ConnectionManager implements AutoCloseable {
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException, InterruptedException {
         ChannelHolder holder = getOrCreateChannelFor(PinId.forRoutingKey(exchange, routingKey), publishConnection);
         holder.retryingPublishWithLock(configuration, body,
-                (channel, payload) -> channel.basicPublish(exchange, routingKey, props, payload));
+                (channel, payload) -> {
+            long start = System.currentTimeMillis();
+            channel.basicPublish(exchange, routingKey, props, payload);
+            long delay = System.currentTimeMillis() - start;
+            LOGGER.error("delay = {}", delay);
+        });
     }
 
     public String queueDeclare() throws IOException {
@@ -538,6 +561,10 @@ public class ConnectionManager implements AutoCloseable {
 
     boolean isAlive() {
         return publishMetrics.getLivenessMonitor().isEnabled() && consumeMetrics.getLivenessMonitor().isEnabled();
+    }
+
+    boolean isPublishingBlocked() {
+        return isPublishingBlocked.get();
     }
 
     private ChannelHolderOptions configurationToOptions() {
@@ -892,7 +919,7 @@ public class ConnectionManager implements AutoCloseable {
                     } catch (IOException | ShutdownSignalException e) {
                         var currentValue = iterator.next();
                         var recoveryDelay = currentValue.getDelay();
-                        LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
+                        LOGGER.error("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);
                         // cleanup after failure
                         publishConfirmationListener.remove(msgSeq);
@@ -1353,7 +1380,7 @@ public class ConnectionManager implements AutoCloseable {
             try {
                 LOGGER.warn("Publication listener was notified that no confirmations will be received");
                 noConfirmationWillBeReceived = true;
-                // we need to unlock possible locked publisher so it can check that nothing will be confirmed
+                // we need to unlock possible locked publisher, so it can check that nothing will be confirmed
                 // and retry the publication
                 hasSpaceToWriteCondition.signalAll();
             } finally {
