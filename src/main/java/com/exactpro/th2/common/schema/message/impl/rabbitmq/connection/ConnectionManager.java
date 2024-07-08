@@ -467,12 +467,7 @@ public class ConnectionManager implements AutoCloseable {
     public void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException, InterruptedException {
         ChannelHolder holder = getOrCreateChannelFor(PinId.forRoutingKey(exchange, routingKey), publishConnection);
         holder.retryingPublishWithLock(configuration, body,
-                (channel, payload) -> {
-            long start = System.currentTimeMillis();
-            channel.basicPublish(exchange, routingKey, props, payload);
-            long delay = System.currentTimeMillis() - start;
-            LOGGER.error("delay = {}", delay);
-        });
+                (channel, payload) -> channel.basicPublish(exchange, routingKey, props, payload));
     }
 
     public String queueDeclare() throws IOException {
@@ -919,7 +914,7 @@ public class ConnectionManager implements AutoCloseable {
                     } catch (IOException | ShutdownSignalException e) {
                         var currentValue = iterator.next();
                         var recoveryDelay = currentValue.getDelay();
-                        LOGGER.error("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
+                        LOGGER.warn("Retrying publishing #{}, waiting for {}ms. Reason: {}", currentValue.getTryNumber(), recoveryDelay, e);
                         TimeUnit.MILLISECONDS.sleep(recoveryDelay);
                         // cleanup after failure
                         publishConfirmationListener.remove(msgSeq);
