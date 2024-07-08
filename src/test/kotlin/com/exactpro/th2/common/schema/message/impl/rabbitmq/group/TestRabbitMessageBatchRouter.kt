@@ -298,6 +298,7 @@ class TestRabbitMessageGroupBatchRouter {
         RabbitMessageGroupBatchRouter().apply {
             init(DefaultMessageRouterContext(
                 connectionManager,
+                connectionManager,
                 mock { },
                 MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
                 BOX_CONFIGURATION

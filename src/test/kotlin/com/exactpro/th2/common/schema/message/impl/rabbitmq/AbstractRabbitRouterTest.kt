@@ -48,7 +48,13 @@ private const val TEST_EXCLUSIVE_QUEUE = "test-exclusive-queue"
 class AbstractRabbitRouterTest {
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val managerMonitor: ExclusiveSubscriberMonitor = mock { }
-    private val connectionManager: ConnectionManager = mock {
+    private val publishConnectionManager: ConnectionManager = mock {
+        on { configuration }.thenReturn(connectionConfiguration)
+        on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
+        on { queueDeclare() }.thenAnswer { "$TEST_EXCLUSIVE_QUEUE-${exclusiveQueueCounter.incrementAndGet()}" }
+    }
+
+    private val consumeConnectionManager: ConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
         on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
         on { queueDeclare() }.thenAnswer { "$TEST_EXCLUSIVE_QUEUE-${exclusiveQueueCounter.incrementAndGet()}" }
@@ -81,7 +87,8 @@ class AbstractRabbitRouterTest {
 
         @AfterEach
         fun afterEach() {
-            verifyNoMoreInteractions(connectionManager)
+            verifyNoMoreInteractions(publishConnectionManager)
+            verifyNoMoreInteractions(consumeConnectionManager)
             verifyNoMoreInteractions(managerMonitor)
         }
 
@@ -90,7 +97,7 @@ class AbstractRabbitRouterTest {
             val monitor = router.subscribe(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
 
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
@@ -98,7 +105,7 @@ class AbstractRabbitRouterTest {
             val monitor = router.subscribeWithManualAck(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
 
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
@@ -106,14 +113,14 @@ class AbstractRabbitRouterTest {
             val monitor = router.subscribeAll(mock { })
             assertNotNull(monitor) { "monitor must not be null" }
 
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-            verify(connectionManager).basicConsume(eq("queue2"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue2"), any(), any())
         }
 
         @Test
         fun `unsubscribe after subscribe`() {
             val monitor = router.subscribe(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             monitor.unsubscribe()
@@ -123,7 +130,7 @@ class AbstractRabbitRouterTest {
         @Test
         fun `unsubscribe after subscribe with manual ack`() {
             val monitor = router.subscribeWithManualAck(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             monitor.unsubscribe()
@@ -133,7 +140,7 @@ class AbstractRabbitRouterTest {
         @Test
         fun `unsubscribe after subscribe to exclusive queue`() {
             val monitor = router.subscribeExclusive(mock { })
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             monitor.unsubscribe()
@@ -144,39 +151,39 @@ class AbstractRabbitRouterTest {
         fun `subscribes after unsubscribe`() {
             router.subscribe(mock { }, "1")
                 .unsubscribe()
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             val monitor = router.subscribe(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
         fun `subscribes with manual ack after unsubscribe`() {
             router.subscribeWithManualAck(mock { }, "1")
                 .unsubscribe()
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             val monitor = router.subscribeWithManualAck(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
         fun `subscribes when subscribtion active`() {
             router.subscribe(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             assertThrows(RuntimeException::class.java) { router.subscribe(mock { }, "1") }
         }
 
         @Test
-        fun `subscribes with manual ack when subscribtion active`() {
+        fun `subscribes with manual ack when subscription active`() {
             router.subscribeWithManualAck(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             assertThrows(RuntimeException::class.java) { router.subscribeWithManualAck(mock { }, "1") }
@@ -187,8 +194,8 @@ class AbstractRabbitRouterTest {
             val monitorA = router.subscribeExclusive(mock { })
             val monitorB = router.subscribeExclusive(mock { })
 
-            verify(connectionManager, times(2)).queueDeclare()
-            verify(connectionManager, times(2)).basicConsume(
+            verify(consumeConnectionManager, times(2)).queueDeclare()
+            verify(consumeConnectionManager, times(2)).basicConsume(
                 argThat { matches(Regex("$TEST_EXCLUSIVE_QUEUE-\\d+")) },
                 any(),
                 any()
@@ -250,7 +257,8 @@ class AbstractRabbitRouterTest {
         ).apply {
             init(
                 DefaultMessageRouterContext(
-                    connectionManager,
+                    publishConnectionManager,
+                    consumeConnectionManager,
                     mock { },
                     MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
                     BaseTest.BOX_CONFIGURATION

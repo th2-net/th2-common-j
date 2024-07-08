@@ -22,7 +22,8 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 
 class DefaultMessageRouterContext(
-    override val connectionManager: ConnectionManager,
+    override val publishConnectionManager: ConnectionManager,
+    override val consumeConnectionManager: ConnectionManager,
     override val routerMonitor: MessageRouterMonitor,
     override val configuration: MessageRouterConfiguration,
     override val boxConfiguration: BoxConfiguration

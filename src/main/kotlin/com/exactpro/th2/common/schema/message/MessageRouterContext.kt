@@ -20,7 +20,8 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 
 interface MessageRouterContext {
-    val connectionManager: ConnectionManager
+    val publishConnectionManager: ConnectionManager
+    val consumeConnectionManager: ConnectionManager
     val routerMonitor: MessageRouterMonitor
     val configuration: MessageRouterConfiguration
     val boxConfiguration: BoxConfiguration

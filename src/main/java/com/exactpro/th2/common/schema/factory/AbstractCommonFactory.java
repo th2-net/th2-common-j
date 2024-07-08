@@ -137,8 +137,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
     private final Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass;
-    private final LazyProvider<ConnectionManager> rabbitMqConnectionManager =
-            lazyAutocloseable("connection-manager", this::createRabbitMQConnectionManager);
+    private final LazyProvider<ConnectionManager> rabbitMqPublishConnectionManager =
+            lazyAutocloseable("publish-connection-manager", this::createRabbitMQConnectionManager);
+    private final LazyProvider<ConnectionManager> rabbitMqConsumeConnectionManager =
+            lazyAutocloseable("consume-connection-manager", this::createRabbitMQConnectionManager);
     private final LazyProvider<MessageRouterContext> routerContext =
             lazy("router-context", this::createMessageRouterContext);
     private final LazyProvider<MessageRouter<MessageBatch>> messageRouterParsedBatch =
@@ -648,7 +650,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     @NotNull
     private MessageRouterContext createRouterContext(MessageRouterMonitor contextMonitor) {
         return new DefaultMessageRouterContext(
-                getRabbitMqConnectionManager(),
+                getRabbitMqPublishConnectionManager(),
+                getRabbitMqConsumeConnectionManager(),
                 contextMonitor,
                 getMessageRouterConfiguration(),
                 getBoxConfiguration()
@@ -663,8 +666,12 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return new ConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration());
     }
 
-    protected ConnectionManager getRabbitMqConnectionManager() {
-        return rabbitMqConnectionManager.get();
+    protected ConnectionManager getRabbitMqPublishConnectionManager() {
+        return rabbitMqPublishConnectionManager.get();
+    }
+
+    protected ConnectionManager getRabbitMqConsumeConnectionManager() {
+        return rabbitMqConsumeConnectionManager.get();
     }
 
     public MessageID.Builder newMessageIDBuilder() {
@@ -700,9 +707,15 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         }
 
         try {
-            rabbitMqConnectionManager.close();
+            rabbitMqPublishConnectionManager.close();
         } catch (Exception e) {
-            LOGGER.error("Failed to close RabbitMQ connection", e);
+            LOGGER.error("Failed to close RabbitMQ publish connection", e);
+        }
+
+        try {
+            rabbitMqConsumeConnectionManager.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close RabbitMQ consume connection", e);
         }
 
         try {

@@ -39,7 +39,7 @@ public interface MessageRouter<T> extends AutoCloseable {
     default void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration) {
         Objects.requireNonNull(connectionManager, "Connection owner can not be null");
         Objects.requireNonNull(configuration, "Configuration cannot be null");
-        init(new DefaultMessageRouterContext(connectionManager, MessageRouterMonitor.DEFAULT_MONITOR, configuration, new BoxConfiguration()));
+        init(new DefaultMessageRouterContext(connectionManager, connectionManager, MessageRouterMonitor.DEFAULT_MONITOR, configuration, new BoxConfiguration()));
     }
 
     default void init(@NotNull MessageRouterContext context, @NotNull MessageRouter<MessageGroupBatch> groupBatchRouter) {

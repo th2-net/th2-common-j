@@ -105,6 +105,7 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
             init(
                 DefaultMessageRouterContext(
                     connectionManager,
+                    connectionManager,
                     mock { },
                     MessageRouterConfiguration(),
                     BoxConfiguration()

@@ -111,6 +111,7 @@ class TransportGroupBatchRouterIntegrationTest {
             init(
                 DefaultMessageRouterContext(
                     connectionManager,
+                    connectionManager,
                     mock { },
                     MessageRouterConfiguration(),
                     BoxConfiguration()

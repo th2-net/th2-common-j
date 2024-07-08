@@ -44,10 +44,10 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
         get() = context.configuration
 
     protected val publishConnectionManager: ConnectionManager
-        get() = context.connectionManager
+        get() = context.publishConnectionManager
 
     protected val consumeConnectionManager: ConnectionManager
-        get() = context.connectionManager
+        get() = context.consumeConnectionManager
 
     private val boxConfiguration: BoxConfiguration
         get() = context.boxConfiguration

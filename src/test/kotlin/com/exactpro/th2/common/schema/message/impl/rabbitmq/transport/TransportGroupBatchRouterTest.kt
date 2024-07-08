@@ -284,6 +284,7 @@ class TransportGroupBatchRouterTest {
             init(
                 DefaultMessageRouterContext(
                     connectionManager,
+                    connectionManager,
                     mock { },
                     MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
                     BOX_CONFIGURATION
