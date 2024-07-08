@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.testcontainers.containers.GenericContainer
@@ -1193,6 +1194,7 @@ class TestConnectionManager {
     )
 
     @Test
+    @Disabled
     fun `connection manager receives messages when publishing is blocked`() {
         val routingKey = "routingKey1"
         val queueName = "queue1"

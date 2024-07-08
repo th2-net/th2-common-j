@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -61,7 +61,7 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
     @Override
     protected MessageSender<EventBatch> createSender(QueueConfiguration queueConfiguration, @NotNull String pinName, @NotNull String bookName) {
         return new EventBatchSender(
-                getConnectionManager(),
+                getPublishConnectionManager(),
                 queueConfiguration.getExchange(),
                 queueConfiguration.getRoutingKey(),
                 pinName,
@@ -77,7 +77,7 @@ public class EventBatchRouter extends AbstractRabbitRouter<EventBatch> {
             @NotNull ConfirmationListener<EventBatch> listener
     ) {
         return new EventBatchSubscriber(
-                getConnectionManager(),
+                getConsumeConnectionManager(),
                 queueConfiguration.getQueue(),
                 pinName,
                 listener
