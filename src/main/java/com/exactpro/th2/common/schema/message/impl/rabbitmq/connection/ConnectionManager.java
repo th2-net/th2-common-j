@@ -38,7 +38,6 @@ import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.client.TopologyRecoveryException;
 import com.rabbitmq.client.impl.AMQImpl;
 import com.rabbitmq.client.impl.recovery.AutorecoveringChannel;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -66,7 +65,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -84,8 +82,6 @@ public abstract class ConnectionManager implements AutoCloseable {
     protected final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicReference<State> connectionState = new AtomicReference<>(State.OPEN);
     private final ConnectionManagerConfiguration configuration;
-    protected final String subscriberName;
-    protected final AtomicInteger nextSubscriberId = new AtomicInteger(1);
     private final ExecutorService sharedExecutor;
     protected final ScheduledExecutorService channelChecker = Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build()
@@ -116,14 +112,6 @@ public abstract class ConnectionManager implements AutoCloseable {
     public ConnectionManager(@NotNull String connectionName, @NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration) {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
-
-        String subscriberNameTmp = ObjectUtils.defaultIfNull(connectionManagerConfiguration.getSubscriberName(), connectionManagerConfiguration.getSubscriberName());
-        if (StringUtils.isBlank(subscriberNameTmp)) {
-            subscriberName = "rabbit_mq_subscriber." + System.currentTimeMillis();
-            LOGGER.info("Subscribers will use default name: {}", subscriberName);
-        } else {
-            subscriberName = subscriberNameTmp + "." + System.currentTimeMillis();
-        }
 
         var factory = new ConnectionFactory();
         var virtualHost = rabbitMQConfiguration.getVHost();
@@ -316,10 +304,10 @@ public abstract class ConnectionManager implements AutoCloseable {
         }
     }
 
-    protected abstract BlockedListener getBlockedListener();
+    protected abstract BlockedListener createBlockedListener();
 
     private void addBlockedListenersToConnection(Connection conn) {
-        conn.addBlockedListener(getBlockedListener());
+        conn.addBlockedListener(createBlockedListener());
     }
 
     public boolean isOpen() {
@@ -406,8 +394,8 @@ public abstract class ConnectionManager implements AutoCloseable {
     }
 
     protected static final class SubscriptionCallbacks {
-        protected final ManualAckDeliveryCallback deliverCallback;
-        protected final CancelCallback cancelCallback;
+        final ManualAckDeliveryCallback deliverCallback;
+        final CancelCallback cancelCallback;
 
         public SubscriptionCallbacks(ManualAckDeliveryCallback deliverCallback, CancelCallback cancelCallback) {
             this.deliverCallback = deliverCallback;

@@ -39,7 +39,7 @@ class PublishConnectionManager(
         }
     }
 
-    override fun getBlockedListener(): BlockedListener = object : BlockedListener {
+    override fun createBlockedListener(): BlockedListener = object : BlockedListener {
         override fun handleBlocked(reason: String) {
             isPublishingBlocked = true
             LOGGER.info { "RabbitMQ blocked publish connection: $reason" }

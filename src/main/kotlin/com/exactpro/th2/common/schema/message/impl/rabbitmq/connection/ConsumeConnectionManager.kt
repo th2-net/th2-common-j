@@ -27,20 +27,29 @@ import com.rabbitmq.client.Channel
 import com.rabbitmq.client.Delivery
 import com.rabbitmq.client.CancelCallback
 import com.rabbitmq.client.BlockedListener
-import com.rabbitmq.client.ShutdownNotifier
 import com.rabbitmq.client.ShutdownSignalException
 
 import mu.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
 
 class ConsumeConnectionManager(
     connectionName: String,
     rabbitMQConfiguration: RabbitMQConfiguration,
     connectionManagerConfiguration: ConnectionManagerConfiguration
 ) : ConnectionManager(connectionName, rabbitMQConfiguration, connectionManagerConfiguration) {
-    override fun getBlockedListener(): BlockedListener = object : BlockedListener {
+    private val subscriberName = if (connectionManagerConfiguration.subscriberName.isNullOrBlank()) {
+        (DEFAULT_SUBSCRIBER_NAME_PREFIX + System.currentTimeMillis()).also {
+            LOGGER.info { "Subscribers will use the default name: $it" }
+        }
+    } else {
+        connectionManagerConfiguration.subscriberName + "." + System.currentTimeMillis()
+    }
+    private val nextSubscriberId: AtomicInteger = AtomicInteger(1)
+
+    override fun createBlockedListener(): BlockedListener = object : BlockedListener {
         override fun handleBlocked(reason: String) {
             LOGGER.info { "RabbitMQ blocked consume connection: $reason" }
         }
@@ -52,25 +61,18 @@ class ConsumeConnectionManager(
 
     @Throws(IOException::class)
     fun queueDeclare(): String {
-        val holder = ChannelHolder({ this.createChannel() },
-            { notifier: ShutdownNotifier, waitForRecovery: Boolean ->
-                this.waitForConnectionRecovery(
-                    notifier,
-                    waitForRecovery
-                )
-            }, configurationToOptions()
-        )
-        return holder.mapWithLock { channel: Channel ->
-            val queue = channel.queueDeclare(
+        val holder = ChannelHolder(this::createChannel, this::waitForConnectionRecovery, configurationToOptions())
+        return holder.mapWithLock { channel ->
+            channel.queueDeclare(
                 "",  // queue name
                 false,  // durable
                 true,  // exclusive
                 false,  // autoDelete
                 emptyMap()
-            ).queue
-            LOGGER.info { "Declared exclusive '$queue' queue" }
-            putChannelFor(PinId.forQueue(queue), holder)
-            queue
+            ).queue.also { queue ->
+                LOGGER.info { "Declared exclusive '$queue' queue" }
+                putChannelFor(PinId.forQueue(queue), holder)
+            }
         }
     }
 
@@ -107,7 +109,7 @@ class ConsumeConnectionManager(
                             override fun reject() {
                                 holder.withLock { ch: Channel ->
                                     try {
-                                        channel.basicReject(deliveryTag, false)
+                                        ch.basicReject(deliveryTag, false)
                                     } catch (e: IOException) {
                                         LOGGER.warn { "Error during basicReject of message with deliveryTag = $deliveryTag inside channel #${ch.channelNumber}: $e" }
                                         throw e
@@ -213,5 +215,6 @@ class ConsumeConnectionManager(
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}
+        private const val DEFAULT_SUBSCRIBER_NAME_PREFIX = "rabbit_mq_subscriber."
     }
 }
