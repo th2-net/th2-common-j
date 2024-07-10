@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.event.bean.BaseTest
@@ -22,7 +23,8 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertAll
@@ -48,13 +50,10 @@ private const val TEST_EXCLUSIVE_QUEUE = "test-exclusive-queue"
 class AbstractRabbitRouterTest {
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val managerMonitor: ExclusiveSubscriberMonitor = mock { }
-    private val publishConnectionManager: ConnectionManager = mock {
+    private val publishConnectionManager: PublishConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
-        on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
-        on { queueDeclare() }.thenAnswer { "$TEST_EXCLUSIVE_QUEUE-${exclusiveQueueCounter.incrementAndGet()}" }
     }
-
-    private val consumeConnectionManager: ConnectionManager = mock {
+    private val consumeConnectionManager: ConsumeConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
         on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
         on { queueDeclare() }.thenAnswer { "$TEST_EXCLUSIVE_QUEUE-${exclusiveQueueCounter.incrementAndGet()}" }
@@ -172,7 +171,7 @@ class AbstractRabbitRouterTest {
         }
 
         @Test
-        fun `subscribes when subscribtion active`() {
+        fun `subscribes when subscription active`() {
             router.subscribe(mock { }, "1")
             clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
@@ -190,7 +189,7 @@ class AbstractRabbitRouterTest {
         }
 
         @Test
-        fun `subscribes to exclusive queue when subscribtion active`() {
+        fun `subscribes to exclusive queue when subscription active`() {
             val monitorA = router.subscribeExclusive(mock { })
             val monitorB = router.subscribeExclusive(mock { })
 

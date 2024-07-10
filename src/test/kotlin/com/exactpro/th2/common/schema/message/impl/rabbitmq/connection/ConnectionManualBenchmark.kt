@@ -18,7 +18,7 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
 import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
+import com.exactpro.th2.common.util.getRabbitMQConfiguration
 import mu.KotlinLogging
 import org.testcontainers.containers.RabbitMQContainer
 import java.time.Duration
@@ -40,7 +40,7 @@ object ConnectionManualBenchmark {
                 execInContainer("rabbitmqadmin", "declare", "exchange", "name=$exchangeName", "type=fanout")
                 execInContainer("rabbitmqadmin", "declare", "binding", "source=$exchangeName", "destination_type=queue", "destination=$queueName")
 
-                val consumer = createConnectionManager(
+                val consumer = createConsumeConnectionManager(
                     container,
                     ConnectionManagerConfiguration(
                         prefetchCount = 1000,
@@ -51,7 +51,7 @@ object ConnectionManualBenchmark {
                 )
 
                 val connectionManagerWithConfirmation = {
-                    createConnectionManager(
+                    createPublishConnectionManager(
                         container,
                         ConnectionManagerConfiguration(
                             prefetchCount = 100,
@@ -63,7 +63,7 @@ object ConnectionManualBenchmark {
                 }
 
                 val connectionManagerWithoutConfirmation = {
-                    createConnectionManager(
+                    createPublishConnectionManager(
                         container,
                         ConnectionManagerConfiguration(
                             prefetchCount = 100,
@@ -102,7 +102,7 @@ object ConnectionManualBenchmark {
         }
     }
 
-    private fun measure(name: String, manager: () -> ConnectionManager, payload: ByteArray): Duration {
+    private fun measure(name: String, manager: () -> PublishConnectionManager, payload: ByteArray): Duration {
         LOGGER.info("Measuring $name")
         val start: Long
         val sent: Long
@@ -136,16 +136,17 @@ object ConnectionManualBenchmark {
         return duration
     }
 
-    private fun createConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
-        ConnectionManager(
-            "test-connection",
-            RabbitMQConfiguration(
-                host = container.host,
-                vHost = "",
-                port = container.amqpPort,
-                username = container.adminUsername,
-                password = container.adminPassword,
-            ),
+    private fun createPublishConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
+        PublishConnectionManager(
+            "test-publish-connection",
+            getRabbitMQConfiguration(container),
+            configuration
+        )
+
+    private fun createConsumeConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
+        ConsumeConnectionManager(
+            "test-consume-connection",
+            getRabbitMQConfiguration(container),
             configuration
         )
 }

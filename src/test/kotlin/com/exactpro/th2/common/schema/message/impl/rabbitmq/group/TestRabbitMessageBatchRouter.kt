@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,8 @@ import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfig
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -46,13 +47,15 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
-import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 
 class TestRabbitMessageGroupBatchRouter {
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val managerMonitor: ExclusiveSubscriberMonitor = mock { }
-    private val connectionManager: ConnectionManager = mock {
+    private val publishConnectionManager: PublishConnectionManager = mock {
+        on { configuration }.thenReturn(connectionConfiguration)
+    }
+    private val consumeConnectionManager: ConsumeConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
         on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
     }
@@ -116,7 +119,7 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -132,7 +135,7 @@ class TestRabbitMessageGroupBatchRouter {
                     ).build()
             )
 
-            verify(connectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
+            verify(publishConnectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
         }
 
         @Test
@@ -144,7 +147,7 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -192,8 +195,8 @@ class TestRabbitMessageGroupBatchRouter {
             router.sendAll(batch)
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), captor.capture())
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val originalBytes = batch.toByteArray()
             Assertions.assertAll(
                 Executable {
@@ -251,7 +254,7 @@ class TestRabbitMessageGroupBatchRouter {
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("publish"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("publish"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -297,8 +300,8 @@ class TestRabbitMessageGroupBatchRouter {
     private fun createRouter(pins: Map<String, QueueConfiguration>): MessageRouter<MessageGroupBatch> =
         RabbitMessageGroupBatchRouter().apply {
             init(DefaultMessageRouterContext(
-                connectionManager,
-                connectionManager,
+                publishConnectionManager,
+                consumeConnectionManager,
                 mock { },
                 MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
                 BOX_CONFIGURATION

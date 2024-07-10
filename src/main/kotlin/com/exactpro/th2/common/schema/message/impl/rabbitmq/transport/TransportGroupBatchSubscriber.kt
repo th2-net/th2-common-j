@@ -1,5 +1,6 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,19 +24,19 @@ import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.configuration.RouterFilter
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter.Companion.TRANSPORT_GROUP_TYPE
 import com.rabbitmq.client.Delivery
 import io.netty.buffer.Unpooled
 import io.prometheus.client.Counter
 
 class TransportGroupBatchSubscriber(
-    connectionManager: ConnectionManager,
+    consumeConnectionManager: ConsumeConnectionManager,
     queue: String,
     th2Pin: String,
     private val filters: List<RouterFilter>,
     messageListener: ConfirmationListener<GroupBatch>
-) : AbstractRabbitSubscriber<GroupBatch>(connectionManager, queue, th2Pin, TRANSPORT_GROUP_TYPE, messageListener) {
+) : AbstractRabbitSubscriber<GroupBatch>(consumeConnectionManager, queue, th2Pin, TRANSPORT_GROUP_TYPE, messageListener) {
 
     override fun valueFromBytes(body: ByteArray): GroupBatch = Unpooled.wrappedBuffer(body).run(GroupBatchCodec::decode)
 

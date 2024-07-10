@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.schema.message.MessageSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager.EMPTY_ROUTING_KEY
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
 import java.io.IOException
 
 class NotificationEventBatchSender(
-    private val connectionManager: ConnectionManager,
+    private val publishConnectionManager: PublishConnectionManager,
     private val exchange: String
 ) : MessageSender<EventBatch> {
     @Deprecated(
@@ -37,7 +38,7 @@ class NotificationEventBatchSender(
     @Throws(IOException::class)
     override fun send(message: EventBatch) {
         try {
-            connectionManager.basicPublish(exchange, EMPTY_ROUTING_KEY, null, message.toByteArray())
+            publishConnectionManager.basicPublish(exchange, EMPTY_ROUTING_KEY, null, message.toByteArray())
         } catch (e: Exception) {
             throw IOException(
                 "Can not send notification message: EventBatch: parent_event_id = ${message.parentEventId.id}",

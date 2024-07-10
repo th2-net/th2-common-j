@@ -29,9 +29,10 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter
+import com.exactpro.th2.common.util.getRabbitMQConfiguration
 import com.rabbitmq.client.BuiltinExchangeType
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions.assertNull
@@ -61,9 +62,8 @@ class AbstractRabbitRouterIntegrationTest {
                 rabbitMQContainer.start()
                 K_LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}, rest ${rabbitMQContainer.httpUrl} ${rabbitMQContainer.adminUsername} ${rabbitMQContainer.adminPassword} " }
 
-                createConnectionManager(rabbitMQContainer).use { publishManager ->
-                    createConnectionManager(rabbitMQContainer).use { consumeManager ->
-
+                createConsumeConnectionManager(rabbitMQContainer).use { consumeManager ->
+                    createPublishConnectionManager(rabbitMQContainer).use { publishManager ->
                         createRouter(publishManager, consumeManager).use { firstRouter ->
                             val messageA = "test-message-a"
                             val messageB = "test-message-b"
@@ -111,8 +111,8 @@ class AbstractRabbitRouterIntegrationTest {
         queue: ArrayBlockingQueue<Delivery>,
         expectations: List<Expectation>,
     ) {
-        createConnectionManager(rabbitMQContainer).use { publishManager ->
-            createConnectionManager(rabbitMQContainer).use { consumeManager ->
+        createConsumeConnectionManager(rabbitMQContainer).use { consumeManager ->
+            createPublishConnectionManager(rabbitMQContainer).use { publishManager ->
                 createRouter(publishManager, consumeManager).use { router ->
                     val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
                         queue.put(
@@ -160,27 +160,34 @@ class AbstractRabbitRouterIntegrationTest {
         }
     }
 
-    private fun createConnectionManager(
-        rabbitMQContainer: RabbitMQContainer,
-        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
-        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
-    ) = ConnectionManager(
-        "test-connection",
-        RabbitMQConfiguration(
-            host = rabbitMQContainer.host,
-            vHost = "",
-            port = rabbitMQContainer.amqpPort,
-            username = rabbitMQContainer.adminUsername,
-            password = rabbitMQContainer.adminPassword,
-        ),
+    private fun getConnectionManagerConfiguration(prefetchCount: Int, confirmationTimeout: Duration) =
         ConnectionManagerConfiguration(
             subscriberName = "test",
             prefetchCount = prefetchCount,
-            confirmationTimeout = confirmationTimeout,
-        ),
+            confirmationTimeout = confirmationTimeout
+        )
+
+    private fun createPublishConnectionManager(
+        rabbitMQContainer: RabbitMQContainer,
+        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
+        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
+    ) = PublishConnectionManager(
+        "test-publish-connection",
+        getRabbitMQConfiguration(rabbitMQContainer),
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
     )
 
-    private fun createRouter(publishConnectionManager: ConnectionManager, consumeConnectionManager: ConnectionManager) = RabbitCustomRouter(
+    private fun createConsumeConnectionManager(
+        rabbitMQContainer: RabbitMQContainer,
+        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
+        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
+    ) = ConsumeConnectionManager(
+        "test-consume-connection",
+        getRabbitMQConfiguration(rabbitMQContainer),
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+    )
+
+    private fun createRouter(publishConnectionManager: PublishConnectionManager, consumeConnectionManager: ConsumeConnectionManager) = RabbitCustomRouter(
         "test-custom-tag",
         arrayOf("test-label"),
         TestMessageConverter()

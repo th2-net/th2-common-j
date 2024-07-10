@@ -1,5 +1,6 @@
 /*
  * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -52,7 +53,8 @@ import com.exactpro.th2.common.schema.message.impl.monitor.EventMessageRouterMon
 import com.exactpro.th2.common.schema.message.impl.monitor.LogMessageRouterMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch;
@@ -137,10 +139,10 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
     private final Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass;
-    private final LazyProvider<ConnectionManager> rabbitMqPublishConnectionManager =
-            lazyAutocloseable("publish-connection-manager", this::createRabbitMQConnectionManager);
-    private final LazyProvider<ConnectionManager> rabbitMqConsumeConnectionManager =
-            lazyAutocloseable("consume-connection-manager", this::createRabbitMQConnectionManager);
+    private final LazyProvider<PublishConnectionManager> rabbitMqPublishConnectionManager =
+            lazyAutocloseable("publish-connection-manager", this::createRabbitMQPublishConnectionManager);
+    private final LazyProvider<ConsumeConnectionManager> rabbitMqConsumeConnectionManager =
+            lazyAutocloseable("consume-connection-manager", this::createRabbitMQConsumeConnectionManager);
     private final LazyProvider<MessageRouterContext> routerContext =
             lazy("router-context", this::createMessageRouterContext);
     private final LazyProvider<MessageRouter<MessageBatch>> messageRouterParsedBatch =
@@ -662,15 +664,19 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(PrometheusConfiguration.class, true);
     }
 
-    protected ConnectionManager createRabbitMQConnectionManager() {
-        return new ConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration());
+    protected PublishConnectionManager createRabbitMQPublishConnectionManager() {
+        return new PublishConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration());
     }
 
-    protected ConnectionManager getRabbitMqPublishConnectionManager() {
+    protected ConsumeConnectionManager createRabbitMQConsumeConnectionManager() {
+        return new ConsumeConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration());
+    }
+
+    protected PublishConnectionManager getRabbitMqPublishConnectionManager() {
         return rabbitMqPublishConnectionManager.get();
     }
 
-    protected ConnectionManager getRabbitMqConsumeConnectionManager() {
+    protected ConsumeConnectionManager getRabbitMqConsumeConnectionManager() {
         return rabbitMqConsumeConnectionManager.get();
     }
 

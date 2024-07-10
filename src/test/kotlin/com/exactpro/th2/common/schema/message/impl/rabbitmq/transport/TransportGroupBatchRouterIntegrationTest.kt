@@ -27,8 +27,9 @@ import com.exactpro.th2.common.schema.message.ContainerConstants.ROUTING_KEY
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
+import com.exactpro.th2.common.util.getRabbitMQConfiguration
 import com.rabbitmq.client.BuiltinExchangeType
 import mu.KotlinLogging
 import org.junit.jupiter.api.Test
@@ -49,21 +50,25 @@ class TransportGroupBatchRouterIntegrationTest {
                 rabbitMQContainer.start()
                 LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
 
-                createConnectionManager(rabbitMQContainer).use { firstManager ->
-                    createRouter(firstManager).use { firstRouter ->
-                        createConnectionManager(rabbitMQContainer).use { secondManager ->
-                            createRouter(secondManager).use { secondRouter ->
-                                val counter = CountDownLatch(1)
-                                val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
-                                try {
-                                    secondRouter.sendExclusive(monitor.queue, GroupBatch.builder()
-                                        .setBook("")
-                                        .setSessionGroup("")
-                                        .build())
-                                    assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
+                createConsumeConnectionManager(rabbitMQContainer).use { firstConsumeManager ->
+                    createPublishConnectionManager(rabbitMQContainer).use { firstPublishManager ->
+                        createRouter(firstPublishManager, firstConsumeManager).use { firstRouter ->
+                            createConsumeConnectionManager(rabbitMQContainer).use { secondConsumeManager ->
+                                createPublishConnectionManager(rabbitMQContainer).use { secondPublishManager ->
+                                    createRouter(secondPublishManager, secondConsumeManager).use { secondRouter ->
+                                        val counter = CountDownLatch(1)
+                                        val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
+                                        try {
+                                            secondRouter.sendExclusive(monitor.queue, GroupBatch.builder()
+                                                .setBook("")
+                                                .setSessionGroup("")
+                                                .build())
+                                            assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
-                                } finally {
-                                    monitor.unsubscribe()
+                                        } finally {
+                                            monitor.unsubscribe()
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -82,22 +87,26 @@ class TransportGroupBatchRouterIntegrationTest {
                 rabbitMQContainer.start()
                 LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}" }
 
-                createConnectionManager(rabbitMQContainer).use { firstManager ->
-                    createRouter(firstManager).use { firstRouter ->
-                        createConnectionManager(rabbitMQContainer).use { secondManager ->
-                            createRouter(secondManager).use { secondRouter ->
-                                val counter = CountDownLatch(1)
-                                val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
-                                try {
+                createConsumeConnectionManager(rabbitMQContainer).use { firstConsumeManager ->
+                    createPublishConnectionManager(rabbitMQContainer).use { firstPublishManager ->
+                        createRouter(firstPublishManager, firstConsumeManager).use { firstRouter ->
+                            createConsumeConnectionManager(rabbitMQContainer).use { secondConsumeManager ->
+                                createPublishConnectionManager(rabbitMQContainer).use { secondPublishManager ->
+                                    createRouter(secondPublishManager, secondConsumeManager).use { secondRouter ->
+                                        val counter = CountDownLatch(1)
+                                        val monitor = firstRouter.subscribeExclusive { _, _ -> counter.countDown() }
+                                        try {
 
-                                    secondRouter.sendExclusive(monitor.queue, GroupBatch.builder()
-                                        .setBook("")
-                                        .setSessionGroup("")
-                                        .build())
-                                    assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
+                                            secondRouter.sendExclusive(monitor.queue, GroupBatch.builder()
+                                                .setBook("")
+                                                .setSessionGroup("")
+                                                .build())
+                                            assertTrue("Message is not received") { counter.await(1, TimeUnit.SECONDS) }
 
-                                } finally {
-                                    monitor.unsubscribe()
+                                        } finally {
+                                            monitor.unsubscribe()
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -106,12 +115,12 @@ class TransportGroupBatchRouterIntegrationTest {
             }
     }
 
-    private fun createRouter(connectionManager: ConnectionManager) = TransportGroupBatchRouter()
+    private fun createRouter(publishConnectionManager: PublishConnectionManager, consumeConnectionManager: ConsumeConnectionManager) = TransportGroupBatchRouter()
         .apply {
             init(
                 DefaultMessageRouterContext(
-                    connectionManager,
-                    connectionManager,
+                    publishConnectionManager,
+                    consumeConnectionManager,
                     mock { },
                     MessageRouterConfiguration(),
                     BoxConfiguration()
@@ -119,24 +128,30 @@ class TransportGroupBatchRouterIntegrationTest {
             )
         }
 
-    private fun createConnectionManager(
+    private fun getConnectionManagerConfiguration(prefetchCount: Int, confirmationTimeout: Duration) = ConnectionManagerConfiguration(
+        subscriberName = "test",
+        prefetchCount = prefetchCount,
+        confirmationTimeout = confirmationTimeout
+    )
+
+    private fun createPublishConnectionManager(
         rabbitMQContainer: RabbitMQContainer,
         prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
         confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
-    ) = ConnectionManager(
-        "test-connection",
-        RabbitMQConfiguration(
-            host = rabbitMQContainer.host,
-            vHost = "",
-            port = rabbitMQContainer.amqpPort,
-            username = rabbitMQContainer.adminUsername,
-            password = rabbitMQContainer.adminPassword,
-        ),
-        ConnectionManagerConfiguration(
-            subscriberName = "test",
-            prefetchCount = prefetchCount,
-            confirmationTimeout = confirmationTimeout,
-        ),
+    ) = PublishConnectionManager(
+        "test-publish-connection",
+        getRabbitMQConfiguration(rabbitMQContainer),
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+    )
+
+    private fun createConsumeConnectionManager(
+        rabbitMQContainer: RabbitMQContainer,
+        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
+        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
+    ) = ConsumeConnectionManager(
+        "test-consume-connection",
+        getRabbitMQConfiguration(rabbitMQContainer),
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
     )
 
     companion object {

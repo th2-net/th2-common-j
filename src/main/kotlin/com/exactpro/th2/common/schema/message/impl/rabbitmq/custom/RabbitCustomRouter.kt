@@ -1,5 +1,6 @@
 /*
  * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,7 +26,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscr
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.PinName
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 
 /**
  * NOTE: labels are used for back compatibility and may be deleted later
@@ -91,14 +93,14 @@ class RabbitCustomRouter<T : Any>(
     }
 
     private class Sender<T : Any>(
-        connectionManager: ConnectionManager,
+        publishConnectionManager: PublishConnectionManager,
         exchangeName: String,
         routingKey: String,
         th2Pin: String,
         bookName: BookName,
         customTag: String,
         private val converter: MessageConverter<T>
-    ) : AbstractRabbitSender<T>(connectionManager, exchangeName, routingKey, th2Pin, customTag, bookName) {
+    ) : AbstractRabbitSender<T>(publishConnectionManager, exchangeName, routingKey, th2Pin, customTag, bookName) {
         override fun valueToBytes(value: T): ByteArray = converter.toByteArray(value)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)
@@ -107,13 +109,13 @@ class RabbitCustomRouter<T : Any>(
     }
 
     private class Subscriber<T : Any>(
-        connectionManager: ConnectionManager,
+        consumeConnectionManager: ConsumeConnectionManager,
         queue: String,
         th2Pin: String,
         customTag: String,
         private val converter: MessageConverter<T>,
         messageListener: ConfirmationListener<T>
-    ) : AbstractRabbitSubscriber<T>(connectionManager, queue, th2Pin, customTag, messageListener) {
+    ) : AbstractRabbitSubscriber<T>(consumeConnectionManager, queue, th2Pin, customTag, messageListener) {
         override fun valueFromBytes(body: ByteArray): T = converter.fromByteArray(body)
 
         override fun toShortTraceString(value: T): String = converter.toTraceString(value)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,20 @@ import com.exactpro.th2.common.event.bean.BaseTest.*
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.schema.message.ExclusiveSubscriberMonitor
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.common.schema.message.configuration.*
+import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
+import com.exactpro.th2.common.schema.message.configuration.MqRouterFilterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.FieldFilterOperation
+import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
+import com.exactpro.th2.common.schema.message.configuration.GlobalNotificationConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter.Companion.TRANSPORT_GROUP_ATTRIBUTE
 import io.netty.buffer.Unpooled
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertArrayEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -39,7 +44,10 @@ import java.time.Instant
 class TransportGroupBatchRouterTest {
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val managerMonitor: ExclusiveSubscriberMonitor = mock { }
-    private val connectionManager: ConnectionManager = mock {
+    private val publishConnectionManager: PublishConnectionManager = mock {
+        on { configuration }.thenReturn(connectionConfiguration)
+    }
+    private val consumeConnectionManager: ConsumeConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
         on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
     }
@@ -98,7 +106,7 @@ class TransportGroupBatchRouterTest {
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -109,7 +117,7 @@ class TransportGroupBatchRouterTest {
         fun `does not publish anything if all messages are filtered`() {
             router.send(createGroupBatch("test-message1"))
 
-            verify(connectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
+            verify(publishConnectionManager, never()).basicPublish(any(), any(), anyOrNull(), any())
         }
 
         @Test
@@ -118,7 +126,7 @@ class TransportGroupBatchRouterTest {
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -155,8 +163,8 @@ class TransportGroupBatchRouterTest {
             router.sendAll(batch)
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), captor.capture())
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("test2"), anyOrNull(), captor.capture())
             val originalBytes = batch.toByteArray()
             Assertions.assertAll(
                 Executable {
@@ -206,7 +214,7 @@ class TransportGroupBatchRouterTest {
             router.send(batch, "test")
 
             val captor = argumentCaptor<ByteArray>()
-            verify(connectionManager).basicPublish(eq("test-exchange"), eq("publish"), anyOrNull(), captor.capture())
+            verify(publishConnectionManager).basicPublish(eq("test-exchange"), eq("publish"), anyOrNull(), captor.capture())
             val publishedBytes = captor.firstValue
             assertArrayEquals(batch.toByteArray(), publishedBytes) {
                 "Unexpected batch published: ${MessageGroupBatch.parseFrom(publishedBytes)}"
@@ -283,8 +291,8 @@ class TransportGroupBatchRouterTest {
         TransportGroupBatchRouter().apply {
             init(
                 DefaultMessageRouterContext(
-                    connectionManager,
-                    connectionManager,
+                    publishConnectionManager,
+                    consumeConnectionManager,
                     mock { },
                     MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
                     BOX_CONFIGURATION

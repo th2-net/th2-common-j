@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package com.exactpro.th2.common.util
 import kotlin.random.Random
 import org.testcontainers.containers.Container
 import org.testcontainers.containers.RabbitMQContainer
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
 
 fun declareQueue(rabbit: RabbitMQContainer, queueName: String): Container.ExecResult? =
     execCommandWithSplit(rabbit, "rabbitmqadmin declare queue name=$queueName durable=false")
@@ -64,6 +65,14 @@ fun restartContainer(rabbit: RabbitMQContainer) {
     rabbit.dockerImageName = snapshotId
     rabbit.start()
 }
+
+fun getRabbitMQConfiguration(container: RabbitMQContainer) = RabbitMQConfiguration(
+    host = container.host,
+    vHost = "",
+    port = container.amqpPort,
+    username = container.adminUsername,
+    password = container.adminPassword,
+)
 
 private fun execCommandWithSplit(rabbit: RabbitMQContainer, command: String): Container.ExecResult? =
     rabbit.execInContainer(*command.split(" ").toTypedArray())
