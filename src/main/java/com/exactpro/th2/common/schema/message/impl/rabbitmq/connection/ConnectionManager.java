@@ -21,7 +21,6 @@ import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RetryingDelay;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.BlockedListener;
 import com.rabbitmq.client.CancelCallback;
 import com.rabbitmq.client.Channel;
@@ -60,7 +59,6 @@ import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -82,11 +80,7 @@ public abstract class ConnectionManager implements AutoCloseable {
     protected final Map<PinId, ChannelHolder> channelsByPin = new ConcurrentHashMap<>();
     private final AtomicReference<State> connectionState = new AtomicReference<>(State.OPEN);
     private final ConnectionManagerConfiguration configuration;
-    private final ExecutorService sharedExecutor;
-    protected final ScheduledExecutorService channelChecker = Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build()
-    );
-
+    protected final ScheduledExecutorService channelChecker;
     protected final HealthMetrics metrics = new HealthMetrics(this);
 
     private final RecoveryListener recoveryListener = new RecoveryListener() {
@@ -109,9 +103,17 @@ public abstract class ConnectionManager implements AutoCloseable {
 
     private enum State { OPEN, CLOSING, CLOSED }
 
-    public ConnectionManager(@NotNull String connectionName, @NotNull RabbitMQConfiguration rabbitMQConfiguration, @NotNull ConnectionManagerConfiguration connectionManagerConfiguration) {
+    public ConnectionManager(
+            @NotNull String connectionName,
+            @NotNull RabbitMQConfiguration rabbitMQConfiguration,
+            @NotNull ConnectionManagerConfiguration connectionManagerConfiguration,
+            @NotNull ExecutorService sharedExecutor,
+            @NotNull ScheduledExecutorService channelChecker
+    ) {
         Objects.requireNonNull(rabbitMQConfiguration, "RabbitMQ configuration cannot be null");
         this.configuration = Objects.requireNonNull(connectionManagerConfiguration, "Connection manager configuration can not be null");
+        Objects.requireNonNull(sharedExecutor, "Shared executor can not be null");
+        this.channelChecker = Objects.requireNonNull(channelChecker, "channelChecker executor can not be null");
 
         var factory = new ConnectionFactory();
         var virtualHost = rabbitMQConfiguration.getVHost();
@@ -207,9 +209,6 @@ public abstract class ConnectionManager implements AutoCloseable {
             return recoveryDelay;
         });
 
-        sharedExecutor = Executors.newFixedThreadPool(configuration.getWorkingThreads(), new ThreadFactoryBuilder()
-                .setNameFormat("rabbitmq-shared-pool-%d")
-                .build());
         factory.setSharedExecutor(sharedExecutor);
 
         try {
@@ -359,9 +358,6 @@ public abstract class ConnectionManager implements AutoCloseable {
                 LOGGER.error("Failed to close connection", e);
             }
         }
-
-        shutdownExecutor(sharedExecutor, closeTimeout, "rabbit-shared");
-        shutdownExecutor(channelChecker, closeTimeout, "channel-checker");
     }
 
     boolean isReady() {

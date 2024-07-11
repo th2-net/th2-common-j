@@ -23,12 +23,16 @@ import com.rabbitmq.client.BlockedListener
 import com.rabbitmq.client.Channel
 import mu.KotlinLogging
 import java.io.IOException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.ScheduledExecutorService
 
 class PublishConnectionManager(
     connectionName: String,
     rabbitMQConfiguration: RabbitMQConfiguration,
-    connectionManagerConfiguration: ConnectionManagerConfiguration
-) : ConnectionManager(connectionName, rabbitMQConfiguration, connectionManagerConfiguration) {
+    connectionManagerConfiguration: ConnectionManagerConfiguration,
+    sharedExecutor: ExecutorService,
+    channelChecker: ScheduledExecutorService
+) : ConnectionManager(connectionName, rabbitMQConfiguration, connectionManagerConfiguration, sharedExecutor, channelChecker) {
     @Volatile var isPublishingBlocked = false
 
     @Throws(IOException::class, InterruptedException::class)

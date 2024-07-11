@@ -31,6 +31,8 @@ import com.rabbitmq.client.ShutdownSignalException
 
 import mu.KotlinLogging
 import java.io.IOException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
@@ -38,8 +40,10 @@ import java.util.concurrent.atomic.AtomicInteger
 class ConsumeConnectionManager(
     connectionName: String,
     rabbitMQConfiguration: RabbitMQConfiguration,
-    connectionManagerConfiguration: ConnectionManagerConfiguration
-) : ConnectionManager(connectionName, rabbitMQConfiguration, connectionManagerConfiguration) {
+    connectionManagerConfiguration: ConnectionManagerConfiguration,
+    sharedExecutor: ExecutorService,
+    channelChecker: ScheduledExecutorService
+) : ConnectionManager(connectionName, rabbitMQConfiguration, connectionManagerConfiguration, sharedExecutor,  channelChecker) {
     private val subscriberName = if (connectionManagerConfiguration.subscriberName.isNullOrBlank()) {
         (DEFAULT_SUBSCRIBER_NAME_PREFIX + System.currentTimeMillis()).also {
             LOGGER.info { "Subscribers will use the default name: $it" }

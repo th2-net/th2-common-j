@@ -31,6 +31,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.Connec
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.util.getRabbitMQConfiguration
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.rabbitmq.client.BuiltinExchangeType
 import mu.KotlinLogging
 import org.junit.jupiter.api.Test
@@ -38,11 +39,15 @@ import org.mockito.kotlin.mock
 import org.testcontainers.containers.RabbitMQContainer
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertTrue
 
 @IntegrationTest
 class IntegrationTestRabbitMessageGroupBatchRouter {
+    private val channelChecker = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build())
+    private val sharedExecutor = Executors.newFixedThreadPool(1, ThreadFactoryBuilder().setNameFormat("rabbitmq-shared-pool-%d").build())
+
     @Test
     fun `subscribe to exclusive queue`() {
         RabbitMQContainer(RABBITMQ_IMAGE_NAME)
@@ -137,7 +142,9 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
     ) = PublishConnectionManager(
         "test-publish-connection",
         getRabbitMQConfiguration(rabbitMQContainer),
-        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
     )
 
     private fun createConsumeConnectionManager(
@@ -147,10 +154,12 @@ class IntegrationTestRabbitMessageGroupBatchRouter {
     ) = ConsumeConnectionManager(
         "test-consume-connection",
         getRabbitMQConfiguration(rabbitMQContainer),
-        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
     )
 
     companion object {
-        private val LOGGER = KotlinLogging.logger { }
+        private val LOGGER = KotlinLogging.logger {}
     }
 }

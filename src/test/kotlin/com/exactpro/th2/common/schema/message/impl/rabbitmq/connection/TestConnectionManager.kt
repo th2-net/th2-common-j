@@ -33,6 +33,7 @@ import com.exactpro.th2.common.util.getSubscribedChannelsCount
 import com.exactpro.th2.common.util.putMessageInQueue
 import com.exactpro.th2.common.util.getRabbitMQConfiguration
 import com.github.dockerjava.api.model.Capability
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.rabbitmq.client.BuiltinExchangeType
 import com.rabbitmq.client.CancelCallback
 import com.rabbitmq.client.Delivery
@@ -47,7 +48,6 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.testcontainers.containers.GenericContainer
@@ -67,6 +67,8 @@ import kotlin.test.assertFailsWith
 
 @IntegrationTest
 class TestConnectionManager {
+    private val channelChecker = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build())
+    private val sharedExecutor = Executors.newFixedThreadPool(1, ThreadFactoryBuilder().setNameFormat("rabbitmq-shared-pool-%d").build())
 
     @Test
     fun `connection manager redelivers unconfirmed messages`() {
@@ -468,7 +470,7 @@ class TestConnectionManager {
                         minConnectionRecoveryTimeout = 100,
                         maxConnectionRecoveryTimeout = 200,
                         maxRecoveryAttempts = 5
-                    ),
+                    )
                 ).use { connectionManager ->
                     val consume = CountDownLatch(3)
 
@@ -639,6 +641,8 @@ class TestConnectionManager {
                         connectionTimeout = 1000,
                         maxRecoveryAttempts = 5
                     ),
+                    sharedExecutor,
+                    channelChecker
                 ).use { publishConnectionManager ->
                     val consume = CountDownLatch(1)
                     publishConnectionManager.basicConsume(queueName, { _, delivery, ack ->
@@ -1114,14 +1118,18 @@ class TestConnectionManager {
         PublishConnectionManager(
             "test-publish-connection",
             getRabbitMQConfiguration(container),
-            configuration
+            configuration,
+            sharedExecutor,
+            channelChecker
         )
 
     private fun createConsumeConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
         ConsumeConnectionManager(
             "test-consume-connection",
             getRabbitMQConfiguration(container),
-            configuration
+            configuration,
+            sharedExecutor,
+            channelChecker
         )
 
     @Test
@@ -1200,7 +1208,9 @@ class TestConnectionManager {
     ) = PublishConnectionManager(
         "test-publish-connection",
         getRabbitMQConfiguration(rabbitMQContainer),
-        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
     )
 
     private fun createConsumeConnectionManager(
@@ -1210,11 +1220,12 @@ class TestConnectionManager {
     ) = ConsumeConnectionManager(
         "test-consume-connection",
         getRabbitMQConfiguration(rabbitMQContainer),
-        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
     )
 
     @Test
-    @Disabled
     fun `connection manager receives messages when publishing is blocked`() {
         val routingKey = "routingKey1"
         val queueName = "queue1"
@@ -1328,7 +1339,6 @@ class TestConnectionManager {
 
     companion object {
         private val LOGGER = KotlinLogging.logger { }
-
         private lateinit var rabbit: RabbitMQContainer
 
         @JvmStatic

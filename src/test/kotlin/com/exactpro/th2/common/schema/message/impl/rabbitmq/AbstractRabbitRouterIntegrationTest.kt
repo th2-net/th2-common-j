@@ -33,6 +33,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishCo
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter
 import com.exactpro.th2.common.util.getRabbitMQConfiguration
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.rabbitmq.client.BuiltinExchangeType
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions.assertNull
@@ -40,6 +41,7 @@ import org.mockito.kotlin.mock
 import org.testcontainers.containers.RabbitMQContainer
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -47,6 +49,8 @@ import kotlin.test.assertNotNull
 
 @IntegrationTest
 class AbstractRabbitRouterIntegrationTest {
+    private val channelChecker = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build())
+    private val sharedExecutor = Executors.newFixedThreadPool(1, ThreadFactoryBuilder().setNameFormat("rabbitmq-shared-pool-%d").build())
 
     @Test
     fun `receive unconfirmed message after resubscribe`() {
@@ -174,7 +178,9 @@ class AbstractRabbitRouterIntegrationTest {
     ) = PublishConnectionManager(
         "test-publish-connection",
         getRabbitMQConfiguration(rabbitMQContainer),
-        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
     )
 
     private fun createConsumeConnectionManager(
@@ -184,7 +190,9 @@ class AbstractRabbitRouterIntegrationTest {
     ) = ConsumeConnectionManager(
         "test-consume-connection",
         getRabbitMQConfiguration(rabbitMQContainer),
-        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout)
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
     )
 
     private fun createRouter(publishConnectionManager: PublishConnectionManager, consumeConnectionManager: ConsumeConnectionManager) = RabbitCustomRouter(

@@ -19,13 +19,18 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.util.getRabbitMQConfiguration
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import mu.KotlinLogging
 import org.testcontainers.containers.RabbitMQContainer
 import java.time.Duration
+import java.util.concurrent.Executors
 import java.util.concurrent.ThreadLocalRandom
 
 object ConnectionManualBenchmark {
     private val LOGGER = KotlinLogging.logger {}
+    private val channelChecker = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build())
+    private val sharedExecutor = Executors.newFixedThreadPool(1, ThreadFactoryBuilder().setNameFormat("rabbitmq-shared-pool-%d").build())
+
     @JvmStatic
     fun main(args: Array<String>) {
         RabbitMQContainer(RABBITMQ_IMAGE_NAME).use { container ->
@@ -140,13 +145,17 @@ object ConnectionManualBenchmark {
         PublishConnectionManager(
             "test-publish-connection",
             getRabbitMQConfiguration(container),
-            configuration
+            configuration,
+            sharedExecutor,
+            channelChecker
         )
 
     private fun createConsumeConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
         ConsumeConnectionManager(
             "test-consume-connection",
             getRabbitMQConfiguration(container),
-            configuration
+            configuration,
+            sharedExecutor,
+            channelChecker
         )
 }
