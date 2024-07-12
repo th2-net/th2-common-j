@@ -161,7 +161,13 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
     testImplementation "org.mockito.kotlin:mockito-kotlin:5.2.1"
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
-    testImplementation "org.testcontainers:testcontainers:1.19.6"
+    testImplementation "org.testcontainers:testcontainers:1.19.8"
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-compress
+    testImplementation('org.apache.commons:commons-compress:1.26.2') {
+        because('the commons-compress:1.24.0 transitive dependency of testcontainers:1.19.8 has ' +
+                'vulnerabilities: CVE-2024-25710, CVE-2024-26308')
+    }
+
     testImplementation "org.testcontainers:rabbitmq:1.19.6"
     testImplementation("org.junit-pioneer:junit-pioneer:2.2.0") {
         because("system property tests")
