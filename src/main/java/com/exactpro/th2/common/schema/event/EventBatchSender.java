@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import com.exactpro.th2.common.grpc.Event;
 import com.exactpro.th2.common.grpc.EventBatch;
 import com.exactpro.th2.common.message.MessageUtils;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
 import static com.exactpro.th2.common.schema.event.EventBatchRouter.EVENT_TYPE;
@@ -39,13 +39,13 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
             .register();
 
     public EventBatchSender(
-            @NotNull ConnectionManager connectionManager,
+            @NotNull PublishConnectionManager publishConnectionManager,
             @NotNull String exchangeName,
             @NotNull String routingKey,
             @NotNull String th2Pin,
             @NotNull String bookName
     ) {
-        super(connectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE, bookName);
+        super(publishConnectionManager, exchangeName, routingKey, th2Pin, EVENT_TYPE, bookName);
     }
 
     @Override

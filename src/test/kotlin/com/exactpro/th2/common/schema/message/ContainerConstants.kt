@@ -20,7 +20,7 @@ import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 
 object ContainerConstants {
-    @JvmField val RABBITMQ_IMAGE_NAME: DockerImageName = DockerImageName.parse("rabbitmq:3.13.0-management-alpine")
+    @JvmField val RABBITMQ_IMAGE_NAME: DockerImageName = DockerImageName.parse("rabbitmq:3.13.4-management-alpine")
     const val ROUTING_KEY = "routingKey"
     const val QUEUE_NAME = "queue"
     const val EXCHANGE = "test-exchange"

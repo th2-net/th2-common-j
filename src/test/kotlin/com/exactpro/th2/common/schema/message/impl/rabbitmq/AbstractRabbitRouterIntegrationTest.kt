@@ -29,9 +29,11 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter
+import com.exactpro.th2.common.util.getRabbitMQConfiguration
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.rabbitmq.client.BuiltinExchangeType
 import mu.KotlinLogging
 import org.junit.jupiter.api.Assertions.assertNull
@@ -39,6 +41,7 @@ import org.mockito.kotlin.mock
 import org.testcontainers.containers.RabbitMQContainer
 import java.time.Duration
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -46,6 +49,8 @@ import kotlin.test.assertNotNull
 
 @IntegrationTest
 class AbstractRabbitRouterIntegrationTest {
+    private val channelChecker = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build())
+    private val sharedExecutor = Executors.newFixedThreadPool(1, ThreadFactoryBuilder().setNameFormat("rabbitmq-shared-pool-%d").build())
 
     @Test
     fun `receive unconfirmed message after resubscribe`() {
@@ -61,43 +66,45 @@ class AbstractRabbitRouterIntegrationTest {
                 rabbitMQContainer.start()
                 K_LOGGER.info { "Started with port ${rabbitMQContainer.amqpPort}, rest ${rabbitMQContainer.httpUrl} ${rabbitMQContainer.adminUsername} ${rabbitMQContainer.adminPassword} " }
 
-                createConnectionManager(rabbitMQContainer).use { firstManager ->
-                    createRouter(firstManager).use { firstRouter ->
-                        val messageA = "test-message-a"
-                        val messageB = "test-message-b"
-                        val messageC = "test-message-c"
-                        val messageD = "test-message-d"
+                createConsumeConnectionManager(rabbitMQContainer).use { consumeManager ->
+                    createPublishConnectionManager(rabbitMQContainer).use { publishManager ->
+                        createRouter(publishManager, consumeManager).use { firstRouter ->
+                            val messageA = "test-message-a"
+                            val messageB = "test-message-b"
+                            val messageC = "test-message-c"
+                            val messageD = "test-message-d"
 
-                        val queue = ArrayBlockingQueue<Delivery>(4)
+                            val queue = ArrayBlockingQueue<Delivery>(4)
 
-                        firstRouter.send(messageA)
-                        firstRouter.send(messageB)
-                        firstRouter.send(messageC)
-                        firstRouter.send(messageD)
+                            firstRouter.send(messageA)
+                            firstRouter.send(messageB)
+                            firstRouter.send(messageC)
+                            firstRouter.send(messageD)
 
-                        connectAndCheck(
-                            rabbitMQContainer, queue, listOf(
-                                Expectation(messageA, false, ManualAckDeliveryCallback.Confirmation::confirm),
-                                Expectation(messageB, false, ManualAckDeliveryCallback.Confirmation::reject),
-                                Expectation(messageC, false) { },
-                                Expectation(messageD, false) { },
+                            connectAndCheck(
+                                rabbitMQContainer, queue, listOf(
+                                    Expectation(messageA, false, ManualAckDeliveryCallback.Confirmation::confirm),
+                                    Expectation(messageB, false, ManualAckDeliveryCallback.Confirmation::reject),
+                                    Expectation(messageC, false) { },
+                                    Expectation(messageD, false) { },
+                                )
                             )
-                        )
 
-                        connectAndCheck(
-                            rabbitMQContainer, queue, listOf(
-                                Expectation(messageC, true, ManualAckDeliveryCallback.Confirmation::confirm),
-                                Expectation(messageD, true) { },
+                            connectAndCheck(
+                                rabbitMQContainer, queue, listOf(
+                                    Expectation(messageC, true, ManualAckDeliveryCallback.Confirmation::confirm),
+                                    Expectation(messageD, true) { },
+                                )
                             )
-                        )
 
-                        connectAndCheck(
-                            rabbitMQContainer, queue, listOf(
-                                Expectation(messageD, true, ManualAckDeliveryCallback.Confirmation::reject),
+                            connectAndCheck(
+                                rabbitMQContainer, queue, listOf(
+                                    Expectation(messageD, true, ManualAckDeliveryCallback.Confirmation::reject),
+                                )
                             )
-                        )
 
-                        connectAndCheck(rabbitMQContainer, queue, emptyList())
+                            connectAndCheck(rabbitMQContainer, queue, emptyList())
+                        }
                     }
                 }
             }
@@ -108,81 +115,95 @@ class AbstractRabbitRouterIntegrationTest {
         queue: ArrayBlockingQueue<Delivery>,
         expectations: List<Expectation>,
     ) {
-        createConnectionManager(rabbitMQContainer).use { manager ->
-            createRouter(manager).use { router ->
-                val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
-                    queue.put(
-                        Delivery(
-                            message,
-                            deliveryMetadata.isRedelivered,
-                            confirmation
+        createConsumeConnectionManager(rabbitMQContainer).use { consumeManager ->
+            createPublishConnectionManager(rabbitMQContainer).use { publishManager ->
+                createRouter(publishManager, consumeManager).use { router ->
+                    val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
+                        queue.put(
+                            Delivery(
+                                message,
+                                deliveryMetadata.isRedelivered,
+                                confirmation
+                            )
                         )
-                    )
-                })
+                    })
 
-                try {
-                    expectations.forEach { expectation ->
-                        val delivery = assertNotNull(queue.poll(1, TimeUnit.SECONDS))
-                        assertEquals(expectation.message, delivery.message, "Message")
-                        assertEquals(expectation.redelivery, delivery.redelivery, "Redelivery flag")
-                        expectation.action.invoke(delivery.confirmation)
+                    try {
+                        expectations.forEach { expectation ->
+                            val delivery = assertNotNull(queue.poll(1, TimeUnit.SECONDS))
+                            assertEquals(expectation.message, delivery.message, "Message")
+                            assertEquals(expectation.redelivery, delivery.redelivery, "Redelivery flag")
+                            expectation.action.invoke(delivery.confirmation)
+                        }
+
+                        assertNull(queue.poll(1, TimeUnit.SECONDS))
+                    } finally {
+                        monitor.unsubscribe()
                     }
-
-                    assertNull(queue.poll(1, TimeUnit.SECONDS))
-                } finally {
-                    monitor.unsubscribe()
                 }
-            }
 
-            createRouter(manager).use { router ->
-                val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
-                    queue.put(
-                        Delivery(
-                            message,
-                            deliveryMetadata.isRedelivered,
-                            confirmation
+                createRouter(publishManager, consumeManager).use { router ->
+                    val monitor = router.subscribeWithManualAck({ deliveryMetadata, message, confirmation ->
+                        queue.put(
+                            Delivery(
+                                message,
+                                deliveryMetadata.isRedelivered,
+                                confirmation
+                            )
                         )
-                    )
-                })
+                    })
 
-                try {
-                    // RabbitMQ doesn't resend messages after resubscribe using the same connection and channel
-                    assertNull(queue.poll(1, TimeUnit.SECONDS))
-                } finally {
-                    monitor.unsubscribe()
+                    try {
+                        // RabbitMQ doesn't resend messages after resubscribe using the same connection and channel
+                        assertNull(queue.poll(1, TimeUnit.SECONDS))
+                    } finally {
+                        monitor.unsubscribe()
+                    }
                 }
             }
         }
     }
 
-    private fun createConnectionManager(
-        rabbitMQContainer: RabbitMQContainer,
-        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
-        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
-    ) = ConnectionManager(
-        "test-connection",
-        RabbitMQConfiguration(
-            host = rabbitMQContainer.host,
-            vHost = "",
-            port = rabbitMQContainer.amqpPort,
-            username = rabbitMQContainer.adminUsername,
-            password = rabbitMQContainer.adminPassword,
-        ),
+    private fun getConnectionManagerConfiguration(prefetchCount: Int, confirmationTimeout: Duration) =
         ConnectionManagerConfiguration(
             subscriberName = "test",
             prefetchCount = prefetchCount,
-            confirmationTimeout = confirmationTimeout,
-        ),
+            confirmationTimeout = confirmationTimeout
+        )
+
+    private fun createPublishConnectionManager(
+        rabbitMQContainer: RabbitMQContainer,
+        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
+        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
+    ) = PublishConnectionManager(
+        "test-publish-connection",
+        getRabbitMQConfiguration(rabbitMQContainer),
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
     )
 
-    private fun createRouter(connectionManager: ConnectionManager) = RabbitCustomRouter(
+    private fun createConsumeConnectionManager(
+        rabbitMQContainer: RabbitMQContainer,
+        prefetchCount: Int = DEFAULT_PREFETCH_COUNT,
+        confirmationTimeout: Duration = DEFAULT_CONFIRMATION_TIMEOUT
+    ) = ConsumeConnectionManager(
+        "test-consume-connection",
+        getRabbitMQConfiguration(rabbitMQContainer),
+        getConnectionManagerConfiguration(prefetchCount, confirmationTimeout),
+        sharedExecutor,
+        channelChecker
+    )
+
+    private fun createRouter(publishConnectionManager: PublishConnectionManager, consumeConnectionManager: ConsumeConnectionManager) = RabbitCustomRouter(
         "test-custom-tag",
         arrayOf("test-label"),
         TestMessageConverter()
     ).apply {
         init(
             DefaultMessageRouterContext(
-                connectionManager,
+                publishConnectionManager,
+                consumeConnectionManager,
                 mock { },
                 MessageRouterConfiguration(
                     mapOf(

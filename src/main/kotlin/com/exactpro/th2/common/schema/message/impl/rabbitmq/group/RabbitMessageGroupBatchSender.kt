@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,20 +27,20 @@ import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
 import com.exactpro.th2.common.metrics.incrementTotalMetrics
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter.Companion.MESSAGE_GROUP_TYPE
 import com.exactpro.th2.common.schema.message.toShortDebugString
 import io.prometheus.client.Counter
 import io.prometheus.client.Gauge
 
 class RabbitMessageGroupBatchSender(
-    connectionManager: ConnectionManager,
+    publishConnectionManager: PublishConnectionManager,
     exchangeName: String,
     routingKey: String,
     th2Pin: String,
     bookName: BookName
 ) : AbstractRabbitSender<MessageGroupBatch>(
-    connectionManager,
+    publishConnectionManager,
     exchangeName,
     routingKey,
     th2Pin,

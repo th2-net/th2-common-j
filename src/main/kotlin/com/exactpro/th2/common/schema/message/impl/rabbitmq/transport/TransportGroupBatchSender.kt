@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,18 @@ import com.exactpro.th2.common.metrics.SESSION_GROUP_LABEL
 import com.exactpro.th2.common.metrics.TH2_PIN_LABEL
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSender
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.BookName
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter.Companion.TRANSPORT_GROUP_TYPE
 import io.prometheus.client.Counter
 
 class TransportGroupBatchSender(
-    connectionManager: ConnectionManager,
+    publishConnectionManager: PublishConnectionManager,
     exchangeName: String,
     routingKey: String,
     th2Pin: String,
     bookName: BookName,
 ) : AbstractRabbitSender<GroupBatch>(
-    connectionManager,
+    publishConnectionManager,
     exchangeName,
     routingKey,
     th2Pin,

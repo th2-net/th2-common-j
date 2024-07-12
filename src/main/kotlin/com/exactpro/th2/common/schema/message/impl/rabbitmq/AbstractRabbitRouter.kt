@@ -1,5 +1,6 @@
 /*
- * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,6 +13,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration
@@ -21,7 +23,8 @@ import com.exactpro.th2.common.schema.message.QueueAttribute.PUBLISH
 import com.exactpro.th2.common.schema.message.QueueAttribute.SUBSCRIBE
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
@@ -43,8 +46,11 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     private val configuration: MessageRouterConfiguration
         get() = context.configuration
 
-    protected val connectionManager: ConnectionManager
-        get() = context.connectionManager
+    protected val publishConnectionManager: PublishConnectionManager
+        get() = context.publishConnectionManager
+
+    protected val consumeConnectionManager: ConsumeConnectionManager
+        get() = context.consumeConnectionManager
 
     private val boxConfiguration: BoxConfiguration
         get() = context.boxConfiguration
@@ -82,7 +88,7 @@ abstract class AbstractRabbitRouter<T> : MessageRouter<T> {
     }
 
     override fun subscribeExclusive(callback: MessageListener<T>): ExclusiveSubscriberMonitor {
-        val queue = connectionManager.queueDeclare()
+        val queue = consumeConnectionManager.queueDeclare()
         val pinConfig = PinConfiguration("", queue, "", isReadable = true, isWritable = false)
 
         val listener = ConfirmationListener.wrap(callback)

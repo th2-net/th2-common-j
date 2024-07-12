@@ -33,13 +33,13 @@ class NotificationEventBatchRouter : NotificationRouter<EventBatch> {
 
     override fun init(context: MessageRouterContext) {
         sender = NotificationEventBatchSender(
-            context.connectionManager,
+            context.publishConnectionManager,
             context.configuration.globalNotification.exchange
         )
-        queue = context.connectionManager.queueExclusiveDeclareAndBind(
+        queue = context.consumeConnectionManager.queueExclusiveDeclareAndBind(
             context.configuration.globalNotification.exchange
         )
-        subscriber = NotificationEventBatchSubscriber(context.connectionManager, queue)
+        subscriber = NotificationEventBatchSubscriber(context.consumeConnectionManager, queue)
     }
 
     override fun send(message: EventBatch) {

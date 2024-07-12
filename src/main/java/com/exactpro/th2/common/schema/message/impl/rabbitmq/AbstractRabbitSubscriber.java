@@ -1,5 +1,6 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,7 +22,7 @@ import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.MessageSubscriber;
 import com.exactpro.th2.common.schema.message.SubscriberMonitor;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager;
 import com.google.common.base.Suppliers;
 import com.google.common.io.BaseEncoding;
 import com.rabbitmq.client.Delivery;
@@ -69,7 +70,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
     private final boolean manualConfirmation;
     private final ConfirmationListener<T> listener;
     private final String queue;
-    private final ConnectionManager connectionManager;
+    private final ConsumeConnectionManager consumeConnectionManager;
     private final AtomicReference<Supplier<SubscriberMonitor>> consumerMonitor = new AtomicReference<>(emptySupplier());
     private final AtomicBoolean isAlive = new AtomicBoolean(true);
     private final String th2Type;
@@ -78,13 +79,13 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
     protected final String th2Pin;
 
     public AbstractRabbitSubscriber(
-            @NotNull ConnectionManager connectionManager,
+            @NotNull ConsumeConnectionManager consumeConnectionManager,
             @NotNull String queue,
             @NotNull String th2Pin,
             @NotNull String th2Type,
             @NotNull ConfirmationListener<T> listener
     ) {
-        this.connectionManager = requireNonNull(connectionManager, "Connection can not be null");
+        this.consumeConnectionManager = requireNonNull(consumeConnectionManager, "Connection can not be null");
         this.queue = requireNonNull(queue, "Queue can not be null");
         this.th2Pin = requireNonNull(th2Pin, "th2 pin can not be null");
         this.th2Type = requireNonNull(th2Type, "th2 type can not be null");
@@ -186,7 +187,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
     private SubscriberMonitor basicConsume() {
         try {
             LOGGER.info("Start listening queue name='{}', th2 pin='{}'", queue, th2Pin);
-            return connectionManager.basicConsume(queue, this::handle, this::canceled);
+            return consumeConnectionManager.basicConsume(queue, this::handle, this::canceled);
         } catch (IOException e) {
             throw new IllegalStateException("Can not subscribe to queue = " + queue, e);
         } catch (InterruptedException e) {
