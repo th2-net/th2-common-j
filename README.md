@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.13.1)
+# th2 common library (Java) (5.13.2)
 
 ## Usage
 
@@ -510,6 +510,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.13.2
+
++ Updated th2 gradle plugin `0.1.1`
 
 ### 5.13.1-dev
 
