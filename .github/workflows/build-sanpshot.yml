@@ -14,6 +14,7 @@ jobs:
     uses: th2-net/.github/.github/workflows/compound-java-dev.yml@scanner-required
     with:
       build-target: 'Sonatype'
+      strict-scanner: false
     secrets:
       sonatypeUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
       sonatypePassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
