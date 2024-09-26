@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,16 @@ internal class ExactproMetaInf(
     private val title: String,
     private val version: String
 ) {
-    private val jarPath = Path.of(url.path).parent.parent
+    private val jarPath: Path = url.toURI().run {
+        // the code below are added to provide windows compatibility
+        when (scheme) {
+            "file" -> Path.of(this)
+            "jar" -> Path.of(
+                schemeSpecificPart.substringBefore("!").removePrefix("file:")
+            )
+            else -> error("The '$scheme' schema of '$this' URI can't be handled")
+        }.parent.parent
+    }
 
     private var gitEnriched = false
     private var gitHash = ""
@@ -106,7 +115,7 @@ internal class ExactproMetaInf(
                         attributes.getValue(Attributes.Name.IMPLEMENTATION_VERSION)
                     )
                 }
-            } catch (e: IOException) {
+            } catch (e: Exception) {
                 K_LOGGER.warn(e) { "Manifest '$manifestUrl' loading failure" }
                 return null
             }

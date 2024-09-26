@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.14.0)
+# th2 common library (Java) (5.14.1)
 
 ## Usage
 
@@ -510,6 +510,10 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.14.1-dev
+
++ Provided windows compatibility
 
 ### 5.14.0-dev
 
