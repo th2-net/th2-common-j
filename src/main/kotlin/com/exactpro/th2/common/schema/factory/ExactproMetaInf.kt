@@ -29,16 +29,7 @@ internal class ExactproMetaInf(
     private val title: String,
     private val version: String
 ) {
-    private val jarPath: Path = url.toURI().run {
-        // the code below are added to provide windows compatibility
-        when (scheme) {
-            "file" -> Path.of(this)
-            "jar" -> Path.of(
-                schemeSpecificPart.substringBefore("!").removePrefix("file:")
-            )
-            else -> error("The '$scheme' schema of '$this' URI can't be handled")
-        }.parent.parent
-    }
+    private val jarPath: Path = url.toPath().parent.parent
 
     private var gitEnriched = false
     private var gitHash = ""
@@ -94,10 +85,10 @@ internal class ExactproMetaInf(
 
                     Thread.currentThread().contextClassLoader
                         .getResources(GIT_PROPERTIES_FILE).asSequence()
-                        .forEach { url -> map[Path.of(url.path).parent]?.enrich(url) }
+                        .forEach { url -> map[url.toPath().parent]?.enrich(url) }
 
                     map.values.forEach { metaInf -> K_LOGGER.info { "$metaInf" } }
-                } catch (e: IOException) {
+                } catch (e: Exception) {
                     K_LOGGER.warn(e) { "Manifest searching failure" }
                 }
             }
@@ -118,6 +109,17 @@ internal class ExactproMetaInf(
             } catch (e: Exception) {
                 K_LOGGER.warn(e) { "Manifest '$manifestUrl' loading failure" }
                 return null
+            }
+        }
+
+        private fun URL.toPath(): Path = toURI().run {
+            // the code below are added to provide windows compatibility
+            when (scheme) {
+                "file" -> Path.of(this)
+                "jar" -> Path.of(schemeSpecificPart
+                    .substringBefore("!")
+                    .removePrefix("file:"))
+                else -> error("The '$scheme' schema of '$this' URI can't be handled")
             }
         }
     }
