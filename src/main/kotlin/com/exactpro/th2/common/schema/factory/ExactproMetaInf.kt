@@ -112,15 +112,10 @@ internal class ExactproMetaInf(
             }
         }
 
-        private fun URL.toPath(): Path = toURI().run {
-            // the code below are added to provide windows compatibility
-            when (scheme) {
-                "file" -> Path.of(this)
-                "jar" -> Path.of(schemeSpecificPart
-                    .substringBefore("!")
-                    .removePrefix("file:"))
-                else -> error("The '$scheme' schema of '$this' URI can't be handled")
-            }
+        internal fun URL.toPath(): Path = when (protocol) {
+            "jar" -> URL(file).toPath() // the code below are added to provide windows compatibility
+            "file" -> Path.of(path)
+            else -> error("The '$protocol' protocol of '$this' URL can't be handled")
         }
     }
 }
