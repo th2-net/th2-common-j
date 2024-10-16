@@ -113,7 +113,7 @@ internal class ExactproMetaInf(
         }
 
         internal fun URL.toPath(): Path = when (protocol) {
-            "jar" -> URL(file).toPath() // the code below are added to provide windows compatibility
+            "jar" -> URL(file).toPath() // this code is added to provide windows compatibility
             "file" -> Path.of(path)
             else -> error("The '$protocol' protocol of '$this' URL can't be handled")
         }
