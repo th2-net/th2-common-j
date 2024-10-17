@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ internal class ExactproMetaInf(
     private val title: String,
     private val version: String
 ) {
-    private val jarPath = Path.of(url.path).parent.parent
+    private val jarPath: Path = url.toPath().parent.parent
 
     private var gitEnriched = false
     private var gitHash = ""
@@ -85,10 +85,10 @@ internal class ExactproMetaInf(
 
                     Thread.currentThread().contextClassLoader
                         .getResources(GIT_PROPERTIES_FILE).asSequence()
-                        .forEach { url -> map[Path.of(url.path).parent]?.enrich(url) }
+                        .forEach { url -> map[url.toPath().parent]?.enrich(url) }
 
                     map.values.forEach { metaInf -> K_LOGGER.info { "$metaInf" } }
-                } catch (e: IOException) {
+                } catch (e: Exception) {
                     K_LOGGER.warn(e) { "Manifest searching failure" }
                 }
             }
@@ -106,10 +106,16 @@ internal class ExactproMetaInf(
                         attributes.getValue(Attributes.Name.IMPLEMENTATION_VERSION)
                     )
                 }
-            } catch (e: IOException) {
+            } catch (e: Exception) {
                 K_LOGGER.warn(e) { "Manifest '$manifestUrl' loading failure" }
                 return null
             }
+        }
+
+        internal fun URL.toPath(): Path = when (protocol) {
+            "jar" -> URL(file).toPath() // this code is added to provide windows compatibility
+            "file" -> Path.of(path)
+            else -> error("The '$protocol' protocol of '$this' URL can't be handled")
         }
     }
 }

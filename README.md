@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.14.0)
+# th2 common library (Java) (5.15.0)
 
 ## Usage
 
@@ -510,6 +510,16 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.15.0-dev
+
++ Provided windows compatibility
++ Updated:
+  + th2 gradle plugin: `0.1.3`
+  + bom: `4.8.0`
+  + cradle: `5.4.2-dev`
+  + grpc: `1.66.0`
+  + protobuf: `3.25.5`
 
 ### 5.14.0-dev
 
