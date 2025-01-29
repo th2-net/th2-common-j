@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,9 +16,9 @@
 package com.exactpro.th2.common.grpc.router
 
 import com.google.protobuf.Message
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.grpc.MethodDescriptor
 import io.prometheus.client.Counter
-import mu.KotlinLogging
 
 abstract class AbstractGrpcInterceptor (
     protected val pinName: String,

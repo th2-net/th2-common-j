@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,12 +27,12 @@ import com.exactpro.th2.common.schema.message.ContainerConstants.ROUTING_KEY
 import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
 import com.exactpro.th2.common.util.getRabbitMQConfiguration
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.rabbitmq.client.BuiltinExchangeType
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.testcontainers.containers.RabbitMQContainer

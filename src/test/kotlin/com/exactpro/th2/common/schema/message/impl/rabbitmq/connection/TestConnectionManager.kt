@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,15 +29,15 @@ import com.exactpro.th2.common.util.declareFanoutExchangeWithBinding
 import com.exactpro.th2.common.util.declareQueue
 import com.exactpro.th2.common.util.getChannelsInfo
 import com.exactpro.th2.common.util.getQueuesInfo
+import com.exactpro.th2.common.util.getRabbitMQConfiguration
 import com.exactpro.th2.common.util.getSubscribedChannelsCount
 import com.exactpro.th2.common.util.putMessageInQueue
-import com.exactpro.th2.common.util.getRabbitMQConfiguration
 import com.github.dockerjava.api.model.Capability
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.rabbitmq.client.BuiltinExchangeType
 import com.rabbitmq.client.CancelCallback
 import com.rabbitmq.client.Delivery
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.awaitility.Awaitility
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
@@ -46,9 +46,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.slf4j.LoggerFactory
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.RabbitMQContainer
