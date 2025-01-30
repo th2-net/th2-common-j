@@ -8,7 +8,7 @@ updates:
     schedule:
       interval: "daily"
     allow:
-      # Allow updates for Exactpro packages
-      - dependency-name: "com.exactpro*"
+      - dependency-name: '*'
+        dependency-type: production
     # Allow up to 10 open pull requests
     open-pull-requests-limit: 10

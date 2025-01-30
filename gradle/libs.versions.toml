@@ -2,7 +2,6 @@
 kotlin = "1.8.22"
 protobuf = "3.25.5" # gRPC 1.66 libraries uses protobuf 3.+
 cradle = "5.4.4-dev"
-grpc-service-genrator = "3.6.1"
 jmh = "1.37"
 okhttp = "4.11.0"
 testcontainers = "1.19.8"
@@ -31,7 +30,7 @@ okhttp3-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-
 kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version = "6.13.1" }
 
 th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.5.0-dev" }
-th2-grpc-service-generator = { group = "com.exactpro.th2", name = "grpc-service-generator", version.ref = "grpc-service-genrator" }
+th2-grpc-service-generator = { group = "com.exactpro.th2", name = "grpc-service-generator", version = "3.7.0" }
 
 th2-cradle-core = { group = "com.exactpro.th2", name = "cradle-core", version.ref = "cradle" }
 th2-cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version.ref = "cradle" }
