@@ -8,7 +8,7 @@ jobs:
     with:
       build-target: 'Sonatype'
       integration-test-enabled: true
-      javaVersion: '11' # remove after update kotlin IllegalAccessError: superclass access check failed: class org.jetbrains.kotlin.kapt3.base.javac.KaptJavaCompiler (in unnamed module @0x3969f5fc) cannot access class com.sun.tools.javac.main.JavaCompiler (in module jdk.compiler) because module jdk.compiler does not export com.sun.tools.javac.main to unnamed module @0x3969f5fc
+      javaVersion: '11' # remove after update kotlin 1.9.* IllegalAccessError: superclass access check failed: class org.jetbrains.kotlin.kapt3.base.javac.KaptJavaCompiler (in unnamed module @0x3969f5fc) cannot access class com.sun.tools.javac.main.JavaCompiler (in module jdk.compiler) because module jdk.compiler does not export com.sun.tools.javac.main to unnamed module @0x3969f5fc
       devRelease: false
       createTag: true
     secrets:
