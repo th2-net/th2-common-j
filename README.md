@@ -517,7 +517,7 @@ dependencies {
   + th2 gradle plugin `0.2.4` (bom: `4.11.0`)
   + cradle: `5.4.4-dev`
   + grpc: `1.70.0`
-  + grpc-service-generator: `3.7.0`
+  + grpc-service-generator: `3.8.0`
 + Migrated:
   + io.github.oshai:kotlin-logging: `5.1.4`
 
