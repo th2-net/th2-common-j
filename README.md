@@ -514,7 +514,7 @@ dependencies {
 ### 5.15.0-dev
 
 + Updated:
-  + th2 gradle plugin `0.1.8` (bom: `4.10.0`)
+  + th2 gradle plugin `0.2.4` (bom: `4.11.0`)
   + cradle: `5.4.4-dev`
   + grpc: `1.70.0`
   + grpc-service-generator: `3.7.0`
