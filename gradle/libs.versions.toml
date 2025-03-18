@@ -3,7 +3,6 @@ kotlin = "1.8.22"
 protobuf = "3.25.5" # gRPC 1.66 libraries uses protobuf 3.+
 cradle = "5.4.4-dev"
 jmh = "1.37"
-okhttp = "4.11.0"
 testcontainers = "1.19.8"
 auto-value = "1.10.4"
 
