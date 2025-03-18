@@ -1,5 +1,5 @@
 [versions]
-kotlin = "1.8.22"
+kotlin = "2.1.10"
 protobuf = "3.25.5" # gRPC 1.66 libraries uses protobuf 3.+
 cradle = "5.4.4-dev"
 jmh = "1.37"
