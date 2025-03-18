@@ -4,7 +4,7 @@ protobuf = "3.25.5" # gRPC 1.66 libraries uses protobuf 3.+
 cradle = "5.4.4-dev"
 jmh = "1.37"
 testcontainers = "1.20.6"
-auto-value = "1.10.4"
+auto-value = "1.11.0"
 
 [libraries]
 jmh-core = { group = "org.openjdk.jmh", name = "jmh-core", version.ref = "jmh" }
@@ -15,6 +15,9 @@ protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref 
 
 auto-value-annotations = { group = "com.google.auto.value", name = "auto-value-annotations", version.ref = "auto-value" }
 auto-value = { group = "com.google.auto.value", name = "auto-value", version.ref = "auto-value" }
+# after updating kotlin to 2.* we should use org.jetbrains.kotlin:kotlin-metadata-jvm instead
+# https://github.com/google/auto/releases/tag/auto-value-1.11.0
+kotlinx-metadata = { module = "org.jetbrains.kotlinx:kotlinx-metadata-jvm", version = "0.9.0" }
 
 java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.1.0" }
 
