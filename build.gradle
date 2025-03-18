@@ -125,7 +125,6 @@ dependencies {
 
     implementation libs.kotlin.logging
 
-    testImplementation libs.javax.annotation.api
     testImplementation libs.junit.jupiter
     testImplementation libs.mockito.kotlin
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
