@@ -73,6 +73,7 @@ dependencies {
 
     implementation libs.auto.value.annotations
     kapt(libs.auto.value)
+    kapt(libs.kotlinx.metadata)
     //this is required to add generated bridge classes for kotlin default constructors
     implementation(files(project.layout.buildDirectory.file("tmp/kapt3/classes/main").get().asFile))
 
