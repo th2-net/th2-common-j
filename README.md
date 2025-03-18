@@ -518,6 +518,7 @@ dependencies {
   + cradle: `5.4.4-dev`
   + grpc: `1.70.0`
   + grpc-service-generator: `3.8.0`
+  + kubernetes-client: `7.1.0`
 + Migrated:
   + io.github.oshai:kotlin-logging: `5.1.4`
 
