@@ -15,7 +15,7 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    genBaseDir = file("${buildDir}/generated/source/proto")
+    genBaseDir = project.layout.buildDirectory.file("generated/source/proto").get().asFile
 }
 
 repositories {
@@ -72,12 +72,9 @@ dependencies {
     implementation libs.th2.cradle.cassandra
 
     implementation libs.auto.value.annotations
-    kapt(libs.auto.value) {
-        //FIXME: Updated library because it is fat jar
-        // auto-value-1.10.1.jar/META-INF/maven/com.google.guava/guava/pom.xml (pkg:maven/com.google.guava/guava@31.1-jre, cpe:2.3:a:google:guava:31.1:*:*:*:*:*:*:*) : CVE-2023-2976, CVE-2020-8908
-    }
+    kapt(libs.auto.value)
     //this is required to add generated bridge classes for kotlin default constructors
-    implementation(files("$buildDir/tmp/kapt3/classes/main"))
+    implementation(files(project.layout.buildDirectory.file("tmp/kapt3/classes/main").get().asFile))
 
     //FIXME: Add these dependencies as api to grpc-... artifacts
     implementation "io.grpc:grpc-protobuf"
