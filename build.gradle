@@ -34,6 +34,10 @@ repositories {
 
 tasks.withType(KotlinCompile).configureEach {
     kotlinOptions.freeCompilerArgs += "-Xjvm-default=all"
+    compilerOptions {
+        // The next instruction should be deleted after migration to kotlin 1.9.+
+        kotlinDaemonJvmArguments.addAll("--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED")
+    }
 }
 
 test {
@@ -147,18 +151,6 @@ dependencies {
 
     testFixturesImplementation libs.kotlin.test.junit5
     testFixturesImplementation libs.junit.jupiter
-}
-
-// substitute commons-compress:1.24.0 from testcontainers:1.19.8 to version 1.26.2
-// because commons-compress:1.24.0 contains vulnerabilities (CVE-2024-25710, CVE-2024-26308)
-configurations {
-    configureEach {
-        resolutionStrategy {
-            dependencySubstitution {
-                substitute module('org.apache.commons:commons-compress') using module("${libs.commons.compress.get()}")
-            }
-        }
-    }
 }
 
 sourceSets {

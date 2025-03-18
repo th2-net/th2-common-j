@@ -22,8 +22,6 @@ java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generato
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "5.1.4" }
 kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5", version.ref = "kotlin" }
 
-commons-compress = { group = "org.apache.commons", name = "commons-compress", version = "1.26.2" }
-
 okio = { group = "com.squareup.okio", name = "okio", version = "3.4.0" }
 okhttp3-okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp3-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
