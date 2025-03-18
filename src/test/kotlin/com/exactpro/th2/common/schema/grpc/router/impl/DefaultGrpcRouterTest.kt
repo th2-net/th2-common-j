@@ -1,5 +1,5 @@
 /*
- *  Copyright 2023 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
  *  You may obtain a copy of the License at
@@ -31,11 +31,11 @@ import com.exactpro.th2.common.test.grpc.TestService
 import com.exactpro.th2.service.AbstractGrpcService.MID_TRANSFER_FAILURE_EXCEPTION_MESSAGE
 import com.exactpro.th2.service.AbstractGrpcService.ROOT_RETRY_SYNC_EXCEPTION_MESSAGE
 import com.exactpro.th2.service.AbstractGrpcService.STATUS_DESCRIPTION_OF_INTERRUPTED_REQUEST
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.grpc.Context
 import io.grpc.Deadline
 import io.grpc.Server
 import io.grpc.stub.StreamObserver
-import mu.KotlinLogging
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Disabled
@@ -954,7 +954,9 @@ internal class DefaultGrpcRouterTest {
         ) {
             val expectedMessage = exceptionMetadata.message
             assertTrue(
-                exception.message == expectedMessage || exception.message?.startsWith(expectedMessage ?: "null") == true,
+                exception.message == expectedMessage || exception.message?.startsWith(
+                    expectedMessage ?: "null"
+                ) == true,
                 "Message for exception: $exception, path: ${path.printAsStackTrace()}"
             )
             exceptionMetadata.suspended?.let { suspendMetadataList ->

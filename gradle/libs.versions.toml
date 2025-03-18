@@ -1,0 +1,44 @@
+[versions]
+kotlin = "1.8.22"
+protobuf = "3.25.5" # gRPC 1.66 libraries uses protobuf 3.+
+cradle = "5.4.4-dev"
+jmh = "1.37"
+testcontainers = "1.20.6"
+auto-value = "1.10.4"
+
+[libraries]
+jmh-core = { group = "org.openjdk.jmh", name = "jmh-core", version.ref = "jmh" }
+jmh-generator-annprocess = { group = "org.openjdk.jmh", name = "jmh-generator-annprocess", version.ref = "jmh" }
+
+protoc-gen-grpc-java = { group = "io.grpc", name = "protoc-gen-grpc-java", version = "1.71.0" }
+protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
+
+auto-value-annotations = { group = "com.google.auto.value", name = "auto-value-annotations", version.ref = "auto-value" }
+auto-value = { group = "com.google.auto.value", name = "auto-value", version.ref = "auto-value" }
+
+java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.1.0" }
+
+kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "5.1.4" }
+kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5", version.ref = "kotlin" }
+
+kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version = "7.1.0" }
+
+th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.5.0" }
+th2-grpc-service-generator = { group = "com.exactpro.th2", name = "grpc-service-generator", version = "3.8.0" }
+
+th2-cradle-core = { group = "com.exactpro.th2", name = "cradle-core", version.ref = "cradle" }
+th2-cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version.ref = "cradle" }
+
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version = "5.12.1" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "5.3.1" } # kotlin:1.9.20 is transitive dependency sins 5.4.0
+testcontainers = { group = "org.testcontainers", name = "testcontainers", version.ref = "testcontainers" }
+testcontainers-rabbitmq = { group = "org.testcontainers", name = "rabbitmq", version.ref = "testcontainers" }
+junit-pioneer = { group = "org.junit-pioneer", name = "junit-pioneer", version = "2.3.0" }
+awaitility = { group = "org.awaitility", name = "awaitility", version = "4.3.0" }
+
+[plugins]
+th2-publish = { id = "com.exactpro.th2.gradle.publish", version = "0.2.4" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+protobuf = { id = "com.google.protobuf", version = "0.9.4" }
+jmh = { id = "me.champeau.jmh", version = "0.7.3" }

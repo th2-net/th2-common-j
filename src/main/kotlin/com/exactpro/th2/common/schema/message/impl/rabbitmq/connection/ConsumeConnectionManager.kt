@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2024-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,12 @@ import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirma
 import com.exactpro.th2.common.schema.message.impl.OnlyOnceConfirmation.Companion.wrap
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
+import com.rabbitmq.client.BlockedListener
+import com.rabbitmq.client.CancelCallback
 import com.rabbitmq.client.Channel
 import com.rabbitmq.client.Delivery
-import com.rabbitmq.client.CancelCallback
-import com.rabbitmq.client.BlockedListener
 import com.rabbitmq.client.ShutdownSignalException
-
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.IOException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.ScheduledExecutorService

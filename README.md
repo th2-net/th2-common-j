@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.14.0)
+# th2 common library (Java) (5.15.0)
 
 ## Usage
 
@@ -510,6 +510,17 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.15.0-dev
+
++ Updated:
+  + th2 gradle plugin `0.2.4` (bom: `4.11.0`)
+  + cradle: `5.4.4-dev`
+  + grpc-common: `4.5.0`
+  + grpc-service-generator: `3.8.0`
+  + kubernetes-client: `7.1.0`
++ Migrated:
+  + io.github.oshai:kotlin-logging: `5.1.4`
 
 ### 5.14.0-dev
 
