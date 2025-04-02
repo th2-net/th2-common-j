@@ -1,5 +1,5 @@
 /*
- *  Copyright 2023 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
  *  You may obtain a copy of the License at
@@ -32,7 +32,7 @@ import java.util.function.Supplier
 import kotlin.io.path.exists
 
 
-class JsonConfigurationProvider @JvmOverloads constructor(
+class JsonConfigurationProvider private constructor(
     internal val baseDir: Path,
     internal val customPaths: Map<String, Path> = emptyMap(),
 ) : IConfigurationProvider {
@@ -91,6 +91,8 @@ class JsonConfigurationProvider @JvmOverloads constructor(
         private const val EXTENSION = "json"
 
         private val K_LOGGER = KotlinLogging.logger {}
+
+        @Suppress("SpellCheckingInspection")
         private val SUBSTITUTOR: ThreadLocal<StringSubstitutor> = object : ThreadLocal<StringSubstitutor>() {
             override fun initialValue(): StringSubstitutor = StringSubstitutor(System.getenv())
         }
@@ -110,5 +112,12 @@ class JsonConfigurationProvider @JvmOverloads constructor(
                 JavaTimeModule()
             )
         }
+
+        @JvmStatic
+        @JvmOverloads
+        fun create(
+            baseDir: Path,
+            customPaths: Map<String, Path> = emptyMap()
+        ): JsonConfigurationProvider = JsonConfigurationProvider(baseDir, customPaths)
     }
 }

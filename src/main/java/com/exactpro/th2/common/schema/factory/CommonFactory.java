@@ -68,14 +68,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElseGet;
-import static org.apache.commons.io.FilenameUtils.removeExtension;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
@@ -116,13 +111,13 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_MANAGER_CONFIG_MAP = "cradle-manager";
     private static final String LOGGING_CONFIG_MAP = "logging-config";
 
-    final IConfigurationProvider configurationProvider;
-    final IDictionaryProvider dictionaryProvider;
-    final ConfigurationManager configurationManager;
+    private final IConfigurationProvider configurationProvider;
+    private final IDictionaryProvider dictionaryProvider;
+    private final ConfigurationManager configurationManager;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
-    private CommonFactory(@NotNull IConfigurationProvider configurationProvider, @NotNull IDictionaryProvider dictionaryProvider) {
+    public CommonFactory(@NotNull IConfigurationProvider configurationProvider, @NotNull IDictionaryProvider dictionaryProvider) {
         super();
         this.dictionaryProvider = requireNonNull(dictionaryProvider, "Dictionary provider can't be null");
         this.configurationProvider = requireNonNull(configurationProvider, "Configuration provider can't be null");
@@ -561,7 +556,7 @@ public class CommonFactory extends AbstractCommonFactory {
         putIfNotNull(paths, DictionaryKind.OLD, settings.getOldDictionariesDir());
         putIfNotNull(paths, DictionaryKind.TYPE, settings.getDictionaryTypesDir());
         putIfNotNull(paths, DictionaryKind.ALIAS, settings.getDictionaryAliasesDir());
-        return new DictionaryProvider(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
+        return DictionaryProvider.create(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
     }
 
     private static IConfigurationProvider createConfigurationProvider(FactorySettings settings) {
@@ -576,7 +571,7 @@ public class CommonFactory extends AbstractCommonFactory {
         putIfNotNull(paths, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS, settings.getCradleNonConfidential());
         putIfNotNull(paths, PROMETHEUS_CFG_ALIAS, settings.getPrometheus());
         putIfNotNull(paths, BOX_CFG_ALIAS, settings.getBoxConfiguration());
-        return new JsonConfigurationProvider(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
+        return JsonConfigurationProvider.create(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
     }
     private static ConfigurationManager createConfigurationManager(IConfigurationProvider configurationProvider) {
         Map<Class<?>, String> paths = new HashMap<>();

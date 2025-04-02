@@ -32,7 +32,7 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.streams.asSequence
 
-class DictionaryProvider @JvmOverloads constructor(
+class DictionaryProvider private constructor(
     baseDir: Path,
     paths: Map<DictionaryKind, Path> = emptyMap()
 ) : IDictionaryProvider {
@@ -209,6 +209,13 @@ class DictionaryProvider @JvmOverloads constructor(
 
     companion object {
         private fun toAlias(path: Path) = FilenameUtils.removeExtension(path.fileName.toString())
+
+        @JvmStatic
+        @JvmOverloads
+        fun create(
+            baseDir: Path,
+            paths: Map<DictionaryKind, Path> = emptyMap()
+        ): DictionaryProvider = DictionaryProvider(baseDir, paths)
     }
 }
 
