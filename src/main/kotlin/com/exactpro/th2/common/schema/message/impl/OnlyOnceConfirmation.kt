@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 package com.exactpro.th2.common.schema.message.impl
 
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.atomic.AtomicBoolean
-import mu.KotlinLogging
 
 class OnlyOnceConfirmation private constructor(
     private val id: String,

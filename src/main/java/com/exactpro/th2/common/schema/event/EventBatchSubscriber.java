@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import com.exactpro.th2.common.schema.message.ConfirmationListener;
 import com.exactpro.th2.common.schema.message.DeliveryMetadata;
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback.Confirmation;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.AbstractRabbitSubscriber;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
 import org.jetbrains.annotations.NotNull;
@@ -41,12 +41,12 @@ public class EventBatchSubscriber extends AbstractRabbitSubscriber<EventBatch> {
             .register();
 
     public EventBatchSubscriber(
-            @NotNull ConnectionManager connectionManager,
+            @NotNull ConsumeConnectionManager consumeConnectionManager,
             @NotNull String queue,
             @NotNull String th2Pin,
             @NotNull ConfirmationListener<EventBatch> listener
     ) {
-        super(connectionManager, queue, th2Pin, EVENT_TYPE, listener);
+        super(consumeConnectionManager, queue, th2Pin, EVENT_TYPE, listener);
     }
 
     @Override

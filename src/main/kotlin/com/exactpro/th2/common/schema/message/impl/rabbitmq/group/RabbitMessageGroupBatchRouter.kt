@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -67,7 +67,7 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         bookName: BookName
     ): MessageSender<MessageGroupBatch> {
         return RabbitMessageGroupBatchSender(
-            connectionManager,
+            publishConnectionManager,
             pinConfig.exchange,
             pinConfig.routingKey,
             pinName,
@@ -81,12 +81,12 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
         listener: ConfirmationListener<MessageGroupBatch>
     ): MessageSubscriber {
         return RabbitMessageGroupBatchSubscriber(
-            connectionManager,
+            consumeConnectionManager,
             pinConfig.queue,
             { msg: Message, filters: List<RouterFilter> -> AnyMessageFilterStrategy.verify(msg, filters) },
             pinName,
             pinConfig.filters,
-            connectionManager.configuration.messageRecursionLimit,
+            consumeConnectionManager.configuration.messageRecursionLimit,
             listener
         )
     }

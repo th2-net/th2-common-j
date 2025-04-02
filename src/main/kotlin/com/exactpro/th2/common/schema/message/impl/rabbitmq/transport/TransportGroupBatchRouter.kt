@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -39,7 +39,7 @@ class TransportGroupBatchRouter : AbstractRabbitRouter<GroupBatch>() {
         bookName: BookName,
     ): MessageSender<GroupBatch> {
         return TransportGroupBatchSender(
-            connectionManager,
+            publishConnectionManager,
             pinConfig.exchange,
             pinConfig.routingKey,
             pinName,
@@ -53,7 +53,7 @@ class TransportGroupBatchRouter : AbstractRabbitRouter<GroupBatch>() {
         listener: ConfirmationListener<GroupBatch>
     ): MessageSubscriber {
         return TransportGroupBatchSubscriber(
-            connectionManager,
+            consumeConnectionManager,
             pinConfig.queue,
             pinName,
             pinConfig.filters,

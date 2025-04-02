@@ -1,5 +1,6 @@
 /*
  * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -55,7 +56,8 @@ import com.exactpro.th2.common.schema.message.impl.monitor.EventMessageRouterMon
 import com.exactpro.th2.common.schema.message.impl.monitor.LogMessageRouterMonitor;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
@@ -66,6 +68,10 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter;
 import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.kotlin.KotlinFeature;
+import com.fasterxml.jackson.module.kotlin.KotlinModule;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
@@ -86,6 +92,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_MESSAGE_BATCH_SIZE;
 import static com.exactpro.cradle.CradleStorage.DEFAULT_MAX_TEST_EVENT_BATCH_SIZE;
@@ -94,6 +104,7 @@ import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_MAX
 import static com.exactpro.cradle.cassandra.CassandraStorageSettings.DEFAULT_RESULT_PAGE_SIZE;
 import static com.exactpro.th2.common.schema.factory.LazyProvider.lazy;
 import static com.exactpro.th2.common.schema.factory.LazyProvider.lazyAutocloseable;
+import static com.exactpro.th2.common.schema.factory.LazyProvider.lazyCloseable;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -110,6 +121,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     protected static final Path LOG4J_PROPERTIES_DEFAULT_PATH_OLD = Path.of("/home/etc");
     protected static final Path LOG4J_PROPERTIES_DEFAULT_PATH = Path.of("/var/th2/config");
     protected static final String LOG4J2_PROPERTIES_NAME = "log4j2.properties";
+    private static final String SHARED_EXECUTOR_NAME = "rabbit-shared";
+    private static final String CHANNEL_CHECKER_EXECUTOR_NAME = "channel-checker-executor";
 
     static final String CUSTOM_CFG_ALIAS = "custom";
     public static final ObjectMapper MAPPER = JsonConfigurationProvider.MAPPER;
@@ -121,8 +134,31 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private final Class<? extends MessageRouter<EventBatch>> eventBatchRouterClass;
     private final Class<? extends GrpcRouter> grpcRouterClass;
     private final Class<? extends NotificationRouter<EventBatch>> notificationEventBatchRouterClass;
-    private final LazyProvider<ConnectionManager> rabbitMqConnectionManager =
-            lazyAutocloseable("connection-manager", this::createRabbitMQConnectionManager);
+    private final LazyProvider<ExecutorService> sharedExecutor = lazyCloseable(SHARED_EXECUTOR_NAME,
+            () -> Executors.newFixedThreadPool(
+                    getConnectionManagerConfiguration().getWorkingThreads(),
+                    new ThreadFactoryBuilder().setNameFormat("rabbitmq-shared-pool-%d").build()
+            ),
+            executor -> shutdownExecutor(
+                    executor,
+                    getConnectionManagerConfiguration().getConnectionCloseTimeout(),
+                    SHARED_EXECUTOR_NAME
+            )
+    );
+    private final LazyProvider<ScheduledExecutorService> channelChecker = lazyCloseable(CHANNEL_CHECKER_EXECUTOR_NAME,
+            () -> Executors.newSingleThreadScheduledExecutor(
+                    new ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build()
+            ),
+            executor -> shutdownExecutor(
+                    executor,
+                    getConnectionManagerConfiguration().getConnectionCloseTimeout(),
+                    CHANNEL_CHECKER_EXECUTOR_NAME
+            )
+    );
+    private final LazyProvider<PublishConnectionManager> rabbitMqPublishConnectionManager =
+            lazyAutocloseable("publish-connection-manager", this::createRabbitMQPublishConnectionManager);
+    private final LazyProvider<ConsumeConnectionManager> rabbitMqConsumeConnectionManager =
+            lazyAutocloseable("consume-connection-manager", this::createRabbitMQConsumeConnectionManager);
     private final LazyProvider<MessageRouterContext> routerContext =
             lazy("router-context", this::createMessageRouterContext);
     private final LazyProvider<MessageRouter<MessageBatch>> messageRouterParsedBatch =
@@ -612,7 +648,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     @NotNull
     private MessageRouterContext createRouterContext(MessageRouterMonitor contextMonitor) {
         return new DefaultMessageRouterContext(
-                getRabbitMqConnectionManager(),
+                getRabbitMqPublishConnectionManager(),
+                getRabbitMqConsumeConnectionManager(),
                 contextMonitor,
                 getMessageRouterConfiguration(),
                 getBoxConfiguration()
@@ -623,12 +660,20 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         return getConfigurationOrLoad(PrometheusConfiguration.class, true);
     }
 
-    protected ConnectionManager createRabbitMQConnectionManager() {
-        return new ConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration());
+    protected PublishConnectionManager createRabbitMQPublishConnectionManager() {
+        return new PublishConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration(), sharedExecutor.get(), channelChecker.get());
     }
 
-    protected ConnectionManager getRabbitMqConnectionManager() {
-        return rabbitMqConnectionManager.get();
+    protected ConsumeConnectionManager createRabbitMQConsumeConnectionManager() {
+        return new ConsumeConnectionManager(getBoxConfiguration().getBoxName(), getRabbitMqConfiguration(), getConnectionManagerConfiguration(), sharedExecutor.get(), channelChecker.get());
+    }
+
+    protected PublishConnectionManager getRabbitMqPublishConnectionManager() {
+        return rabbitMqPublishConnectionManager.get();
+    }
+
+    protected ConsumeConnectionManager getRabbitMqConsumeConnectionManager() {
+        return rabbitMqConsumeConnectionManager.get();
     }
 
     public MessageID.Builder newMessageIDBuilder() {
@@ -664,9 +709,27 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         }
 
         try {
-            rabbitMqConnectionManager.close();
+            rabbitMqPublishConnectionManager.close();
         } catch (Exception e) {
-            LOGGER.error("Failed to close RabbitMQ connection", e);
+            LOGGER.error("Failed to close RabbitMQ publish connection", e);
+        }
+
+        try {
+            rabbitMqConsumeConnectionManager.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close RabbitMQ consume connection", e);
+        }
+
+        try {
+            sharedExecutor.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close shared executor service", e);
+        }
+
+        try {
+            channelChecker.close();
+        } catch (Exception e) {
+            LOGGER.error("Failed to close channel checker executor service", e);
         }
 
         try {
@@ -696,6 +759,19 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         }
 
         LOGGER.info("Common factory has been closed");
+    }
+
+    private void shutdownExecutor(ExecutorService executor, int closeTimeout, String name) {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(closeTimeout, TimeUnit.MILLISECONDS)) {
+                LOGGER.error("Executor {} is not terminated during {} millis", name, closeTimeout);
+                List<Runnable> runnables = executor.shutdownNow();
+                LOGGER.error("{} task(s) was(were) not finished in executor {}", runnables.size(), name);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     protected static void configureLogger(Path... paths) {

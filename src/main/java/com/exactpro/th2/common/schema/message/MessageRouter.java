@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,32 +16,14 @@
 package com.exactpro.th2.common.schema.message;
 
 import com.exactpro.th2.common.grpc.MessageGroupBatch;
-import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
-import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfiguration;
-import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext;
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
 import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
-import java.util.Objects;
 
 /**
  * Interface for send and receive RabbitMQ messages
  * @param <T> messages for send and receive
  */
 public interface MessageRouter<T> extends AutoCloseable {
-
-    /**
-     * Initialization message router
-     * @param configuration message router configuration
-     */
-    @Deprecated(since = "3.2.2", forRemoval = true)
-    default void init(@NotNull ConnectionManager connectionManager, @NotNull MessageRouterConfiguration configuration) {
-        Objects.requireNonNull(connectionManager, "Connection owner can not be null");
-        Objects.requireNonNull(configuration, "Configuration cannot be null");
-        init(new DefaultMessageRouterContext(connectionManager, MessageRouterMonitor.DEFAULT_MONITOR, configuration, new BoxConfiguration()));
-    }
-
     default void init(@NotNull MessageRouterContext context, @NotNull MessageRouter<MessageGroupBatch> groupBatchRouter) {
         init(context);
     }
@@ -137,5 +119,4 @@ public interface MessageRouter<T> extends AutoCloseable {
      * @throws IOException if can not send message
      */
     void sendAll(T message, String... queueAttr) throws IOException;
-
 }

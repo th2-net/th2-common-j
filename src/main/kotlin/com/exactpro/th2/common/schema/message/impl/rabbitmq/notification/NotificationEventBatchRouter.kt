@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -22,7 +22,7 @@ import com.exactpro.th2.common.schema.message.MessageListener
 import com.exactpro.th2.common.schema.message.MessageRouterContext
 import com.exactpro.th2.common.schema.message.NotificationRouter
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 const val NOTIFICATION_QUEUE_PREFIX = "global-notification-queue"
 
@@ -33,13 +33,13 @@ class NotificationEventBatchRouter : NotificationRouter<EventBatch> {
 
     override fun init(context: MessageRouterContext) {
         sender = NotificationEventBatchSender(
-            context.connectionManager,
+            context.publishConnectionManager,
             context.configuration.globalNotification.exchange
         )
-        queue = context.connectionManager.queueExclusiveDeclareAndBind(
+        queue = context.consumeConnectionManager.queueExclusiveDeclareAndBind(
             context.configuration.globalNotification.exchange
         )
-        subscriber = NotificationEventBatchSubscriber(context.connectionManager, queue)
+        subscriber = NotificationEventBatchSubscriber(context.consumeConnectionManager, queue)
     }
 
     override fun send(message: EventBatch) {

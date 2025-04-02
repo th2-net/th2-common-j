@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.exactpro.th2.common.schema.message.impl.rabbitmq
 
 import com.exactpro.th2.common.event.bean.BaseTest
@@ -22,7 +23,8 @@ import com.exactpro.th2.common.schema.message.configuration.MessageRouterConfigu
 import com.exactpro.th2.common.schema.message.configuration.QueueConfiguration
 import com.exactpro.th2.common.schema.message.impl.context.DefaultMessageRouterContext
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertAll
@@ -48,7 +50,10 @@ private const val TEST_EXCLUSIVE_QUEUE = "test-exclusive-queue"
 class AbstractRabbitRouterTest {
     private val connectionConfiguration = ConnectionManagerConfiguration()
     private val managerMonitor: ExclusiveSubscriberMonitor = mock { }
-    private val connectionManager: ConnectionManager = mock {
+    private val publishConnectionManager: PublishConnectionManager = mock {
+        on { configuration }.thenReturn(connectionConfiguration)
+    }
+    private val consumeConnectionManager: ConsumeConnectionManager = mock {
         on { configuration }.thenReturn(connectionConfiguration)
         on { basicConsume(any(), any(), any()) }.thenReturn(managerMonitor)
         on { queueDeclare() }.thenAnswer { "$TEST_EXCLUSIVE_QUEUE-${exclusiveQueueCounter.incrementAndGet()}" }
@@ -81,7 +86,8 @@ class AbstractRabbitRouterTest {
 
         @AfterEach
         fun afterEach() {
-            verifyNoMoreInteractions(connectionManager)
+            verifyNoMoreInteractions(publishConnectionManager)
+            verifyNoMoreInteractions(consumeConnectionManager)
             verifyNoMoreInteractions(managerMonitor)
         }
 
@@ -90,7 +96,7 @@ class AbstractRabbitRouterTest {
             val monitor = router.subscribe(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
 
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
@@ -98,7 +104,7 @@ class AbstractRabbitRouterTest {
             val monitor = router.subscribeWithManualAck(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
 
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
@@ -106,14 +112,14 @@ class AbstractRabbitRouterTest {
             val monitor = router.subscribeAll(mock { })
             assertNotNull(monitor) { "monitor must not be null" }
 
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
-            verify(connectionManager).basicConsume(eq("queue2"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue2"), any(), any())
         }
 
         @Test
         fun `unsubscribe after subscribe`() {
             val monitor = router.subscribe(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             monitor.unsubscribe()
@@ -123,7 +129,7 @@ class AbstractRabbitRouterTest {
         @Test
         fun `unsubscribe after subscribe with manual ack`() {
             val monitor = router.subscribeWithManualAck(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             monitor.unsubscribe()
@@ -133,7 +139,7 @@ class AbstractRabbitRouterTest {
         @Test
         fun `unsubscribe after subscribe to exclusive queue`() {
             val monitor = router.subscribeExclusive(mock { })
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             monitor.unsubscribe()
@@ -144,51 +150,51 @@ class AbstractRabbitRouterTest {
         fun `subscribes after unsubscribe`() {
             router.subscribe(mock { }, "1")
                 .unsubscribe()
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             val monitor = router.subscribe(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
         fun `subscribes with manual ack after unsubscribe`() {
             router.subscribeWithManualAck(mock { }, "1")
                 .unsubscribe()
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             val monitor = router.subscribeWithManualAck(mock { }, "1")
             assertNotNull(monitor) { "monitor must not be null" }
-            verify(connectionManager).basicConsume(eq("queue1"), any(), any())
+            verify(consumeConnectionManager).basicConsume(eq("queue1"), any(), any())
         }
 
         @Test
-        fun `subscribes when subscribtion active`() {
+        fun `subscribes when subscription active`() {
             router.subscribe(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             assertThrows(RuntimeException::class.java) { router.subscribe(mock { }, "1") }
         }
 
         @Test
-        fun `subscribes with manual ack when subscribtion active`() {
+        fun `subscribes with manual ack when subscription active`() {
             router.subscribeWithManualAck(mock { }, "1")
-            clearInvocations(connectionManager)
+            clearInvocations(consumeConnectionManager)
             clearInvocations(managerMonitor)
 
             assertThrows(RuntimeException::class.java) { router.subscribeWithManualAck(mock { }, "1") }
         }
 
         @Test
-        fun `subscribes to exclusive queue when subscribtion active`() {
+        fun `subscribes to exclusive queue when subscription active`() {
             val monitorA = router.subscribeExclusive(mock { })
             val monitorB = router.subscribeExclusive(mock { })
 
-            verify(connectionManager, times(2)).queueDeclare()
-            verify(connectionManager, times(2)).basicConsume(
+            verify(consumeConnectionManager, times(2)).queueDeclare()
+            verify(consumeConnectionManager, times(2)).basicConsume(
                 argThat { matches(Regex("$TEST_EXCLUSIVE_QUEUE-\\d+")) },
                 any(),
                 any()
@@ -250,7 +256,8 @@ class AbstractRabbitRouterTest {
         ).apply {
             init(
                 DefaultMessageRouterContext(
-                    connectionManager,
+                    publishConnectionManager,
+                    consumeConnectionManager,
                     mock { },
                     MessageRouterConfiguration(pins, GlobalNotificationConfiguration()),
                     BaseTest.BOX_CONFIGURATION

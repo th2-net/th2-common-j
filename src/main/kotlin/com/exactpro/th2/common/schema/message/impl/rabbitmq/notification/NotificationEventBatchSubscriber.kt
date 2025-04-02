@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,21 +22,21 @@ import com.exactpro.th2.common.schema.message.DeliveryMetadata
 import com.exactpro.th2.common.schema.message.ManualAckDeliveryCallback
 import com.exactpro.th2.common.schema.message.MessageSubscriber
 import com.exactpro.th2.common.schema.message.SubscriberMonitor
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager
 import com.rabbitmq.client.Delivery
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.CopyOnWriteArrayList
 
 // DRAFT of notification router
 class NotificationEventBatchSubscriber(
-    private val connectionManager: ConnectionManager,
+    private val consumeConnectionManager: ConsumeConnectionManager,
     private val queue: String
 ) : MessageSubscriber {
     private val listeners = CopyOnWriteArrayList<ConfirmationListener<EventBatch>>()
     private lateinit var monitor: SubscriberMonitor
 
     fun start() {
-        monitor = connectionManager.basicConsume(
+        monitor = consumeConnectionManager.basicConsume(
             queue,
             { deliveryMetadata: DeliveryMetadata, delivery: Delivery, confirmation: ManualAckDeliveryCallback.Confirmation ->
                 try {

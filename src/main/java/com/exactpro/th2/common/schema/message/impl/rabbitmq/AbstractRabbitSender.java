@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import com.exactpro.th2.common.schema.message.MessageSender;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManager;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishConnectionManager;
 
 import static com.exactpro.th2.common.metrics.CommonMetrics.EXCHANGE_LABEL;
 import static com.exactpro.th2.common.metrics.CommonMetrics.ROUTING_KEY_LABEL;
@@ -54,18 +55,18 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
     protected final String bookName;
     private final AtomicReference<String> routingKey = new AtomicReference<>();
     private final AtomicReference<String> exchangeName = new AtomicReference<>();
-    private final AtomicReference<ConnectionManager> connectionManager = new AtomicReference<>();
+    private final AtomicReference<PublishConnectionManager> publishConnectionManager = new AtomicReference<>();
     private final String th2Type;
 
     public AbstractRabbitSender(
-            @NotNull ConnectionManager connectionManager,
+            @NotNull PublishConnectionManager publishConnectionManager,
             @NotNull String exchangeName,
             @NotNull String routingKey,
             @NotNull String th2Pin,
             @NotNull String th2Type,
             @NotNull String bookName
     ) {
-        this.connectionManager.set(requireNonNull(connectionManager, "Connection can not be null"));
+        this.publishConnectionManager.set(requireNonNull(publishConnectionManager, "Connection manager can not be null"));
         this.exchangeName.set(requireNonNull(exchangeName, "Exchange name can not be null"));
         this.routingKey.set(requireNonNull(routingKey, "Routing key can not be null"));
         this.th2Pin = requireNonNull(th2Pin, "TH2 pin can not be null");
@@ -84,7 +85,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
         requireNonNull(value, "Value for send can not be null");
 
         try {
-            ConnectionManager connection = this.connectionManager.get();
+            PublishConnectionManager connectionManager = this.publishConnectionManager.get();
             byte[] bytes = valueToBytes(value);
             MESSAGE_SIZE_PUBLISH_BYTES
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
@@ -92,7 +93,7 @@ public abstract class AbstractRabbitSender<T> implements MessageSender<T> {
             MESSAGE_PUBLISH_TOTAL
                     .labels(th2Pin, th2Type, exchangeName.get(), routingKey.get())
                     .inc();
-            connection.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
+            connectionManager.basicPublish(exchangeName.get(), routingKey.get(), null, bytes);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Message sent to exchangeName='{}', routing key='{}': '{}'",

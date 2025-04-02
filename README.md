@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.14.0)
+# th2 common library (Java) (5.15.0)
 
 ## Usage
 
@@ -511,14 +511,31 @@ dependencies {
 
 ## Release notes
 
-### 5.14.0-dev
+### Unreleased
 #### Feature:
 + Added common microservice entry point
 + Added configuration provider to common factory
 
+### 5.15.0-dev
+
++ Updated:
+  + th2 gradle plugin `0.2.4` (bom: `4.11.0`)
+  + cradle: `5.4.4-dev`
+  + grpc-common: `4.5.0`
+  + grpc-service-generator: `3.8.0`
+  + kubernetes-client: `7.1.0`
++ Migrated:
+  + io.github.oshai:kotlin-logging: `5.1.4`
+
+### 5.14.0-dev
+
++ Separate connections for publisher and consumer (allows to consume while publishing is blocked by RabbitMQ)
++ Updated cradle `5.4.1-dev`
++ Updated kubernetes-client: `6.13.1`
+
 ### 5.13.1-dev
 
-+ Provided ability to set either of raw body of several dody data to `Event` builder
++ Provided ability to set either of raw body of several body data to `Event` builder
 + Updated th2 gradle plugin `0.0.8`
 
 ### 5.13.0-dev
@@ -610,7 +627,7 @@ dependencies {
 
 ### 5.4.1-dev
 #### Fix
-+ `SubscriberMonitor` is returned from `MessageRouter.subscribe` methods is proxy object to manage RabbitMQ subscribtion without internal listener  
++ `SubscriberMonitor` is returned from `MessageRouter.subscribe` methods is proxy object to manage RabbitMQ subscription without internal listener  
 
 ### 5.4.0-dev
 #### Updated

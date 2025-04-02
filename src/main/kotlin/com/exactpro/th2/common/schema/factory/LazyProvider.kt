@@ -19,6 +19,7 @@ import com.exactpro.th2.common.schema.exception.CommonFactoryException
 import com.exactpro.th2.common.schema.factory.LazyProvider.ThrowableConsumer
 import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicReference
+import java.util.function.Consumer
 
 /**
  * This is class is for internal use only. Please, keep that in mind when using it in another module
@@ -118,6 +119,10 @@ class LazyProvider<T : Any?> private constructor(
         @JvmStatic
         fun <T> lazy(name: String, supplier: Callable<T>): LazyProvider<T> =
             LazyProvider(name, supplier, NONE)
+
+        @JvmStatic
+        fun <T> lazyCloseable(name: String, supplier: Callable<T>, onClose: Consumer<T>): LazyProvider<T> =
+            LazyProvider(name, supplier, onClose::accept)
 
         @JvmStatic
         fun <T : AutoCloseable> lazyAutocloseable(name: String, supplier: Callable<T>): LazyProvider<T> =

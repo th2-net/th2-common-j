@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2024-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,19 @@ package com.exactpro.th2.common.schema.message.impl.rabbitmq.connection
 
 import com.exactpro.th2.common.schema.message.ContainerConstants.RABBITMQ_IMAGE_NAME
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.ConnectionManagerConfiguration
-import com.exactpro.th2.common.schema.message.impl.rabbitmq.configuration.RabbitMQConfiguration
-import mu.KotlinLogging
+import com.exactpro.th2.common.util.getRabbitMQConfiguration
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.testcontainers.containers.RabbitMQContainer
 import java.time.Duration
+import java.util.concurrent.Executors
 import java.util.concurrent.ThreadLocalRandom
 
 object ConnectionManualBenchmark {
     private val LOGGER = KotlinLogging.logger {}
+    private val channelChecker = Executors.newSingleThreadScheduledExecutor(ThreadFactoryBuilder().setNameFormat("channel-checker-%d").build())
+    private val sharedExecutor = Executors.newFixedThreadPool(1, ThreadFactoryBuilder().setNameFormat("rabbitmq-shared-pool-%d").build())
+
     @JvmStatic
     fun main(args: Array<String>) {
         RabbitMQContainer(RABBITMQ_IMAGE_NAME).use { container ->
@@ -40,7 +45,7 @@ object ConnectionManualBenchmark {
                 execInContainer("rabbitmqadmin", "declare", "exchange", "name=$exchangeName", "type=fanout")
                 execInContainer("rabbitmqadmin", "declare", "binding", "source=$exchangeName", "destination_type=queue", "destination=$queueName")
 
-                val consumer = createConnectionManager(
+                val consumer = createConsumeConnectionManager(
                     container,
                     ConnectionManagerConfiguration(
                         prefetchCount = 1000,
@@ -51,7 +56,7 @@ object ConnectionManualBenchmark {
                 )
 
                 val connectionManagerWithConfirmation = {
-                    createConnectionManager(
+                    createPublishConnectionManager(
                         container,
                         ConnectionManagerConfiguration(
                             prefetchCount = 100,
@@ -63,7 +68,7 @@ object ConnectionManualBenchmark {
                 }
 
                 val connectionManagerWithoutConfirmation = {
-                    createConnectionManager(
+                    createPublishConnectionManager(
                         container,
                         ConnectionManagerConfiguration(
                             prefetchCount = 100,
@@ -102,7 +107,7 @@ object ConnectionManualBenchmark {
         }
     }
 
-    private fun measure(name: String, manager: () -> ConnectionManager, payload: ByteArray): Duration {
+    private fun measure(name: String, manager: () -> PublishConnectionManager, payload: ByteArray): Duration {
         LOGGER.info("Measuring $name")
         val start: Long
         val sent: Long
@@ -136,16 +141,21 @@ object ConnectionManualBenchmark {
         return duration
     }
 
-    private fun createConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
-        ConnectionManager(
-            "test-connection",
-            RabbitMQConfiguration(
-                host = container.host,
-                vHost = "",
-                port = container.amqpPort,
-                username = container.adminUsername,
-                password = container.adminPassword,
-            ),
-            configuration
+    private fun createPublishConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
+        PublishConnectionManager(
+            "test-publish-connection",
+            getRabbitMQConfiguration(container),
+            configuration,
+            sharedExecutor,
+            channelChecker
+        )
+
+    private fun createConsumeConnectionManager(container: RabbitMQContainer, configuration: ConnectionManagerConfiguration) =
+        ConsumeConnectionManager(
+            "test-consume-connection",
+            getRabbitMQConfiguration(container),
+            configuration,
+            sharedExecutor,
+            channelChecker
         )
 }
