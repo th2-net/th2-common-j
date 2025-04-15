@@ -9,6 +9,15 @@ updates:
       - dependencies
     schedule:
       interval: daily
+    ignore:
+      - dependency-name: org.jetbrains.kotlin.jvm
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+      - dependency-name: io.github.oshai:kotlin-logging
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
   - package-ecosystem: github-actions
     directory: /
     reviewers:
