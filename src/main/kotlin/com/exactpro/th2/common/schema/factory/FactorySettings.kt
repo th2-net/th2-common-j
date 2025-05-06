@@ -31,11 +31,17 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRo
 import java.nio.file.Path
 
 data class FactorySettings @JvmOverloads constructor(
+    @Deprecated("Will be removed in future releases")
     var messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>> = RabbitParsedBatchRouter::class.java,
+    @Deprecated("Will be removed in future releases")
     var messageRouterRawBatchClass: Class<out MessageRouter<RawMessageBatch>> = RabbitRawBatchRouter::class.java,
+    @Deprecated("Will be removed in future releases")
     var messageRouterMessageGroupBatchClass: Class<out MessageRouter<MessageGroupBatch>> = RabbitMessageGroupBatchRouter::class.java,
+    @Deprecated("Will be removed in future releases")
     var eventBatchRouterClass: Class<out MessageRouter<EventBatch>> = EventBatchRouter::class.java,
+    @Deprecated("Will be removed in future releases")
     var grpcRouterClass: Class<out GrpcRouter> = DefaultGrpcRouter::class.java,
+    @Deprecated("Will be removed in future releases")
     var notificationEventBatchRouterClass: Class<out NotificationRouter<EventBatch>> = NotificationEventBatchRouter::class.java,
     var rabbitMQ: Path? = null,
     var routerMQ: Path? = null,
@@ -47,9 +53,12 @@ data class FactorySettings @JvmOverloads constructor(
     var prometheus: Path? = null,
     var boxConfiguration: Path? = null,
     var custom: Path? = null,
-    @Deprecated("Will be removed in future releases") var dictionaryTypesDir: Path? = null,
+    var baseConfigDir: Path? = null,
+    @Deprecated("Will be removed in future releases")
+    var dictionaryTypesDir: Path? = null,
     var dictionaryAliasesDir: Path? = null,
-    @Deprecated("Will be removed in future releases") var oldDictionariesDir: Path? = null,
+    @Deprecated("Will be removed in future releases")
+    var oldDictionariesDir: Path? = null,
     var variables: MutableMap<String, String> = HashMap()
 ) {
     fun messageRouterParsedBatchClass(messageRouterParsedBatchClass: Class<out MessageRouter<MessageBatch>>): FactorySettings {
@@ -143,7 +152,7 @@ data class FactorySettings @JvmOverloads constructor(
     }
 
     fun oldDictionariesDir(oldDictionariesDir: Path?): FactorySettings {
-        this.dictionaryTypesDir = oldDictionariesDir
+        this.oldDictionariesDir = oldDictionariesDir
         return this
     }
 
