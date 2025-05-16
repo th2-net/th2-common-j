@@ -19,6 +19,11 @@ import com.exactpro.cradle.cassandra.CassandraStorageSettings;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
+import com.exactpro.th2.common.schema.configuration.IConfigurationProvider;
+import com.exactpro.th2.common.schema.configuration.IDictionaryProvider;
+import com.exactpro.th2.common.schema.configuration.impl.DictionaryKind;
+import com.exactpro.th2.common.schema.configuration.impl.DictionaryProvider;
+import com.exactpro.th2.common.schema.configuration.impl.JsonConfigurationProvider;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
@@ -49,7 +54,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,20 +63,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static com.exactpro.th2.common.schema.util.ArchiveUtils.getGzipBase64StringDecoder;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElseGet;
-import static org.apache.commons.io.FilenameUtils.removeExtension;
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
 /**
@@ -84,16 +82,15 @@ public class CommonFactory extends AbstractCommonFactory {
     public static final String TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY = TH2_COMMON_SYSTEM_PROPERTY + '.' + "configuration-directory";
     static final Path CONFIG_DEFAULT_PATH = Path.of("/var/th2/config/");
 
-    static final String RABBIT_MQ_FILE_NAME = "rabbitMQ.json";
-    static final String ROUTER_MQ_FILE_NAME = "mq.json";
-    static final String GRPC_FILE_NAME = "grpc.json";
-    static final String ROUTER_GRPC_FILE_NAME = "grpc_router.json";
-    static final String CRADLE_CONFIDENTIAL_FILE_NAME = "cradle.json";
-    static final String PROMETHEUS_FILE_NAME = "prometheus.json";
-    static final String CUSTOM_FILE_NAME = "custom.json";
-    static final String BOX_FILE_NAME = "box.json";
-    static final String CONNECTION_MANAGER_CONF_FILE_NAME = "mq_router.json";
-    static final String CRADLE_NON_CONFIDENTIAL_FILE_NAME = "cradle_manager.json";
+    static final String RABBIT_MQ_CFG_ALIAS = "rabbitMQ";
+    static final String ROUTER_MQ_CFG_ALIAS = "mq";
+    static final String GRPC_CFG_ALIAS = "grpc";
+    static final String ROUTER_GRPC_CFG_ALIAS = "grpc_router";
+    static final String CRADLE_CONFIDENTIAL_CFG_ALIAS = "cradle";
+    static final String PROMETHEUS_CFG_ALIAS = "prometheus";
+    static final String BOX_CFG_ALIAS = "box";
+    static final String CONNECTION_MANAGER_CFG_ALIAS = "mq_router";
+    static final String CRADLE_NON_CONFIDENTIAL_CFG_ALIAS = "cradle_manager";
 
     /** @deprecated please use {@link #DICTIONARY_ALIAS_DIR_NAME} */
     @Deprecated
@@ -114,22 +111,23 @@ public class CommonFactory extends AbstractCommonFactory {
     private static final String CRADLE_MANAGER_CONFIG_MAP = "cradle-manager";
     private static final String LOGGING_CONFIG_MAP = "logging-config";
 
-    private final Path custom;
-    private final Path dictionaryTypesDir;
-    private final Path dictionaryAliasesDir;
-    private final Path oldDictionariesDir;
-    final ConfigurationManager configurationManager;
+    private final IConfigurationProvider configurationProvider;
+    private final IDictionaryProvider dictionaryProvider;
+    private final ConfigurationManager configurationManager;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFactory.class.getName());
 
-    public CommonFactory(FactorySettings settings) {
-        super(settings);
-        custom = defaultPathIfNull(settings.getCustom(), CUSTOM_FILE_NAME);
-        dictionaryTypesDir = defaultPathIfNull(settings.getDictionaryTypesDir(), DICTIONARY_TYPE_DIR_NAME);
-        dictionaryAliasesDir = defaultPathIfNull(settings.getDictionaryAliasesDir(), DICTIONARY_ALIAS_DIR_NAME);
-        oldDictionariesDir = requireNonNullElseGet(settings.getOldDictionariesDir(), CommonFactory::getConfigPath);
-        configurationManager = createConfigurationManager(settings);
+    public CommonFactory(@NotNull IConfigurationProvider configurationProvider, @NotNull IDictionaryProvider dictionaryProvider) {
+        super();
+        this.dictionaryProvider = requireNonNull(dictionaryProvider, "Dictionary provider can't be null");
+        this.configurationProvider = requireNonNull(configurationProvider, "Configuration provider can't be null");
+        configurationManager = createConfigurationManager(configurationProvider);
         start();
+    }
+
+    @Deprecated(since = "6", forRemoval = true)
+    public CommonFactory(FactorySettings settings) {
+        this(createConfigurationProvider(settings), createDictionaryProvider(settings));
     }
 
     public CommonFactory() {
@@ -137,29 +135,19 @@ public class CommonFactory extends AbstractCommonFactory {
     }
 
     @Override
-    protected Path getPathToCustomConfiguration() {
-        return custom;
-    }
-
-    @Override
-    protected Path getPathToDictionaryTypesDir() {
-        return dictionaryTypesDir;
-    }
-
-    @Override
-    protected Path getPathToDictionaryAliasesDir() {
-        return dictionaryAliasesDir;
-    }
-
-    @Override
-    protected Path getOldPathToDictionariesDir() {
-        return oldDictionariesDir;
-    }
-
-    @Override
     protected ConfigurationManager getConfigurationManager() {
         return configurationManager;
     }
+
+    public IConfigurationProvider getConfigurationProvider() {
+        return configurationProvider;
+    }
+
+    public static CommonFactory createFromProvider(@NotNull IConfigurationProvider configurationProvider,
+                                                   @NotNull IDictionaryProvider dictionaryProvider) {
+        return new CommonFactory(configurationProvider, dictionaryProvider);
+    }
+
     /**
      * Create {@link CommonFactory} from command line arguments
      *
@@ -237,7 +225,7 @@ public class CommonFactory extends AbstractCommonFactory {
         try {
             CommandLine cmd = new DefaultParser().parse(options, args);
 
-            Path configs = getConfigPath(cmd.getOptionValue(configOption.getLongOpt()));
+            Path configs = toPath(cmd.getOptionValue(configOption.getLongOpt()));
 
             if (cmd.hasOption(namespaceOption.getLongOpt()) && cmd.hasOption(boxNameOption.getLongOpt())) {
                 String namespace = cmd.getOptionValue(namespaceOption.getLongOpt());
@@ -268,24 +256,26 @@ public class CommonFactory extends AbstractCommonFactory {
                 return createFromKubernetes(namespace, boxName, contextName, dictionaries);
             }
 
-            if (!CONFIG_DEFAULT_PATH.equals(configs)) {
-                configureLogger(configs);
-            }
             FactorySettings settings = new FactorySettings();
-            settings.setRabbitMQ(calculatePath(cmd, rabbitConfigurationOption, configs, RABBIT_MQ_FILE_NAME));
-            settings.setRouterMQ(calculatePath(cmd, messageRouterConfigurationOption, configs, ROUTER_MQ_FILE_NAME));
-            settings.setConnectionManagerSettings(calculatePath(cmd, connectionManagerConfigurationOption, configs, CONNECTION_MANAGER_CONF_FILE_NAME));
-            settings.setGrpc(calculatePath(cmd, grpcConfigurationOption, grpcRouterConfigurationOption, configs, GRPC_FILE_NAME));
-            settings.setRouterGRPC(calculatePath(cmd, grpcRouterConfigOption, configs, ROUTER_GRPC_FILE_NAME));
-            settings.setCradleConfidential(calculatePath(cmd, cradleConfidentialConfigurationOption, cradleConfigurationOption, configs, CRADLE_CONFIDENTIAL_FILE_NAME));
-            settings.setCradleNonConfidential(calculatePath(cmd, cradleManagerConfigurationOption, configs, CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-            settings.setPrometheus(calculatePath(cmd, prometheusConfigurationOption, configs, PROMETHEUS_FILE_NAME));
-            settings.setBoxConfiguration(calculatePath(cmd, boxConfigurationOption, configs, BOX_FILE_NAME));
-            settings.setCustom(calculatePath(cmd, customConfigurationOption, configs, CUSTOM_FILE_NAME));
-            settings.setDictionaryTypesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_TYPE_DIR_NAME));
-            settings.setDictionaryAliasesDir(calculatePath(cmd, dictionariesDirOption, configs, DICTIONARY_ALIAS_DIR_NAME));
-            String oldDictionariesDir = cmd.getOptionValue(dictionariesDirOption.getLongOpt());
-            settings.setOldDictionariesDir(oldDictionariesDir == null ? configs : Path.of(oldDictionariesDir));
+            if (configs != null) {
+                settings.setBaseConfigDir(configs);
+                if (!CONFIG_DEFAULT_PATH.equals(configs)) {
+                    configureLogger(configs);
+                }
+            }
+            settings.setRabbitMQ(toPath(cmd.getOptionValue(rabbitConfigurationOption.getLongOpt())));
+            settings.setRouterMQ(toPath(cmd.getOptionValue(messageRouterConfigurationOption.getLongOpt())));
+            settings.setConnectionManagerSettings(toPath(cmd.getOptionValue(connectionManagerConfigurationOption.getLongOpt())));
+            settings.setGrpc(toPath(defaultIfNull(cmd.getOptionValue(grpcConfigurationOption.getLongOpt()), cmd.getOptionValue(grpcRouterConfigurationOption.getLongOpt()))));
+            settings.setRouterGRPC(toPath(cmd.getOptionValue(grpcRouterConfigOption.getLongOpt())));
+            settings.setCradleConfidential(toPath(cmd.getOptionValue(cradleConfidentialConfigurationOption.getLongOpt())));
+            settings.setCradleNonConfidential(toPath(defaultIfNull(cmd.getOptionValue(cradleManagerConfigurationOption.getLongOpt()), cmd.getOptionValue(cradleConfigurationOption.getLongOpt()))));
+            settings.setPrometheus(toPath(cmd.getOptionValue(prometheusConfigurationOption.getLongOpt())));
+            settings.setBoxConfiguration(toPath(cmd.getOptionValue(boxConfigurationOption.getLongOpt())));
+            settings.setCustom(toPath(cmd.getOptionValue(customConfigurationOption.getLongOpt())));
+            settings.setDictionaryTypesDir(toPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
+            settings.setDictionaryAliasesDir(toPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
+            settings.setOldDictionariesDir(toPath(cmd.getOptionValue(dictionariesDirOption.getLongOpt())));
 
             return new CommonFactory(settings);
         } catch (ParseException e) {
@@ -300,6 +290,7 @@ public class CommonFactory extends AbstractCommonFactory {
      * @param boxName   - the name of the target th2 box placed in the specified namespace in Kubernetes
      * @return CommonFactory with set path
      */
+    @Deprecated(since = "6", forRemoval = true)
     public static CommonFactory createFromKubernetes(String namespace, String boxName) {
         return createFromKubernetes(namespace, boxName, null);
     }
@@ -312,6 +303,7 @@ public class CommonFactory extends AbstractCommonFactory {
      * @param contextName - context name to choose the context from Kube config
      * @return CommonFactory with set path
      */
+    @Deprecated(since = "6", forRemoval = true)
     public static CommonFactory createFromKubernetes(String namespace, String boxName, @Nullable String contextName) {
         return createFromKubernetes(namespace, boxName, contextName, emptyMap());
     }
@@ -332,7 +324,7 @@ public class CommonFactory extends AbstractCommonFactory {
         Path dictionaryTypePath = configPath.resolve(DICTIONARY_TYPE_DIR_NAME);
         Path dictionaryAliasPath = configPath.resolve(DICTIONARY_ALIAS_DIR_NAME);
 
-        Path boxConfigurationPath = configPath.resolve(BOX_FILE_NAME);
+        Path boxConfigurationPath = configPath.resolve(BOX_CFG_ALIAS);
 
         FactorySettings settings = new FactorySettings();
 
@@ -399,21 +391,21 @@ public class CommonFactory extends AbstractCommonFactory {
                     configureLogger(configPath);
                 }
 
-                settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_FILE_NAME, rabbitMqData));
-                settings.setRouterMQ(writeFile(configPath, ROUTER_MQ_FILE_NAME, boxData));
-                settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CONF_FILE_NAME, boxData));
-                settings.setGrpc(writeFile(configPath, GRPC_FILE_NAME, boxData));
-                settings.setRouterGRPC(writeFile(configPath, ROUTER_GRPC_FILE_NAME, boxData));
-                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_FILE_NAME, cradleConfidential));
-                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_FILE_NAME, cradleNonConfidential));
-                settings.setPrometheus(writeFile(configPath, PROMETHEUS_FILE_NAME, boxData));
-                settings.setCustom(writeFile(configPath, CUSTOM_FILE_NAME, boxData));
+                settings.setRabbitMQ(writeFile(configPath, RABBIT_MQ_CFG_ALIAS, rabbitMqData));
+                settings.setRouterMQ(writeFile(configPath, ROUTER_MQ_CFG_ALIAS, boxData));
+                settings.setConnectionManagerSettings(writeFile(configPath, CONNECTION_MANAGER_CFG_ALIAS, boxData));
+                settings.setGrpc(writeFile(configPath, GRPC_CFG_ALIAS, boxData));
+                settings.setRouterGRPC(writeFile(configPath, ROUTER_GRPC_CFG_ALIAS, boxData));
+                settings.setCradleConfidential(writeFile(configPath, CRADLE_CONFIDENTIAL_CFG_ALIAS, cradleConfidential));
+                settings.setCradleNonConfidential(writeFile(configPath, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS, cradleNonConfidential));
+                settings.setPrometheus(writeFile(configPath, PROMETHEUS_CFG_ALIAS, boxData));
+                settings.setCustom(writeFile(configPath, CUSTOM_CFG_ALIAS, boxData));
 
                 settings.setBoxConfiguration(boxConfigurationPath);
                 settings.setDictionaryTypesDir(dictionaryTypePath);
                 settings.setDictionaryAliasesDir(dictionaryAliasPath);
 
-                String boxConfig = boxData.get(BOX_FILE_NAME);
+                String boxConfig = boxData.get(BOX_CFG_ALIAS);
 
                 if (boxConfig == null) {
                     writeToJson(boxConfigurationPath, box);
@@ -433,136 +425,49 @@ public class CommonFactory extends AbstractCommonFactory {
 
     @Override
     public InputStream loadSingleDictionary() {
-        Path dictionaryFolder = getPathToDictionaryAliasesDir();
-        try {
-            LOGGER.debug("Loading dictionary from folder: {}", dictionaryFolder);
-            List<Path> dictionaries = null;
-            if (Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile).collect(Collectors.toList());
-                }
-            }
-
-            if (dictionaries==null || dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary at path: " + dictionaryFolder.toAbsolutePath());
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries at path: " + dictionaryFolder.toAbsolutePath());
-            }
-
-            var targetDictionary = dictionaries.get(0);
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary from path: " + dictionaryFolder.toAbsolutePath(), e);
-        }
+        return dictionaryProvider.load();
     }
 
     @Override
     public Set<String> getDictionaryAliases() {
-        Path dictionaryFolder = getPathToDictionaryAliasesDir();
-        try {
-            if (!Files.isDirectory(dictionaryFolder)) {
-                return Set.of();
-            }
-
-            try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                Function<Path, String> getAlias = path -> removeExtension(path.getFileName().toString()).toLowerCase();
-
-                Map<String, Set<Path>> filesByAlias = files.filter(Files::isRegularFile)
-                        .collect(Collectors.groupingBy(getAlias, Collectors.toSet()));
-                Map<String, Set<Path>> duplicates = filesByAlias.entrySet().stream()
-                        .filter(entry -> entry.getValue().size() > 1)
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-                if (!duplicates.isEmpty()) {
-                    throw new IllegalStateException(
-                            "Dictionary directory contains files with the same name in different cases, " +
-                                    "files by dictionary alias: " + duplicates + ", " +
-                                    "path: " + dictionaryFolder.toAbsolutePath());
-                }
-                return Set.copyOf(filesByAlias.keySet());
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not get dictionaries aliases from path: " + dictionaryFolder.toAbsolutePath(), e);
-        }
+        return dictionaryProvider.aliases();
     }
 
     @Override
     public InputStream loadDictionary(String alias) {
-        Path dictionaryFolder = getPathToDictionaryAliasesDir();
-        try {
-            LOGGER.debug("Loading dictionary by alias ({}) from folder: {}", alias, dictionaryFolder);
-            List<Path> dictionaries = null;
-
-            if (Files.isDirectory(dictionaryFolder)) {
-                try (Stream<Path> files = Files.list(dictionaryFolder)) {
-                    dictionaries = files
-                            .filter(Files::isRegularFile)
-                            .filter(path -> removeExtension(path.getFileName().toString()).equalsIgnoreCase(alias))
-                            .collect(Collectors.toList());
-                }
-            }
-
-            if (dictionaries==null || dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary was found by alias '" + alias + "' at path: " + dictionaryFolder.toAbsolutePath());
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries by alias '" + alias + "' at path: " + dictionaryFolder.toAbsolutePath());
-            }
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(dictionaries.get(0))));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary '" + alias + "' from path: " + dictionaryFolder.toAbsolutePath(), e);
-        }
+        return dictionaryProvider.load(alias);
     }
 
     @Override
     public InputStream readDictionary() {
-        return readDictionary(DictionaryType.MAIN);
+        return dictionaryProvider.load(DictionaryType.MAIN);
     }
 
     @Override
     public InputStream readDictionary(DictionaryType dictionaryType) {
-        try {
-            List<Path> dictionaries = null;
-            Path typeFolder = dictionaryType.getDictionary(getPathToDictionaryTypesDir());
-            if (Files.isDirectory(typeFolder)) {
-                try (Stream<Path> files = Files.list(typeFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile)
-                            .collect(Collectors.toList());
-                }
-            }
-
-            // Find with old format
-            Path oldFolder = getOldPathToDictionariesDir();
-            if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(oldFolder)) {
-                try (Stream<Path> files = Files.list(oldFolder)) {
-                    dictionaries = files.filter(path -> Files.isRegularFile(path) && path.getFileName().toString().contains(dictionaryType.name()))
-                            .collect(Collectors.toList());
-                }
-            }
-
-            Path dictionaryAliasFolder = getPathToDictionaryAliasesDir();
-            if ((dictionaries == null || dictionaries.isEmpty()) && Files.isDirectory(dictionaryAliasFolder)) {
-                try (Stream<Path> files = Files.list(dictionaryAliasFolder)) {
-                    dictionaries = files.filter(Files::isRegularFile).filter(path -> removeExtension(path.getFileName().toString()).equalsIgnoreCase(dictionaryType.name())).collect(Collectors.toList());
-                }
-            }
-
-            if (dictionaries == null || dictionaries.isEmpty()) {
-                throw new IllegalStateException("No dictionary found with type '" + dictionaryType + "'");
-            } else if (dictionaries.size() > 1) {
-                throw new IllegalStateException("Found several dictionaries satisfying the '" + dictionaryType + "' type");
-            }
-
-            var targetDictionary = dictionaries.get(0);
-
-            return new ByteArrayInputStream(getGzipBase64StringDecoder().decode(Files.readString(targetDictionary)));
-        } catch (IOException e) {
-            throw new IllegalStateException("Can not read dictionary", e);
-        }
+        return dictionaryProvider.load(dictionaryType);
     }
 
     static @NotNull Path getConfigPath() {
+        return getConfigPath(null);
+    }
+
+    /**
+     * Priority:
+     *   1. passed via commandline arguments
+     *   2. {@value #TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY} system property
+     *   3. {@link #CONFIG_DEFAULT_PATH} default value
+     */
+    static @NotNull Path getConfigPath(@Nullable Path basePath) {
+        if (basePath != null) {
+            if (Files.exists(basePath) && Files.isDirectory(basePath)) {
+                return basePath;
+            }
+            LOGGER.warn("'{}' config directory passed via CMD doesn't exist or it is not a directory", basePath);
+        } else {
+            LOGGER.debug("Skipped blank CMD path for configs directory");
+        }
+
         String pathString = System.getProperty(TH2_COMMON_CONFIGURATION_DIRECTORY_SYSTEM_PROPERTY);
         if (pathString != null) {
             Path path = Paths.get(pathString);
@@ -580,21 +485,6 @@ public class CommonFactory extends AbstractCommonFactory {
             LOGGER.error("'{}' default config directory doesn't exist", CONFIG_DEFAULT_PATH);
         }
         return CONFIG_DEFAULT_PATH;
-    }
-
-    static @NotNull Path getConfigPath(@Nullable String cmdPath) {
-        String pathString = StringUtils.trim(cmdPath);
-        if (pathString != null) {
-            Path path = Paths.get(pathString);
-            if (Files.exists(path) && Files.isDirectory(path)) {
-                return path;
-            }
-            LOGGER.warn("'{}' config directory passed via CMD doesn't exist or it is not a directory", cmdPath);
-        } else {
-            LOGGER.debug("Skipped blank CMD path for configs directory");
-        }
-
-        return getConfigPath();
     }
 
     private static Path writeFile(Path configPath, String fileName, Map<String, String> configMap) throws IOException {
@@ -661,23 +551,49 @@ public class CommonFactory extends AbstractCommonFactory {
         }
     }
 
-    private static ConfigurationManager createConfigurationManager(FactorySettings settings) {
-        Map<Class<?>, Path> paths = new HashMap<>();
-        paths.put(RabbitMQConfiguration.class, defaultPathIfNull(settings.getRabbitMQ(), RABBIT_MQ_FILE_NAME));
-        paths.put(MessageRouterConfiguration.class, defaultPathIfNull(settings.getRouterMQ(), ROUTER_MQ_FILE_NAME));
-        paths.put(ConnectionManagerConfiguration.class, defaultPathIfNull(settings.getConnectionManagerSettings(), CONNECTION_MANAGER_CONF_FILE_NAME));
-        paths.put(GrpcConfiguration.class, defaultPathIfNull(settings.getGrpc(), GRPC_FILE_NAME));
-        paths.put(GrpcRouterConfiguration.class, defaultPathIfNull(settings.getRouterGRPC(), ROUTER_GRPC_FILE_NAME));
-        paths.put(CradleConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleConfidential(), CRADLE_CONFIDENTIAL_FILE_NAME));
-        paths.put(CradleNonConfidentialConfiguration.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-        paths.put(CassandraStorageSettings.class, defaultPathIfNull(settings.getCradleNonConfidential(), CRADLE_NON_CONFIDENTIAL_FILE_NAME));
-        paths.put(PrometheusConfiguration.class, defaultPathIfNull(settings.getPrometheus(), PROMETHEUS_FILE_NAME));
-        paths.put(BoxConfiguration.class, defaultPathIfNull(settings.getBoxConfiguration(), BOX_FILE_NAME));
-        return new ConfigurationManager(paths);
+    private static IDictionaryProvider createDictionaryProvider(FactorySettings settings) {
+        Map<DictionaryKind, Path> paths = new EnumMap<>(DictionaryKind.class);
+        putIfNotNull(paths, DictionaryKind.OLD, settings.getOldDictionariesDir());
+        putIfNotNull(paths, DictionaryKind.TYPE, settings.getDictionaryTypesDir());
+        putIfNotNull(paths, DictionaryKind.ALIAS, settings.getDictionaryAliasesDir());
+        return DictionaryProvider.create(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
     }
 
-    private static Path defaultPathIfNull(Path path, String name) {
-        return path == null ? getConfigPath().resolve(name) : path;
+    private static IConfigurationProvider createConfigurationProvider(FactorySettings settings) {
+        Map<String, Path> paths = new HashMap<>();
+        putIfNotNull(paths, CUSTOM_CFG_ALIAS, settings.getCustom());
+        putIfNotNull(paths, RABBIT_MQ_CFG_ALIAS, settings.getRabbitMQ());
+        putIfNotNull(paths, ROUTER_MQ_CFG_ALIAS, settings.getRouterMQ());
+        putIfNotNull(paths, CONNECTION_MANAGER_CFG_ALIAS, settings.getConnectionManagerSettings());
+        putIfNotNull(paths, GRPC_CFG_ALIAS, settings.getGrpc());
+        putIfNotNull(paths, ROUTER_GRPC_CFG_ALIAS, settings.getRouterGRPC());
+        putIfNotNull(paths, CRADLE_CONFIDENTIAL_CFG_ALIAS, settings.getCradleConfidential());
+        putIfNotNull(paths, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS, settings.getCradleNonConfidential());
+        putIfNotNull(paths, PROMETHEUS_CFG_ALIAS, settings.getPrometheus());
+        putIfNotNull(paths, BOX_CFG_ALIAS, settings.getBoxConfiguration());
+        return JsonConfigurationProvider.create(defaultIfNull(settings.getBaseConfigDir(), getConfigPath()), paths);
+    }
+    private static ConfigurationManager createConfigurationManager(IConfigurationProvider configurationProvider) {
+        Map<Class<?>, String> paths = new HashMap<>();
+        paths.put(RabbitMQConfiguration.class, RABBIT_MQ_CFG_ALIAS);
+        paths.put(MessageRouterConfiguration.class, ROUTER_MQ_CFG_ALIAS);
+        paths.put(ConnectionManagerConfiguration.class, CONNECTION_MANAGER_CFG_ALIAS);
+        paths.put(GrpcConfiguration.class, GRPC_CFG_ALIAS);
+        paths.put(GrpcRouterConfiguration.class, ROUTER_GRPC_CFG_ALIAS);
+        paths.put(CradleConfidentialConfiguration.class, CRADLE_CONFIDENTIAL_CFG_ALIAS);
+        paths.put(CradleNonConfidentialConfiguration.class, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS);
+        paths.put(CassandraStorageSettings.class, CRADLE_NON_CONFIDENTIAL_CFG_ALIAS);
+        paths.put(PrometheusConfiguration.class, PROMETHEUS_CFG_ALIAS);
+        paths.put(BoxConfiguration.class, BOX_CFG_ALIAS);
+        return new ConfigurationManager(configurationProvider, paths);
+    }
+
+    private static <T> void putIfNotNull(@NotNull Map<T, Path> paths, @NotNull T key, @Nullable Path path) {
+        requireNonNull(paths, "'Paths' can't be null");
+        requireNonNull(key, "'Key' can't be null");
+        if (path != null) {
+            paths.put(key, path);
+        }
     }
 
     private static void writeFile(Path path, String data) throws IOException {
@@ -699,15 +615,8 @@ public class CommonFactory extends AbstractCommonFactory {
         return option;
     }
 
-    private static Path calculatePath(String path, @NotNull Path configsPath, String fileName) {
-        return path != null ? Path.of(path) : configsPath.resolve(fileName);
+    private static @Nullable Path toPath(@Nullable String path) {
+        return path == null ? null : Path.of(path);
     }
 
-    private static Path calculatePath(CommandLine cmd, Option option, @NotNull Path configs, String fileName) {
-        return calculatePath(cmd.getOptionValue(option.getLongOpt()), configs, fileName);
-    }
-
-    private static Path calculatePath(CommandLine cmd, Option current, Option deprecated, @NotNull Path configs, String fileName) {
-        return calculatePath(defaultIfNull(cmd.getOptionValue(current.getLongOpt()), cmd.getOptionValue(deprecated.getLongOpt())), configs, fileName);
-    }
 }
