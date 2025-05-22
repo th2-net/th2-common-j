@@ -32,7 +32,8 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 
-class TestDictionaryLoad {
+@Suppress("DEPRECATION")
+class DictionaryLoadTest {
 
     @TempDir
     lateinit var tempDir: Path
@@ -64,7 +65,7 @@ class TestDictionaryLoad {
 
     @ParameterizedTest
     @ValueSource(strings = ["MAIN", "main", "test-dictionary"])
-    fun `test read dictionary from type dictionary dir`(fileName: String, ) {
+    fun `test read dictionary from type dictionary dir`(fileName: String) {
         val content = writeDictionary(tempDir.resolve(Path.of("dictionary", "main", fileName)))
         CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
             assertEquals(content, commonFactory.readDictionary().use { String(it.readAllBytes()) })
@@ -87,7 +88,7 @@ class TestDictionaryLoad {
 
     @ParameterizedTest
     @ValueSource(strings = ["MAIN", "main", "MAIN.xml", "main.json"])
-    fun `test read dictionary from alias dictionary dir`(fileName: String, ) {
+    fun `test read dictionary from alias dictionary dir`(fileName: String) {
         val content = writeDictionary(tempDir.resolve(Path.of("dictionaries", fileName)))
         CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
             assertEquals(content, commonFactory.readDictionary().use { String(it.readAllBytes()) })
@@ -120,7 +121,7 @@ class TestDictionaryLoad {
 
     @ParameterizedTest
     @ValueSource(strings = ["INCOMING", "incoming", "test-dictionary"])
-    fun `test read dictionary by type from type dictionary dir`(fileName: String, ) {
+    fun `test read dictionary by type from type dictionary dir`(fileName: String) {
         val content = writeDictionary(tempDir.resolve(Path.of("dictionary", "incoming", fileName)))
         writeDictionary(tempDir.resolve(Path.of("dictionary", "main", "MAIN")))
         CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
@@ -147,7 +148,7 @@ class TestDictionaryLoad {
 
     @ParameterizedTest
     @ValueSource(strings = ["INCOMING", "incoming", "INCOMING.xml", "incoming.json"])
-    fun `test read dictionary by type from alias dictionary dir`(fileName: String, ) {
+    fun `test read dictionary by type from alias dictionary dir`(fileName: String) {
         val content = writeDictionary(tempDir.resolve(Path.of("dictionaries", fileName)))
         writeDictionary(tempDir.resolve(Path.of("dictionaries", "MAIN")))
         CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
@@ -193,7 +194,7 @@ class TestDictionaryLoad {
 
     @ParameterizedTest
     @ValueSource(strings = ["TEST-ALIAS", "test-alias"])
-    fun `test load dictionary by alias from alias dictionary dir`(fileName: String, ) {
+    fun `test load dictionary by alias from alias dictionary dir`(fileName: String) {
         val content = writeDictionary(tempDir.resolve(Path.of("dictionaries", fileName)))
         writeDictionary(tempDir.resolve(Path.of("dictionaries", "test-dictionary")))
         CommonFactory.createFromArguments("-c", tempDir.absolutePathString()).use { commonFactory ->
@@ -255,7 +256,7 @@ class TestDictionaryLoad {
         cfgPath.resolve("prometheus.json").writeText("{\"enabled\":false}")
     }
 
-    private fun writeDictionary(path: Path): String? {
+    private fun writeDictionary(path: Path): String {
         val content = RandomStringUtils.randomAlphanumeric(10)
         path.parent.createDirectories()
         path.writeBytes(ArchiveUtils.getGzipBase64StringEncoder().encode(content))
