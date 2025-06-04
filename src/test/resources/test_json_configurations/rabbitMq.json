@@ -2,6 +2,7 @@
   "host": "host",
   "vHost": "vHost",
   "port": 1234,
+  "managementPort": 5678,
   "username": "user",
   "password": "pass",
   "subscriberName": "subscriberName",
