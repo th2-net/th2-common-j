@@ -511,6 +511,11 @@ dependencies {
 
 ## Release notes
 
+### Unreleased
+#### Feature:
++ Added common microservice entry point
++ Added configuration provider to common factory
+
 ### 5.15.0-dev
 
 + Updated:
