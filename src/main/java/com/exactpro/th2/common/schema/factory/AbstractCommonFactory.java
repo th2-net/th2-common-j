@@ -34,13 +34,16 @@ import com.exactpro.th2.common.metrics.MetricMonitor;
 import com.exactpro.th2.common.metrics.PrometheusConfiguration;
 import com.exactpro.th2.common.schema.box.configuration.BoxConfiguration;
 import com.exactpro.th2.common.schema.configuration.ConfigurationManager;
+import com.exactpro.th2.common.schema.configuration.impl.JsonConfigurationProvider;
 import com.exactpro.th2.common.schema.cradle.CradleConfidentialConfiguration;
 import com.exactpro.th2.common.schema.cradle.CradleNonConfidentialConfiguration;
 import com.exactpro.th2.common.schema.dictionary.DictionaryType;
+import com.exactpro.th2.common.schema.event.EventBatchRouter;
 import com.exactpro.th2.common.schema.exception.CommonFactoryException;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration;
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcRouterConfiguration;
 import com.exactpro.th2.common.schema.grpc.router.GrpcRouter;
+import com.exactpro.th2.common.schema.grpc.router.impl.DefaultGrpcRouter;
 import com.exactpro.th2.common.schema.message.MessageRouter;
 import com.exactpro.th2.common.schema.message.MessageRouterContext;
 import com.exactpro.th2.common.schema.message.MessageRouterMonitor;
@@ -57,9 +60,12 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.PublishCo
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConsumeConnectionManager;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.MessageConverter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.custom.RabbitCustomRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.group.RabbitMessageGroupBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.notification.NotificationEventBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.parsed.RabbitParsedBatchRouter;
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.raw.RabbitRawBatchRouter;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.GroupBatch;
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.TransportGroupBatchRouter;
-import com.exactpro.th2.common.schema.strategy.route.json.RoutingStrategyModule;
 import com.exactpro.th2.common.schema.util.Log4jConfigUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -69,13 +75,11 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.prometheus.client.exporter.HTTPServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringSubstitutor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -102,7 +106,6 @@ import static com.exactpro.th2.common.schema.factory.LazyProvider.lazy;
 import static com.exactpro.th2.common.schema.factory.LazyProvider.lazyAutocloseable;
 import static com.exactpro.th2.common.schema.factory.LazyProvider.lazyCloseable;
 import static java.util.Objects.requireNonNull;
-import static org.apache.commons.lang3.StringUtils.defaultIfBlank;
 
 /**
  * Class for load <b>JSON</b> schema configuration and create {@link GrpcRouter} and {@link MessageRouter}
@@ -121,25 +124,9 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     private static final String SHARED_EXECUTOR_NAME = "rabbit-shared";
     private static final String CHANNEL_CHECKER_EXECUTOR_NAME = "channel-checker-executor";
 
-    public static final ObjectMapper MAPPER = new ObjectMapper();
-
-    static {
-        MAPPER.registerModules(
-                new KotlinModule.Builder()
-                        .withReflectionCacheSize(512)
-                        .configure(KotlinFeature.NullToEmptyCollection, false)
-                        .configure(KotlinFeature.NullToEmptyMap, false)
-                        .configure(KotlinFeature.NullIsSameAsDefault, false)
-                        .configure(KotlinFeature.SingletonSupport, false)
-                        .configure(KotlinFeature.StrictNullChecks, false)
-                        .build(),
-                new RoutingStrategyModule(MAPPER),
-                new JavaTimeModule()
-        );
-    }
-
+    static final String CUSTOM_CFG_ALIAS = "custom";
+    public static final ObjectMapper MAPPER = JsonConfigurationProvider.MAPPER;
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCommonFactory.class);
-    private final StringSubstitutor stringSubstitutor;
 
     private final Class<? extends MessageRouter<MessageBatch>> messageRouterParsedBatchClass;
     private final Class<? extends MessageRouter<RawMessageBatch>> messageRouterRawBatchClass;
@@ -201,6 +188,15 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         configureLogger();
     }
 
+    protected AbstractCommonFactory() {
+        messageRouterParsedBatchClass = RabbitParsedBatchRouter.class ;
+        messageRouterRawBatchClass = RabbitRawBatchRouter.class;
+        messageRouterMessageGroupBatchClass = RabbitMessageGroupBatchRouter.class;
+        eventBatchRouterClass = EventBatchRouter.class;
+        grpcRouterClass = DefaultGrpcRouter.class;
+        notificationEventBatchRouterClass = NotificationEventBatchRouter.class;
+    }
+
     /**
      * Create factory with non-default implementations schema classes
      *
@@ -213,7 +209,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         eventBatchRouterClass = settings.getEventBatchRouterClass();
         grpcRouterClass = settings.getGrpcRouterClass();
         notificationEventBatchRouterClass = settings.getNotificationEventBatchRouterClass();
-        stringSubstitutor = new StringSubstitutor(key -> defaultIfBlank(settings.getVariables().get(key), System.getenv(key)));
     }
 
     public void start() {
@@ -354,11 +349,11 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     /**
-     * @return Configuration by specified path
+     * @return Configuration by specified alias
      * @throws IllegalStateException if can not read configuration
      */
-    public <T> T getConfiguration(Path configPath, Class<T> configClass, ObjectMapper customObjectMapper) {
-        return getConfigurationManager().loadConfiguration(customObjectMapper, stringSubstitutor, configClass, configPath, false);
+    public <T> T getConfiguration(String configAlias, Class<T> configClass, ObjectMapper customObjectMapper) {
+        return getConfigurationManager().loadConfiguration(configClass, configAlias, false);
     }
 
     /**
@@ -369,7 +364,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @return configuration object
      */
     protected <T> T getConfigurationOrLoad(Class<T> configClass, boolean optional) {
-        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, configClass, optional);
+        return getConfigurationManager().getConfigurationOrLoad(configClass, optional);
     }
 
     public RabbitMQConfiguration getRabbitMqConfiguration() {
@@ -385,7 +380,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     public GrpcConfiguration getGrpcConfiguration() {
-        return getConfigurationManager().getConfigurationOrLoad(MAPPER, stringSubstitutor, GrpcConfiguration.class, false);
+        return getConfigurationManager().getConfigurationOrLoad(GrpcConfiguration.class, false);
     }
 
     public GrpcRouterConfiguration getGrpcRouterConfiguration() {
@@ -543,17 +538,7 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @throws IllegalStateException if can not read configuration
      */
     public <T> T getCustomConfiguration(Class<T> confClass, ObjectMapper customObjectMapper) {
-        File configFile = getPathToCustomConfiguration().toFile();
-        if (!configFile.exists()) {
-            try {
-                return confClass.getConstructor().newInstance();
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                     NoSuchMethodException e) {
-                return null;
-            }
-        }
-
-        return getConfiguration(getPathToCustomConfiguration(), confClass, customObjectMapper);
+        return getConfiguration(CUSTOM_CFG_ALIAS, confClass, customObjectMapper);
     }
 
     /**
@@ -602,7 +587,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
      * @param dictionaryType desired type of dictionary
      * @return Dictionary as {@link InputStream}
      * @throws IllegalStateException if can not read dictionary
-     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead
+     * @deprecated Dictionary types will be removed in future releases of infra, use alias instead.
+     * Please use {@link #loadDictionary(String)}
      */
     @Deprecated(since = "3.33.0", forRemoval = true)
     public abstract InputStream readDictionary(DictionaryType dictionaryType);
@@ -638,25 +624,6 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
     }
 
     protected abstract ConfigurationManager getConfigurationManager();
-
-    /**
-     * @return Path to custom configuration
-     */
-    protected abstract Path getPathToCustomConfiguration();
-
-    /**
-     * @return Path to dictionaries with type dir
-     */
-    @Deprecated(since = "3.33.0", forRemoval = true)
-    protected abstract Path getPathToDictionaryTypesDir();
-
-    /**
-     * @return Path to dictionaries with alias dir
-     */
-    protected abstract Path getPathToDictionaryAliasesDir();
-
-    @Deprecated(since = "3.33.0", forRemoval = true)
-    protected abstract Path getOldPathToDictionariesDir();
 
     /**
      * @return Context for all routers except event router
