@@ -2,8 +2,6 @@ version: 2
 updates:
   - package-ecosystem: gradle
     directory: /
-    reviewers:
-      - Nikita-Smirnov-Exactpro
     labels:
       - dependencies
     schedule:
@@ -19,8 +17,6 @@ updates:
           - version-update:semver-minor
   - package-ecosystem: github-actions
     directory: /
-    reviewers:
-      - Nikita-Smirnov-Exactpro
     labels:
       - dependencies
     schedule:
