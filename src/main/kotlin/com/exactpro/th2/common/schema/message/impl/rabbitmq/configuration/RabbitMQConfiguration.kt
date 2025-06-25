@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,6 +24,7 @@ data class RabbitMQConfiguration(
     @JsonProperty(required = true) val host: String,
     @JsonProperty(required = true) @get:JsonProperty("vHost") val vHost: String,
     @JsonProperty(required = true) val port: Int = 5672,
+    @JsonProperty(required = true) val managementPort: Int = 15672,
     @JsonProperty(required = true) val username: String,
     @JsonProperty(required = true) val password: String,
     @Deprecated(message = "Please use subscriber name from ConnectionManagerConfiguration")
