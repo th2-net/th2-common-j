@@ -109,6 +109,8 @@ dependencies {
 
     implementation(libs.java.uuid.generator)
 
+    implementation(libs.rabbitmq.http.client)
+
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl'
     implementation 'org.apache.logging.log4j:log4j-core'
 

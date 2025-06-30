@@ -21,6 +21,8 @@ kotlinx-metadata = { module = "org.jetbrains.kotlinx:kotlinx-metadata-jvm", vers
 
 java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.1.0" }
 
+rabbitmq-http-client = { group = "com.rabbitmq", name = "http-client", version = "5.3.0" }
+
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "5.1.4" }
 kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5", version.ref = "kotlin" }
 
