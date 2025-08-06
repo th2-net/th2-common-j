@@ -15,14 +15,14 @@ group = 'com.exactpro.th2'
 version = release_version
 
 ext {
-    genBaseDir = project.layout.buildDirectory.file("generated/source/proto").get().asFile
+    genBaseDir = project.extensions.findByName("protobuf").defaultGeneratedFilesBaseDir.get()
 }
 
 repositories {
     mavenCentral()
     maven {
         name 'Sonatype_releases'
-        url 'https://s01.oss.sonatype.org/content/repositories/releases/'
+        url 'https://repo1.maven.org/maven2'
     }
     mavenLocal()
 

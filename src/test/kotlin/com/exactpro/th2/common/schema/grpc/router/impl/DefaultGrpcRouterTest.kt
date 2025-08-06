@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback
 import org.junit.jupiter.api.extension.BeforeTestExecutionCallback
@@ -73,6 +74,7 @@ private const val CANCEL_REASON = "test request is canceled"
 
 @ExtendWith(DefaultGrpcRouterTest.ExecutionListener::class)
 @IntegrationTest
+@Timeout(30)
 internal class DefaultGrpcRouterTest {
     /**
      * Listener adds additional logging to help understanding from the stdout where test starts and finishes
