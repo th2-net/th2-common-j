@@ -54,6 +54,9 @@ tasks.register('integrationTest', Test) {
 }
 
 dependencies {
+    api(platform(libs.th2.bom)) {
+        because('th2 bom includes version for third party libraries')
+    }
     api(libs.th2.grpc.common) {
         because('protobuf transport is main now, this dependency should be moved to grpc, mq protobuf modules after splitting')
     }
