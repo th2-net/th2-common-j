@@ -1,5 +1,5 @@
 [versions]
-kotlin = "1.8.22"
+kotlin = "2.2.0"
 protobuf = "3.25.8" # gRPC 1.66 libraries uses protobuf 3.+
 cradle = "5.6.0-dev"
 jmh = "1.37"
@@ -21,7 +21,7 @@ kotlinx-metadata = { module = "org.jetbrains.kotlinx:kotlinx-metadata-jvm", vers
 
 java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.1.0" }
 
-kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "5.1.4" }
+kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.12" }
 kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5", version.ref = "kotlin" }
 
 kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version = "7.3.1" }
