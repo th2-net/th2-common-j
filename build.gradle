@@ -178,6 +178,7 @@ tasks.named('extractIncludeTestFixturesProto') { enabled = false }
 
 compileTestJava.dependsOn.add('generateTestProto')
 processTestResources.dependsOn.add('generateTestProto')
+generatePomFileForMavenJavaPublication.dependsOn.add('kaptKotlin')
 
 tasks.register("publicationManualBench", JavaExec.class) {
     mainClass.set('com.exactpro.th2.common.schema.message.impl.rabbitmq.connection.ConnectionManualBenchmark')
