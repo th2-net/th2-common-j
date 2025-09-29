@@ -19,7 +19,7 @@ auto-value = { group = "com.google.auto.value", name = "auto-value", version.ref
 # after updating kotlin to 2.* we should use org.jetbrains.kotlin:kotlin-metadata-jvm instead
 kotlinx-metadata = { module = "org.jetbrains.kotlinx:kotlinx-metadata-jvm", version = "0.9.0" }
 
-java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.1.0" }
+java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.1.1" }
 
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.12" }
 kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5", version.ref = "kotlin" }
