@@ -20,6 +20,8 @@ jobs:
       sonatypeSigningKey: ${{ secrets.SONATYPE_GPG_ARMORED_KEY }}
       sonatypeSigningPassword: ${{ secrets.SONATYPE_SIGNING_PASSWORD }}
       nvd-api-key: ${{ secrets.NVD_APIKEY }}
+      oss-index-user: ${{ secrets.OSSINDEX_SONATYPE_USER }}
+      oss-index-token: ${{ secrets.OSSINDEX_SONATYPE_TOKEN }}
       cisa-domain: ${{ secrets.CISA_DOMAIN }}
       cisa-user: ${{ secrets.CISA_USER }}
       cisa-password: ${{ secrets.CISA_PWD }}
