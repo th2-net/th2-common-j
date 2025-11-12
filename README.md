@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.16.1)
+# th2 common library (Java) (5.17.0)
 
 ## Usage
 
@@ -510,6 +510,14 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.17.0-dev
+
+* Provided `getCradleMaxMessageBatchSize` and `getCradleMaxEventBatchSize` methods
+* Updated:
+  * grpc-common: `4.7.2`
+  * java-uuid-generator: `5.1.1`
+  * auto-value: `1.11.1`
 
 ### 5.16.1-dev
 

@@ -1,17 +1,16 @@
 /*
- * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.factory;
@@ -405,6 +404,14 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
 
     }
 
+    public long getCradleMaxMessageBatchSize() {
+        return getCradleMaxMessageBatchSize(getCassandraStorageSettings(), getCradleNonConfidentialConfiguration());
+    }
+
+    public long getCradleMaxEventBatchSize() {
+        return getCradleMaxEventBatchSize(getCassandraStorageSettings(), getCradleNonConfidentialConfiguration());
+    }
+
     @Nullable
     private HTTPServer createPrometheusHTTPServer() {
         PrometheusConfiguration configuration = loadPrometheusConfiguration();
@@ -511,12 +518,8 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
             if (cassandraStorageSettings.getResultPageSize() == DEFAULT_RESULT_PAGE_SIZE && nonConfidentialConfiguration.getPageSize() > 0) {
                 cassandraStorageSettings.setResultPageSize(nonConfidentialConfiguration.getPageSize());
             }
-            if (cassandraStorageSettings.getMaxMessageBatchSize() == DEFAULT_MAX_MESSAGE_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
-                cassandraStorageSettings.setMaxMessageBatchSize((int) nonConfidentialConfiguration.getCradleMaxMessageBatchSize());
-            }
-            if (cassandraStorageSettings.getMaxTestEventBatchSize() == DEFAULT_MAX_TEST_EVENT_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
-                cassandraStorageSettings.setMaxTestEventBatchSize((int) nonConfidentialConfiguration.getCradleMaxEventBatchSize());
-            }
+            cassandraStorageSettings.setMaxMessageBatchSize((int) getCradleMaxMessageBatchSize(cassandraStorageSettings, nonConfidentialConfiguration));
+            cassandraStorageSettings.setMaxTestEventBatchSize((int) getCradleMaxEventBatchSize(cassandraStorageSettings, nonConfidentialConfiguration));
             if (cassandraStorageSettings.getCounterPersistenceInterval() == DEFAULT_COUNTER_PERSISTENCE_INTERVAL_MS && nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis() >= 0) {
                 cassandraStorageSettings.setCounterPersistenceInterval((int) nonConfidentialConfiguration.getStatisticsPersistenceIntervalMillis());
             }
@@ -532,6 +535,20 @@ public abstract class AbstractCommonFactory implements AutoCloseable {
         } catch (CradleStorageException | RuntimeException | IOException e) {
             throw new CommonFactoryException("Cannot create Cradle manager", e);
         }
+    }
+
+    public long getCradleMaxMessageBatchSize(CassandraStorageSettings cassandraStorageSettings, CradleNonConfidentialConfiguration nonConfidentialConfiguration) {
+        if (cassandraStorageSettings.getMaxMessageBatchSize() == DEFAULT_MAX_MESSAGE_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxMessageBatchSize() > 0) {
+            return nonConfidentialConfiguration.getCradleMaxMessageBatchSize();
+        }
+        return cassandraStorageSettings.getMaxMessageBatchSize();
+    }
+
+    public long getCradleMaxEventBatchSize(CassandraStorageSettings cassandraStorageSettings, CradleNonConfidentialConfiguration nonConfidentialConfiguration) {
+        if (cassandraStorageSettings.getMaxTestEventBatchSize() == DEFAULT_MAX_TEST_EVENT_BATCH_SIZE && nonConfidentialConfiguration.getCradleMaxEventBatchSize() > 0) {
+            return nonConfidentialConfiguration.getCradleMaxEventBatchSize();
+        }
+        return cassandraStorageSettings.getMaxTestEventBatchSize();
     }
 
     /**
