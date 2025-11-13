@@ -1,17 +1,16 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2025 Exactpro (Exactpro Systems Limited)
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 package com.exactpro.th2.common.metrics
 
@@ -56,10 +55,12 @@ open class MetricsUtilsBenchmark {
 
             messageCounter = Counter.build("message_counter", "Message counter")
                 .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
+                .withoutExemplars()
                 .register()
 
             groupCounter = Counter.build("group_counter", "Group counter")
                 .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+                .withoutExemplars()
                 .register()
 
             groupSequenceGauge = Gauge.build("group_sequence", "Group sequence")

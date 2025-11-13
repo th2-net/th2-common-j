@@ -1,17 +1,16 @@
 /*
- * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ *  Copyright 2025 Exactpro (Exactpro Systems Limited)
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.message.impl.rabbitmq.group
@@ -89,12 +88,14 @@ class RabbitMessageGroupBatchSender(
             .name("th2_message_publish_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
             .help("Quantity of published raw or parsed messages")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_PUBLISH_TOTAL = Counter.build()
             .name("th2_message_group_publish_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
             .help("Quantity of published message groups")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_SEQUENCE_PUBLISH = Gauge.build()

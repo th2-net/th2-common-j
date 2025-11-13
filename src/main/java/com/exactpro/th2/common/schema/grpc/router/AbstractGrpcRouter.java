@@ -1,16 +1,16 @@
 /*
- * Copyright 2020-2023 Exactpro (Exactpro Systems Limited)
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *  Copyright 2025 Exactpro (Exactpro Systems Limited)
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 package com.exactpro.th2.common.schema.grpc.router;
@@ -76,6 +76,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .name("th2_grpc_invoke_call_total")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Total number of calling particular gRPC method")
+            .withoutExemplars()
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_INVOKE_CALL_MAP = new ConcurrentHashMap<>();
@@ -84,6 +85,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .name("th2_grpc_invoke_call_request_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes sent to particular gRPC call")
+            .withoutExemplars()
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_INVOKE_CALL_REQUEST_SIZE_MAP = new ConcurrentHashMap<>();
@@ -92,6 +94,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .name("th2_grpc_invoke_call_response_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes sent to particular gRPC call")
+            .withoutExemplars()
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_INVOKE_CALL_RESPONSE_SIZE_MAP = new ConcurrentHashMap<>();
@@ -100,6 +103,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .name("th2_grpc_receive_call_total")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Total number of consuming particular gRPC method")
+            .withoutExemplars()
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_MAP = new ConcurrentHashMap<>();
@@ -108,6 +112,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .name("th2_grpc_receive_call_request_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes received from particular gRPC call")
+            .withoutExemplars()
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_REQUEST_SIZE_MAP = new ConcurrentHashMap<>();
@@ -116,6 +121,7 @@ public abstract class AbstractGrpcRouter implements GrpcRouter {
             .name("th2_grpc_receive_call_response_bytes")
             .labelNames(CommonMetrics.TH2_PIN_LABEL, CommonMetrics.GRPC_SERVICE_NAME_LABEL, CommonMetrics.GRPC_METHOD_NAME_LABEL)
             .help("Number of bytes sent to particular gRPC call")
+            .withoutExemplars()
             .register();
 
     protected static final Map<MethodDetails, Counter.Child> GRPC_RECEIVE_CALL_RESPONSE_SIZE_MAP = new ConcurrentHashMap<>();
