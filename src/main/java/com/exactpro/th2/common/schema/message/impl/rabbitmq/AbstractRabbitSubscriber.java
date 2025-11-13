@@ -26,8 +26,8 @@ import com.google.common.base.Suppliers;
 import com.google.common.io.BaseEncoding;
 import com.rabbitmq.client.Delivery;
 import io.prometheus.client.Counter;
-import io.prometheus.client.Histogram;
-import io.prometheus.client.Histogram.Timer;
+import io.prometheus.client.Summary.Timer;
+import io.prometheus.client.Summary;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.exactpro.th2.common.metrics.CommonMetrics.DEFAULT_BUCKETS;
 import static com.exactpro.th2.common.metrics.CommonMetrics.QUEUE_LABEL;
 import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_PIN_LABEL;
 import static com.exactpro.th2.common.metrics.CommonMetrics.TH2_TYPE_LABEL;
@@ -60,13 +59,11 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
             .withoutExemplars()
             .register();
 
-    private static final Histogram MESSAGE_PROCESS_DURATION_SECONDS = Histogram.build()
-            .buckets(DEFAULT_BUCKETS)
+    private static final Summary MESSAGE_PROCESS_DURATION_SECONDS = Summary.build()
             .name("th2_rabbitmq_message_process_duration_seconds")
             .labelNames(TH2_PIN_LABEL, TH2_TYPE_LABEL, QUEUE_LABEL)
             .help("Time of message processing during subscription from RabbitMQ in seconds. " +
                     "The message is meant for any data transferred via RabbitMQ, for example, th2 batch message or event or custom content")
-            .withoutExemplars()
             .register();
     private final boolean manualConfirmation;
     private final ConfirmationListener<T> listener;
@@ -98,7 +95,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
     @Override
     public void close() throws IOException {
         if (!isAlive.getAndSet(false)) {
-            LOGGER.warn("Subscriber for '{}' pin is already closed", th2Pin);
+            LOGGER.warn("Subscriber for '{}' pin is already closed, when close", th2Pin);
             return;
         }
 
@@ -164,7 +161,7 @@ public abstract class AbstractRabbitSubscriber<T> implements MessageSubscriber {
     private void resubscribe() {
         LOGGER.info("Try to resubscribe subscriber for queue name='{}'", queue);
         if (!isAlive.get()) {
-            LOGGER.warn("Subscriber for '{}' pin is already closed", th2Pin);
+            LOGGER.warn("Subscriber for '{}' pin is already closed, when resubscribe", th2Pin);
             return;
         }
 
