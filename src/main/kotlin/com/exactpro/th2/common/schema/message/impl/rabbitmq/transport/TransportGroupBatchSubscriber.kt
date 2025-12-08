@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,7 @@ class TransportGroupBatchSubscriber(
             .name("th2_transport_group_subscribe_total")
             .labelNames(TH2_PIN_LABEL, BOOK_NAME_LABEL, SESSION_GROUP_LABEL)
             .help("Quantity of received transport groups")
+            .withoutExemplars()
             .register()
     }
 }

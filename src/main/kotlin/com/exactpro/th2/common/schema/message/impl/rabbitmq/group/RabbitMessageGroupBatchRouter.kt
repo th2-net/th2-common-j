@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -102,12 +102,14 @@ class RabbitMessageGroupBatchRouter : AbstractRabbitRouter<MessageGroupBatch>() 
             .name("th2_message_dropped_publish_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
             .help("Quantity of published raw or parsed messages dropped after filters")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_DROPPED_PUBLISH_TOTAL: Counter = Counter.build()
             .name("th2_message_group_dropped_publish_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
             .help("Quantity of published message groups dropped after filters")
+            .withoutExemplars()
             .register()
     }
 }

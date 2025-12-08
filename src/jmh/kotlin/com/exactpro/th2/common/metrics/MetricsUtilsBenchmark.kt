@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,10 +56,12 @@ open class MetricsUtilsBenchmark {
 
             messageCounter = Counter.build("message_counter", "Message counter")
                 .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
+                .withoutExemplars()
                 .register()
 
             groupCounter = Counter.build("group_counter", "Group counter")
                 .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
+                .withoutExemplars()
                 .register()
 
             groupSequenceGauge = Gauge.build("group_sequence", "Group sequence")

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ public class EventBatchSender extends AbstractRabbitSender<EventBatch> {
             .name("th2_event_publish_total")
             .labelNames(TH2_PIN_LABEL)
             .help("Quantity of published events")
+            .withoutExemplars()
             .register();
 
     public EventBatchSender(

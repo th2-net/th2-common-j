@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2020-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,12 +89,14 @@ class RabbitMessageGroupBatchSender(
             .name("th2_message_publish_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
             .help("Quantity of published raw or parsed messages")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_PUBLISH_TOTAL = Counter.build()
             .name("th2_message_group_publish_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
             .help("Quantity of published message groups")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_SEQUENCE_PUBLISH = Gauge.build()

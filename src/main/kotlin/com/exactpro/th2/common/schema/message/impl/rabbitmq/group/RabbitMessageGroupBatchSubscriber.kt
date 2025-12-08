@@ -114,6 +114,7 @@ class RabbitMessageGroupBatchSubscriber(
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
             .help("Quantity of received raw or parsed messages, includes dropped after filters. " +
                     "For information about the number of dropped messages, please refer to 'th2_message_dropped_subscribe_total'")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_SUBSCRIBE_TOTAL = Counter.build()
@@ -121,18 +122,21 @@ class RabbitMessageGroupBatchSubscriber(
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
             .help("Quantity of received message groups, includes dropped after filters. " +
                     "For information about the number of dropped messages, please refer to 'th2_message_group_dropped_subscribe_total'")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_DROPPED_SUBSCRIBE_TOTAL = Counter.build()
             .name("th2_message_dropped_subscribe_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL, MESSAGE_TYPE_LABEL)
             .help("Quantity of received raw or parsed messages dropped after filters")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_DROPPED_SUBSCRIBE_TOTAL = Counter.build()
             .name("th2_message_group_dropped_subscribe_total")
             .labelNames(TH2_PIN_LABEL, SESSION_ALIAS_LABEL, DIRECTION_LABEL)
             .help("Quantity of received message groups dropped after filters")
+            .withoutExemplars()
             .register()
 
         private val MESSAGE_GROUP_SEQUENCE_SUBSCRIBE = Gauge.build()
