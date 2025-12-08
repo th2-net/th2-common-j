@@ -513,10 +513,12 @@ dependencies {
 
 ### 5.17.0-dev
 
-* Provided `getCradleMaxMessageBatchSize` and `getCradleMaxEventBatchSize` methods
+* [[GH-393] Provided `getCradleMaxMessageBatchSize` and `getCradleMaxEventBatchSize` methods](https://github.com/th2-net/th2-common-j/issues/393)
 * Updated:
+  * th2 gradle plugin: `0.3.10` (bom: `4.14.2`) 
+  * cradle api: `5.7.1-dev`
   * grpc-common: `4.7.2`
-  * java-uuid-generator: `5.1.1`
+  * java-uuid-generator: `5.2.0`
   * auto-value: `1.11.1`
 
 ### 5.16.1-dev
