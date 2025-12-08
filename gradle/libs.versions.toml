@@ -17,7 +17,7 @@ protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref 
 auto-value-annotations = { group = "com.google.auto.value", name = "auto-value-annotations", version.ref = "auto-value" }
 auto-value = { group = "com.google.auto.value", name = "auto-value", version.ref = "auto-value" }
 
-java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.1.1" }
+java-uuid-generator = { group = "com.fasterxml.uuid", name = "java-uuid-generator", version = "5.2.0" }
 
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.12" }
 kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5", version.ref = "kotlin" }
