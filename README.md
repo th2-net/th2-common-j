@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.17.0)
+# th2 common library (Java) (5.17.1)
 
 ## Usage
 
@@ -510,6 +510,13 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.17.1-dev
+
+* Updated:
+  * th2 gradle plugin: `0.3.14` (bom: `4.14.3`)
+  * grpc-common: `4.7.4`
+  * grpc-service-generator: `3.8.5`
 
 ### 5.17.0-dev
 
