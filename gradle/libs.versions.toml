@@ -33,6 +33,7 @@ th2-cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", 
 
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version = "5.14.2" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "6.2.0" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = "1.10.2" }
 testcontainers = { group = "org.testcontainers", name = "testcontainers", version.ref = "testcontainers" }
 testcontainers-rabbitmq = { group = "org.testcontainers", name = "rabbitmq", version.ref = "testcontainers" }
 junit-pioneer = { group = "org.junit-pioneer", name = "junit-pioneer", version = "2.3.0" }
