@@ -23,6 +23,8 @@ kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version =
 kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5", version.ref = "kotlin" }
 
 kubernetes-client = { group = "io.fabric8", name = "kubernetes-client", version = "7.5.1" }
+vertx-core = { group = "io.vertx", name = "vertx-core", version = "4.5.24" } # remove after update kubernetes.client
+vertx-auth-common = { group = "io.vertx", name = "vertx-auth-common", version = "4.5.24" } # remove after update kubernetes.client
 
 th2-bom = { group = "com.exactpro.th2", name = "bom", version = "4.14.3" }
 th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.7.4" }
