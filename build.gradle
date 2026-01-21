@@ -123,6 +123,12 @@ dependencies {
     implementation(libs.kubernetes.client) {
         exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
     }
+    implementation(libs.vertx.core) { // remove after update kubernetes.client
+        because "4.5.21 version has CVE-2026-1002, CVE-2025-11965, CVE-2025-11966"
+    }
+    implementation(libs.vertx.auth.common) { // remove after update kubernetes.client
+        because "4.5.21 version has CVE-2025-11965, CVE-2025-11966"
+    }
 
     implementation libs.kotlin.logging
 

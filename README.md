@@ -1,4 +1,4 @@
-# th2 common library (Java) (5.17.1)
+# th2 common library (Java) (5.17.2)
 
 ## Usage
 
@@ -510,6 +510,12 @@ dependencies {
 ```
 
 ## Release notes
+
+### 5.17.2-dev
+
+`vertx-core` `vertx-auth-common` dependencies are explicitly added to solve `CVE-2026-1002`, `CVE-2025-11965`, `CVE-2025-11966` vulnerabilities 
+* Updated:
+  * kubernetes-client: `7.5.1`
 
 ### 5.17.1-dev
 
