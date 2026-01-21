@@ -143,6 +143,8 @@ dependencies {
     }
     testImplementation libs.awaitility
 
+    testRuntimeOnly(libs.kotlinx.coroutines.core)
+
     testFixturesImplementation libs.kotlin.test.junit5
     testFixturesImplementation libs.junit.jupiter
 }
