@@ -31,7 +31,7 @@ th2-grpc-service-generator = { group = "com.exactpro.th2", name = "grpc-service-
 th2-cradle-core = { group = "com.exactpro.th2", name = "cradle-core", version.ref = "cradle" }
 th2-cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version.ref = "cradle" }
 
-junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version = "5.14.2" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version = "5.14.3" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "6.2.3" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = "1.10.2" }
 testcontainers = { group = "org.testcontainers", name = "testcontainers", version.ref = "testcontainers" }
