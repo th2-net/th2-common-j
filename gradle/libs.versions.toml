@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.2.0"
-protobuf = "3.25.8" # gRPC 1.66 libraries uses protobuf 3.+
+protobuf = "3.25.9" # gRPC 1.66 libraries uses protobuf 3.+
 cradle = "5.7.1-dev"
 jmh = "1.37"
 testcontainers = "1.21.4"
